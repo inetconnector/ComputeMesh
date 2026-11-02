@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import ctypes
-from pathlib import Path
 import sys
 import unittest
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:

@@ -14,12 +14,12 @@ turning all balances into one indistinguishable number.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import secrets
 import time
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
 
 from services.billing.ledger import (
     BillingError,
@@ -29,7 +29,6 @@ from services.billing.ledger import (
     Transaction,
 )
 from services.billing.threadsafe_ledger import ThreadSafeLedger
-
 
 OWNER_EARNED = "liability:owner_earned_credit"
 OWNER_PURCHASED = "liability:owner_purchased_credit"
@@ -89,7 +88,7 @@ class OwnerSpendResult:
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _clean_owner(owner_id: str) -> str:

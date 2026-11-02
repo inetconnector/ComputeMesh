@@ -7,27 +7,33 @@ public key, verifies SHA-256 artifact hashes, and applies seamless updates.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import shutil
 import sys
 import tempfile
 import time
-from typing import Any, Callable
 import urllib.request
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from datetime import UTC
+
 from config import CONFIG
 from tools.security.ed25519_verify import verify_ed25519_signature
-from tools.security.signing_keys import OFFICIAL_RELEASE_PUBLIC_KEY_HEX, TRUSTED_RELEASE_PUBLIC_KEYS_HEX
+from tools.security.signing_keys import (
+    OFFICIAL_RELEASE_PUBLIC_KEY_HEX,
+    TRUSTED_RELEASE_PUBLIC_KEYS_HEX,
+)
 
 DEFAULT_UPDATE_URL = CONFIG.endpoints.update_manifest_url
 
@@ -314,15 +320,15 @@ def main() -> int:
             try:
                 info = updater.check_for_updates()
                 if info and info.is_newer:
-                    print(f"[{datetime.now(timezone.utc).isoformat()}] New signed release v{info.version} detected! Downloading...")
+                    print(f"[{datetime.now(UTC).isoformat()}] New signed release v{info.version} detected! Downloading...")
                     pkg = updater.download_and_verify(info)
-                    print(f"[{datetime.now(timezone.utc).isoformat()}] Cryptographic verification PASSED. Applying update...")
+                    print(f"[{datetime.now(UTC).isoformat()}] Cryptographic verification PASSED. Applying update...")
                     updater.apply_linux_update(pkg)
                     updater.current_version = info.version
                 else:
-                    print(f"[{datetime.now(timezone.utc).isoformat()}] System is up to date (running v{updater.current_version}).")
+                    print(f"[{datetime.now(UTC).isoformat()}] System is up to date (running v{updater.current_version}).")
             except Exception as e:
-                print(f"[{datetime.now(timezone.utc).isoformat()}] Update check error: {e}")
+                print(f"[{datetime.now(UTC).isoformat()}] Update check error: {e}")
             time.sleep(args.interval)
 
     elif args.check_and_apply:

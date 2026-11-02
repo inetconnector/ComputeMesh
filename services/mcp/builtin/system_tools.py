@@ -10,9 +10,9 @@ import time
 from typing import Any, Dict, List, Optional
 
 
-def execute_system_info() -> Dict[str, Any]:
+def execute_system_info() -> dict[str, Any]:
     """Returns detailed OS, CPU, Memory, and Disk telemetry."""
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "os": platform.system(),
         "release": platform.release(),
         "machine": platform.machine(),
@@ -51,9 +51,9 @@ def execute_system_info() -> Dict[str, Any]:
     return info
 
 
-def execute_gpu_telemetry() -> Dict[str, Any]:
+def execute_gpu_telemetry() -> dict[str, Any]:
     """Detects NVIDIA CUDA & AMD ROCm GPU devices, VRAM usage, temperature and compute status."""
-    gpus: List[Dict[str, Any]] = []
+    gpus: list[dict[str, Any]] = []
 
     # 1. Try nvidia-smi CLI
     try:
@@ -112,7 +112,7 @@ def execute_gpu_telemetry() -> Dict[str, Any]:
     }
 
 
-def execute_process_summary(top_n: int = 5) -> Dict[str, Any]:
+def execute_process_summary(top_n: int = 5) -> dict[str, Any]:
     """Returns active ComputeMesh processes and basic execution environment stats."""
     return {
         "pid": os.getpid(),

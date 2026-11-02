@@ -19,10 +19,10 @@ import hashlib
 import json
 import logging
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ANDROID_ROOT = REPO_ROOT / "apps" / "android"

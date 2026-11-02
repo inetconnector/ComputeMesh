@@ -1,11 +1,11 @@
 """Unit tests for modular portal registration and quotes handlers."""
-from http import HTTPStatus
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from http import HTTPStatus
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:

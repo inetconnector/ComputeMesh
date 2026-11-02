@@ -15,15 +15,11 @@ Verifies remediation of critical and high-priority vulnerabilities:
 12. Pre-inference balance reservation preventing unpaid compute execution.
 13. Dynamic API key revocation without process restart.
 """
-from dataclasses import replace
-from datetime import datetime, timezone
 import html
 import http.client
-from http import HTTPStatus
 import io
 import json
 import os
-from pathlib import Path
 import socket
 import ssl
 import sys
@@ -31,12 +27,17 @@ import tempfile
 import threading
 import time
 import unittest
+from dataclasses import replace
+from datetime import datetime, timezone
+from http import HTTPStatus
+from pathlib import Path
 from unittest.mock import MagicMock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+import services.gateway.catalog as catalog_module
 from runtime.network.mesh_transport import (
     MeshTunnelClient,
     MeshTunnelServer,
@@ -45,6 +46,7 @@ from runtime.network.mesh_transport import (
 )
 from services.appliance_dashboard.server import DashboardHandler
 from services.billing.ledger import InsufficientBalanceError, Ledger
+from services.common.node_access import issue_node_session, node_session_cookie
 from services.common.pricing import (
     DEFAULT_PRICE_TIERS,
     MICRO_UNITS_PER_USD,
@@ -57,7 +59,6 @@ from services.gateway.auth import (
     extract_bearer_token,
     resolve_client_ip,
 )
-import services.gateway.catalog as catalog_module
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     render_node_remote_dashboard_html,
@@ -65,14 +66,14 @@ from services.gateway.dashboard import (
 )
 from services.gateway.inference import InferenceEngine
 from services.gateway.metrics_exporter import MetricsRegistry
-from services.gateway.security import RateLimiter
 from services.gateway.server import GatewayHandler, create_gateway_server
 from services.gateway.teaser import TeaserQuotaManager
-from services.common.node_access import issue_node_session, node_session_cookie
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.server import PortalHandler
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import RigInventory
+
+from services.gateway.security import RateLimiter
 
 
 class TestSecurityAuditFixes(unittest.TestCase):
@@ -717,6 +718,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
     # 17. Release Manifest SHA-256 Binary Integrity & Ed25519 Signature Verification
     def test_release_manifest_sha256_binary_integrity(self) -> None:
         import hashlib
+
         from config import CONFIG
         from tools.security.ed25519_verify import verify_ed25519_signature
         manifest_file = REPO_ROOT / "portal" / "updates" / "version.json"

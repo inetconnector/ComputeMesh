@@ -7,12 +7,12 @@ stable and the private service deduplicates it as well.
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import ssl
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from urllib import error as urlerror
 from urllib import request as urlrequest
@@ -142,7 +142,7 @@ class PrivateOutcomeFeedback:
         disconnected_node_ids: tuple[str, ...] = (),
     ) -> str:
         rtt, bandwidth = _network_facts(network_result)
-        raw_id = f"{attempt_job_id}:{decision_id}:failed".encode("utf-8")
+        raw_id = f"{attempt_job_id}:{decision_id}:failed".encode()
         payload = {
             "outcome_id": "outcome-failure-" + hashlib.sha256(raw_id).hexdigest()[:24],
             "decision_id": decision_id,

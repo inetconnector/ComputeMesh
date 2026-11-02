@@ -16,21 +16,26 @@ second spendable copy of the money locally.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import asdict, dataclass
 import hashlib
 import secrets
 import sqlite3
 import time
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
 from typing import Any
 
-from services.billing.accounting import AccountingStore, AccountingStoreError, SettlementRecord, utc_now
+from services.billing.accounting import (
+    AccountingStore,
+    AccountingStoreError,
+    SettlementRecord,
+    utc_now,
+)
 from services.billing.ledger import (
+    MICRO_UNIT_SCALE,
+    MINIMUM_PAYOUT_MICRO_UNITS,
     BillingError,
     DuplicateEventError,
     InsufficientBalanceError,
-    MICRO_UNIT_SCALE,
-    MINIMUM_PAYOUT_MICRO_UNITS,
     Posting,
     Transaction,
 )
@@ -40,7 +45,11 @@ from services.billing.owner_credits import (
     owner_bucket_account,
 )
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
-from services.billing.stripe_connect import AccountLinkResult, ConnectedAccountResult, StripeConnectService
+from services.billing.stripe_connect import (
+    AccountLinkResult,
+    ConnectedAccountResult,
+    StripeConnectService,
+)
 from services.billing.stripe_integration import StripeIntegrationError, _stripe_get
 
 OWNER_WITHDRAWAL_PENDING = "liability:owner_withdrawal_pending"

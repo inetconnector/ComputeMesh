@@ -23,14 +23,14 @@ Safety model:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import threading
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 CONFIRM_PHRASE = "ERASE AND CLONE"

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import json
 import unittest
+from datetime import UTC, datetime, timedelta
 
 from apps.client.confidential_openai import (
     ConfidentialOpenAIBridge,
@@ -19,7 +19,6 @@ from protocol.confidential_envelope import (
 )
 from protocol.confidential_request_contract import create_committed_attestation_nonce
 from services.common.secure_memory import secure_zero_memory
-
 
 RUNTIME_DIGEST = "sha256:" + "a" * 64
 TLS_DIGEST = "sha256:" + "b" * 64

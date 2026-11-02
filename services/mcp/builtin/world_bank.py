@@ -65,7 +65,7 @@ def _get_single_country_stats(
     start_year: int = 2018,
     end_year: int = 2024,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Fetches official macroeconomic indicators for a single country from the World Bank API."""
     clean_country = (country or "DEU").strip().lower()
     iso3 = COUNTRY_CODES_MAP.get(clean_country, clean_country.upper())
@@ -85,7 +85,7 @@ def _get_single_country_stats(
 
         records = data[1] or []
 
-        time_series: List[Dict[str, Any]] = []
+        time_series: list[dict[str, Any]] = []
         for r in records:
             val = r.get("value")
             if val is not None:
@@ -124,7 +124,7 @@ def get_world_bank_stats(
     start_year: int = 2018,
     end_year: int = 2024,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetches official macroeconomic indicators (GDP, inflation, population, life expectancy, CO2) from the World Bank.
     Supports multi-country comparisons (e.g. 'Deutschland, Frankreich und USA').

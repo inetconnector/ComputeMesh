@@ -1,13 +1,12 @@
 """Unit tests for ComputeMesh Cryptographic Auto-Updater."""
 import json
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
-
 from services.updater.auto_updater import (
     AutoUpdater,
     ChecksumMismatchError,

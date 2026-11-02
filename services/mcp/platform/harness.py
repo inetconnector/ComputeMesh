@@ -4,8 +4,9 @@ from __future__ import annotations
 import hashlib
 import inspect
 import threading
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 from ..agent_loop import (
     AgentApprovalRequired,

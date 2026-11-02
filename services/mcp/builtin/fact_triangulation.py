@@ -14,7 +14,7 @@ from .news_feed import execute_get_news
 from .web_search import duckduckgo_search
 
 
-def verify_fact_multi_source(claim: str, timeout: float = 7.0) -> Dict[str, Any]:
+def verify_fact_multi_source(claim: str, timeout: float = 7.0) -> dict[str, Any]:
     """
     Verifies a factual claim by cross-checking across Wikipedia, live news, and web sources.
     """
@@ -22,9 +22,9 @@ def verify_fact_multi_source(claim: str, timeout: float = 7.0) -> Dict[str, Any]
     if not clean_claim:
         return {"error": "Aussage oder Fakt zur Überprüfung darf nicht leer sein."}
 
-    wiki_res: Optional[Dict[str, Any]] = None
-    web_res: List[Dict[str, str]] = []
-    news_res: Optional[Dict[str, Any]] = None
+    wiki_res: dict[str, Any] | None = None
+    web_res: list[dict[str, str]] = []
+    news_res: dict[str, Any] | None = None
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         f_wiki = executor.submit(fetch_multilingual_wikipedia, clean_claim, timeout)
@@ -46,7 +46,7 @@ def verify_fact_multi_source(claim: str, timeout: float = 7.0) -> Dict[str, Any]
         except Exception:
             news_res = None
 
-    corroborating_sources: List[Dict[str, str]] = []
+    corroborating_sources: list[dict[str, str]] = []
 
     if wiki_res and not wiki_res.get("error"):
         for src in wiki_res.get("sources", []):

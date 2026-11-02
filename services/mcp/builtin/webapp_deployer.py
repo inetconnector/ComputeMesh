@@ -6,10 +6,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-from pathlib import Path
 import re
 import shutil
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("computemesh.mcp.webapp_deployer")
@@ -33,7 +33,7 @@ def _sanitize_slug(name: str) -> str:
     return slug or "webapp"
 
 
-def _scan_code_safety(code_snippets: List[str]) -> Optional[str]:
+def _scan_code_safety(code_snippets: list[str]) -> str | None:
     """Scans all code for malicious patterns, crypto-miners, and exfiltration hooks."""
     for code in code_snippets:
         if not code:
@@ -48,11 +48,11 @@ def deploy_local_webapp(
     app_name: str,
     title: str,
     html_content: str,
-    js_content: Optional[str] = None,
-    css_content: Optional[str] = None,
-    extra_files: Optional[Dict[str, str]] = None,
-    description: Optional[str] = None,
-) -> Dict[str, Any]:
+    js_content: str | None = None,
+    css_content: str | None = None,
+    extra_files: dict[str, str] | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
     """Deploys a sandboxed, interactive client-side web application or game to the ComputeMesh node."""
     slug = _sanitize_slug(app_name)
     target_dir = APPS_DIR / slug
@@ -124,12 +124,12 @@ def deploy_local_webapp(
         return {"error": f"Fehler bei Bereitstellung: {str(exc)}", "success": False}
 
 
-def list_deployed_webapps() -> Dict[str, Any]:
+def list_deployed_webapps() -> dict[str, Any]:
     """Lists all active sandboxed applications and games deployed on this ComputeMesh node."""
     if not APPS_DIR.exists():
         return {"total_apps": 0, "apps": []}
 
-    apps: List[Dict[str, Any]] = []
+    apps: list[dict[str, Any]] = []
     for app_folder in sorted(APPS_DIR.iterdir()):
         if app_folder.is_dir():
             manifest_file = app_folder / "app.json"
@@ -154,7 +154,7 @@ def list_deployed_webapps() -> Dict[str, Any]:
     }
 
 
-def remove_deployed_webapp(app_name: str) -> Dict[str, Any]:
+def remove_deployed_webapp(app_name: str) -> dict[str, Any]:
     """Securely uninstalls and removes a deployed application from the node."""
     slug = _sanitize_slug(app_name)
     target_dir = APPS_DIR / slug
@@ -176,7 +176,7 @@ def remove_deployed_webapp(app_name: str) -> Dict[str, Any]:
     }
 
 
-def launch_deployed_webapp(app_name: str = "pacman") -> Dict[str, Any]:
+def launch_deployed_webapp(app_name: str = "pacman") -> dict[str, Any]:
     """Öffnet, startet oder liefert den direkten spielbaren Link zu einer installierten WebApp oder einem Spiel wie Pac-Man."""
     slug = _sanitize_slug(app_name) if app_name else "pacman"
     target_dir = APPS_DIR / slug

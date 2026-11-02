@@ -1,10 +1,10 @@
 """Single-pass shared llama.cpp request from a validated in-memory TrialPlan."""
 from __future__ import annotations
 
-from pathlib import Path
 import subprocess
 import threading
 import time
+from pathlib import Path
 
 from runtime.llama.rpc_spike import (
     RpcEndpoint,

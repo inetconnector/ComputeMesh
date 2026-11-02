@@ -1,13 +1,11 @@
 import copy
 import json
-from pathlib import Path
 import tempfile
 import unittest
-
-from jsonschema import Draft202012Validator, FormatChecker
+from pathlib import Path
 
 import test_evidence_bundle as fixtures
-
+from jsonschema import Draft202012Validator, FormatChecker
 from services.scheduler.evidence_bundle import build_experiment_bundle, select_evidence
 
 

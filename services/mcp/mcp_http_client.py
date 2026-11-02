@@ -23,7 +23,7 @@ class MCPHttpClient:
         self,
         name: str,
         url: str,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         timeout_seconds: float = DEFAULT_HTTP_TIMEOUT,
     ):
         self.name = str(name).strip()
@@ -33,7 +33,7 @@ class MCPHttpClient:
         self._next_id = 1
         self._is_initialized = False
 
-    def _send_rpc(self, method: str, params: Dict[str, Any]) -> Any:
+    def _send_rpc(self, method: str, params: dict[str, Any]) -> Any:
         req_id = self._next_id
         self._next_id += 1
         payload = {
@@ -94,7 +94,7 @@ class MCPHttpClient:
             log.warning(f"MCP-Server '{self.name}' Initialisierung fehlgeschlagen: {exc}")
         return False
 
-    def list_tools(self) -> List[Dict[str, Any]]:
+    def list_tools(self) -> list[dict[str, Any]]:
         if not self._is_initialized and not self.initialize():
             return []
         try:
@@ -105,7 +105,7 @@ class MCPHttpClient:
             log.warning(f"tools/list auf '{self.name}' fehlgeschlagen: {exc}")
         return []
 
-    def call_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
+    def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         if not self._is_initialized and not self.initialize():
             return {"error": f"MCP-Server '{self.name}' nicht initialisiert"}
         try:

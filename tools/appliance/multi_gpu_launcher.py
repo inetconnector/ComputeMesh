@@ -8,12 +8,13 @@ arguments for local llama.cpp multi-GPU or distributed RPC worker daemons.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import ipaddress
 import json
-from pathlib import Path
 import sys
-from typing import Any, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:

@@ -5,11 +5,10 @@ genre tagging, and quality/recommendation scoring for universal event discovery.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
 import re
+from dataclasses import dataclass, field
 from typing import Any
-
 
 PRIMARY_CATEGORIES: set[str] = {
     "concert",           # Konzerte, Livebands, Live-Musik, Tourneen, klassische Konzerte, Singer/Songwriter

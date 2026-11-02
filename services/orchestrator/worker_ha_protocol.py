@@ -7,11 +7,12 @@ across distributed worker nodes.
 from __future__ import annotations
 
 import dataclasses
-from enum import Enum, auto
 import logging
 import threading
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from enum import Enum, auto
+from typing import Any
 
 logger = logging.getLogger("computemesh.worker_ha")
 

@@ -3,10 +3,11 @@
 
 import json
 import unittest
+
 from services.mcp.builtin.product_price_engine import (
-    search_product_prices,
-    parse_numeric_price,
     extract_merchant_name,
+    parse_numeric_price,
+    search_product_prices,
 )
 from services.mcp.formatting.tool_formatter import format_tool_content_if_json
 from services.mcp.intent.intent_router import detect_direct_tool_intent

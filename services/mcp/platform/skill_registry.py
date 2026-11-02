@@ -1,15 +1,16 @@
 """Persistent, fail-closed skill registry for ComputeMesh Agents Platform."""
 from __future__ import annotations
 
-from dataclasses import replace
 import ast
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import threading
 import time
-from typing import Any, Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import replace
+from pathlib import Path
+from typing import Any
 
 from .contracts import RiskLevel, SideEffectLevel, SkillManifest, SkillStatus
 

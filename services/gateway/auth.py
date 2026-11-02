@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import hmac
-from http import HTTPStatus
 import json
 import os
-from pathlib import Path
 import re
 import secrets
 import sys
 import threading
+from dataclasses import dataclass
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -410,7 +410,10 @@ class GatewayAuthManager:
 
         # Check passkey cookie session if no Bearer token was supplied
         try:
-            from services.portal.passkey_routes import session_account_from_headers, FLEET_ACCOUNT_STORE
+            from services.portal.passkey_routes import (
+                FLEET_ACCOUNT_STORE,
+                session_account_from_headers,
+            )
             account = session_account_from_headers(headers)
             if account is not None and account.owner_key:
                 owner_id = account.account_id

@@ -4,13 +4,14 @@ from __future__ import annotations
 import unittest
 
 from services.scheduler.architecture_hardening_part6 import (
-    ExecutionPathOptimizer,
-    OSNeutralProtocolEnforcer,
     ComponentBoundaryEnforcer,
-    WholeExecutionPathError,
-    OSNeutralContractError,
+    ExecutionPathOptimizer,
     ExplicitBoundaryError,
+    OSNeutralContractError,
+    OSNeutralProtocolEnforcer,
+    WholeExecutionPathError,
 )
+
 
 class TestArchitectureHardeningPart6(unittest.TestCase):
     def test_whole_execution_path(self):

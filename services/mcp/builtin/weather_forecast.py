@@ -13,7 +13,7 @@ GEOCODING_HOST = "geocoding-api.open-meteo.com"
 FORECAST_HOST = "api.open-meteo.com"
 
 
-def _geocode(location: str, timeout: float) -> Dict[str, Any] | None:
+def _geocode(location: str, timeout: float) -> dict[str, Any] | None:
     candidates = _extract_candidates(location)
     for cand in candidates:
         params = urllib.parse.urlencode({
@@ -41,7 +41,7 @@ def get_weather_forecast(
     location: str = "",
     days: int = 7,
     timeout: float = 10.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return a 1-16 day daily forecast for a named location."""
     target = str(location or "").strip()
     if not target:

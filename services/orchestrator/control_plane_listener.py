@@ -4,7 +4,7 @@ from __future__ import annotations
 import socket
 import ssl
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from protocol.node_identity import Ed25519ChallengeVerifier
 from protocol.session_wire import BenchmarkAcceptancePolicy

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import inspect
 import json
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from .leases import LeaseState, NodeLease, NodeLeaseStore, ReservationDenied
 from .node_registry import NodeRecord, NodeRegistry

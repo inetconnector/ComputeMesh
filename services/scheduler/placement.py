@@ -11,22 +11,20 @@ latency/speedup.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.scheduler.architecture_hardening_part6 import (
+    ComponentBoundaryEnforcer,
     ExecutionPathOptimizer,
     OSNeutralProtocolEnforcer,
-    ComponentBoundaryEnforcer
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_ROOT = REPO_ROOT / "protocol" / "schemas"
@@ -85,7 +83,7 @@ def _timestamp(value: str) -> datetime:
         raise PlacementInputError("invalid RFC3339 timestamp") from exc
     if parsed.tzinfo is None:
         raise PlacementInputError("timestamp must be timezone-aware")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _profile_clock(value: str, now: datetime) -> tuple[float, float]:
@@ -392,8 +390,8 @@ def build_placement_decision(
     boundary_enforcer = ComponentBoundaryEnforcer()
 
     # Enforce architecture invariant: model prefill and decode separately
-    from services.orchestrator.architecture_hardening_part5 import MoEWANCostMeasurer
     from services.orchestrator.architecture_hardening_part4 import SplitPhasePerformanceModel
+    from services.orchestrator.architecture_hardening_part5 import MoEWANCostMeasurer
     perf_model = SplitPhasePerformanceModel()
     moe_measurer = MoEWANCostMeasurer()
     moe_measurer.record_routing_cost(0.0, 0.0, 0.0)
@@ -475,7 +473,7 @@ def build_placement_decision(
     if "contiguous_layers" not in model_manifest["partitioning"]["allowed"]:
         raise PlacementInputError("model manifest does not allow contiguous_layers partitioning")
 
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     coord_age, coord_future = _profile_clock(coordinator_profile["captured_at"], current)
     worker_age, worker_future = _profile_clock(worker_profile["captured_at"], current)
     coord_mem = _selected_memory(coordinator_profile, policy)

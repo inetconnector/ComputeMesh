@@ -10,10 +10,10 @@ jurisdiction-specific policy under legal review.
 """
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-import re
-from typing import Iterable, Sequence
 
 
 class SafetyAction(str, Enum):

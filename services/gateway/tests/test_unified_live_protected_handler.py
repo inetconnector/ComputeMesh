@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from http import HTTPStatus
-from io import BytesIO
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from http import HTTPStatus
+from io import BytesIO
+from pathlib import Path
 
 from services.gateway.live_handler import LiveGatewayHandler
 from services.gateway.protected_transport_mixin import ProtectedTransportMixin
 from services.gateway.unified_live_handler import build_unified_live_protected_handler
-
 
 _ENV = (
     "COMPUTEMESH_UNIFIED_OWNER_CREDITS",

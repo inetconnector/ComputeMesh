@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from difflib import SequenceMatcher
 import hashlib
 import json
 import logging
-from pathlib import Path
 import sqlite3
-from typing import Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta, timezone
+from difflib import SequenceMatcher
+from pathlib import Path
 
-from .classifier import classify_event, EventClassification
+from .classifier import EventClassification, classify_event
 from .geocoding import geocode_city
 from .models import EventObservation, SourceRecord, utc_now_iso
 from .security import normalize_url
@@ -302,7 +302,7 @@ class ConcertStore:
             )
 
     def mark_frontier(self, url: str, state: str, *, delay_minutes: int = 0, failure: bool = False) -> None:
-        nxt = (datetime.now(timezone.utc) + timedelta(minutes=max(0, delay_minutes))).isoformat().replace("+00:00", "Z")
+        nxt = (datetime.now(UTC) + timedelta(minutes=max(0, delay_minutes))).isoformat().replace("+00:00", "Z")
         with self.connection() as con:
             con.execute(
                 "UPDATE frontier SET state=?,last_attempt=?,next_attempt=?,failures=failures+? WHERE url=?",

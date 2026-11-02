@@ -1,14 +1,17 @@
 import copy
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import unittest
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
+from services.scheduler.placement import (
+    PlacementInputError,
+    PlannerPolicy,
+    build_placement_decision,
+)
 
-from services.scheduler.placement import PlacementInputError, PlannerPolicy, build_placement_decision
-
-NOW = datetime(2026, 8, 21, 20, 30, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 21, 20, 30, tzinfo=UTC)
 MODEL_SIZE = 8_000_000_000
 DIGEST = "sha256:" + "a" * 64
 

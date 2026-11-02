@@ -4,8 +4,9 @@ from __future__ import annotations
 import hashlib
 import inspect
 import threading
-from datetime import datetime, timezone
-from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from datetime import UTC, datetime, timezone
+from typing import Any
 
 from protocol.inference_wire import (
     InferenceContractError,
@@ -82,7 +83,7 @@ class AuthenticatedNodeInferenceClient:
     @staticmethod
     def request_id(*, session_id: str, turn_id: str, lease_id: str) -> str:
         """Return the stable bounded control-request ID for one inference call."""
-        material = f"{session_id}\0{turn_id}\0{lease_id}".encode("utf-8")
+        material = f"{session_id}\0{turn_id}\0{lease_id}".encode()
         return f"inference-{hashlib.sha256(material).hexdigest()[:48]}"
 
     def cancel(self, *, node_id: str, request_id: str, reason: str = "cancelled") -> bool:
@@ -119,7 +120,7 @@ class AuthenticatedNodeInferenceClient:
                 # Older authenticated nodes may support inference without the
                 # optional provider-local capacity protocol.
                 return None
-        job_material = f"{session_id}\0{turn_id}\0{lease_id}\0{request_id}".encode("utf-8")
+        job_material = f"{session_id}\0{turn_id}\0{lease_id}\0{request_id}".encode()
         job_id = f"agent-{hashlib.sha256(job_material).hexdigest()[:48]}"
         response = reserve(
             node_id=node_id,
@@ -244,7 +245,7 @@ class AuthenticatedNodeInferenceClient:
             raise InferenceTransportError("inference session binding mismatch")
         if session.state is not NodeSessionState.READY:
             raise InferenceTransportError("node session is not ready for inference")
-        if session.credential_expires_at <= datetime.now(timezone.utc):
+        if session.credential_expires_at <= datetime.now(UTC):
             raise InferenceTransportError("node session credential has expired")
         if self.required_capability not in session.negotiated_capabilities:
             raise InferenceTransportError("node session lacks the required inference capability")

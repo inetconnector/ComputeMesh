@@ -1,11 +1,11 @@
 import copy
-from datetime import datetime, timedelta, timezone
 import json
-from pathlib import Path
 import stat
 import tempfile
 import unittest
 import zipfile
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 
 from setup import evidence_transfer as transfer
 
@@ -15,7 +15,7 @@ MODEL_NAME = "shared-model.gguf"
 
 
 def stamp(minutes_ago: int) -> str:
-    value = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+    value = datetime.now(UTC) - timedelta(minutes=minutes_ago)
     return value.isoformat().replace("+00:00", "Z")
 
 
@@ -214,7 +214,7 @@ class EvidenceTransferTests(unittest.TestCase):
             profile_revision=3,
             export_root=self.exports,
             destination=first_archive,
-            now=datetime(2026, 8, 22, 3, 0, tzinfo=timezone.utc),
+            now=datetime(2026, 8, 22, 3, 0, tzinfo=UTC),
         )
         second = transfer.export_node_evidence(
             node_root=node_root,
@@ -222,7 +222,7 @@ class EvidenceTransferTests(unittest.TestCase):
             profile_revision=3,
             export_root=self.exports,
             destination=second_archive,
-            now=datetime(2026, 8, 22, 4, 0, tzinfo=timezone.utc),
+            now=datetime(2026, 8, 22, 4, 0, tzinfo=UTC),
         )
         self.assertEqual(first.export_id, second.export_id)
         imported_first = transfer.import_node_export(

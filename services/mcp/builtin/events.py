@@ -29,7 +29,7 @@ def search_events(
     sort: str = "recommended",
     force_refresh: bool = False,
     max_events: int = 50,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Search the existing ComputeMesh event index/crawler with category grouping."""
     target_city = str(city or "").strip()
     if not target_city:

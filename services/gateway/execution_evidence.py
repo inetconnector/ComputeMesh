@@ -1,16 +1,15 @@
 """Verify M1 shared-run evidence before it can drive provider settlement."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.gateway.placement_selection import PlacementSelection
 
 MAX_EVIDENCE_BYTES = 4 * 1024 * 1024
@@ -75,7 +74,7 @@ def _parse_time(value: str) -> datetime:
         raise ExecutionEvidenceError("evidence captured_at is invalid") from exc
     if parsed.tzinfo is None:
         raise ExecutionEvidenceError("evidence captured_at must include timezone")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _canonical_digest(value: Any) -> str:
@@ -184,8 +183,8 @@ def verify_shared_execution_evidence(
         raise ExecutionEvidenceError("evidence output digest does not match current runtime output")
 
     captured_at = _parse_time(evidence["captured_at"])
-    lower_bound = not_before.astimezone(timezone.utc) - timedelta(seconds=5)
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    lower_bound = not_before.astimezone(UTC) - timedelta(seconds=5)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     if captured_at < lower_bound:
         raise ExecutionEvidenceError("shared-run evidence predates the current execution")
     if captured_at > current + DEFAULT_FUTURE_SKEW:

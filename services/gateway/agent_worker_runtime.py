@@ -8,9 +8,10 @@ gateway never consumes queued agent work implicitly.
 from __future__ import annotations
 
 import os
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from services.gateway.agent_billing import AgentBillingEvidenceStore, GatewayAgentBilling
 from services.gateway.inference_backend import InferenceBackend

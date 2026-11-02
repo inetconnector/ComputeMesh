@@ -1,23 +1,21 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.node_identity import VerificationKey, key_id_from_public_key
+from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_request import SharedRequestResult, build_shared_request_evidence
 from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
 from services.gateway.placement_selection import PlacementSelection
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.shared_request_backend import SharedRequestOrchestratedBackend
 from services.orchestrator.state_machine import JobState, ReservationState
-from runtime.llama.rpc_spike import RpcEndpoint
-
 
 MODEL_SHA = "a" * 64
 
@@ -55,7 +53,7 @@ class _SigningTransport:
         key = self.keys[node_id]
         public = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
         key_id = key_id_from_public_key(public)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         claims = AttestationClaims(
             node_id=node_id,
             key_id=key_id,

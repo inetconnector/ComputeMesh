@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 # Ensure project root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -51,7 +51,7 @@ def run_retention_lifecycle(
     Returns:
         Structured summary report of the retention cycle.
     """
-    effective_now = now or datetime.now(timezone.utc)
+    effective_now = now or datetime.now(UTC)
     target_db = db_path or os.environ.get("COMPUTEMESH_IDENTITY_DB", "data/provider_identity.db")
 
     report: dict[str, any] = {

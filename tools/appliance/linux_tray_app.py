@@ -10,15 +10,16 @@ Native Linux GUI application with:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import io
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import threading
 import time
+from datetime import UTC, datetime, timezone
+from pathlib import Path
+
 try:
     import tkinter as tk
     from tkinter import messagebox, ttk
@@ -58,9 +59,9 @@ except ImportError:
     HAS_PYSTRAY = False
 
 from config import CONFIG
-from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
-from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay, NODE_AUTH_TOKEN
 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
+from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN, CloudTunnelRelay
 from services.updater.auto_updater import AutoUpdater
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware, scan_rig_hardware_stable
@@ -598,7 +599,7 @@ class LinuxComputeMeshProviderApp:
             cfg_file = self._get_config_path()
             cfg_data = json.loads(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
             cfg_data["payout_address"] = wallet
-            cfg_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            cfg_data["updated_at"] = datetime.now(UTC).isoformat()
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             self.lbl_wallet_status.config(text="✓ Provider payout address saved. Customer payments run through Stripe.", foreground="#10b981")
         except Exception as e:

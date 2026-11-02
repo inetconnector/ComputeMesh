@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.orchestrator.attestation_collection import (
     AttestationCollectionError,
     collect_execution_attestations,
 )
-
 
 REQUEST = {
     "schema_version": 1,

@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.compliance.policy import require_production_model_attribution
+from services.orchestrator.architecture_hardening_part8 import (
+    ModelManifestEnforcer,
+    ShardManifestEnforcer,
+)
 from services.orchestrator.live_shared_runtime import LiveModelState, LiveSharedRuntimeError
-from services.orchestrator.architecture_hardening_part8 import ModelManifestEnforcer, ShardManifestEnforcer
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_SCHEMA = ROOT / "protocol" / "schemas" / "model_manifest.schema.json"

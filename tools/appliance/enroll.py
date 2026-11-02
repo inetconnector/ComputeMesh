@@ -11,17 +11,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import ssl
 import subprocess
 import sys
 import time
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from cryptography.hazmat.primitives import serialization
-
 from tools.appliance.boot_preflight import PreflightError, validate_node_evidence
 from tools.appliance.node_identity import NodeIdentityError, validate_node_id
 from tools.security.node_auth_token_storage import persist_node_auth_token

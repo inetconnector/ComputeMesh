@@ -1,23 +1,23 @@
 """Comprehensive P0 test suite for mesh node inventory, stale/offline retention, alias collision detection,
 controlled updates, and pagination (2026-10-25)."""
-from datetime import datetime, timezone, timedelta
-from http import HTTPStatus
-from http.server import ThreadingHTTPServer
-from pathlib import Path
 import json
 import tempfile
 import threading
 import time
 import unittest
 import urllib.request
+from datetime import UTC, datetime, timedelta, timezone
+from http import HTTPStatus
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 
-from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 import services.gateway.server as gateway_server_module
+from config import CONFIG
 from services.billing.owner_accounts import OwnerAccountStore
-from services.portal.server import PortalHandler
+from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 from services.portal import passkey_routes
 from services.portal.fleet_accounts import FleetAccountStore
-from config import CONFIG
+from services.portal.server import PortalHandler
 
 PORT = 13028
 BASE = f"http://127.0.0.1:{PORT}"
@@ -55,7 +55,7 @@ class TestMeshNodeInventoryP0(unittest.TestCase):
         self.tmp_dir.cleanup()
 
     def test_reproduce_and_verify_node_inventory_lifecycle(self) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         owner_id = "owner_test_p0"
         self.owner_store.ensure_owner(owner_id)
 
@@ -202,7 +202,7 @@ class TestMeshNodeInventoryP0(unittest.TestCase):
         self.assertEqual(paged_payload["total_nodes_count"], len(payload["nodes"]))
 
     def test_http_api_portal_fleet_with_pagination_and_status(self) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         owner_key = "cm_owner_inventory_http_test_key"
         owner_id = gateway_server_module.owner_id_for_key(owner_key)
         self.owner_store.ensure_owner(owner_id)

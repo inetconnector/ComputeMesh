@@ -4,9 +4,9 @@ ComputeMesh Cryptographic Merkle-Ledger Subsystem.
 Append-only Proof-of-Execution chain with Merkle inclusion proofs.
 """
 
-from .merkle_tree import MerkleTree, sha256_hash, hash_pair
 from .block import LedgerBlock, ProofOfExecutionReceipt
 from .compact_chain import CompactLedger, get_compact_ledger
+from .merkle_tree import MerkleTree, hash_pair, sha256_hash
 from .sync import LedgerSyncEngine, get_ledger_sync_engine
 
 __all__ = [

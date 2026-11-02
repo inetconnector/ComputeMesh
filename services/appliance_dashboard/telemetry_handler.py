@@ -1,20 +1,24 @@
 """Appliance Telemetry, GPU Metrics, and Diagnostics Handlers."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 
 from config import CONFIG
-from services.appliance_dashboard.network import get_network_interfaces
 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+from services.appliance_dashboard.network import get_network_interfaces
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
-from tools.appliance.hardware_detector import collect_hardware_debug, read_all_thermals, scan_rig_hardware
+from tools.appliance.hardware_detector import (
+    collect_hardware_debug,
+    read_all_thermals,
+    scan_rig_hardware,
+)
 
 log = logging.getLogger("computemesh.appliance.telemetry")
 APPLIANCE_VERSION = CONFIG.appliance_version

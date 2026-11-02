@@ -10,26 +10,25 @@ No prompt, output, ciphertext, token IDs, or activations are needed by this laye
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from services.billing.ledger import BillingError, DuplicateEventError, Posting, Transaction
 from services.billing.owner_credits import (
+    _BUCKET_TYPES,
     OWNER_EARNED,
     OWNER_PROMO,
     OWNER_PURCHASED,
     SPEND_ORDER,
     CreditDestination,
     OwnerSpendResult,
-    _BUCKET_TYPES,
     _clean_owner,
     _tx_id,
     _utc_now,
     owner_bucket_account,
 )
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
-
 
 OWNER_CONFIDENTIAL_RESERVATION = "liability:owner_confidential_reservation"
 

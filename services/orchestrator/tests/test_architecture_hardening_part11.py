@@ -1,13 +1,14 @@
-import unittest
 import sqlite3
+import unittest
 
 from services.orchestrator.architecture_hardening_part11 import (
-    StrictLedgerManager,
-    RevisionedJobManager,
-    MonetaryUnitError,
     AppendOnlyLedgerError,
-    OptimisticConcurrencyError
+    MonetaryUnitError,
+    OptimisticConcurrencyError,
+    RevisionedJobManager,
+    StrictLedgerManager,
 )
+
 
 class TestArchitectureHardeningPart11(unittest.TestCase):
 

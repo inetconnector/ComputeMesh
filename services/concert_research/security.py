@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urljoin, urlsplit, urlunsplit, parse_qsl, urlencode
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 BLOCKED_HOSTNAMES = {"localhost", "localhost.localdomain", "metadata.google.internal"}
 TRACKING_PREFIXES = ("utm_", "pk_", "mtm_")

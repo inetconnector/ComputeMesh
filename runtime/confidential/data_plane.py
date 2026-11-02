@@ -7,18 +7,18 @@ content-free usage receipt whose Ed25519 key is also attested.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import hmac
 import http.client
 import json
 import ssl
-from typing import Callable, Protocol
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Protocol
 from urllib.parse import urlparse
 
 from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialResponseEnvelope
 from protocol.confidential_metering import ConfidentialUsageReceipt
-
 
 MAX_DATA_PLANE_RESPONSE_BYTES = 8 * 1024 * 1024 + 512 * 1024
 

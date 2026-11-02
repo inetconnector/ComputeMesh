@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import patch
 import unittest
-import urllib.request
 import urllib.error
+import urllib.request
+from unittest.mock import patch
 
-from services.portal.server import PortalHandler
 from services.portal import mail_dispatcher
+from services.portal.server import PortalHandler
 
 
 class TestPortalContactRoutes(unittest.TestCase):

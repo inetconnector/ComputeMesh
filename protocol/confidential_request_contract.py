@@ -15,7 +15,6 @@ import json
 import secrets
 from typing import Any
 
-
 CONTRACT_SCHEMA_VERSION = 1
 ATTESTATION_NONCE_PREFIX = "cmrc1"
 SESSION_CONTRACT_SCHEMA_VERSION = 2

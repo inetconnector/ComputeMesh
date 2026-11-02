@@ -37,8 +37,8 @@ from services.gateway.catalog import (
     resolve_model_id,
 )
 from services.gateway.inference import (
-    InferenceEngine,
     _EXECUTION_CONTEXT,
+    InferenceEngine,
     _clean_execution_node_ids,
 )
 from services.gateway.inference_backend import InferenceBackend

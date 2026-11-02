@@ -2,16 +2,16 @@
 """Tool-call parsing package."""
 
 from .tool_call_parser import (
-    XML_TOOL_CALL_RE,
     JSON_CODE_BLOCK_RE,
-    RAW_JSON_TOOL_RE,
     MAX_TOOL_CALLS_PER_ITERATION,
-    canonical_name,
+    RAW_JSON_TOOL_RE,
+    XML_TOOL_CALL_RE,
     _canonical_name,
-    parse_fallback_tool_calls,
-    _fallback_tool_calls,
-    decode_tool_arguments,
     _decode_arguments,
+    _fallback_tool_calls,
+    canonical_name,
+    decode_tool_arguments,
+    parse_fallback_tool_calls,
 )
 
 __all__ = [

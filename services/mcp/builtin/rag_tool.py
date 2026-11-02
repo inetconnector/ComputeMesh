@@ -17,7 +17,7 @@ def search_knowledge_base(
     query: str,
     top_k: int = 4,
     collection: str = "default",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Searches the indexed document knowledge base for relevant passages, facts, and citations.
 
     Args:
@@ -63,9 +63,9 @@ def search_knowledge_base(
 def index_document_text(
     text: str,
     filename: str = "document.txt",
-    doc_id: Optional[str] = None,
+    doc_id: str | None = None,
     collection: str = "default",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Indexes text content into the local vector database for fast semantic retrieval."""
     clean_text = str(text or "").strip()
     if not clean_text:
@@ -76,7 +76,7 @@ def index_document_text(
     return store.add_document(clean_text, doc_id=target_id, filename=filename)
 
 
-def list_indexed_documents(collection: str = "default") -> Dict[str, Any]:
+def list_indexed_documents(collection: str = "default") -> dict[str, Any]:
     """Lists all documents currently indexed in the knowledge base."""
     store = get_default_vector_store(collection)
     docs = store.list_documents()

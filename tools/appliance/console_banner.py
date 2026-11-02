@@ -8,11 +8,11 @@ and print a prominent, high-visibility banner to the physical monitor (tty1, /et
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import platform
 import socket
 import subprocess
 import sys
+from pathlib import Path
 
 
 def get_all_ips() -> list[tuple[str, str]]:

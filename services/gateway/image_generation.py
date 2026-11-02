@@ -6,11 +6,11 @@ provenance metadata and audit-safe reason codes are always applied.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import base64
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
 from typing import Any, Protocol
 
 from services.gateway.image_safety import (
@@ -81,7 +81,7 @@ class ImageGenerationService:
         # Machine-readable provenance returned with every image. This is kept
         # provider-neutral; deployments can additionally embed C2PA credentials
         # in the image file when a signing implementation is configured.
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         return {
             "generated_by_ai": True,
             "generator": "ComputeMesh",
@@ -147,7 +147,7 @@ class ImageGenerationService:
             ))
 
         return ImageGenerationResult(
-            created=int(datetime.now(timezone.utc).timestamp()),
+            created=int(datetime.now(UTC).timestamp()),
             model=model,
             images=tuple(images),
             moderation={

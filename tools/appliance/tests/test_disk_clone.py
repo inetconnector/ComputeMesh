@@ -6,8 +6,8 @@ guard rails, which are the last line of defense before a destructive dd.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

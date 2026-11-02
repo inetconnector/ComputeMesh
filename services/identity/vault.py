@@ -10,9 +10,9 @@ import base64
 import hashlib
 import hmac
 import os
-from pathlib import Path
 import re
 import secrets
+from pathlib import Path
 from typing import Any
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -119,7 +119,7 @@ class EncryptedVault:
     def fingerprint(self, value: str | None, *, purpose: str = "lookup") -> str:
         """Return a keyed opaque lookup value without storing sensitive plaintext."""
         clean = str(value or "").strip().lower()
-        return hmac.new(self._key, f"{purpose}:{clean}".encode("utf-8"), hashlib.sha256).hexdigest()
+        return hmac.new(self._key, f"{purpose}:{clean}".encode(), hashlib.sha256).hexdigest()
 
 
 # Global singleton vault instance

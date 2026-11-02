@@ -64,7 +64,7 @@ def _bounded_collection(factory):
     return wrapper
 
 
-SAFE_GLOBALS: Dict[str, Any] = {
+SAFE_GLOBALS: dict[str, Any] = {
     "math": math,
     "statistics": __import__("statistics"),
     "abs": abs,
@@ -279,7 +279,7 @@ def _worker(raw_code: str, connection: Any) -> None:
         if error or parsed is None:
             connection.send({"ok": False, "error": error or "Validierung fehlgeschlagen"})
             return
-        local_scope: Dict[str, Any] = {}
+        local_scope: dict[str, Any] = {}
         if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.Expr):
             compiled = compile(ast.Expression(body=parsed.body[0].value), "<calculator>", "eval")
             value = eval(compiled, {"__builtins__": {}, **SAFE_GLOBALS}, local_scope)
@@ -306,7 +306,7 @@ def run_python_calc(
     formula: str = "",
     query: str = "",
     timeout: float = 2.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Evaluate bounded mathematical expressions with a real process timeout."""
     raw_code = str(expression or code or formula or query or "").strip()
     if not raw_code:

@@ -13,10 +13,10 @@ Considers:
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
 import os
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime, timezone
+from enum import Enum
 from typing import Any
 
 from .legal_registry import LegalRuleRegistry
@@ -58,7 +58,7 @@ class PlatformOperatorLegalProfile:
 
         name = os.environ.get("COMPUTEMESH_OPERATOR_NAME", "").strip() or "ComputeMesh Platform Operator"
         jurisdiction = os.environ.get("COMPUTEMESH_OPERATOR_JURISDICTION", "").strip() or "EU/DE"
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
         return cls(
             operator_name=name,
@@ -107,7 +107,7 @@ class DSAApplicabilityPolicy:
             customer_audience: CONSUMER_ALLOWED, BUSINESS_ONLY, PRIVATE_MEMBERS
             provider_entity_type: individual, business
         """
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         reasons: list[str] = []
         exemptions: list[str] = []
 

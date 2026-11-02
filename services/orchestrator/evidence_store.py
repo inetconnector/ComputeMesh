@@ -1,12 +1,12 @@
 """Durable single-use binding between orchestrator jobs and verified execution evidence."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import sqlite3
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 from .persistence import SQLiteStateStore
 
@@ -87,7 +87,7 @@ class ExecutionEvidenceStore:
         self.state_store.get_job(job_id)
         shares = self._normalize_shares(provider_shares)
         payload = json.dumps(shares, separators=(",", ":"), ensure_ascii=False)
-        created_at = datetime.now(timezone.utc)
+        created_at = datetime.now(UTC)
         created_text = created_at.isoformat().replace("+00:00", "Z")
         try:
             self._db.execute("BEGIN IMMEDIATE")
@@ -136,7 +136,7 @@ class ExecutionEvidenceStore:
             raise KeyError(f"no execution evidence binding for job {job_id!r}")
         raw_shares = json.loads(row["provider_shares_json"])
         shares = tuple((str(node_id), float(ratio)) for node_id, ratio in raw_shares)
-        created_at = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")).astimezone(timezone.utc)
+        created_at = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")).astimezone(UTC)
         return ExecutionEvidenceBinding(
             row["job_id"],
             row["evidence_id"],

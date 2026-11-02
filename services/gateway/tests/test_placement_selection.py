@@ -9,7 +9,6 @@ from services.gateway.placement_selection import (
     load_shared_placement_selection,
 )
 
-
 DIGEST = "sha256:" + "a" * 64
 
 

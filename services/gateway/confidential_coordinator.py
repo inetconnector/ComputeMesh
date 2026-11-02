@@ -31,8 +31,8 @@ from services.billing.confidential_escrow import ConfidentialCreditSettlement
 from services.billing.confidential_owner_ledger import PayoutCapableConfidentialOwnerLedger
 from services.billing.ledger import BillingError
 from services.billing.owner_job_accounting import (
-    ProviderOwnerShare,
     OwnerJobQuote,
+    ProviderOwnerShare,
     quote_destinations,
     quote_owner_job,
 )

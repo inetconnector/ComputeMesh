@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.threadsafe_ledger import ThreadSafeLedger
 from services.gateway.cancellable_inference import RequestContextBackend
@@ -15,7 +15,6 @@ from services.orchestrator.billing_intent import (
 from services.orchestrator.settlement_recovery import replay_billing_outbox
 from services.orchestrator.startup_recovery import RecoveryStateStore
 from services.orchestrator.state_machine import JobState
-
 
 _FORWARD = (
     JobState.VALIDATING,

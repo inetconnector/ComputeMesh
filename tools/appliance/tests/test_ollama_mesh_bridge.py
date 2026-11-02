@@ -1,7 +1,7 @@
 """Unit tests for the ComputeMesh Ollama Mesh Bridge and Pool Configurator."""
 import os
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from tools.appliance.ollama_mesh_bridge import (
     detect_ollama_executable,

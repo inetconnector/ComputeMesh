@@ -12,7 +12,7 @@ import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -244,7 +244,7 @@ class Ledger:
                     f"customer {account_id} available balance ({avail}) insufficient for hold ({amount_micro_units})"
                 )
             hid = hold_id or f"hold_{secrets.token_hex(12)}"
-            now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             hold = CreditHold(
                 hold_id=hid,
                 account_id=account_id,
@@ -373,7 +373,7 @@ class Ledger:
             tx = Transaction(
                 tx_id=tx_id,
                 event_id=event_id,
-                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 description=f"Prepaid credit top-up via {payment_reference}",
                 postings=(
                     Posting(
@@ -473,7 +473,7 @@ class Ledger:
         tx = Transaction(
             tx_id=tx_id,
             event_id=event_id,
-            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             description=f"Inference execution for {job_id} ({model_id}, {prompt_tokens}+{completion_tokens} tokens)",
             postings=tuple(postings),
         )
@@ -503,7 +503,7 @@ class Ledger:
             tx = Transaction(
                 tx_id=tx_id,
                 event_id=event_id,
-                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 description=f"Operator network protocol fee revenue payout to treasury {wallet}",
                 postings=(
                     Posting(
@@ -553,7 +553,7 @@ class Ledger:
             tx = Transaction(
                 tx_id=tx_id,
                 event_id=event_id,
-                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 description=f"Automated settlement withdrawal to {wallet_address}",
                 postings=(
                     Posting(
@@ -630,7 +630,7 @@ class Ledger:
                 "total_turnover_micro_units": sum_debits,
                 "total_turnover_usd": round(sum_debits / MICRO_UNIT_SCALE, 2),
                 "active_accounts": len(self._balances),
-                "audited_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "audited_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             }
 
     def _record_transaction(self, tx: Transaction) -> None:

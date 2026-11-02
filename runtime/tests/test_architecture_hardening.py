@@ -5,13 +5,14 @@ import time
 import unittest
 
 from runtime.architecture_hardening import (
-    MeshCircuitBreaker,
-    IdempotencyEnforcer,
-    WorkloadAdmissionGate,
     CircuitBreakerOpenError,
+    IdempotencyEnforcer,
     IdempotencyViolationError,
+    MeshCircuitBreaker,
     WorkloadAdmissionError,
+    WorkloadAdmissionGate,
 )
+
 
 class TestMeshCircuitBreaker(unittest.TestCase):
     def setUp(self) -> None:

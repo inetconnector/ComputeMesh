@@ -3,7 +3,7 @@ from __future__ import annotations
 import socket
 import threading
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from services.orchestrator.inference_transport import (
@@ -29,7 +29,7 @@ def ready_session() -> SessionSnapshot:
         node_id="node-a",
         principal_id="provider-a",
         auth_method="computemesh-ed25519-v1",
-        credential_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        credential_expires_at=datetime.now(UTC) + timedelta(minutes=10),
         negotiated_capabilities=frozenset({"execution_attestation_v1", "inference_v1", "inference_stream_v1"}),
         profile_revision=3,
         drain_reason=None,

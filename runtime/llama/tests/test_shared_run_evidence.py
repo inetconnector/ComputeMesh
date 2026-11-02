@@ -1,14 +1,13 @@
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from runtime.llama.shared_run_evidence import (
     SharedRunEvidenceError,
     build_shared_run_evidence,
     write_shared_run_evidence,
 )
-
 
 MODEL_SHA = "a" * 64
 PROMPT_SHA = "b" * 64

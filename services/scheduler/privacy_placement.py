@@ -1,7 +1,7 @@
 """Policy filter for global mesh candidate pools."""
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from services.compliance.mesh_policy import (
     JobRoutingPolicy,

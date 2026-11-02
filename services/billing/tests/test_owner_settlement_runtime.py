@@ -1,9 +1,14 @@
 """Regression tests for hardened owner settlement replay/recovery semantics."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
-from services.billing.accounting import AccountingStore, AccountingStoreError, SettlementRecord, utc_now
+from services.billing.accounting import (
+    AccountingStore,
+    AccountingStoreError,
+    SettlementRecord,
+    utc_now,
+)
 from services.billing.ledger import InsufficientBalanceError
 from services.billing.owner_settlement import PayoutCapableOwnerLedger
 from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecutor

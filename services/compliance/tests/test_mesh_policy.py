@@ -1,8 +1,14 @@
 from __future__ import annotations
+
 import unittest
+
 from services.compliance.mesh_policy import (
-    ExecutionPrivacyClass, JobRoutingPolicy, MeshFeatureFlags,
-    ProviderRoutingCapabilities, ProviderTrustTier, evaluate_mesh_eligibility,
+    ExecutionPrivacyClass,
+    JobRoutingPolicy,
+    MeshFeatureFlags,
+    ProviderRoutingCapabilities,
+    ProviderTrustTier,
+    evaluate_mesh_eligibility,
 )
 
 

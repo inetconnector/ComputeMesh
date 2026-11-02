@@ -1,17 +1,18 @@
 """Supervise one verified local llama-server instance for a provider node."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import threading
 import time
-from typing import Any, Callable
 import urllib.request
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from tools.appliance.hardware_detector import RigInventory
 from tools.appliance.multi_gpu_launcher import (

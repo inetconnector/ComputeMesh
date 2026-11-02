@@ -1,8 +1,8 @@
 """Fail-closed contract for emergency-only local node token rotation."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import unittest
+from http import HTTPStatus
 from unittest.mock import patch
 
 from services.appliance_dashboard.system_actions import SystemActionsHandler

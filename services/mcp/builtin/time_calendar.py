@@ -7,7 +7,7 @@ Provides real-time datetime, global timezone conversions, calendar weeks, and st
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 try:
@@ -161,7 +161,7 @@ def calculate_easter_sunday(year: int) -> date:
     return date(year, month, day)
 
 
-def get_german_holidays(year: int, state: str = "BY") -> List[Dict[str, str]]:
+def get_german_holidays(year: int, state: str = "BY") -> list[dict[str, str]]:
     """Calculates German statutory public holidays for a given year and state."""
     easter = calculate_easter_sunday(year)
     holidays = [
@@ -205,16 +205,16 @@ def _resolve_tz(tz_name: str) -> timezone:
 
     # Return local system timezone
     local_tz = datetime.now().astimezone().tzinfo
-    return local_tz if local_tz is not None else timezone.utc
+    return local_tz if local_tz is not None else UTC
 
 
 def _get_single_time_and_calendar(
     timezone_name: str = "",
     city: str = "",
     target_date: str = "",
-    year: Optional[int] = None,
+    year: int | None = None,
     state: str = "BY",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Internal helper to resolve a single location's time, date, and calendar metrics."""
     tz_query = (timezone_name or city or "Europe/Berlin").strip().lower()
     resolved_tz_name = COMMON_TIMEZONE_ALIASES.get(tz_query, timezone_name or "Europe/Berlin")
@@ -230,7 +230,7 @@ def _get_single_time_and_calendar(
 
     display_city = (city or timezone_name or resolved_tz_name.split("/")[-1].replace("_", " ")).strip().title()
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "city": display_city,
         "datetime_iso": now.isoformat(),
         "formatted_date": f"{weekday_de}, {now.day}. {month_de} {now.year}",
@@ -266,9 +266,9 @@ def get_time_and_calendar(
     timezone_name: str = "",
     city: str = "",
     target_date: str = "",
-    year: Optional[int] = None,
+    year: int | None = None,
     state: str = "BY",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Returns the current date, time, timezone conversion, calendar week, and public holidays.
     Supports multiple cities (e.g. 'New York, Tokio und Berlin').

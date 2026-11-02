@@ -1,19 +1,20 @@
-import pytest
+import os
 import sqlite3
 import tempfile
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
+import pytest
 from services.orchestrator.architecture_hardening_part13 import (
-    ExplicitRetryEnforcer,
     CommandExpirationEnforcer,
-    EventDeduplicator,
-    ImplicitRetryError,
     CommandExpiredError,
-    DuplicateEventError
+    DuplicateEventError,
+    EventDeduplicator,
+    ExplicitRetryEnforcer,
+    ImplicitRetryError,
 )
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.state_machine import JobState
+
 
 def test_explicit_retry_enforcer():
     db = sqlite3.connect(":memory:")
@@ -72,7 +73,7 @@ def test_persistence_command_expiration():
         with SQLiteStateStore(os.path.join(td, "state.db")) as store:
             job = store.ensure_job("job2")
 
-            now = datetime.now(timezone.utc).timestamp()
+            now = datetime.now(UTC).timestamp()
             expired_metadata = {"expires_at": now - 100}
 
             # Expired command should raise

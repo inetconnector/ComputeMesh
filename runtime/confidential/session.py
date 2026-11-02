@@ -7,16 +7,17 @@ only a signed content-free usage receipt is persisted before ledger capture.
 """
 from __future__ import annotations
 
-from collections.abc import Iterator
+import json
+import sqlite3
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import json
 from pathlib import Path
-import sqlite3
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 
 from protocol.confidential_metering import ConfidentialUsageReceipt
+
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 
 

@@ -1,11 +1,15 @@
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from services.billing.accounting import AccountingStore, ProviderAccount, SettlementRecord
-from services.billing.ledger import Ledger, MINIMUM_PAYOUT_MICRO_UNITS
-from services.billing.stripe_connect import AccountLinkResult, ConnectedAccountResult, StripeConnectService
+from services.billing.ledger import MINIMUM_PAYOUT_MICRO_UNITS, Ledger
+from services.billing.stripe_connect import (
+    AccountLinkResult,
+    ConnectedAccountResult,
+    StripeConnectService,
+)
 from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from services.compliance.fleet_gatekeeper import FleetGatekeeper
 from services.compliance.provider_identity import (

@@ -1,10 +1,11 @@
 """Formal subagent delegation contracts and scope validation."""
 from __future__ import annotations
 
+import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
-import uuid
+from typing import Any
 
 
 @dataclass(frozen=True)

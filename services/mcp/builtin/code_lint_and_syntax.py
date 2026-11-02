@@ -12,14 +12,14 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger("computemesh.mcp.code_lint_and_syntax")
 
 
-def validate_code_syntax(code: str, language: str = "python") -> Dict[str, Any]:
+def validate_code_syntax(code: str, language: str = "python") -> dict[str, Any]:
     """Validates code syntax using AST parsing or schema tokenizer, returning exact error positions."""
     clean_code = str(code or "").strip()
     if not clean_code:
         return {"valid": False, "language": language, "errors": [{"message": "Quellcode ist leer."}]}
 
     lang = language.lower().strip().lstrip(".")
-    errors: List[Dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
 
     if lang in ("python", "py"):
         try:
@@ -78,10 +78,10 @@ def validate_code_syntax(code: str, language: str = "python") -> Dict[str, Any]:
     }
 
 
-def check_code_quality(code: str, language: str = "python") -> Dict[str, Any]:
+def check_code_quality(code: str, language: str = "python") -> dict[str, Any]:
     """Inspects code complexity, max line length, monster functions (>60 lines), and docstrings."""
     clean_code = str(code or "").strip()
-    warnings: List[Dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
     lines = clean_code.splitlines()
 
     for idx, line in enumerate(lines, start=1):

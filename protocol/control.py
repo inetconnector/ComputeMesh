@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import re
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any
 
 SUPPORTED_PROTOCOL_MAJOR = 0
 CURRENT_PROTOCOL_MINOR = 2
@@ -65,7 +66,7 @@ def _parse_time(value: Any, field: str, request_id: str | None) -> datetime:
         raise _fault("INVALID_ARGUMENT", "invalid_argument", f"{field} must be RFC3339 date-time", request_id=request_id) from exc
     if parsed.tzinfo is None:
         raise _fault("INVALID_ARGUMENT", "invalid_argument", f"{field} must include a timezone", request_id=request_id)
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 @dataclass(frozen=True)
@@ -154,7 +155,7 @@ def parse_control_envelope(document: Mapping[str, Any], *, now: datetime | None 
     if expires_at <= issued_at:
         raise _fault("INVALID_ARGUMENT", "invalid_argument", "expires_at must be later than issued_at", request_id=ids["request_id"])
 
-    now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    now_utc = (now or datetime.now(UTC)).astimezone(UTC)
     if issued_at > now_utc + clock_skew:
         raise _fault(
             "CLOCK_SKEW",

@@ -8,18 +8,18 @@ drop. It never inspects or persists payload contents.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass, replace
-from datetime import datetime, timezone
 import ipaddress
 import json
-from pathlib import Path
 import queue
 import random
 import socket
 import sys
 import threading
 import time
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, replace
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 RFC1918 = tuple(
     ipaddress.ip_network(value)
@@ -184,7 +184,7 @@ class _SessionController:
             if self.connection_count >= self.max_connections:
                 return False
             if self.connected_wall is None:
-                self.connected_wall = datetime.now(timezone.utc)
+                self.connected_wall = datetime.now(UTC)
                 self.connected_mono = time.monotonic()
             self.connection_count += 1
             self.active_connections += 1
@@ -352,7 +352,7 @@ def _build_metrics(
     error_type: str | None,
     error_message: str | None,
 ) -> RelayMetrics:
-    ended_wall = datetime.now(timezone.utc)
+    ended_wall = datetime.now(UTC)
     ended_mono = time.monotonic()
     total_elapsed_ms = max(0.0, (ended_mono - started_mono) * 1000.0)
     if connected_mono is None:
@@ -474,7 +474,7 @@ def run_relay(
     stop_event: threading.Event | None = None,
 ) -> RelayMetrics:
     """Relay TCP connections and return content-free traffic metrics."""
-    started_wall = datetime.now(timezone.utc)
+    started_wall = datetime.now(UTC)
     started_mono = time.monotonic()
     controller = _SessionController(
         disconnect_after_bytes=config.disconnect_after_bytes,

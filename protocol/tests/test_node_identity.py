@@ -1,11 +1,10 @@
-from datetime import datetime, timedelta, timezone
 import base64
 import json
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.node_identity import (
     AUTH_METHOD,
     Ed25519ChallengeVerifier,
@@ -33,7 +32,7 @@ class Resolver:
 
 class NodeIdentityTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc)
+        self.now = datetime(2026, 8, 21, 19, 0, tzinfo=UTC)
         self.private = Ed25519PrivateKey.generate()
         self.public = self.private.public_key().public_bytes(
             serialization.Encoding.Raw, serialization.PublicFormat.Raw

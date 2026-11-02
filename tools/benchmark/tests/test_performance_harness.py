@@ -1,9 +1,9 @@
 """High-Performance & Concurrency Stress Test Harness for ComputeMesh Gateway."""
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 import sys
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:

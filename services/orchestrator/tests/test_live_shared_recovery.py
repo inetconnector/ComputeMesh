@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-from types import SimpleNamespace
 import tempfile
 import threading
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from services.gateway.inference_backend import BackendResult, InferenceBackendError

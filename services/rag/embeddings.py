@@ -13,11 +13,11 @@ import urllib.request
 from typing import Dict, List, Optional, Tuple
 
 EMBEDDING_DIM = 384
-_EMBEDDING_CACHE: Dict[str, List[float]] = {}
+_EMBEDDING_CACHE: dict[str, list[float]] = {}
 _CACHE_LOCK = threading.Lock()
 
 
-def _dense_semantic_embedding(text: str, dim: int = EMBEDDING_DIM) -> List[float]:
+def _dense_semantic_embedding(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
     """Generates a normalized 384-dimensional dense semantic embedding vector.
 
     Uses subword n-gram hashing with term-frequency damping and positional weighting.
@@ -63,7 +63,7 @@ def _dense_semantic_embedding(text: str, dim: int = EMBEDDING_DIM) -> List[float
     return [0.0] * dim
 
 
-def _fetch_remote_embedding(text: str, endpoint: str, timeout: float = 4.0) -> Optional[List[float]]:
+def _fetch_remote_embedding(text: str, endpoint: str, timeout: float = 4.0) -> list[float] | None:
     """Queries an OpenAI-compatible /v1/embeddings endpoint if available."""
     try:
         req_data = json.dumps({"input": text, "model": "text-embedding-3-small"}).encode("utf-8")
@@ -84,7 +84,7 @@ def _fetch_remote_embedding(text: str, endpoint: str, timeout: float = 4.0) -> O
     return None
 
 
-def get_text_embedding(text: str) -> List[float]:
+def get_text_embedding(text: str) -> list[float]:
     """Returns normalized dense embedding vector for a single text string."""
     clean = str(text or "").strip()
     if not clean:
@@ -111,12 +111,12 @@ def get_text_embedding(text: str) -> List[float]:
     return local_vec
 
 
-def compute_embeddings(texts: List[str]) -> List[List[float]]:
+def compute_embeddings(texts: list[str]) -> list[list[float]]:
     """Computes dense embedding vectors for a batch of text strings."""
     return [get_text_embedding(t) for t in texts]
 
 
-def cosine_similarity(v1: List[float], v2: List[float]) -> float:
+def cosine_similarity(v1: list[float], v2: list[float]) -> float:
     """Calculates cosine similarity between two dense vectors."""
     if len(v1) != len(v2) or not v1:
         return 0.0

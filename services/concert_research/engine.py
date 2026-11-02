@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
 import json
 import math
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from .classifier import RUBRIC_GROUPS

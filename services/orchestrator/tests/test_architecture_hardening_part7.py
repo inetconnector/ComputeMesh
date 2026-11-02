@@ -1,12 +1,14 @@
 import sqlite3
 import time
 import unittest
+
 from services.orchestrator.architecture_hardening_part7 import (
-    StatefulIdempotentCommandEnforcer,
+    StatefulCapacityLeaseError,
     StatefulCapacityLeaseManager,
     StatefulIdempotencyError,
-    StatefulCapacityLeaseError
+    StatefulIdempotentCommandEnforcer,
 )
+
 
 class TestArchitectureHardeningPart7(unittest.TestCase):
     def setUp(self):

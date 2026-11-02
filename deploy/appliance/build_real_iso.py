@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Builds a real, bootable hybrid ISO & .img.xz appliance for ComputeMesh NodeOS."""
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
+
 
 def main() -> int:
     build_root = Path("/tmp/computemesh_iso_build")

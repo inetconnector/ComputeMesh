@@ -23,14 +23,15 @@ import re
 import subprocess
 import threading
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.node_identity import key_id_from_public_key
+
 from runtime.llama.rpc_spike import (
     RpcSpikeError,
     SpikePlan,

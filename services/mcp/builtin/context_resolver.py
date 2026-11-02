@@ -19,7 +19,7 @@ DEICTIC_PATTERNS = [
 DEICTIC_RE = re.compile("|".join(DEICTIC_PATTERNS), re.IGNORECASE)
 
 
-def extract_dominant_topic(messages: List[Dict[str, Any]], max_lookback: int = 4) -> Optional[str]:
+def extract_dominant_topic(messages: list[dict[str, Any]], max_lookback: int = 4) -> str | None:
     """
     Extracts the most salient topic/entity from recent conversation history.
     """
@@ -61,8 +61,8 @@ def extract_dominant_topic(messages: List[Dict[str, Any]], max_lookback: int = 4
 
 def resolve_contextual_query(
     user_query: str,
-    messages: Optional[List[Dict[str, Any]]] = None,
-) -> Tuple[str, Optional[str], bool]:
+    messages: list[dict[str, Any]] | None = None,
+) -> tuple[str, str | None, bool]:
     """
     Resolves conversational follow-up references.
     Returns (resolved_query, dominant_entity, was_resolved).

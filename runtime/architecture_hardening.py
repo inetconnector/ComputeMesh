@@ -8,9 +8,10 @@ enforcement of the core invariants defined in ARCHITECTURE.md:
 """
 from __future__ import annotations
 
-import time
 import threading
-from typing import Any, Callable, TypeVar, Generic, Optional
+import time
+from collections.abc import Callable
+from typing import Any, Generic, Optional, TypeVar
 
 T = TypeVar('T')
 

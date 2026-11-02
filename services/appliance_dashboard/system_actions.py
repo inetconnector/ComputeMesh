@@ -1,14 +1,15 @@
 """Appliance System Actions, Configuration, and Lifecycle Handlers."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
+
 from services.gateway.security import SECURITY_HEADERS
 
 log = logging.getLogger("computemesh.appliance.actions")
@@ -181,7 +182,9 @@ class SystemActionsHandler:
 
                 # Instantly synchronize across local mesh, lan discovery responder & coordinator webserver
                 try:
-                    from services.appliance_dashboard.tunnel_relay import trigger_immediate_mesh_sync
+                    from services.appliance_dashboard.tunnel_relay import (
+                        trigger_immediate_mesh_sync,
+                    )
                     trigger_immediate_mesh_sync(
                         updated_cfg=updated_cfg,
                         previous_node_id=previous_node_id,

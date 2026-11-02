@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta, timezone
 import sys
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -11,7 +11,7 @@ from protocol import ProtocolFault, parse_control_envelope
 
 class ControlEnvelopeTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 21, 8, 0, tzinfo=timezone.utc)
+        self.now = datetime(2026, 8, 21, 8, 0, tzinfo=UTC)
         self.base = {
             "protocol_major": 0,
             "protocol_minor": 2,

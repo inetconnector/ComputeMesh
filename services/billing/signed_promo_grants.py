@@ -13,16 +13,15 @@ from __future__ import annotations
 
 import base64
 import binascii
-from dataclasses import dataclass
 import hashlib
 import json
 import time
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from services.billing.ledger import DuplicateEventError, Ledger
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError, PromoClaim
 from services.billing.owner_credits import OwnerCreditLedger

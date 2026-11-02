@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
-from http import HTTPStatus
 import logging
 import mimetypes
 import os
+import urllib.parse
+from http import HTTPStatus
 from pathlib import Path
 from typing import Any
-import urllib.parse
 
 log = logging.getLogger("computemesh.appliance.webapps")
 

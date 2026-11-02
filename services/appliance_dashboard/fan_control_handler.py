@@ -1,9 +1,9 @@
 """HTTP endpoints for safe GPU fan policy inspection and application."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
 import os
+from http import HTTPStatus
 from typing import Any
 
 from tools.appliance.appliance_config import ApplianceConfig, save_system_config

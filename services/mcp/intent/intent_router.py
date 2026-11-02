@@ -5,12 +5,13 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from ..tool_registry import ToolRegistry
 
-from .entity_tokenizer import split_multi_entities, clean_entity_token
+from .entity_tokenizer import clean_entity_token, split_multi_entities
+
 
 def is_compound_multi_step_query(text: str) -> bool:
     """Checks if a user query has multiple compound actions, steps, or multi-hop requirements."""
@@ -63,7 +64,7 @@ def is_compound_multi_step_query(text: str) -> bool:
     return False
 
 
-def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None, allow_compound: bool = False) -> Optional[tuple[str, dict[str, Any]]]:
+def detect_direct_tool_intent(text: str, registry: ToolRegistry | None = None, allow_compound: bool = False) -> tuple[str, dict[str, Any]] | None:
     """Detects direct tool calling intent from user query with high precision."""
     cleaned = text.strip()
     if not cleaned:
@@ -1111,7 +1112,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if sp_target and len(sp_target) >= 2 and not any(w in sp_target.lower() for w in ("wetter", "uhr", "tag", "heute")):
             return ("get_sports_data", {"query": sp_target, "mode": "teams"})
 
-def detect_compound_tool_intents(text: str, registry: Optional[ToolRegistry] = None) -> list[tuple[str, dict[str, Any]]]:
+def detect_compound_tool_intents(text: str, registry: ToolRegistry | None = None) -> list[tuple[str, dict[str, Any]]]:
     """Extracts multiple tool calling intents from compound / multi-domain user queries."""
     cleaned = text.strip()
     if not cleaned:

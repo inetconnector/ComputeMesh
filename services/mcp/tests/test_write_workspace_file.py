@@ -6,7 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from services.mcp.builtin.file_system_tools import write_workspace_file, read_workspace_file, _get_safe_workspace_root
+from services.mcp.builtin.file_system_tools import (
+    _get_safe_workspace_root,
+    read_workspace_file,
+    write_workspace_file,
+)
 from services.mcp.tool_registry import ToolRegistry
 
 

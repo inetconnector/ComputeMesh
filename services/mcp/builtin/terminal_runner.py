@@ -28,9 +28,9 @@ FORBIDDEN_PATTERNS = [
 
 def run_terminal_command(
     command: str,
-    cwd: Optional[str] = None,
+    cwd: str | None = None,
     timeout_seconds: float = 35.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Executes a terminal or build command in a controlled workspace subprocess environment."""
     clean_cmd = str(command or "").strip()
     if not clean_cmd:

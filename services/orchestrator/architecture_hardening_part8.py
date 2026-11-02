@@ -44,7 +44,7 @@ class ModelManifestEnforcer:
     ]
 
     @classmethod
-    def enforce(cls, manifest: Dict[str, Any]) -> None:
+    def enforce(cls, manifest: dict[str, Any]) -> None:
         """Validates that a model manifest contains all mandatory architectural fields."""
         if not isinstance(manifest, dict):
             raise ModelManifestError("Manifest must be a dictionary.")
@@ -85,7 +85,7 @@ class ShardManifestEnforcer:
     ]
 
     @classmethod
-    def enforce(cls, shard_manifest: Dict[str, Any]) -> None:
+    def enforce(cls, shard_manifest: dict[str, Any]) -> None:
         """Validates that a shard manifest contains all mandatory architectural fields."""
         if not isinstance(shard_manifest, dict):
             raise ShardManifestError("Shard manifest must be a dictionary.")

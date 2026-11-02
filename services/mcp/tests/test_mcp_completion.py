@@ -5,17 +5,17 @@ from __future__ import annotations
 
 import json
 import unittest
-from unittest.mock import MagicMock, patch
 import urllib.error
+from unittest.mock import MagicMock, patch
 
-from services.mcp.config import MCPConfig
-from services.mcp.tool_registry import ToolRegistry
 from services.mcp.builtin.company_lookup import lookup_company
 from services.mcp.builtin.events import search_events
 from services.mcp.builtin.http_json import ProviderError, fetch_json
 from services.mcp.builtin.places import search_places
 from services.mcp.builtin.sports_data import get_sports_data
 from services.mcp.builtin.weather_forecast import get_weather_forecast
+from services.mcp.config import MCPConfig
+from services.mcp.tool_registry import ToolRegistry
 
 
 class _Response:

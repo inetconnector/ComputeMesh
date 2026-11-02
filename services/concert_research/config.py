@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import os
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 
@@ -12,7 +12,7 @@ def resolve_timezone(tz_name: str = "Europe/Berlin"):
         return ZoneInfo(tz_name)
     except Exception:
         local_tz = datetime.now().astimezone().tzinfo
-        return local_tz if local_tz is not None else timezone.utc
+        return local_tz if local_tz is not None else UTC
 
 
 def _bool(name: str, default: bool) -> bool:

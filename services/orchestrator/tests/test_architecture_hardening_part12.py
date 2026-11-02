@@ -1,16 +1,18 @@
 """Tests for ComputeMesh Architecture Hardening (Part 12)"""
 
 import unittest
+
 from services.orchestrator.architecture_hardening_part12 import (
-    StaleProviderResponseEnforcer,
-    UserCancellationPropagator,
-    ExecutionEvidenceEnforcer,
-    RecoveryStateEnforcer,
-    StaleResponseError,
     CancellationPropagationError,
+    ExecutionEvidenceEnforcer,
+    InvalidRecoveryStateError,
     MissingEvidenceError,
-    InvalidRecoveryStateError
+    RecoveryStateEnforcer,
+    StaleProviderResponseEnforcer,
+    StaleResponseError,
+    UserCancellationPropagator,
 )
+
 
 class TestArchitectureHardeningPart12(unittest.TestCase):
     def test_stale_provider_responses_cannot_overwrite_newer_placement(self) -> None:

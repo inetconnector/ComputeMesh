@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 from services.gateway.execution_evidence import (
     ExecutionEvidenceError,
@@ -17,7 +17,6 @@ from services.orchestrator.evidence_store import (
     ExecutionEvidenceStore,
 )
 from services.orchestrator.persistence import SQLiteStateStore
-
 
 MODEL_DIGEST = "a" * 64
 OUTPUT = "real runtime output"
@@ -141,7 +140,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         self.path.write_text(json.dumps(value), encoding="utf-8")
 
     def test_verification_derives_provider_shares_from_layer_ranges(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         evidence = _evidence(now.isoformat().replace("+00:00", "Z"))
         self._write(evidence)
         verified = verify_shared_execution_evidence(
@@ -157,7 +156,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         self.assertEqual(verified.runtime_sha256, _canonical_digest(evidence["runtime"]))
 
     def test_output_mismatch_is_rejected(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._write(_evidence(now.isoformat().replace("+00:00", "Z")))
         with self.assertRaisesRegex(ExecutionEvidenceError, "output digest"):
             verify_shared_execution_evidence(

@@ -1,10 +1,10 @@
 """Unit tests for Retention Policy engine and statutory lifecycle execution."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 
 from services.compliance.provider_identity import (
     EntityType,
@@ -33,7 +33,7 @@ class RetentionPolicyTests(unittest.TestCase):
         self.assertEqual(rule.duration_days, 180)
         self.assertEqual(rule.action, RetentionAction.DELETE)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent_termination = (now - timedelta(days=30)).isoformat()
         old_termination = (now - timedelta(days=200)).isoformat()
 
@@ -44,7 +44,7 @@ class RetentionPolicyTests(unittest.TestCase):
         """Inactive draft profiles older than 90 days with no bound fleets are purged."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = ProviderIdentityStore(Path(tmpdir) / "retention_test.db")
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Create an active/fresh draft
             store.upsert_identity(

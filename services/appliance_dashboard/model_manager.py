@@ -1,18 +1,18 @@
 """Verified local GGUF catalogue and Hugging Face download management."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import threading
 import time
-from typing import Any
 import urllib.parse
 import urllib.request
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
 
 from services.appliance_dashboard.model_engine_service import (
     EngineModel,
@@ -20,7 +20,6 @@ from services.appliance_dashboard.model_engine_service import (
     ModelEngineService,
     get_model_engine_service,
 )
-
 
 MAX_MODEL_BYTES = 1024 * 1024 * 1024 * 1024
 MAX_SEARCH_RESULTS = 25

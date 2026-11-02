@@ -1,7 +1,8 @@
 """Validation helpers for authenticated, lease-bound NodeOS inference."""
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from .session_contracts import SessionMessageContractValidator
 

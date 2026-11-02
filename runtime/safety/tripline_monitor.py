@@ -10,13 +10,13 @@ Tripping any anomaly instantly triggers the Safety Supervisor emergency kill.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
 import hashlib
 import logging
 import os
-from pathlib import Path
 import threading
 import time
+from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger("cm_safety.tripline_monitor")

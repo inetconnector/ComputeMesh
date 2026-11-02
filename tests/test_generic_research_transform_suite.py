@@ -7,18 +7,22 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from PIL import Image, ImageDraw
 
-from services.mcp.tool_registry import ToolRegistry
-from services.mcp.builtin.archive_and_data_transform import unpack_archive, create_archive, convert_structured_data
-from services.mcp.builtin.image_enhancer_tools import enhance_and_crop_image, create_contact_sheet
-from services.mcp.builtin.mission_journal import (
-    mission_start,
-    mission_log_step,
-    checkpoint_save,
-    checkpoint_resume,
-    checkpoint_list,
+from PIL import Image, ImageDraw
+from services.mcp.builtin.archive_and_data_transform import (
+    convert_structured_data,
+    create_archive,
+    unpack_archive,
 )
+from services.mcp.builtin.image_enhancer_tools import create_contact_sheet, enhance_and_crop_image
+from services.mcp.builtin.mission_journal import (
+    checkpoint_list,
+    checkpoint_resume,
+    checkpoint_save,
+    mission_log_step,
+    mission_start,
+)
+from services.mcp.tool_registry import ToolRegistry
 
 
 class TestGenericResearchAndTransformationSuite(unittest.TestCase):

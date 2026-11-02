@@ -26,7 +26,7 @@ KNOWN_TOOLS = {
 }
 
 
-def detect_missing_tools(tool_names: Optional[List[str]] = None) -> Dict[str, Any]:
+def detect_missing_tools(tool_names: list[str] | None = None) -> dict[str, Any]:
     """Scans system PATH to identify installed vs missing development tools."""
     targets = tool_names or list(KNOWN_TOOLS.keys())
     installed = []
@@ -67,7 +67,7 @@ def detect_missing_tools(tool_names: Optional[List[str]] = None) -> Dict[str, An
     }
 
 
-def install_dev_tool(tool_name: str, package_manager: Optional[str] = None) -> Dict[str, Any]:
+def install_dev_tool(tool_name: str, package_manager: str | None = None) -> dict[str, Any]:
     """Installs a requested Python or CLI developer tool safely."""
     clean_name = str(tool_name or "").strip().lower()
     rec = KNOWN_TOOLS.get(clean_name, {})

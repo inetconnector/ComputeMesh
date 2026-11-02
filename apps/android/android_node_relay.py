@@ -6,15 +6,15 @@ MiniCPM5-2B hardware capability reporting, and token heartbeats.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
 import logging
 import os
-from pathlib import Path
 import sys
 import time
-from typing import Any
 import urllib.request
+from datetime import UTC, datetime, timezone
+from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -70,7 +70,7 @@ class AndroidNodeRelay:
 
     def build_heartbeat_payload(self) -> dict[str, Any]:
         permitted, reason = self.battery_guard.evaluate()
-        now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
         return {
             "node_id": self.node_id,

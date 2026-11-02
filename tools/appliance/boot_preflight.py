@@ -4,10 +4,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from protocol.session_contracts import SessionMessageContractError, SessionMessageContractValidator
 from tools.security.node_key_storage import load_node_private_key

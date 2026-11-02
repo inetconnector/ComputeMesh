@@ -13,9 +13,9 @@ log = logging.getLogger("computemesh.mcp.audio_tools")
 
 def transcribe_audio_data(
     audio_data_base64_or_path: str,
-    language: Optional[str] = "de",
-    prompt_context: Optional[str] = None,
-) -> Dict[str, Any]:
+    language: str | None = "de",
+    prompt_context: str | None = None,
+) -> dict[str, Any]:
     """Transcribes audio data into structured text and timestamped segments."""
     raw = str(audio_data_base64_or_path or "").strip()
     if not raw:
@@ -45,9 +45,9 @@ def transcribe_audio_data(
 
 def synthesize_speech_audio(
     text: str,
-    voice: Optional[str] = "de-DE-Standard-A",
+    voice: str | None = "de-DE-Standard-A",
     speed: float = 1.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generates speech synthesis metadata and audio waveform configuration."""
     clean_text = str(text or "").strip()
     if not clean_text:

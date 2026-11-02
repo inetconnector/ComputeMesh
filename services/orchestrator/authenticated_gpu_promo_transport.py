@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Protocol
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
@@ -58,7 +58,7 @@ class SessionAuthenticatedGpuPromoTransport:
             )
         if (
             session.credential_expires_at is None
-            or session.credential_expires_at <= datetime.now(timezone.utc)
+            or session.credential_expires_at <= datetime.now(UTC)
         ):
             raise AuthenticatedGpuPromoTransportError(f"node {node_id} authentication has expired")
         if not session.key_id:

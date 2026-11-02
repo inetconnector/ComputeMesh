@@ -7,8 +7,8 @@ Enforces invariants:
 """
 
 import sqlite3
-from typing import Any, Dict, Optional
 import time
+from typing import Any, Dict, Optional
 
 
 class HardeningPart13Error(RuntimeError):
@@ -61,7 +61,7 @@ class ExplicitRetryEnforcer:
 class CommandExpirationEnforcer:
     """Enforces: commands expire."""
 
-    def validate_command(self, command: Dict[str, Any], current_time: float) -> None:
+    def validate_command(self, command: dict[str, Any], current_time: float) -> None:
         if "expires_at" not in command:
             raise CommandExpiredError("Command must have an 'expires_at' timestamp.")
 

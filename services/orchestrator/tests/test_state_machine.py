@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
 import importlib.util
 import sys
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "state_machine.py"
@@ -15,7 +15,7 @@ spec.loader.exec_module(sm)
 class ReservationStateMachineTests(unittest.TestCase):
     def test_happy_path(self):
         machine = sm.ReservationStateMachine()
-        expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+        expiry = datetime.now(UTC) + timedelta(minutes=5)
         self.assertEqual(machine.lease(request_id="r1", expected_revision=0, expires_at=expiry).revision, 1)
         machine.transition(request_id="r2", expected_revision=1, target=sm.ReservationState.COMMITTED)
         machine.transition(request_id="r3", expected_revision=2, target=sm.ReservationState.ACTIVE)
@@ -26,7 +26,7 @@ class ReservationStateMachineTests(unittest.TestCase):
 
     def test_duplicate_request_is_idempotent(self):
         machine = sm.ReservationStateMachine()
-        expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+        expiry = datetime.now(UTC) + timedelta(minutes=5)
         first = machine.lease(request_id="same", expected_revision=0, expires_at=expiry)
         second = machine.lease(request_id="same", expected_revision=0, expires_at=expiry)
         self.assertTrue(first.changed)
@@ -35,14 +35,14 @@ class ReservationStateMachineTests(unittest.TestCase):
 
     def test_conflicting_idempotency_key_rejected(self):
         machine = sm.ReservationStateMachine()
-        expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+        expiry = datetime.now(UTC) + timedelta(minutes=5)
         machine.lease(request_id="same", expected_revision=0, expires_at=expiry)
         with self.assertRaises(sm.IdempotencyConflict):
             machine.transition(request_id="same", expected_revision=1, target=sm.ReservationState.RELEASED)
 
     def test_expiry_and_commit_race_has_one_winner(self):
         machine = sm.ReservationStateMachine()
-        expiry = datetime.now(timezone.utc) + timedelta(milliseconds=1)
+        expiry = datetime.now(UTC) + timedelta(milliseconds=1)
         machine.lease(request_id="lease", expected_revision=0, expires_at=expiry)
         machine.expire_if_due(
             request_id="expire",

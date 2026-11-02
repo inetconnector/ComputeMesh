@@ -1,14 +1,16 @@
 """Unit tests for Architecture Hardening Part 19."""
 
 import unittest
+
 from services.orchestrator.architecture_hardening_part19 import (
-    AmbiguousCompletionReconciler,
-    DuplicateSegmentResultEnforcer,
-    ConflictingDuplicateEnforcer,
-    PlatformRetryBillingEnforcer,
     AmbiguousCompletionError,
-    ConflictingDuplicateError
+    AmbiguousCompletionReconciler,
+    ConflictingDuplicateEnforcer,
+    ConflictingDuplicateError,
+    DuplicateSegmentResultEnforcer,
+    PlatformRetryBillingEnforcer,
 )
+
 
 class TestAmbiguousCompletionReconciler(unittest.TestCase):
     def setUp(self) -> None:

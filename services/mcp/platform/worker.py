@@ -13,10 +13,11 @@ import threading
 import time
 import uuid
 from collections import deque
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Deque
+from typing import Any, Deque
 
 from .harness import HarnessRun, MeshAgentHarness
 from .session import (
@@ -610,8 +611,8 @@ class MeshAgentWorkerService:
             raise ValueError("all workers must use the service session store")
         self._recover_on_start = bool(recover_on_start)
         self._recovered_turn_ids: tuple[str, ...] = ()
-        self._results: Deque[AgentWorkerResult] = deque(maxlen=result_limit)
-        self._errors: Deque[str] = deque(maxlen=result_limit)
+        self._results: deque[AgentWorkerResult] = deque(maxlen=result_limit)
+        self._errors: deque[str] = deque(maxlen=result_limit)
         self._stop_event = threading.Event()
         self._threads: list[threading.Thread] = []
         self._lock = threading.RLock()

@@ -1,7 +1,7 @@
-from pathlib import Path
 import os
 import tempfile
 import unittest
+from pathlib import Path
 
 from tools.security.node_auth_token_storage import (
     NodeAuthTokenStorageError,

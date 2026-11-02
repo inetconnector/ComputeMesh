@@ -7,10 +7,11 @@ result, then executes it. The disclosed reference planner remains research-only.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from runtime.llama.rpc_spike import RpcEndpoint

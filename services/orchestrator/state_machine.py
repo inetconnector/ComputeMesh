@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from enum import Enum
 from typing import Generic, TypeVar
 
@@ -125,7 +125,7 @@ class ReservationStateMachine(RevisionedStateMachine[ReservationState]):
     def lease(self, *, request_id: str, expected_revision: int, expires_at: datetime) -> TransitionResult[ReservationState]:
         if expires_at.tzinfo is None:
             raise ValueError("expires_at must be timezone-aware")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if expires_at <= now:
             raise ValueError("expires_at must be in the future")
         result = self.transition(
@@ -134,7 +134,7 @@ class ReservationStateMachine(RevisionedStateMachine[ReservationState]):
             target=ReservationState.LEASED,
         )
         if result.changed:
-            self.lease_expires_at = expires_at.astimezone(timezone.utc)
+            self.lease_expires_at = expires_at.astimezone(UTC)
         return result
 
     def expire_if_due(self, *, request_id: str, expected_revision: int, now: datetime) -> TransitionResult[ReservationState] | None:
@@ -142,7 +142,7 @@ class ReservationStateMachine(RevisionedStateMachine[ReservationState]):
             return None
         if now.tzinfo is None:
             raise ValueError("now must be timezone-aware")
-        if now.astimezone(timezone.utc) < self.lease_expires_at:
+        if now.astimezone(UTC) < self.lease_expires_at:
             return None
         return self.transition(
             request_id=request_id,

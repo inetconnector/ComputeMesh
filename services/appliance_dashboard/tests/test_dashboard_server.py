@@ -4,8 +4,8 @@ import threading
 import time
 import unittest
 import urllib.request
-from urllib.error import HTTPError
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from services.appliance_dashboard.server import DashboardHandler, run_dashboard_server
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
@@ -167,8 +167,8 @@ class TestDashboardServer(unittest.TestCase):
             pcie_riser_warning=False,
         )
 
-        from http.server import ThreadingHTTPServer
         import urllib.error
+        from http.server import ThreadingHTTPServer
         DashboardHandler.config = mock_config
         DashboardHandler.inventory = mock_inventory
         DashboardHandler.node_id = "win-test-node"
@@ -259,8 +259,8 @@ class TestDashboardServer(unittest.TestCase):
             server.server_close()
 
     def test_cors_options_preflight_and_private_network(self) -> None:
-        from http.server import ThreadingHTTPServer
         from http.client import HTTPConnection
+        from http.server import ThreadingHTTPServer
         server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
         th = threading.Thread(target=server.serve_forever, daemon=True)
         th.start()

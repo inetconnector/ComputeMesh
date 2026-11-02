@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger("computemesh.mcp.git_tools")
 
 
-def _run_git_cmd(args: List[str], repo_path: str = ".", timeout: float = 10.0) -> tuple[int, str, str]:
+def _run_git_cmd(args: list[str], repo_path: str = ".", timeout: float = 10.0) -> tuple[int, str, str]:
     try:
         proc = subprocess.run(
             ["git"] + args,
@@ -28,7 +28,7 @@ def _run_git_cmd(args: List[str], repo_path: str = ".", timeout: float = 10.0) -
         return 1, "", str(exc)
 
 
-def get_git_status(repo_path: str = ".") -> Dict[str, Any]:
+def get_git_status(repo_path: str = ".") -> dict[str, Any]:
     """Retrieves current branch and list of staged, modified, and untracked files."""
     code_br, current_branch, _ = _run_git_cmd(["branch", "--show-current"], repo_path)
     code_st, raw_status, err = _run_git_cmd(["status", "--porcelain=v1"], repo_path)
@@ -36,9 +36,9 @@ def get_git_status(repo_path: str = ".") -> Dict[str, Any]:
     if code_st != 0:
         return {"error": f"Kein Git-Repository oder Fehler: {err}", "is_git_repo": False}
 
-    staged: List[str] = []
-    modified: List[str] = []
-    untracked: List[str] = []
+    staged: list[str] = []
+    modified: list[str] = []
+    untracked: list[str] = []
 
     for line in raw_status.splitlines():
         if len(line) < 3:
@@ -67,7 +67,7 @@ def get_git_status(repo_path: str = ".") -> Dict[str, Any]:
     }
 
 
-def get_git_diff(repo_path: str = ".", file_path: Optional[str] = None, staged: bool = False) -> Dict[str, Any]:
+def get_git_diff(repo_path: str = ".", file_path: str | None = None, staged: bool = False) -> dict[str, Any]:
     """Generates unified diff of workspace changes for whole repo or specific file."""
     cmd = ["diff"]
     if staged:
@@ -88,14 +88,14 @@ def get_git_diff(repo_path: str = ".", file_path: Optional[str] = None, staged: 
     }
 
 
-def get_git_log(repo_path: str = ".", max_count: int = 10) -> Dict[str, Any]:
+def get_git_log(repo_path: str = ".", max_count: int = 10) -> dict[str, Any]:
     """Retrieves recent commit log history."""
     fmt = "%H|%an|%ad|%s"
     code, raw_log, err = _run_git_cmd(["log", f"-n{max_count}", f"--pretty=format:{fmt}", "--date=short"], repo_path)
     if code != 0:
         return {"error": f"Git Log Fehler: {err}", "commits": []}
 
-    commits: List[Dict[str, str]] = []
+    commits: list[dict[str, str]] = []
     for line in raw_log.splitlines():
         parts = line.split("|", 3)
         if len(parts) == 4:

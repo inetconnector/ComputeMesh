@@ -15,8 +15,9 @@ import ssl
 import struct
 import threading
 import time
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any
 
 from protocol.control import parse_control_envelope
 from protocol.node_identity import AUTH_METHOD, Ed25519ChallengeVerifier

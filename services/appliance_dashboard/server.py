@@ -5,27 +5,47 @@ Clean, modular HTTP server delegating to specialized routers and sub-handlers.
 from __future__ import annotations
 
 import argparse
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import ipaddress
 import hmac
 import io
+import ipaddress
 import json
 import logging
 import os
-from pathlib import Path
 import secrets
 import sys
 import threading
 import time
-from typing import Any
 import urllib.parse
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from config import CONFIG
+from services.appliance_dashboard import tunnel_relay as _tunnel_relay
+from services.appliance_dashboard.fan_control_handler import FanControlHandler
+from services.appliance_dashboard.inference_router import InferenceRouter
+from services.appliance_dashboard.killswitch_actions import KillswitchHandler
+from services.appliance_dashboard.mesh_aggregator import (
+    GLOBAL_MESH_AGGREGATOR,
+    MeshRegistryAggregator,
+)
+from services.appliance_dashboard.mesh_sharding_handler import MeshShardingHandler
+from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
+from services.appliance_dashboard.system_actions import SystemActionsHandler
+from services.appliance_dashboard.telemetry_handler import TelemetryHandler
+from services.appliance_dashboard.template_loader import get_dashboard_html
+from services.appliance_dashboard.tunnel_relay import (
+    CLOUD_TUNNEL_RELAY,
+    CloudTunnelRelay,
+    get_or_create_node_auth_token,
+    rotate_node_auth_token,
+)
+from services.appliance_dashboard.webapp_handler import WebAppsHandler
 from tools.appliance.appliance_config import (
     ApplianceConfig,
     load_appliance_config,
@@ -38,26 +58,6 @@ from tools.appliance.node_identity import (
     read_enrolled_node_id,
     resolve_node_id,
 )
-from services.appliance_dashboard.template_loader import get_dashboard_html
-from services.appliance_dashboard.mesh_aggregator import (
-    MeshRegistryAggregator,
-    GLOBAL_MESH_AGGREGATOR,
-)
-from services.appliance_dashboard.tunnel_relay import (
-    get_or_create_node_auth_token,
-    CloudTunnelRelay,
-    CLOUD_TUNNEL_RELAY,
-    rotate_node_auth_token,
-)
-from services.appliance_dashboard import tunnel_relay as _tunnel_relay
-from services.appliance_dashboard.inference_router import InferenceRouter
-from services.appliance_dashboard.fan_control_handler import FanControlHandler
-from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
-from services.appliance_dashboard.system_actions import SystemActionsHandler
-from services.appliance_dashboard.killswitch_actions import KillswitchHandler
-from services.appliance_dashboard.telemetry_handler import TelemetryHandler
-from services.appliance_dashboard.webapp_handler import WebAppsHandler
-from services.appliance_dashboard.mesh_sharding_handler import MeshShardingHandler
 
 log = logging.getLogger("computemesh.appliance.server")
 APPLIANCE_VERSION = CONFIG.appliance_version

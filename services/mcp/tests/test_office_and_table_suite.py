@@ -3,13 +3,14 @@
 
 import json
 import unittest
+
 from services.mcp.builtin.office_suite import (
     convert_data_to_markdown_table,
     generate_office_document,
     parse_office_document,
 )
-from services.mcp.formatting.tool_formatter import format_tool_content_if_json
 from services.mcp.builtin.weather import get_current_weather
+from services.mcp.formatting.tool_formatter import format_tool_content_if_json
 
 
 class TestOfficeAndTableSuite(unittest.TestCase):

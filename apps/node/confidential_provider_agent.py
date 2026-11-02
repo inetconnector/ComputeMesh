@@ -10,12 +10,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 from urllib.parse import urlparse
-
-from cryptography import x509
-from cryptography.hazmat.primitives import serialization
 
 from apps.node.provider_agent import (
     ProviderAgent,
@@ -24,6 +22,8 @@ from apps.node.provider_agent import (
     _load_json,
     _runtime_document,
 )
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
 from runtime.confidential.openai_backend import LoopbackOpenAIBackend
 from runtime.confidential.protected_worker import (
     CONFIDENTIAL_PROVISION_CAPABILITY,

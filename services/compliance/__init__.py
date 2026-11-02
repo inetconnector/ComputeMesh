@@ -1,5 +1,14 @@
 """Production compliance policy helpers for ComputeMesh."""
 
+from .mesh_policy import (
+    EligibilityDecision,
+    ExecutionPrivacyClass,
+    JobRoutingPolicy,
+    MeshFeatureFlags,
+    ProviderRoutingCapabilities,
+    ProviderTrustTier,
+    evaluate_mesh_eligibility,
+)
 from .policy import (
     CURRENT_PROVIDER_TERMS_VERSION,
     EEA_COUNTRY_CODES,
@@ -9,15 +18,6 @@ from .policy import (
     load_provider_compliance_registry_from_env,
     production_mode,
     require_production_model_attribution,
-)
-from .mesh_policy import (
-    EligibilityDecision,
-    ExecutionPrivacyClass,
-    JobRoutingPolicy,
-    MeshFeatureFlags,
-    ProviderRoutingCapabilities,
-    ProviderTrustTier,
-    evaluate_mesh_eligibility,
 )
 
 __all__ = [

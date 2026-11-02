@@ -1,14 +1,14 @@
 """ComputeMesh Heterogeneous Cluster Mesh Telemetry Aggregator."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
 import os
 import socket
 import threading
 import time
-from typing import Any
 import urllib.request
+from datetime import UTC, datetime, timezone
+from typing import Any
 
 from tools.appliance.hardware_detector import is_integrated_display_adapter
 
@@ -117,8 +117,8 @@ class MeshRegistryAggregator:
 
             # 2. Coordinator Fleet Sync via owner_key
             try:
-                from tools.appliance.appliance_config import load_appliance_config
                 from config import CONFIG
+                from tools.appliance.appliance_config import load_appliance_config
                 cfg = load_appliance_config()
                 owner_key = getattr(cfg, "owner_key", "")
                 if owner_key:
@@ -322,7 +322,7 @@ class MeshRegistryAggregator:
             "total_compute_tflops": round(total_tflops, 1),
             "total_tokens_processed": total_tokens,
             "nodes": node_details,
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
 

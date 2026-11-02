@@ -7,11 +7,11 @@ egress blocking, cross-process workflow claims and scope-safe memory mutation.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 
 from services.mcp.config import MCPConfig
 from services.mcp.platform.contracts import (

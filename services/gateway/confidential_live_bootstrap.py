@@ -6,10 +6,10 @@ startup rather than exposing a downgraded confidential route.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import ssl
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from runtime.confidential.data_plane import PinnedHttpsConfidentialDataPlane

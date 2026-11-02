@@ -11,8 +11,9 @@ import hashlib
 import math
 import os
 import secrets
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
 
@@ -32,7 +33,7 @@ class BlindedSessionKey:
         for i in range(dim):
             row: list[float] = []
             for j in range(dim):
-                h = hashlib.sha256(self.seed + f"{i}:{j}".encode("utf-8")).digest()
+                h = hashlib.sha256(self.seed + f"{i}:{j}".encode()).digest()
                 # Map to uniform [-1.0, 1.0]
                 val = (int.from_bytes(h[:4], "big") / 0xFFFFFFFF) * 2.0 - 1.0
                 row.append(val)

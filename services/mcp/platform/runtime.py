@@ -8,9 +8,10 @@ context injection, optional private runtime policy and side-effect grants.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 from services.memory.structured_memory import MemoryScope, StructuredMemoryStore
 

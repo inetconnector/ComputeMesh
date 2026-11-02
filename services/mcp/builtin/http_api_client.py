@@ -29,12 +29,12 @@ PRIVATE_HOST_PATTERNS = [
 def execute_http_request(
     url: str,
     method: str = "GET",
-    headers: Optional[Dict[str, str]] = None,
-    params: Optional[Dict[str, Any]] = None,
-    body: Optional[str] = None,
-    json_body: Optional[Dict[str, Any]] = None,
+    headers: dict[str, str] | None = None,
+    params: dict[str, Any] | None = None,
+    body: str | None = None,
+    json_body: dict[str, Any] | None = None,
     timeout_seconds: float = 15.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Executes arbitrary HTTP REST API requests (GET, POST, PUT, DELETE, PATCH)."""
     clean_url = str(url or "").strip()
     if not (clean_url.startswith("http://") or clean_url.startswith("https://")):

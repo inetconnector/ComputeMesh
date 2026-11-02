@@ -1,22 +1,28 @@
 """Gateway backend that resolves fresh live placement for every shared request."""
 from __future__ import annotations
 
-from pathlib import Path
 import secrets
 import threading
+from pathlib import Path
 from typing import Any
 
 from runtime.llama.shared_request_live import run_live_shared_request
 from services.gateway.execution_attestation import VerificationKeyResolver
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.orchestrator.architecture_hardening_part12 import (
+    ExecutionEvidenceEnforcer,
+    RecoveryStateEnforcer,
     StaleProviderResponseEnforcer,
     UserCancellationPropagator,
-    ExecutionEvidenceEnforcer,
-    RecoveryStateEnforcer
 )
-from services.orchestrator.authenticated_attestation_transport import SessionAuthenticatedAttestationTransport
-from services.orchestrator.live_shared_runtime import LiveExecutionPlan, LiveSharedRuntimeRegistry, LiveSharedRuntimeError
+from services.orchestrator.authenticated_attestation_transport import (
+    SessionAuthenticatedAttestationTransport,
+)
+from services.orchestrator.live_shared_runtime import (
+    LiveExecutionPlan,
+    LiveSharedRuntimeError,
+    LiveSharedRuntimeRegistry,
+)
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.private_feedback import PrivateFeedbackError, PrivateOutcomeFeedback
 from services.orchestrator.shared_request_backend import SharedRequestOrchestratedBackend

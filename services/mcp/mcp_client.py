@@ -22,8 +22,8 @@ class MCPStdioClient:
         self,
         name: str,
         command: str,
-        args: Optional[List[str]] = None,
-        env: Optional[Dict[str, str]] = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
         rpc_timeout_seconds: float = DEFAULT_RPC_TIMEOUT_SECONDS,
     ):
         self.name = name
@@ -31,7 +31,7 @@ class MCPStdioClient:
         self.args = list(args or [])
         self.env = dict(env or {}) if env else None
         self.rpc_timeout_seconds = max(0.1, min(120.0, float(rpc_timeout_seconds)))
-        self.process: Optional[subprocess.Popen] = None
+        self.process: subprocess.Popen | None = None
         self._next_id = 1
         self._lifecycle_lock = threading.RLock()
         self._rpc_lock = threading.Lock()
@@ -107,7 +107,7 @@ class MCPStdioClient:
         with self._lifecycle_lock:
             self._terminate_process_locked()
 
-    def list_tools(self) -> List[Dict[str, Any]]:
+    def list_tools(self) -> list[dict[str, Any]]:
         if not self._is_initialized and not self.start():
             return []
         try:
@@ -118,7 +118,7 @@ class MCPStdioClient:
         tools = res.get("tools") if isinstance(res, dict) else None
         return tools if isinstance(tools, list) else []
 
-    def call_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
+    def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         if not self._is_initialized and not self.start():
             return {"error": f"MCP-Server '{self.name}' nicht gestartet"}
         try:
@@ -147,7 +147,7 @@ class MCPStdioClient:
             raise RuntimeError(f"MCP-stdout konnte nicht gelesen werden: {value}")
         return str(value)
 
-    def _send_rpc(self, method: str, params: Dict[str, Any]) -> Any:
+    def _send_rpc(self, method: str, params: dict[str, Any]) -> Any:
         with self._rpc_lock:
             process = self.process
             if not process or process.poll() is not None or not process.stdin or not process.stdout:
@@ -194,7 +194,7 @@ class MCPStdioClient:
                     raise RuntimeError(f"MCP RPC Error: {data['error']}")
                 return data.get("result")
 
-    def _send_notification(self, method: str, params: Dict[str, Any]) -> None:
+    def _send_notification(self, method: str, params: dict[str, Any]) -> None:
         process = self.process
         if not process or process.poll() is not None or not process.stdin:
             return
@@ -211,14 +211,14 @@ class MCPClient:
 
     def __init__(self, config_path: str = ""):
         self.config_path = config_path
-        self.servers: Dict[str, MCPStdioClient] = {}
+        self.servers: dict[str, MCPStdioClient] = {}
 
     def add_stdio_server(
         self,
         name: str,
         command: str,
-        args: Optional[List[str]] = None,
-        env: Optional[Dict[str, str]] = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
         rpc_timeout_seconds: float = DEFAULT_RPC_TIMEOUT_SECONDS,
     ) -> None:
         if not str(name or "").strip() or not str(command or "").strip():
@@ -235,7 +235,7 @@ class MCPClient:
         self,
         name: str,
         url: str,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         timeout_seconds: float = DEFAULT_RPC_TIMEOUT_SECONDS,
     ) -> None:
         if not str(name or "").strip() or not str(url or "").strip():

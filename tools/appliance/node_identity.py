@@ -10,10 +10,9 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import re
 import secrets
-
+from pathlib import Path
 
 DEFAULT_PROVIDER_ENV = Path("/etc/computemesh/provider.env")
 NODE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{3,64}$")

@@ -5,7 +5,7 @@ from http import HTTPStatus
 from typing import Any
 
 from services.billing.accounting import AccountingStoreError
-from services.billing.ledger import BillingError, MICRO_UNIT_SCALE
+from services.billing.ledger import MICRO_UNIT_SCALE, BillingError
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
 from services.billing.owner_settlement import OwnerSettlementExecutor

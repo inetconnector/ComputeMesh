@@ -6,11 +6,15 @@ from __future__ import annotations
 import json
 import time
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from services.mcp.agent_loop import AgentLoop, detect_direct_tool_intent, format_tool_content_if_json
+from services.mcp.agent_loop import (
+    AgentLoop,
+    detect_direct_tool_intent,
+    format_tool_content_if_json,
+)
 from services.mcp.config import MCPConfig
-from services.mcp.tool_registry import ToolRegistry, ToolCache
+from services.mcp.tool_registry import ToolCache, ToolRegistry
 
 
 class TestMCPAdvancedPerformance(unittest.TestCase):

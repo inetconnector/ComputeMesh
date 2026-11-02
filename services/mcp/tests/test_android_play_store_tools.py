@@ -7,10 +7,10 @@ import unittest
 from pathlib import Path
 
 from services.mcp.builtin.android_play_store_tools import (
-    validate_store_listing,
-    validate_store_graphics,
     inspect_android_manifest_or_bundle,
     sync_play_console_metadata,
+    validate_store_graphics,
+    validate_store_listing,
 )
 from services.mcp.tool_registry import ToolRegistry
 

@@ -5,10 +5,10 @@ Handles /v1/providers/register, /v1/providers/stripe/onboard,
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 import os
-from pathlib import Path
 import sys
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -16,7 +16,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.accounting import AccountingStore, AccountingStoreError
-from services.billing.ledger import InsufficientBalanceError, Ledger, MICRO_UNIT_SCALE
+from services.billing.ledger import MICRO_UNIT_SCALE, InsufficientBalanceError, Ledger
 from services.billing.stripe_connect import (
     SettlementExecutor,
     StripeConnectService,

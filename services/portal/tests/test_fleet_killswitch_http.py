@@ -2,12 +2,8 @@
 """HTTP tests for multi-tenant Kill Switch portal endpoints and Master authorization scoping."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from http import HTTPStatus
-from http.server import ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
 import threading
@@ -15,16 +11,16 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
+from http import HTTPStatus
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from services.portal.server import PortalHandler
-from services.portal import passkey_routes
-from services.portal.fleet_accounts import FleetAccountStore
 import services.gateway.server as gateway_server_module
-from services.billing.owner_accounts import OwnerAccountStore
 from runtime.safety.dead_mans_switch import (
     DeadMansLeaseGuard,
     ExecutionLease,
@@ -32,6 +28,10 @@ from runtime.safety.dead_mans_switch import (
     set_global_lease_guard,
     utc_now,
 )
+from services.billing.owner_accounts import OwnerAccountStore
+from services.portal import passkey_routes
+from services.portal.fleet_accounts import FleetAccountStore
+from services.portal.server import PortalHandler
 
 PORT = 13038
 BASE = f"http://127.0.0.1:{PORT}"

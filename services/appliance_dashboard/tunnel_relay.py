@@ -4,14 +4,14 @@ from __future__ import annotations
 import json
 import logging
 import os
-from functools import wraps
-from pathlib import Path
 import secrets
 import sys
 import threading
 import time
-from typing import Any
 import urllib.request
+from functools import wraps
+from pathlib import Path
+from typing import Any
 
 from config import CONFIG
 from tools.appliance.node_identity import (
@@ -41,9 +41,17 @@ def _serialize_sync_call(method):
 from tools.security import node_auth_token_storage as _node_auth_storage
 from tools.security.node_auth_token_storage import (
     NodeAuthTokenStorageError,
+)
+from tools.security.node_auth_token_storage import (
     atomic_secure_text_write as _atomic_secure_text_write,
+)
+from tools.security.node_auth_token_storage import (
     default_node_auth_paths as _default_node_auth_paths,
+)
+from tools.security.node_auth_token_storage import (
     read_existing_node_auth_token as _read_existing_node_auth_token,
+)
+from tools.security.node_auth_token_storage import (
     rotate_node_auth_token as _rotate_node_auth_token,
 )
 
@@ -157,8 +165,8 @@ class CloudTunnelRelay:
         # lock through payload signing and all network sends as well.
         self._sync_lock = threading.RLock()
         self._wake_event = threading.Event()
-        from tools.security.node_key_storage import get_or_create_node_private_key
         from cryptography.hazmat.primitives import serialization
+        from tools.security.node_key_storage import get_or_create_node_private_key
         try:
             if _nodeos_mode():
                 enrolled_key_path = resolve_enrolled_private_key_path()
@@ -209,9 +217,9 @@ class CloudTunnelRelay:
     ) -> dict[str, Any]:
         """Performs a synchronous heartbeat and mesh sync to the coordinator."""
         with self._sync_lock:
+            from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
             from tools.appliance.appliance_config import load_appliance_config
             from tools.appliance.hardware_detector import scan_rig_hardware
-            from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
             from tools.appliance.token_metering import get_token_stats, sync_with_coordinator
 
             if updated_cfg is not None:

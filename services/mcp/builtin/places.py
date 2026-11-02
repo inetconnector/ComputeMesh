@@ -16,7 +16,7 @@ def search_places(
     location: str = "",
     limit: int = 5,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Find named places, POIs and businesses, optionally scoped to a location."""
     search_term = str(query or "").strip()
     scope = str(location or "").strip()

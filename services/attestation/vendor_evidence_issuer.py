@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import subprocess
-from typing import Any, Mapping
-
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
 
 MAX_ISSUER_OUTPUT_BYTES = 2 * 1024 * 1024
 

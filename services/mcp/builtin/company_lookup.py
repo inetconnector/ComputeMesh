@@ -11,7 +11,7 @@ from .http_json import ProviderError, fetch_json
 GLEIF_HOST = "api.gleif.org"
 
 
-def _address(value: Any) -> Dict[str, Any] | None:
+def _address(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
     lines = value.get("addressLines")
@@ -29,7 +29,7 @@ def lookup_company(
     country: str = "",
     limit: int = 5,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Search authoritative LEI records by legal entity name.
 
     GLEIF is strongest for entities that have an LEI; absence from this result is

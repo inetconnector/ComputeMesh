@@ -1,13 +1,14 @@
 """Validation, evidence/provenance and structured error recovery contracts."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from enum import Enum
 import hashlib
 import json
 import time
-from typing import Any, Callable, Iterable, Mapping, Sequence
 import uuid
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import asdict, dataclass, field
+from enum import Enum
+from typing import Any
 
 
 class ErrorCode(str, Enum):

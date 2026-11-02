@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import json
 import socket
-from typing import Any, Iterator, Mapping
+from collections.abc import Iterator, Mapping
+from typing import Any
 from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
 
 from runtime.confidential.protected_worker import ProtectedWorkerError
-
 
 MAX_BACKEND_BODY_BYTES = 8 * 1024 * 1024
 MAX_SSE_LINE_BYTES = 2 * 1024 * 1024

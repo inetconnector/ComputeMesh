@@ -12,7 +12,11 @@ from protocol.confidential_envelope import (
     encrypt_response_in_attested_recipient,
     generate_attested_recipient_keypair,
 )
-from protocol.confidential_metering import generate_attested_metering_keypair, sign_confidential_usage
+from protocol.confidential_metering import (
+    generate_attested_metering_keypair,
+    sign_confidential_usage,
+)
+
 from runtime.confidential.data_plane import (
     AttestedConfidentialEndpoint,
     ConfidentialDataPlaneError,

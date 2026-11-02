@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 import urllib.error
 import urllib.request
+from typing import Any
 
 logger = logging.getLogger("cm_safety.hardware_relay")
 

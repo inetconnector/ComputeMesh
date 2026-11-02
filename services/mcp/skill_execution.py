@@ -7,12 +7,13 @@ tool was run when it was not.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
-from pathlib import Path
 import re
-from typing import Any, Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)

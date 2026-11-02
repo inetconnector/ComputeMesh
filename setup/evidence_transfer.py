@@ -11,18 +11,18 @@ repository JSON-schema dependency.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
 import tempfile
-from typing import Any
 import zipfile
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path, PurePosixPath
+from typing import Any
 
 EXPORT_SCHEMA_VERSION = 1
 EXPORT_MANIFEST_NAME = "computemesh-lab-export.json"
@@ -89,10 +89,10 @@ class _LocalDocument:
 
 
 def _utc_now(now: datetime | None = None) -> datetime:
-    value = now or datetime.now(timezone.utc)
+    value = now or datetime.now(UTC)
     if value.tzinfo is None:
         raise EvidenceTransferError("timestamp must be timezone-aware")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 def _canonical_json(value: Any) -> bytes:

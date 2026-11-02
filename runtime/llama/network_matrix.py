@@ -11,14 +11,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass
-from pathlib import Path
 import queue
 import subprocess
 import sys
 import threading
 import time
-from typing import Any, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from runtime.llama.rpc_spike import RpcEndpoint, SpikePlan, compare_results, run_spike
 from runtime.llama.shared_trial import (

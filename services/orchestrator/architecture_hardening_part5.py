@@ -10,9 +10,10 @@ enforcement of the core invariants defined in ARCHITECTURE.md:
 """
 from __future__ import annotations
 
-import time
 import threading
+import time
 from typing import Any, Dict, List, Optional, Set
+
 
 class HardeningPart5Error(RuntimeError):
     """Base exception for architecture hardening Part 5 violations."""
@@ -43,7 +44,7 @@ class AutomaticCapacityRelease:
     """Enforces: Expired leases MUST release capacity automatically."""
     def __init__(self):
         self._lock = threading.Lock()
-        self._leases: Dict[str, float] = {}
+        self._leases: dict[str, float] = {}
         self._capacity: int = 100
         self._leased_capacity: int = 0
 
@@ -75,7 +76,7 @@ class AgentExecutionPolicy:
         # Only explicitly allowed, specialized inference commands
         self._allowed_commands = {"predict", "embed", "health", "metrics"}
 
-    def execute_command(self, command: str, payload: Dict[str, Any]) -> Any:
+    def execute_command(self, command: str, payload: dict[str, Any]) -> Any:
         if command not in self._allowed_commands:
             raise AgentExecutionPolicyError(f"Agent MUST NOT expose a generic remote-execution API. Command '{command}' is forbidden.")
         if "eval" in command or "exec" in command or "shell" in command:
@@ -88,7 +89,7 @@ class RelayPolicyEnforcer:
     def __init__(self):
         self._mandatory_policies = {"mTLS", "E2E_Encryption", "Strict_Auth"}
 
-    def forward_request(self, relay_config: Dict[str, bool], request: Any) -> Any:
+    def forward_request(self, relay_config: dict[str, bool], request: Any) -> Any:
         for policy in self._mandatory_policies:
             if not relay_config.get(policy, False):
                 raise RelayPolicyError(f"Relays MUST NOT silently weaken end-to-end policy. Missing: {policy}")
@@ -100,7 +101,7 @@ class CryptographicProofClaimVerifier:
     def __init__(self):
         self._evaluated_mechanisms = {"zk-SNARK-v1"}
 
-    def verify_inference_result(self, result: Dict[str, Any], proof_mechanism: Optional[str] = None) -> bool:
+    def verify_inference_result(self, result: dict[str, Any], proof_mechanism: str | None = None) -> bool:
         if "cryptographic_proof" in result:
             if not proof_mechanism:
                 raise CryptographicProofError("MUST NOT claim cryptographic proof without specifying the mechanism.")
@@ -126,7 +127,7 @@ class CryptographicProofClaimVerifier:
 class MoEWANCostMeasurer:
     """Enforces: ComputeMesh MUST measure these effects rather than assume MoE solves WAN cost."""
     def __init__(self):
-        self._measurements: List[Dict[str, float]] = []
+        self._measurements: list[dict[str, float]] = []
 
     def record_routing_cost(self, activation_traffic_mb: float, tail_latency_ms: float, expert_capacity_imbalance: float):
         if activation_traffic_mb < 0 or tail_latency_ms < 0 or expert_capacity_imbalance < 0:
@@ -138,7 +139,7 @@ class MoEWANCostMeasurer:
             "expert_capacity_imbalance": expert_capacity_imbalance
         })
 
-    def evaluate_placement(self) -> Dict[str, float]:
+    def evaluate_placement(self) -> dict[str, float]:
         if not self._measurements:
             raise MoEWANCostError("ComputeMesh MUST measure MoE routing effects before evaluation.")
 

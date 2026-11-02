@@ -9,7 +9,8 @@ import logging
 import math
 import struct
 import time
-from typing import Any, Callable, Dict, Generator, List, Optional
+from collections.abc import Callable, Generator
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("computemesh.voice.realtime")
 
@@ -51,9 +52,9 @@ class RealtimeVoiceSession:
         self,
         session_id: str = "default",
         sample_rate: int = 16000,
-        stt_handler: Optional[Callable[[bytes], str]] = None,
-        llm_handler: Optional[Callable[[str], Generator[str, None, None]]] = None,
-        tts_handler: Optional[Callable[[str], bytes]] = None,
+        stt_handler: Callable[[bytes], str] | None = None,
+        llm_handler: Callable[[str], Generator[str, None, None]] | None = None,
+        tts_handler: Callable[[str], bytes] | None = None,
     ):
         self.session_id = session_id
         self.sample_rate = sample_rate
@@ -80,11 +81,11 @@ class RealtimeVoiceSession:
         return False
 
 
-    def process_audio_chunk(self, chunk: bytes) -> Dict[str, Any]:
+    def process_audio_chunk(self, chunk: bytes) -> dict[str, Any]:
         """Receives a raw PCM 16-bit 16kHz audio chunk from client."""
         has_voice = self.vad.is_speech(chunk)
 
-        events: List[str] = []
+        events: list[str] = []
 
         if has_voice:
             self._speech_frames += 1

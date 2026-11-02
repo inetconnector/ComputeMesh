@@ -15,7 +15,7 @@ def _get_safe_workspace_root() -> Path:
     return Path(os.getcwd()).resolve()
 
 
-def _resolve_safe_path(rel_path: str) -> Optional[Path]:
+def _resolve_safe_path(rel_path: str) -> Path | None:
     root = _get_safe_workspace_root()
     clean = str(rel_path or ".").strip().replace("\\", "/")
     if clean.startswith("/"):
@@ -30,15 +30,15 @@ def _resolve_safe_path(rel_path: str) -> Optional[Path]:
 
 def list_workspace_files(
     relative_path: str = ".",
-    pattern: Optional[str] = None,
+    pattern: str | None = None,
     max_depth: int = 3,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Safely lists files and directories in the workspace under the specified path."""
     target_dir = _resolve_safe_path(relative_path)
     if not target_dir or not target_dir.exists() or not target_dir.is_dir():
         return {"error": f"Verzeichnis '{relative_path}' existiert nicht oder liegt außerhalb des Workspace."}
 
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     root = _get_safe_workspace_root()
 
     try:
@@ -96,7 +96,7 @@ def read_workspace_file(
     relative_path: str,
     max_lines: int = 200,
     offset_line: int = 1,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Safely reads lines from a workspace text file with boundary checks."""
     target_file = _resolve_safe_path(relative_path)
     if not target_file or not target_file.exists() or not target_file.is_file():
@@ -136,7 +136,7 @@ def write_workspace_file(
     content: str,
     overwrite: bool = True,
     create_dirs: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Safely writes UTF-8 text content to a file in the workspace with atomic write and auto-directory creation."""
     target_file = _resolve_safe_path(relative_path)
     if not target_file:

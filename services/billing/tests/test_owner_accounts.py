@@ -1,13 +1,13 @@
 """Tests for durable owner/resource mappings and promo claims."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.owner_accounts import (
-    OwnerAccountStore,
-    OwnerAccountStoreError,
     PROMO_DEVICE,
     PROMO_GPU,
+    OwnerAccountStore,
+    OwnerAccountStoreError,
 )
 
 

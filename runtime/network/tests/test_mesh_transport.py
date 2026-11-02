@@ -1,5 +1,4 @@
 """Unit tests for Mutual TLS (mTLS) Peer-to-Peer Encrypted Transport."""
-from pathlib import Path
 import socket
 import ssl
 import sys
@@ -7,6 +6,7 @@ import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:

@@ -21,7 +21,7 @@ def search_arxiv_papers(
     category: str = "",
     max_results: int = 5,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Searches arXiv for scientific research papers, academic studies, preprints, authors, and abstracts.
     """
@@ -30,7 +30,7 @@ def search_arxiv_papers(
         return {"error": "Suchbegriff, Thema oder Autor für arXiv darf nicht leer sein (z. B. 'mixture of experts', 'deepseek', 'quantum error correction')."}
 
     # Build search query
-    query_parts: List[str] = []
+    query_parts: list[str] = []
     if search_q:
         query_parts.append(f"all:{search_q}")
     if author:
@@ -53,7 +53,7 @@ def search_arxiv_papers(
         ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
 
         entries = root.findall("atom:entry", ns)
-        papers: List[Dict[str, Any]] = []
+        papers: list[dict[str, Any]] = []
 
         for entry in entries:
             title_elem = entry.find("atom:title", ns)
@@ -67,7 +67,7 @@ def search_arxiv_papers(
             arxiv_url = id_elem.text.strip() if id_elem is not None and id_elem.text else ""
             pdf_url = arxiv_url.replace("/abs/", "/pdf/") + ".pdf" if "/abs/" in arxiv_url else arxiv_url
 
-            authors: List[str] = []
+            authors: list[str] = []
             for a in entry.findall("atom:author", ns):
                 name_elem = a.find("atom:name", ns)
                 if name_elem is not None and name_elem.text:

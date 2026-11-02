@@ -1,8 +1,8 @@
 """Unit tests for the passkey fleet-account SQLite store."""
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 
 from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError
 
@@ -67,7 +67,7 @@ class TestFleetAccountStore(unittest.TestCase):
     def test_challenge_expired_returns_none(self) -> None:
         self.store.store_challenge("alice@example.com", "registration", "chal_b64")
         with self.store._connection() as conn:
-            past = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
+            past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
             conn.execute(
                 "UPDATE fleet_challenges SET expires_at = ? WHERE email = ? AND kind = ?",
                 (past, "alice@example.com", "registration"),
@@ -88,7 +88,7 @@ class TestFleetAccountStore(unittest.TestCase):
         acc = self.store.create_account("alice@example.com")
         token = self.store.create_session(acc.account_id)
         with self.store._connection() as conn:
-            past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat().replace("+00:00", "Z")
+            past = (datetime.now(UTC) - timedelta(days=1)).isoformat().replace("+00:00", "Z")
             conn.execute("UPDATE fleet_sessions SET expires_at = ? WHERE session_token = ?", (past, token))
         self.assertIsNone(self.store.get_session_account(token))
 

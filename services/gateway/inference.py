@@ -10,10 +10,11 @@ import re
 import secrets
 import sys
 import time
+from collections.abc import Generator
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -38,11 +39,12 @@ from services.gateway.inference_backend import (
     build_inference_backend_from_env,
 )
 from services.gateway.metrics_exporter import MetricsRegistry
-from services.gateway.security import sanitize_error_message
 from services.gateway.teaser import TeaserQuotaManager
 from services.mcp.agent_loop import AgentLoop
 from services.mcp.config import get_mcp_config
 from services.mcp.tool_registry import ToolRegistry
+
+from services.gateway.security import sanitize_error_message
 
 _TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 _EXECUTION_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
@@ -549,7 +551,7 @@ class InferenceEngine:
             }
             if execution:
                 chunk["compute_mesh_execution"] = execution
-            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode()
             yield b"data: [DONE]\n\n"
             return
         words = completion_text.split(" ")
@@ -570,7 +572,7 @@ class InferenceEngine:
             }
             if execution and i == 0:
                 chunk["compute_mesh_execution"] = execution
-            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode()
             time.sleep(0.01)
 
         final_chunk = {
@@ -586,7 +588,7 @@ class InferenceEngine:
                 }
             ],
         }
-        yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+        yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n".encode()
         yield b"data: [DONE]\n\n"
 
     @staticmethod
@@ -601,7 +603,7 @@ class InferenceEngine:
         """Formats non-streaming response for Ollama /api/chat."""
         response = {
             "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "message": {
                 "role": "assistant",
                 "content": completion_text,
@@ -630,7 +632,7 @@ class InferenceEngine:
             token_str = word + (" " if i < len(words) - 1 else "")
             chunk = {
                 "model": model_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "message": {"role": "assistant", "content": token_str},
                 "done": False,
             }
@@ -641,7 +643,7 @@ class InferenceEngine:
 
         final_chunk = {
             "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "message": {"role": "assistant", "content": ""},
             "done": True,
             "done_reason": "stop",
@@ -662,7 +664,7 @@ class InferenceEngine:
         """Formats non-streaming response for Ollama /api/generate."""
         response = {
             "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "response": completion_text,
             "done": True,
             "done_reason": "stop",
@@ -688,7 +690,7 @@ class InferenceEngine:
             token_str = word + (" " if i < len(words) - 1 else "")
             chunk = {
                 "model": model_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "response": token_str,
                 "done": False,
             }
@@ -699,7 +701,7 @@ class InferenceEngine:
 
         final_chunk = {
             "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "response": "",
             "done": True,
             "done_reason": "stop",

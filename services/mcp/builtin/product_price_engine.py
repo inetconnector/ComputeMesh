@@ -66,7 +66,7 @@ def clean_html_text(raw_html: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def parse_numeric_price(price_str: str) -> Optional[float]:
+def parse_numeric_price(price_str: str) -> float | None:
     """Parses arbitrary European/US price strings into float."""
     if not price_str:
         return 0.0
@@ -128,7 +128,7 @@ def extract_merchant_name(url: str, title: str = "", snippet: str = "") -> str:
     return "Online-Händler"
 
 
-def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[str, Any]]:
+def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> list[dict[str, Any]]:
     """
     Fetches real-time shopping offers from DuckDuckGo HTML and e-commerce shopping engines.
     """
@@ -144,7 +144,7 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[st
         },
     )
 
-    offers: List[Dict[str, Any]] = []
+    offers: list[dict[str, Any]] = []
     seen_merchants = set()
 
     try:
@@ -211,7 +211,7 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[st
     return offers
 
 
-def get_curated_benchmark_offers(query: str) -> List[Dict[str, Any]]:
+def get_curated_benchmark_offers(query: str) -> list[dict[str, Any]]:
     """
     Returns high-accuracy benchmark offers for well-known popular tech, smartphone, and hardware products
     to ensure instant sub-second response times and realistic market pricing.
@@ -292,13 +292,13 @@ def get_curated_benchmark_offers(query: str) -> List[Dict[str, Any]]:
 
 def search_product_prices(
     query: str,
-    category: Optional[str] = None,
+    category: str | None = None,
     max_offers: int = 6,
     country: str = "DE",
-    country_code: Optional[str] = None,
+    country_code: str | None = None,
     sort_by: str = "price_asc",
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Performs real-time price comparison and merchant offer search for products.
 

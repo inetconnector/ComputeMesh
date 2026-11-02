@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from urllib import request, error
+from urllib import error, request
 
 from .config import ConcertResearchConfig
 from .models import EventObservation

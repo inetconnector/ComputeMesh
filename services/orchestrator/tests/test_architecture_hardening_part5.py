@@ -1,18 +1,20 @@
 """Tests for ComputeMesh Architecture Hardening & Fault Tolerance Engine (Part 5)."""
 
-import unittest
 import time
+import unittest
+
 from services.orchestrator.architecture_hardening_part5 import (
-    AutomaticCapacityRelease,
     AgentExecutionPolicy,
-    RelayPolicyEnforcer,
-    CryptographicProofClaimVerifier,
-    MoEWANCostMeasurer,
     AgentExecutionPolicyError,
-    RelayPolicyError,
+    AutomaticCapacityRelease,
+    CryptographicProofClaimVerifier,
     CryptographicProofError,
-    MoEWANCostError
+    MoEWANCostError,
+    MoEWANCostMeasurer,
+    RelayPolicyEnforcer,
+    RelayPolicyError,
 )
+
 
 class TestArchitectureHardeningPart5(unittest.TestCase):
     """Exhaustive tests for Part 5 invariants ensuring 100% real implementation (Rule 7)."""
@@ -64,7 +66,7 @@ class TestArchitectureHardeningPart5(unittest.TestCase):
         """Test valid cryptographic proof claim."""
         verifier = CryptographicProofClaimVerifier()
         import hashlib
-        expected_hash = hashlib.sha256("test_output".encode("utf-8")).hexdigest()
+        expected_hash = hashlib.sha256(b"test_output").hexdigest()
         result = {"output": "test_output", "cryptographic_proof": expected_hash}
         self.assertTrue(verifier.verify_inference_result(result, "zk-SNARK-v1"))
 
@@ -72,7 +74,7 @@ class TestArchitectureHardeningPart5(unittest.TestCase):
         """Test claim without mechanism is rejected."""
         verifier = CryptographicProofClaimVerifier()
         import hashlib
-        expected_hash = hashlib.sha256("test_output".encode("utf-8")).hexdigest()
+        expected_hash = hashlib.sha256(b"test_output").hexdigest()
         result = {"output": "test_output", "cryptographic_proof": expected_hash}
         with self.assertRaises(CryptographicProofError) as ctx:
             verifier.verify_inference_result(result, None)
@@ -82,7 +84,7 @@ class TestArchitectureHardeningPart5(unittest.TestCase):
         """Test claim with unverified mechanism is rejected."""
         verifier = CryptographicProofClaimVerifier()
         import hashlib
-        expected_hash = hashlib.sha256("test_output".encode("utf-8")).hexdigest()
+        expected_hash = hashlib.sha256(b"test_output").hexdigest()
         result = {"output": "test_output", "cryptographic_proof": expected_hash}
         with self.assertRaises(CryptographicProofError) as ctx:
             verifier.verify_inference_result(result, "untested-crypto-v2")

@@ -4,7 +4,8 @@ from __future__ import annotations
 import socket
 import ssl
 import threading
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from protocol.node_identity import Ed25519ChallengeVerifier
 from protocol.node_session import SessionSnapshot

@@ -8,7 +8,6 @@ across distributed coordinator and worker nodes.
 from __future__ import annotations
 
 import dataclasses
-from enum import Enum, auto
 import hashlib
 import json
 import logging
@@ -17,15 +16,17 @@ import struct
 import sys
 import threading
 import time
-from typing import Any, Callable
 import zlib
-
+from collections.abc import Callable
+from enum import Enum, auto
 from pathlib import Path
+from typing import Any
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from runtime.network.mesh_transport import NodeCredentials, MeshTransportError
+from runtime.network.mesh_transport import MeshTransportError, NodeCredentials
 
 logger = logging.getLogger("computemesh.webrtc_mesh")
 

@@ -10,27 +10,26 @@ from __future__ import annotations
 
 import base64
 import binascii
-from datetime import UTC, datetime, timedelta
 import json
 import os
-from pathlib import Path
 import secrets
 import ssl
-from typing import Any, Mapping
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
 from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 from runtime.confidential.protected_worker import CONFIDENTIAL_PROVISION_CAPABILITY
 from runtime.confidential.provider_control import CONFIDENTIAL_PROVISION_MESSAGE
 from runtime.confidential.session import ConfidentialSessionError, ConfidentialSessionProvision
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
 from services.orchestrator.persistent_control_channel import PersistentControlChannelError
-
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 DEFAULT_PATH = "/internal/v1/confidential/dispatch"

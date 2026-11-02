@@ -4,21 +4,22 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import uuid
-from typing import Any, Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime, timezone
+from pathlib import Path
+from typing import Any
 
 SCHEMA_VERSION = 1
 _GPU_DEVICE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,127}$")
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def parse_llama_bench_output(text: str) -> list[dict[str, Any]]:

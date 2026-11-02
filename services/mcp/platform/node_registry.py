@@ -7,11 +7,12 @@ import sqlite3
 import threading
 import time
 import uuid
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Sequence
+from typing import Any
 
 
 class NodeRegistryError(RuntimeError):

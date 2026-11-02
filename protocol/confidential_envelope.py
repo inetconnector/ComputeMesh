@@ -12,19 +12,18 @@ isolation are separate mandatory P0 controls.
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass, field
 import json
 import secrets
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import Any
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-
 from services.common.secure_memory import secure_zero_memory
-
 
 SCHEMA_VERSION = 2
 REQUEST_ALGORITHM = "X25519-HKDF-SHA256-AES-256-GCM"

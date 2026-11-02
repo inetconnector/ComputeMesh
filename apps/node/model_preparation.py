@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
-from typing import Any, Mapping
+from typing import Any
 
 from protocol.node_session import SessionSnapshot
 from services.appliance_dashboard.model_manager import ModelManager, get_model_manager

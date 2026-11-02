@@ -1,9 +1,9 @@
 """Unit tests for ComputeMesh LAN Discovery UDP Responder."""
-from pathlib import Path
 import socket
 import sys
 import time
 import unittest
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:

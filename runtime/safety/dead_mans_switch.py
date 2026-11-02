@@ -7,11 +7,11 @@ valid, unexpired lease signed by an out-of-band Safety Supervisor is present.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
 import json
 import logging
 import threading
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from tools.security.ed25519_verify import verify_ed25519_signature

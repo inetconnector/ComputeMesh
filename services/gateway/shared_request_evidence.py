@@ -1,16 +1,15 @@
 """Verify single-pass shared-request evidence before provider settlement."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.gateway.placement_selection import PlacementSelection
 
 MAX_EVIDENCE_BYTES = 4 * 1024 * 1024
@@ -120,11 +119,11 @@ def verify_shared_request_evidence(
     if doc["evidence_id"] != expected_id:
         raise SharedRequestEvidenceError("evidence id does not match document claims")
     try:
-        captured = datetime.fromisoformat(doc["captured_at"].replace("Z", "+00:00")).astimezone(timezone.utc)
+        captured = datetime.fromisoformat(doc["captured_at"].replace("Z", "+00:00")).astimezone(UTC)
     except (ValueError, AttributeError) as exc:
         raise SharedRequestEvidenceError("invalid evidence timestamp") from exc
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    if captured < not_before.astimezone(timezone.utc) - timedelta(seconds=5):
+    current = (now or datetime.now(UTC)).astimezone(UTC)
+    if captured < not_before.astimezone(UTC) - timedelta(seconds=5):
         raise SharedRequestEvidenceError("evidence predates current execution")
     if captured > current + timedelta(minutes=5):
         raise SharedRequestEvidenceError("evidence timestamp is implausibly in the future")

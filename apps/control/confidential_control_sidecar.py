@@ -9,18 +9,18 @@ from __future__ import annotations
 
 import argparse
 import hmac
+import json
+from collections.abc import Mapping
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from protocol.node_identity import Ed25519ChallengeVerifier
 from runtime.confidential.provider_control import CONFIDENTIAL_PROVISION_MESSAGE
 from services.identity.store import SQLiteIdentityStore
 from services.orchestrator.confidential_live_registry import ConfidentialLiveRuntimeRegistry
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
-
 
 MAX_SIDECAR_BODY_BYTES = 256 * 1024
 CANDIDATES_PATH = "/internal/v1/confidential/candidates"

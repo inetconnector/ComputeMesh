@@ -19,9 +19,10 @@ import secrets
 import signal
 import socket
 import threading
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
+from typing import Any
 from urllib.parse import urlparse
 
 from apps.node.environment import NodeEnvironmentError, NodeEnvironmentExecutor

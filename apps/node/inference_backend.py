@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import json
 import threading
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any
 from urllib import error as urlerror
 from urllib import request as urlrequest
 from urllib.parse import urlparse

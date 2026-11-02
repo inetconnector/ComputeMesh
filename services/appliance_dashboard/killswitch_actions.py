@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import hmac
-from http import HTTPStatus
 import json
 import logging
 import os
+from http import HTTPStatus
 from typing import Any
 
 log = logging.getLogger("computemesh.appliance.killswitch")

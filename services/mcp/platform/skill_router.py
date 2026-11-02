@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
 
 from .contracts import (
     RequestEnvelope,

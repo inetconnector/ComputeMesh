@@ -1,14 +1,13 @@
 import json
-from pathlib import Path
 import queue
 import socket
 import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from runtime.network.tcp_relay import PrivateEndpoint, RelayConfig, run_relay, run_relay_once
 
 
@@ -472,7 +471,7 @@ class TcpRelayTests(unittest.TestCase):
 
             total_sent = 0
             for i in range(5):
-                payload = f"seq-msg-{i}-".encode("utf-8") * 100
+                payload = f"seq-msg-{i}-".encode() * 100
                 total_sent += len(payload)
                 with socket.create_connection((endpoint.host, endpoint.port), timeout=2) as client:
                     client.sendall(payload)
@@ -486,7 +485,7 @@ class TcpRelayTests(unittest.TestCase):
                     self.assertEqual(received, payload)
 
             def concurrent_worker(idx):
-                payload = f"conc-msg-{idx}-".encode("utf-8") * 100
+                payload = f"conc-msg-{idx}-".encode() * 100
                 with socket.create_connection((endpoint.host, endpoint.port), timeout=2) as client:
                     client.sendall(payload)
                     client.shutdown(socket.SHUT_WR)
@@ -499,7 +498,7 @@ class TcpRelayTests(unittest.TestCase):
                     self.assertEqual(received, payload)
 
             workers = [threading.Thread(target=concurrent_worker, args=(j,)) for j in range(3)]
-            total_sent += 3 * len(f"conc-msg-0-".encode("utf-8") * 100)
+            total_sent += 3 * len(f"conc-msg-0-".encode() * 100)
             for w in workers:
                 w.start()
             for w in workers:

@@ -1,13 +1,14 @@
 """Operational tool result, pagination, resource identity and egress-safety contracts."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from enum import Enum
 import hashlib
 import json
 import re
 import time
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass, field
+from enum import Enum
+from typing import Any
 
 
 class ToolResultStatus(str, Enum):

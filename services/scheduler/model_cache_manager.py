@@ -7,11 +7,11 @@ cold-start layer transfer latencies.
 """
 from __future__ import annotations
 
+import sys
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-import sys
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -68,7 +68,7 @@ class DynamicModelCacheManager:
         now_utc: float | None = None,
     ) -> dict[str, Any]:
         """Ensures the model is loaded into VRAM, evicting cold models if necessary."""
-        now = now_utc if now_utc is not None else datetime.now(timezone.utc).timestamp()
+        now = now_utc if now_utc is not None else datetime.now(UTC).timestamp()
         model_id = model_meta.model_id
 
         if model_meta.weight_bytes > self.usable_vram_bytes:

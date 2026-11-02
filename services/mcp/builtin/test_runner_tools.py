@@ -17,10 +17,10 @@ log = logging.getLogger("computemesh.mcp.test_runner_tools")
 def run_project_tests(
     framework: str = "pytest",
     test_path: str = ".",
-    filter_pattern: Optional[str] = None,
+    filter_pattern: str | None = None,
     timeout_seconds: float = 45.0,
-    cwd: Optional[str] = None,
-) -> Dict[str, Any]:
+    cwd: str | None = None,
+) -> dict[str, Any]:
     """Executes automated test suites (pytest, go test, npm, cargo) and parses structured test results."""
     clean_framework = str(framework or "pytest").lower().strip()
     work_dir = os.path.abspath(cwd or ".")
@@ -59,7 +59,7 @@ def run_project_tests(
         passed = 0
         failed = 0
         errors = 0
-        failures: List[Dict[str, str]] = []
+        failures: list[dict[str, str]] = []
 
         if clean_framework == "pytest":
             # Regex for "X passed, Y failed"

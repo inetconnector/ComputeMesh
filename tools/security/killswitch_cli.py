@@ -10,11 +10,11 @@ Enables operators to:
 from __future__ import annotations
 
 import argparse
-from datetime import UTC, datetime, timedelta
 import json
 import os
-from pathlib import Path
 import sys
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 # Ensure project root is on sys.path
@@ -28,8 +28,8 @@ LOCAL_SAFETY_DIR = REPO_ROOT / "config" / "safety"
 
 def generate_master_keys(target_dir: Path = DEFAULT_DISKSTATION_DIR) -> tuple[bytes, str]:
     """Generates Ed25519 Master Signing Keypair for the Kill Switch subsystem."""
-    from cryptography.hazmat.primitives.asymmetric import ed25519
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ed25519
 
     priv = ed25519.Ed25519PrivateKey.generate()
     pub = priv.public_key()

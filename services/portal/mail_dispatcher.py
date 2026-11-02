@@ -7,14 +7,14 @@ Sends cryptographically signed / TLS-secured operational emails from `mesh@inetc
 """
 from __future__ import annotations
 
-from html import escape as html_escape
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 import logging
 import os
-from pathlib import Path
 import smtplib
 import sys
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from html import escape as html_escape
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

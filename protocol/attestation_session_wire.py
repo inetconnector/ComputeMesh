@@ -1,8 +1,8 @@
 """Bind execution-attestation request/response messages to an authenticated NodeSession."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import secrets
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 from .control import ControlEnvelope
@@ -17,7 +17,7 @@ class AttestationSessionWireError(RuntimeError):
 
 
 def _require_live_attestation_session(session: SessionSnapshot, *, now: datetime | None = None) -> None:
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     if session.state not in {
         NodeSessionState.CAPABILITIES_NEGOTIATED,
         NodeSessionState.PROFILE_SYNCED,
@@ -53,7 +53,7 @@ def build_attestation_request_envelope(
         "request": dict(request_document),
     }
     SessionMessageContractValidator().validate("ExecutionAttestationRequest", payload)
-    issued = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    issued = (now or datetime.now(UTC)).astimezone(UTC)
     request_id = str(request_document["request_id"])
     return ControlEnvelope(
         protocol_major=session.protocol_major,

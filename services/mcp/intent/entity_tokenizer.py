@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Set
 
-DEFAULT_STOPWORDS: Set[str] = {
+DEFAULT_STOPWORDS: set[str] = {
     "bitte", "jetzt", "aktuell", "gerade", "heute", "morgen", "mal", "zeige", "mir",
     "gib", "und", "sowie", "auch", "in", "um", "ab", "von", "nach", "für", "der", "die", "das",
     "please", "now", "current", "today", "show", "me", "and", "as", "well", "for"
@@ -15,7 +15,7 @@ DEFAULT_STOPWORDS: Set[str] = {
 PUNCTUATION_CHARS = ".,;:!?\"'`()[]{}"
 
 
-def split_multi_entities(raw_query: str) -> List[str]:
+def split_multi_entities(raw_query: str) -> list[str]:
     """Splits multi-entity query strings by commas, conjunctions ('und', 'sowie', 'and', '+', '&')."""
     if not raw_query:
         return []
@@ -25,7 +25,7 @@ def split_multi_entities(raw_query: str) -> List[str]:
     return parts
 
 
-def clean_entity_token(token: str, stopwords: Optional[Set[str]] = None) -> str:
+def clean_entity_token(token: str, stopwords: set[str] | None = None) -> str:
     """Removes filler words and punctuation from an entity token."""
     if not token:
         return ""

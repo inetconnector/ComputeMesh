@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import replace
-from datetime import datetime
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from dataclasses import replace
+from datetime import datetime
+from pathlib import Path
 
 from services.concert_research.config import ConcertResearchConfig, resolve_timezone
 from services.concert_research.engine import ConcertResearchEngine
 from services.concert_research.extractors import extract_ics, extract_jsonld
-from services.concert_research.mcp_server import MCPApplication, PROTOCOL_VERSION
+from services.concert_research.mcp_server import PROTOCOL_VERSION, MCPApplication
 from services.concert_research.models import EventObservation, ResearchRequest, SourceRecord
 from services.concert_research.security import normalize_url, validate_public_http_url
 from services.concert_research.storage import ConcertStore

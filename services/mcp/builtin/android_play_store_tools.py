@@ -29,7 +29,7 @@ PROHIBITED_TERMS = [
 ]
 
 
-def _get_image_dimensions_pure_python(file_path: Path) -> Optional[Tuple[int, int]]:
+def _get_image_dimensions_pure_python(file_path: Path) -> tuple[int, int] | None:
     """Reads PNG or JPEG dimensions without requiring PIL/Pillow."""
     try:
         with open(file_path, "rb") as f:
@@ -74,14 +74,14 @@ def validate_store_listing(
     short_description: str,
     full_description: str,
     check_prohibited_terms: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validates Google Play Store text listing against official character bounds and policy guidelines."""
     t_clean = str(title or "").strip()
     s_clean = str(short_description or "").strip()
     f_clean = str(full_description or "").strip()
 
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
 
     # Length checks
     t_len = len(t_clean)
@@ -127,12 +127,12 @@ def validate_store_listing(
 
 
 def validate_store_graphics(
-    icon_path: Optional[str] = None,
-    feature_graphic_path: Optional[str] = None,
-    screenshots_dir: Optional[str] = None,
-) -> Dict[str, Any]:
+    icon_path: str | None = None,
+    feature_graphic_path: str | None = None,
+    screenshots_dir: str | None = None,
+) -> dict[str, Any]:
     """Validates app icons (512x512 PNG), feature graphics (1024x500 PNG/JPEG) and screenshot sets."""
-    results: Dict[str, Any] = {
+    results: dict[str, Any] = {
         "valid": True,
         "errors": [],
         "warnings": [],
@@ -194,13 +194,13 @@ def validate_store_graphics(
     return results
 
 
-def inspect_android_manifest_or_bundle(file_path: str) -> Dict[str, Any]:
+def inspect_android_manifest_or_bundle(file_path: str) -> dict[str, Any]:
     """Inspects an Android project, APK, AAB, or build.gradle to extract package, version, and SDK specifications."""
     p = Path(file_path).resolve()
     if not p.exists():
         return {"error": f"Path '{file_path}' does not exist.", "success": False}
 
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "success": True,
         "file": str(p).replace("\\", "/"),
         "type": "unknown",
@@ -279,9 +279,9 @@ def sync_play_console_metadata(
     package_name: str,
     edition_name: str,
     is_paid: bool = False,
-    default_price_eur: Optional[str] = None,
-    output_dir: Optional[str] = None,
-) -> Dict[str, Any]:
+    default_price_eur: str | None = None,
+    output_dir: str | None = None,
+) -> dict[str, Any]:
     """Ensures play-store-assets directory has complete package_name.txt, metadata.json and listing templates."""
     base_dir = Path(output_dir or asset_dir).resolve()
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -289,7 +289,7 @@ def sync_play_console_metadata(
     pkg_clean = str(package_name or "").strip()
     ed_clean = str(edition_name or "").strip()
 
-    created_or_updated: List[str] = []
+    created_or_updated: list[str] = []
 
     # 1. package_name.txt
     pkg_file = base_dir / "package_name.txt"

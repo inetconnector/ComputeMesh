@@ -7,9 +7,9 @@ mixed-capacity GPU clusters.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
 import math
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 

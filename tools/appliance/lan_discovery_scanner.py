@@ -7,17 +7,17 @@ web server as a ComputeMesh node without the NodeOS marker.
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, asdict
 import ipaddress
 import os
 import re
 import socket
 import threading
 import time
-from typing import Any
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, dataclass
+from typing import Any
 
 DEFAULT_PORTS = (8080, 8081)
 SCAN_TIMEOUT_SECONDS = 0.7

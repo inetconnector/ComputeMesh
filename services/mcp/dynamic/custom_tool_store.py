@@ -15,11 +15,12 @@ import re
 import sqlite3
 import threading
 import time
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from collections.abc import Generator
+from typing import Any, Dict, List, Optional, Tuple
 
-from .ast_security_guard import ASTSecurityGuard, SecurityViolationError
-from .sandbox_runner import SandboxRunner, SandboxExecutionError
 from ..ledger import get_compact_ledger
+from .ast_security_guard import ASTSecurityGuard, SecurityViolationError
+from .sandbox_runner import SandboxExecutionError, SandboxRunner
 
 logger = logging.getLogger("ComputeMesh.MCP.CustomToolStore")
 
@@ -29,7 +30,7 @@ TOOL_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{2,64}$")
 class CustomToolStore:
     """Manages persistent custom tool artifacts, schemas, security verification, and lifecycle."""
 
-    def __init__(self, db_path: Optional[str] = None) -> None:
+    def __init__(self, db_path: str | None = None) -> None:
         self.db_path = db_path or os.path.join(os.path.dirname(__file__), "custom_tools.db")
         self.security_guard = ASTSecurityGuard()
         self.sandbox_runner = SandboxRunner(timeout_seconds=15, max_memory_mb=256)
@@ -72,12 +73,12 @@ class CustomToolStore:
         self,
         name: str,
         description: str,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         code: str,
-        tags: Optional[List[str]] = None,
+        tags: list[str] | None = None,
         author_node: str = "local_node",
         version: str = "1.0.0",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Validates and persists a custom tool into the store."""
         clean_name = str(name).strip()
         if not TOOL_NAME_PATTERN.match(clean_name):
@@ -146,7 +147,7 @@ class CustomToolStore:
         logger.info(f"Custom Tool '{clean_name}' (v{version}) erfolgreich im Persistent Tool Store gespeichert.")
         return self.get_tool(clean_name) or {}
 
-    def get_tool(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_tool(self, name: str) -> dict[str, Any] | None:
         """Retrieves full details of a single custom tool by name."""
         clean_name = str(name).strip()
         with self._db_session() as conn:
@@ -182,15 +183,15 @@ class CustomToolStore:
 
     def list_tools(
         self,
-        tag: Optional[str] = None,
-        search: Optional[str] = None,
+        tag: str | None = None,
+        search: str | None = None,
         enabled_only: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Lists custom tools with optional tag and text filtering."""
         with self._db_session() as conn:
             cur = conn.cursor()
             query = "SELECT name, description, parameters, tags, author_node, version, created_at, updated_at, execution_count, avg_elapsed_ms, receipt_count, is_enabled FROM custom_tools WHERE 1=1"
-            params: List[Any] = []
+            params: list[Any] = []
 
             if enabled_only:
                 query += " AND is_enabled = 1"
@@ -240,9 +241,9 @@ class CustomToolStore:
     def execute_tool(
         self,
         name: str,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         node_id: str = "local_node",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Executes a custom tool securely in the sandbox and registers a Merkle PoE receipt."""
         tool = self.get_tool(name)
         if not tool:
@@ -311,7 +312,7 @@ class CustomToolStore:
             tool_params = t["parameters"]
 
             def _make_runner(t_name: str):
-                def _runner(**kwargs: Any) -> Dict[str, Any]:
+                def _runner(**kwargs: Any) -> dict[str, Any]:
                     return self.execute_tool(t_name, kwargs)
                 return _runner
 
@@ -330,7 +331,7 @@ class CustomToolStore:
         return registered_count
 
 
-_global_custom_tool_store: Optional[CustomToolStore] = None
+_global_custom_tool_store: CustomToolStore | None = None
 
 
 def get_custom_tool_store() -> CustomToolStore:

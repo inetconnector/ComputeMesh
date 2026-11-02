@@ -1,16 +1,17 @@
 """Versioned canonical project-state store with atomic checkpoints."""
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import tempfile
 import time
-from typing import Any, Mapping
 import uuid
+from collections.abc import Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 class StaleStateError(RuntimeError):

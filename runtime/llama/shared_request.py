@@ -8,13 +8,13 @@ marks production_scheduling=false.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import time
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from runtime.llama.rpc_spike import (
@@ -108,7 +108,7 @@ def build_shared_request_evidence(
         performance["model_ready_ms"] = float(timings["model_ready_ms"])
     evidence = {
         "schema_version": 1,
-        "captured_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "scope": "shared_request_execution",
         "job_id": job_id,
         "placement_decision_id": plan.placement_decision_id,

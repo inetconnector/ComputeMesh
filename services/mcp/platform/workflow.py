@@ -7,16 +7,17 @@ processes cannot claim the same side-effecting node at the same time.
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import threading
 import time
-from typing import Any, Callable, Mapping, Sequence
 import uuid
+from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)

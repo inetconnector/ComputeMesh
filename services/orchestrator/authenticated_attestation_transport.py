@@ -7,7 +7,7 @@ not treated as node identity unless a future PKI explicitly makes them so.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Protocol
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
@@ -60,7 +60,7 @@ class SessionAuthenticatedAttestationTransport(NodeAttestationTransport):
             raise AuthenticatedAttestationTransportError(
                 f"node {node_id} session is not authorized for control-plane requests"
             )
-        if session.credential_expires_at is None or session.credential_expires_at <= datetime.now(timezone.utc):
+        if session.credential_expires_at is None or session.credential_expires_at <= datetime.now(UTC):
             raise AuthenticatedAttestationTransportError(f"node {node_id} authentication has expired")
         if ATTESTATION_CAPABILITY not in session.negotiated_capabilities:
             raise AuthenticatedAttestationTransportError(

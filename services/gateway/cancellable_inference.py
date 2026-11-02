@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
 from services.billing.ledger import DEFAULT_NETWORK_FEE_BPS, DEFAULT_PRICE_TIERS
 from services.gateway.catalog import resolve_model_id

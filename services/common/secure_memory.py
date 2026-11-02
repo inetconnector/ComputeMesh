@@ -7,12 +7,12 @@ these primitives with real hardware attestation and protected execution memory.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
 import ctypes
 import os
 import platform
 import secrets
-from typing import Generator
+from collections.abc import Generator
+from contextlib import contextmanager
 
 try:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes

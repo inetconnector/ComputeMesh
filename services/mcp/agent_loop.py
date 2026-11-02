@@ -6,8 +6,9 @@ from __future__ import annotations
 import inspect
 import json
 import re
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Optional
 
 from .config import MCPConfig, get_mcp_config
 
@@ -54,29 +55,29 @@ RESOURCE_USAGE_FIELDS = (
 class ToolCallRecord:
     id: str
     name: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
     result: Any
 
 
 @dataclass
 class AgentExecutionResult:
     final_content: str
-    messages: List[Dict[str, Any]]
-    tool_calls_executed: List[ToolCallRecord] = field(default_factory=list)
+    messages: list[dict[str, Any]]
+    tool_calls_executed: list[ToolCallRecord] = field(default_factory=list)
     iterations: int = 1
     model: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
-    resource_usage: Dict[str, int] = field(default_factory=dict)
+    resource_usage: dict[str, int] = field(default_factory=dict)
     # Only bounded opaque execution identifiers; never model/provider policy data.
-    provenance: Dict[str, List[str]] = field(default_factory=dict)
+    provenance: dict[str, list[str]] = field(default_factory=dict)
 
 
 class AgentApprovalRequired(RuntimeError):
     """Raised internally when a durable side-effect approval pauses a turn."""
 
-    def __init__(self, execution: AgentExecutionResult, approval_ids: List[str]) -> None:
+    def __init__(self, execution: AgentExecutionResult, approval_ids: list[str]) -> None:
         super().__init__("agent turn is waiting for approval")
         self.execution = execution
         self.approval_ids = tuple(str(value) for value in approval_ids)
@@ -94,23 +95,23 @@ class AgentControlRequested(RuntimeError):
 class AgentLoop:
     """Orchestrates multi-turn autonomous tool execution loops with guardrails and token tracking."""
 
-    def __init__(self, registry: Optional[ToolRegistry] = None, config: Optional[MCPConfig] = None):
+    def __init__(self, registry: ToolRegistry | None = None, config: MCPConfig | None = None):
         self.config = config or get_mcp_config()
         self.registry = registry or ToolRegistry(self.config)
 
     def run(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
-        llm_caller: Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]],
+        llm_caller: Callable[[list[dict[str, Any]], list[dict[str, Any]]], dict[str, Any]],
         is_owner: bool = True,
-        max_iterations: Optional[int] = None,
-        disabled_tools: Optional[List[str]] = None,
-        on_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
+        max_iterations: int | None = None,
+        disabled_tools: list[str] | None = None,
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
         tool_broker: Any | None = None,
-        should_stop: Optional[Callable[[], Optional[str]]] = None,
-        on_checkpoint: Optional[Callable[[Dict[str, Any]], None]] = None,
-        resume_state: Optional[Mapping[str, Any]] = None,
+        should_stop: Callable[[], str | None] | None = None,
+        on_checkpoint: Callable[[dict[str, Any]], None] | None = None,
+        resume_state: Mapping[str, Any] | None = None,
         cancel_event: Any | None = None,
     ) -> AgentExecutionResult:
         try:
@@ -212,7 +213,7 @@ class AgentLoop:
         if resume_messages is not None:
             curr_messages = resume_messages
 
-        executed_records: List[ToolCallRecord] = []
+        executed_records: list[ToolCallRecord] = []
         raw_records = raw_resume.get("tool_records")
         if isinstance(raw_records, list):
             for raw_record in raw_records[:128]:
@@ -238,7 +239,7 @@ class AgentLoop:
             field: _restored_count(field)
             for field in RESOURCE_USAGE_FIELDS
         }
-        execution_provenance: Dict[str, List[str]] = {
+        execution_provenance: dict[str, list[str]] = {
             "execution_job_ids": [],
             "execution_node_ids": [],
         }
@@ -308,12 +309,12 @@ class AgentLoop:
             *,
             phase: str,
             iteration: int,
-            pending_tool_calls: List[Dict[str, Any]] | None = None,
+            pending_tool_calls: list[dict[str, Any]] | None = None,
             final_content: str = "",
         ) -> None:
             if on_checkpoint is None:
                 return
-            snapshot: Dict[str, Any] = {
+            snapshot: dict[str, Any] = {
                 "schema_version": 1,
                 "phase": str(phase),
                 "iteration": int(max(0, iteration)),
@@ -664,7 +665,7 @@ class AgentLoop:
                 _notify("loop_finished", final_records_count=len(executed_records))
                 return _execution_result(iterations=iteration, final_content=final)
 
-            assistant_msg: Dict[str, Any] = {"role": "assistant", "tool_calls": tool_calls}
+            assistant_msg: dict[str, Any] = {"role": "assistant", "tool_calls": tool_calls}
             if content:
                 assistant_msg["content"] = content
             if not resumed_model_response:

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from services.compliance.fleet_gatekeeper import (
@@ -10,8 +10,8 @@ from services.compliance.fleet_gatekeeper import (
     FleetGatekeeperError,
 )
 from services.compliance.provider_identity import (
-    BusinessRegistryInfo,
     DSA_TRADER_DECLARATION_VERSION,
+    BusinessRegistryInfo,
     EntityType,
     IdentityVerificationState,
     MarketplaceMode,

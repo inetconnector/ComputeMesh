@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Protocol, Iterable
 import secrets
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timezone
+from enum import Enum
+from typing import Protocol
 
 from .control import CURRENT_PROTOCOL_MINOR, SUPPORTED_PROTOCOL_MAJOR
 
@@ -229,7 +230,7 @@ class NodeSession:
         assert self.hello_info is not None
         if attempt.method not in self.hello_info.supported_auth_methods:
             raise AuthenticationFailed("authentication method was not advertised by node")
-        now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_utc = (now or datetime.now(UTC)).astimezone(UTC)
         decision = verifier.verify(
             session_id=self.session_id,
             challenge=self.challenge,
@@ -240,7 +241,7 @@ class NodeSession:
         if not decision.authenticated:
             raise AuthenticationFailed(decision.reason or "authentication failed")
         assert decision.credential_expires_at is not None
-        expires_at = decision.credential_expires_at.astimezone(timezone.utc)
+        expires_at = decision.credential_expires_at.astimezone(UTC)
         if expires_at <= now_utc:
             raise AuthenticationExpired("credential is already expired")
         if self.hello_info.node_id is not None and decision.node_id != self.hello_info.node_id:
@@ -259,7 +260,7 @@ class NodeSession:
             raise AuthenticationFailed("session is not authenticated")
         if self.credential_expires_at is None:
             raise AuthenticationFailed("session has no authenticated credential")
-        now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_utc = (now or datetime.now(UTC)).astimezone(UTC)
         if self.credential_expires_at <= now_utc:
             raise AuthenticationExpired("session credential has expired")
 

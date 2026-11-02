@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from protocol.control import ControlEnvelope
 from protocol.node_session import (
@@ -53,7 +53,7 @@ class SequencedBenchmarkPolicy:
 
 class NodeSessionWireTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 21, 12, 0, tzinfo=timezone.utc)
+        self.now = datetime(2026, 8, 21, 12, 0, tzinfo=UTC)
         self.session = NodeSession.create(
             "session-1", challenge="challenge-0123456789abcdef"
         )

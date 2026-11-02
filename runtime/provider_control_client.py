@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import socket
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from protocol.control import CURRENT_PROTOCOL_MINOR, SUPPORTED_PROTOCOL_MAJOR, ControlEnvelope
@@ -21,7 +22,7 @@ class ProviderHandshakeError(RuntimeError):
 
 
 def _envelope(*, message_type: str, actor_id: str, target_id: str, revision: int, payload: dict[str, Any]) -> ControlEnvelope:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return ControlEnvelope(
         protocol_major=SUPPORTED_PROTOCOL_MAJOR,
         protocol_minor=CURRENT_PROTOCOL_MINOR,
@@ -102,7 +103,7 @@ def perform_provider_handshake(
         node_id=node_id,
         principal_id=node_id,
         auth_method=AUTH_METHOD,
-        credential_expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+        credential_expires_at=datetime.now(UTC) + timedelta(minutes=15),
         negotiated_capabilities=frozenset(capabilities),
         profile_revision=None,
         drain_reason=None,

@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
-from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 from protocol.confidential_envelope import (
     ConfidentialBinding,
     encrypt_for_attested_recipient,
     generate_attested_recipient_keypair,
 )
+
 from runtime.confidential.replay_store import (
     ConfidentialReplayBindingError,
     ConfidentialReplayDetected,
@@ -137,9 +138,9 @@ class ConfidentialReplayStoreTests(unittest.TestCase):
             expected_account_id="acct-1",
             expected_privacy_class="CONFIDENTIAL",
             expected_operation="chat_completion",
-            now=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            now=datetime(2026, 1, 1, tzinfo=UTC),
         )
-        deleted = self.store.purge_before(datetime(2026, 2, 1, tzinfo=timezone.utc))
+        deleted = self.store.purge_before(datetime(2026, 2, 1, tzinfo=UTC))
         self.assertEqual(deleted, 1)
         self.assertIsNone(self.store.get_claim(self.envelope.envelope_id))
 

@@ -7,12 +7,11 @@ helper for its legacy non-NodeOS desktop mode through a compatibility wrapper.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import os
-from pathlib import Path
 import secrets
 import sys
-
+from collections.abc import Callable, Iterable
+from pathlib import Path
 
 TOKEN_PREFIX = "cm_tunnel_"
 _LIVE_PATH_PREFIXES = ("/boot", "/live", "/run/live")

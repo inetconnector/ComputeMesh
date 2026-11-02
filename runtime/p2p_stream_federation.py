@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import threading
+import time
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, field
-from typing import Any, Generator, Callable
+from typing import Any
 
 log = logging.getLogger("computemesh.runtime.stream_federation")
 

@@ -5,13 +5,14 @@ compute capacity (TFLOPS), network bandwidth, and model architectures.
 """
 from __future__ import annotations
 
-
-import time
-import threading
 import logging
-from runtime.distributed_model_cache import OffHeapCacheManager
+import threading
+import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any
+
+from runtime.distributed_model_cache import OffHeapCacheManager
 
 log = logging.getLogger("computemesh.runtime.dynamic_sharding")
 

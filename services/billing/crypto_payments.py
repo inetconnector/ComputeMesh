@@ -7,19 +7,19 @@ configured regulated payment-service-provider path.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import os
-from pathlib import Path
 import sys
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from services.billing.ledger import DuplicateEventError, Ledger, MICRO_UNIT_SCALE
+from services.billing.ledger import MICRO_UNIT_SCALE, DuplicateEventError, Ledger
 
 SUPPORTED_NETWORKS = ("ethereum", "arbitrum", "polygon", "base", "bsc")
 SUPPORTED_TOKENS = ("USDT", "USDC")
@@ -65,7 +65,7 @@ class CryptoPaymentService:
         if network.lower() not in SUPPORTED_NETWORKS:
             raise CryptoPaymentError(f"Unsupported network: {network}")
         addr_seed = hashlib.sha256(
-            f"{self.treasury_address}:{customer_account_id}:{network}".encode("utf-8")
+            f"{self.treasury_address}:{customer_account_id}:{network}".encode()
         ).hexdigest()
         deposit_addr = "0x" + addr_seed[:40].lower()
         self._address_to_customer[deposit_addr] = customer_account_id
@@ -103,7 +103,7 @@ class CryptoPaymentService:
         amount_micro = int(amount_usd * MICRO_UNIT_SCALE)
         if amount_micro < 5_000_000:
             raise CryptoPaymentError("Minimum on-chain crypto deposit is $5.00")
-        now_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now_str = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         try:
             journal_tx = self.ledger.deposit_customer_credits(
                 customer_account_id=account_id,

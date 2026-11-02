@@ -1,10 +1,10 @@
 """Authenticated HTTP routes for local NodeOS model management."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
-from typing import Any
 import urllib.parse
+from http import HTTPStatus
+from typing import Any
 
 from services.appliance_dashboard.model_manager import ModelManagerError, get_model_manager
 

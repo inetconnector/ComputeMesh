@@ -7,13 +7,14 @@ the complete content-free session boundary, not merely model/token limits.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from protocol.confidential_request_contract import (
-    ConfidentialRequestContractError,
     SESSION_ATTESTATION_NONCE_PREFIX,
+    ConfidentialRequestContractError,
     verify_committed_session_attestation_nonce,
 )
 

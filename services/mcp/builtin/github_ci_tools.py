@@ -13,11 +13,11 @@ log = logging.getLogger("computemesh.mcp.github_ci_tools")
 
 
 def github_list_releases(
-    repo: Optional[str] = None,
-    owner: Optional[str] = None,
+    repo: str | None = None,
+    owner: str | None = None,
     limit: int = 10,
     per_page: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lists recent releases and git tags for a repository."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
@@ -33,7 +33,7 @@ def github_list_releases(
     if not isinstance(raw_items, list):
         return {"error": "Unerwartetes Antwortformat.", "releases": []}
 
-    releases: List[Dict[str, Any]] = []
+    releases: list[dict[str, Any]] = []
     for it in raw_items:
         releases.append({
             "tag_name": it.get("tag_name"),
@@ -53,7 +53,7 @@ def github_list_releases(
     }
 
 
-def github_get_latest_release(repo: Optional[str] = None, owner: Optional[str] = None) -> Dict[str, Any]:
+def github_get_latest_release(repo: str | None = None, owner: str | None = None) -> dict[str, Any]:
     """Retrieves full changelog, assets, and metadata for the latest release."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
@@ -65,7 +65,7 @@ def github_get_latest_release(repo: Optional[str] = None, owner: Optional[str] =
         return {"error": resp.get("error", "Kein Release gefunden."), "success": False}
 
     data = resp.get("data", {})
-    assets: List[Dict[str, Any]] = []
+    assets: list[dict[str, Any]] = []
     for a in data.get("assets", []):
         assets.append({
             "name": a.get("name"),
@@ -87,12 +87,12 @@ def github_get_latest_release(repo: Optional[str] = None, owner: Optional[str] =
 
 
 def github_list_commits(
-    repo: Optional[str] = None,
-    owner: Optional[str] = None,
-    sha: Optional[str] = None,
+    repo: str | None = None,
+    owner: str | None = None,
+    sha: str | None = None,
     limit: int = 20,
     per_page: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Retrieves commit history with commit SHA, author, date, and commit message."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
@@ -112,7 +112,7 @@ def github_list_commits(
     if not isinstance(raw_items, list):
         return {"error": "Unerwartetes Antwortformat.", "commits": []}
 
-    commits: List[Dict[str, Any]] = []
+    commits: list[dict[str, Any]] = []
     for it in raw_items:
         c_obj = it.get("commit", {})
         commits.append({
@@ -132,12 +132,12 @@ def github_list_commits(
 
 
 def github_get_workflow_runs(
-    repo: Optional[str] = None,
-    owner: Optional[str] = None,
-    status: Optional[str] = None,
+    repo: str | None = None,
+    owner: str | None = None,
+    status: str | None = None,
     limit: int = 10,
     per_page: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Retrieves recent GitHub Actions CI/CD workflow runs."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
@@ -154,7 +154,7 @@ def github_get_workflow_runs(
         return {"error": resp.get("error", "Workflow-Läufe konnten nicht geladen werden."), "workflow_runs": []}
 
     raw_items = resp.get("data", {}).get("workflow_runs", [])
-    runs: List[Dict[str, Any]] = []
+    runs: list[dict[str, Any]] = []
     for it in raw_items:
         runs.append({
             "id": it.get("id"),

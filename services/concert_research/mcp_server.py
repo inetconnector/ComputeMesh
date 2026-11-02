@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import argparse
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from .engine import ConcertResearchEngine

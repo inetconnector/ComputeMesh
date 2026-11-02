@@ -1,12 +1,12 @@
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import tempfile
-from types import SimpleNamespace
 import unittest
+from datetime import UTC, datetime, timezone
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
-from datetime import datetime, timezone
 
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_trial import (
@@ -27,8 +27,7 @@ from runtime.llama.shared_trial import (
 )
 from runtime.llama.tests.test_shared_run_evidence import bundle as evidence_bundle
 
-
-NOW = datetime(2026, 8, 22, 6, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 22, 6, 0, tzinfo=UTC)
 
 
 def plan(kind="gpu", name="NVIDIA GeForce RTX 3080 Laptop GPU") -> TrialPlan:
@@ -168,7 +167,7 @@ class SharedTrialTests(unittest.TestCase):
             self.assertEqual(loaded.tensor_split, (30.0, 10.0))
             self.assertEqual(loaded.llama_build_commit, "abcdef0")
             self.assertEqual(loaded.llama_build_number, 999)
-            stale = datetime(2026, 8, 24, 6, 0, tzinfo=timezone.utc)
+            stale = datetime(2026, 8, 24, 6, 0, tzinfo=UTC)
             with self.assertRaisesRegex(SharedTrialError, "older than"):
                 load_trial_plan(bundle_path, model, now=stale)
 

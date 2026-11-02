@@ -73,11 +73,11 @@ class SafeHttpClient:
         cls,
         url: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Union[Dict[str, Any], str, bytes]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        data: Union[dict[str, Any], str, bytes] | None = None,
+        headers: dict[str, str] | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Executes an HTTP request with SSRF validation, DNS pinning, and size caps.
         Returns parsed JSON or text payload.
@@ -122,7 +122,7 @@ class SafeHttpClient:
         if headers:
             req_headers.update(headers)
 
-        payload_bytes: Optional[bytes] = None
+        payload_bytes: bytes | None = None
         if data is not None:
             if isinstance(data, dict):
                 payload_bytes = json.dumps(data).encode("utf-8")

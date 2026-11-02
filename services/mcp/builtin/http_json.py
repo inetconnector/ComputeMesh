@@ -12,7 +12,8 @@ import socket
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 USER_AGENT = "ComputeMesh/1.2 (+https://mesh.inetconnector.com)"
 DEFAULT_MAX_BYTES = 2 * 1024 * 1024

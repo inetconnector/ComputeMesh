@@ -9,14 +9,22 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
+from services.mcp.agent_loop import (
+    AgentLoop,
+    detect_direct_tool_intent,
+    format_tool_content_if_json,
+)
 from services.mcp.builtin.audio_tools import synthesize_speech_audio, transcribe_audio_data
 from services.mcp.builtin.data_table_tools import analyze_data_table
 from services.mcp.builtin.document_reader import extract_document_content
 from services.mcp.builtin.file_system_tools import list_workspace_files, read_workspace_file
-from services.mcp.builtin.system_tools import execute_gpu_telemetry, execute_process_summary, execute_system_info
+from services.mcp.builtin.system_tools import (
+    execute_gpu_telemetry,
+    execute_process_summary,
+    execute_system_info,
+)
 from services.mcp.mcp_http_client import MCPHttpClient
 from services.mcp.tool_registry import ToolRegistry
-from services.mcp.agent_loop import AgentLoop, detect_direct_tool_intent, format_tool_content_if_json
 
 
 class TestMCPExtendedCapabilities(unittest.TestCase):

@@ -9,16 +9,15 @@ from __future__ import annotations
 
 import argparse
 import base64
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from jsonschema import Draft202012Validator, FormatChecker
-
 from protocol.node_identity import key_id_from_public_key
 from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
 from tools.security.node_key_storage import load_node_private_key
@@ -132,7 +131,7 @@ def sign_attestation_request(
         format=serialization.PublicFormat.Raw,
     )
     key_id = key_id_from_public_key(public_raw)
-    issued = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    issued = (now or datetime.now(UTC)).astimezone(UTC)
     expires = issued + ttl
     claims = AttestationClaims(
         node_id=node_id,

@@ -8,28 +8,28 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from services.mcp.builtin.workspace_quarantine import (
-    quarantine_stage_files,
-    quarantine_validate,
-    quarantine_commit,
-    quarantine_rollback,
+from services.mcp.agent_loop import detect_direct_tool_intent, format_tool_content_if_json
+from services.mcp.builtin.adb_bridge_tools import (
+    adb_capture_screenshot,
+    adb_get_system_log,
+    adb_install_app,
+    adb_list_devices,
 )
-from services.mcp.builtin.workspace_doctor import run_doctor_diagnostics
 from services.mcp.builtin.mission_journal import (
-    mission_start,
-    mission_log_step,
-    mission_verify_postconditions,
     mission_get_summary,
+    mission_log_step,
+    mission_start,
+    mission_verify_postconditions,
 )
 from services.mcp.builtin.tool_installer import detect_missing_tools, install_dev_tool
-from services.mcp.builtin.adb_bridge_tools import (
-    adb_list_devices,
-    adb_capture_screenshot,
-    adb_install_app,
-    adb_get_system_log,
+from services.mcp.builtin.workspace_doctor import run_doctor_diagnostics
+from services.mcp.builtin.workspace_quarantine import (
+    quarantine_commit,
+    quarantine_rollback,
+    quarantine_stage_files,
+    quarantine_validate,
 )
 from services.mcp.tool_registry import ToolRegistry
-from services.mcp.agent_loop import detect_direct_tool_intent, format_tool_content_if_json
 
 
 class TestWorkspaceQuarantine(unittest.TestCase):

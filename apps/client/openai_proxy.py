@@ -10,17 +10,17 @@ Then point an ordinary OpenAI client at http://127.0.0.1:11435/v1.
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json
 from pathlib import Path
-import sys
 from typing import Any
 from urllib.parse import urlparse
 
 from apps.client.confidential_openai import (
-    ConfidentialOpenAIError,
     MAX_OPENAI_BODY_BYTES,
+    ConfidentialOpenAIError,
     is_loopback_host,
     load_local_attestation_policy,
 )
@@ -28,7 +28,6 @@ from apps.client.confidential_openai_stream import (
     HttpStreamingProtectedTransport,
     StreamingConfidentialOpenAIBridge,
 )
-
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 11435

@@ -33,11 +33,11 @@ def _find_adb_binary() -> str:
     return "adb"
 
 
-def _resolve_device_arg(device_id: Optional[str] = None) -> List[str]:
+def _resolve_device_arg(device_id: str | None = None) -> list[str]:
     return ["-s", device_id.strip()] if device_id and device_id.strip() else []
 
 
-def adb_list_devices() -> Dict[str, Any]:
+def adb_list_devices() -> dict[str, Any]:
     """Lists all connected Android physical devices and emulators with models."""
     try:
         adb_bin = _find_adb_binary()
@@ -53,7 +53,7 @@ def adb_list_devices() -> Dict[str, Any]:
             return {"error": f"ADB-Befehl fehlgeschlagen: {proc.stderr}", "devices": []}
 
         lines = proc.stdout.strip().splitlines()
-        devices: List[Dict[str, Any]] = []
+        devices: list[dict[str, Any]] = []
 
         for line in lines[1:]:
             parts = line.strip().split()
@@ -80,9 +80,9 @@ def adb_list_devices() -> Dict[str, Any]:
 
 
 def adb_capture_screenshot(
-    device_id: Optional[str] = None,
-    output_path: Optional[str] = None,
-) -> Dict[str, Any]:
+    device_id: str | None = None,
+    output_path: str | None = None,
+) -> dict[str, Any]:
     """Captures a real-time PNG screenshot from a connected Android edge device."""
     adb_bin = _find_adb_binary()
     args = [adb_bin] + _resolve_device_arg(device_id) + ["exec-out", "screencap", "-p"]
@@ -111,7 +111,7 @@ def adb_capture_screenshot(
         return {"success": False, "error": f"Screenshot-Fehler: {exc}"}
 
 
-def adb_install_app(apk_path: str, device_id: Optional[str] = None) -> Dict[str, Any]:
+def adb_install_app(apk_path: str, device_id: str | None = None) -> dict[str, Any]:
     """Installs or updates an Android APK on a target connected device."""
     if not os.path.exists(apk_path):
         return {"error": f"APK-Datei '{apk_path}' nicht gefunden.", "success": False}
@@ -133,10 +133,10 @@ def adb_install_app(apk_path: str, device_id: Optional[str] = None) -> Dict[str,
 
 
 def adb_get_system_log(
-    device_id: Optional[str] = None,
+    device_id: str | None = None,
     lines: int = 50,
-    filter_tag: Optional[str] = None,
-) -> Dict[str, Any]:
+    filter_tag: str | None = None,
+) -> dict[str, Any]:
     """Fetches recent logcat entries from the Android edge node."""
     adb_bin = _find_adb_binary()
     args = [adb_bin] + _resolve_device_arg(device_id) + ["logcat", "-d", "-t", str(min(200, lines))]

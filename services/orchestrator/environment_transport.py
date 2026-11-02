@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import threading
 import time
-from datetime import datetime, timezone
-from typing import Any, Mapping
+from collections.abc import Mapping
+from datetime import UTC, datetime, timezone
+from typing import Any
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
@@ -53,7 +54,7 @@ class AuthenticatedNodeEnvironmentTransport:
             raise EnvironmentTransportError("environment session binding mismatch")
         if session.state is not NodeSessionState.READY:
             raise EnvironmentTransportError("node session is not ready for environments")
-        if session.credential_expires_at <= datetime.now(timezone.utc):
+        if session.credential_expires_at <= datetime.now(UTC):
             raise EnvironmentTransportError("node session credential has expired")
         if self.required_capability not in {str(value) for value in (session.negotiated_capabilities or ())}:
             raise EnvironmentTransportError("node session lacks mesh environment capability")

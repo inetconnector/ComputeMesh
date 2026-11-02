@@ -22,8 +22,8 @@ def cross_source_knowledge_search(
     topic: str = "",
     language: str = "de",
     timeout: float = 7.0,
-    messages: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    messages: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """
     Executes deep cross-source research combining German & English Wikipedia,
     live news feeds (Tagesschau, Spiegel, Reuters RSS), and DuckDuckGo Web Search.
@@ -36,9 +36,9 @@ def cross_source_knowledge_search(
     resolved_query, resolved_entity, was_resolved = resolve_contextual_query(raw_query, messages)
     search_target = resolved_query if was_resolved else raw_query
 
-    wiki_data: Optional[Dict[str, Any]] = None
-    news_data: Optional[Dict[str, Any]] = None
-    web_results: List[Dict[str, str]] = []
+    wiki_data: dict[str, Any] | None = None
+    news_data: dict[str, Any] | None = None
+    web_results: list[dict[str, str]] = []
 
     # Step 2: Concurrent multi-source execution
     with ThreadPoolExecutor(max_workers=3) as executor:
@@ -62,8 +62,8 @@ def cross_source_knowledge_search(
             web_results = []
 
     # Step 3: Format and triangulate unified knowledge blocks
-    sections: List[str] = []
-    citations: List[Dict[str, str]] = []
+    sections: list[str] = []
+    citations: list[dict[str, str]] = []
 
     header = f"## 🔍 Fundierte Multi-Source Recherche: **{resolved_entity or search_target}**"
     if was_resolved:

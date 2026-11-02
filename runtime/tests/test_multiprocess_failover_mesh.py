@@ -1,12 +1,14 @@
-import unittest
+import json
 import multiprocessing
 import socket
 import time
-import json
+import unittest
+
 from runtime.autonomous_failover_mesh import (
-    EndToEndLatencyOptimizer,
     AutonomousFailoverMeshFabric,
+    EndToEndLatencyOptimizer,
 )
+
 
 def run_real_node_server(
     port_queue: multiprocessing.Queue,

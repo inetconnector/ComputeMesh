@@ -6,9 +6,10 @@ import json
 import sqlite3
 import threading
 import time
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import asdict, replace
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any
 
 from .contracts import (
     SideEffectLevel,

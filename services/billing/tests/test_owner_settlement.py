@@ -1,7 +1,7 @@
 """Tests for owner-level Stripe payout identity and crash-safe settlement."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.accounting import AccountingStore, AccountingStoreError
 from services.billing.ledger import BillingError

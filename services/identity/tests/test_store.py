@@ -1,11 +1,10 @@
-from datetime import datetime, timedelta, timezone
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from services.identity.store import (
     EnrollmentConflict,
     EnrollmentTokenExpired,
@@ -22,7 +21,7 @@ def pubkey():
 
 class IdentityStoreTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc)
+        self.now = datetime(2026, 8, 21, 19, 0, tzinfo=UTC)
         self.tmp = tempfile.TemporaryDirectory()
         self.path = Path(self.tmp.name) / "identity.db"
         self.store = SQLiteIdentityStore(self.path)

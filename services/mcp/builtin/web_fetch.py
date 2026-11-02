@@ -36,7 +36,7 @@ def clean_web_page_html(raw_html: str, max_chars: int = 12000) -> str:
     return cleaned
 
 
-def execute_web_fetch(url: str, max_chars: int = 12000, timeout: float = 12.0) -> Dict[str, Any]:
+def execute_web_fetch(url: str, max_chars: int = 12000, timeout: float = 12.0) -> dict[str, Any]:
     target = str(url or "").strip()
     if not target:
         return {"error": "URL darf nicht leer sein", "url": ""}

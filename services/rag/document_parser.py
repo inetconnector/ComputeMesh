@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger("computemesh.rag.parser")
 
 
-def extract_text_from_file(file_path: str | Path) -> Dict[str, Any]:
+def extract_text_from_file(file_path: str | Path) -> dict[str, Any]:
     """Extracts plain text and structured metadata from a file on disk.
 
     Supports PDF, DOCX, TXT, Markdown, CSV, JSON, and source code files.
@@ -125,7 +125,7 @@ def extract_text_from_file(file_path: str | Path) -> Dict[str, Any]:
         }
 
 
-def parse_document_content(content: str, filename: str = "document.txt") -> Dict[str, Any]:
+def parse_document_content(content: str, filename: str = "document.txt") -> dict[str, Any]:
     """Parses raw text or string content into a document representation."""
     return {
         "file_name": filename,

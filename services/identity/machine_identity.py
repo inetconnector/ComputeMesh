@@ -10,16 +10,16 @@ merely because a NIC is added or replaced when stronger hardware identity exists
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import subprocess
 import uuid
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
 
 IDENTITY_VERSION = 1
 _MACHINE_ID_PREFIX = f"hw{IDENTITY_VERSION}:"

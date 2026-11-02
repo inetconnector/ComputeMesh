@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-from pathlib import Path
 import random
 import re
 import subprocess
@@ -15,6 +14,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 log = logging.getLogger("computemesh.mcp.generate_image")
@@ -134,11 +134,11 @@ def _get_candidate_endpoints() -> list[str]:
 
 def generate_ai_image(
     prompt: str,
-    style: Optional[str] = "photorealistic",
+    style: str | None = "photorealistic",
     width: int = 1024,
     height: int = 1024,
     enhance: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generates a high-resolution AI image from a descriptive prompt using local GPU / ComputeMesh pipeline with cloud fallback.
 
     Args:

@@ -1,53 +1,54 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 import sqlite3
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from typing import Literal
 
 try:
     from services.orchestrator.architecture_hardening_part12 import StaleProviderResponseEnforcer
     from services.orchestrator.architecture_hardening_part13 import (
-        ExplicitRetryEnforcer,
         CommandExpirationEnforcer,
-        EventDeduplicator,
-        ImplicitRetryError,
         CommandExpiredError,
-        DuplicateEventError
+        DuplicateEventError,
+        EventDeduplicator,
+        ExplicitRetryEnforcer,
+        ImplicitRetryError,
     )
     from services.orchestrator.architecture_hardening_part17 import (
-        PlacementRevisionEnforcer,
-        RateBudgetLimitEnforcer,
         NodeWorkloadBoundaryEnforcer,
+        PlacementRevisionEnforcer,
         PlacementRevisionError,
+        RateBudgetLimitEnforcer,
         RateBudgetLimitError,
-        WorkloadBoundaryError
+        WorkloadBoundaryError,
     )
+
     from .state_machine import (
+        _JOB_CANCELLABLE,
+        _JOB_FAILABLE,
+        _JOB_FORWARD,
+        _RESERVATION_TRANSITIONS,
         IdempotencyConflict,
         InvalidTransition,
         JobState,
         ReservationState,
         StaleRevision,
         TransitionResult,
-        _JOB_CANCELLABLE,
-        _JOB_FAILABLE,
-        _JOB_FORWARD,
-        _RESERVATION_TRANSITIONS,
     )
 except ImportError:  # direct-file execution/tests
     from state_machine import (
+        _JOB_CANCELLABLE,
+        _JOB_FAILABLE,
+        _JOB_FORWARD,
+        _RESERVATION_TRANSITIONS,
         IdempotencyConflict,
         InvalidTransition,
         JobState,
         ReservationState,
         StaleRevision,
         TransitionResult,
-        _JOB_CANCELLABLE,
-        _JOB_FAILABLE,
-        _JOB_FORWARD,
-        _RESERVATION_TRANSITIONS,
     )
 
 EntityKind = Literal["job", "reservation"]
@@ -76,13 +77,13 @@ def _utc_text(value: datetime | None) -> str | None:
         return None
     if value.tzinfo is None:
         raise ValueError("datetime must be timezone-aware")
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _parse_utc(value: str | None) -> datetime | None:
     if value is None:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
 
 
 class SQLiteStateStore:
@@ -206,7 +207,7 @@ class SQLiteStateStore:
     def _ensure(self, kind: EntityKind, entity_id: str, initial_state: str) -> StateRecord:
         if not entity_id:
             raise ValueError("entity_id is required")
-        now = _utc_text(datetime.now(timezone.utc))
+        now = _utc_text(datetime.now(UTC))
         self._db.execute(
             "INSERT OR IGNORE INTO entity_state("
             "kind, entity_id, state, revision, lease_expires_at, updated_at"
@@ -293,7 +294,7 @@ class SQLiteStateStore:
     ) -> TransitionResult[ReservationState]:
         if expires_at.tzinfo is None:
             raise ValueError("expires_at must be timezone-aware")
-        if expires_at <= datetime.now(timezone.utc):
+        if expires_at <= datetime.now(UTC):
             raise ValueError("expires_at must be in the future")
         return self._transition(
             "reservation",
@@ -372,7 +373,7 @@ class SQLiteStateStore:
         record = self.get_reservation(reservation_id)
         if record.state != ReservationState.LEASED or record.lease_expires_at is None:
             return None
-        if now.astimezone(timezone.utc) < record.lease_expires_at:
+        if now.astimezone(UTC) < record.lease_expires_at:
             return None
         return self.transition_reservation(
             reservation_id,
@@ -424,7 +425,7 @@ class SQLiteStateStore:
             if hasattr(self, "command_expiration_enforcer") and command_metadata:
                 self.command_expiration_enforcer.validate_command(
                     command_metadata,
-                    datetime.now(timezone.utc).timestamp()
+                    datetime.now(UTC).timestamp()
                 )
 
             if hasattr(self, "explicit_retry_enforcer") and attempt_number is not None:
@@ -518,7 +519,7 @@ class SQLiteStateStore:
             else:
                 lease_text = None
 
-            now_text = _utc_text(datetime.now(timezone.utc))
+            now_text = _utc_text(datetime.now(UTC))
             cursor = self._db.execute(
                 "UPDATE entity_state "
                 "SET state=?, revision=?, lease_expires_at=?, updated_at=? "

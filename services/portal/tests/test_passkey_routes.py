@@ -5,10 +5,10 @@ third-party `webauthn` library and is not re-tested here; verify_* calls are
 mocked so these tests focus on this module's own wiring: challenge
 lifecycle, account/session creation, and error handling.
 """
-from http import HTTPStatus
-from pathlib import Path
 import tempfile
 import unittest
+from http import HTTPStatus
+from pathlib import Path
 from unittest.mock import patch
 
 from services.portal import passkey_routes

@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import winreg
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from config import CONFIG
+
 
 def install():
     local_app_data = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))

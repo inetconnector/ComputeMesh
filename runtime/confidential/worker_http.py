@@ -6,19 +6,27 @@ bindings and replay state. Access logging is disabled and responses are no-store
 """
 from __future__ import annotations
 
+import json
+import ssl
+import threading
+from collections.abc import Mapping
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import chain
-import json
 from pathlib import Path
-import ssl
-import threading
-from typing import Any, Mapping
+from typing import Any
 from urllib.parse import urlparse
 
-from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialEnvelopeError, SCHEMA_VERSION
-from runtime.confidential.protected_worker import ProtectedWorkerError, ProtectedWorkerSessionManager
+from protocol.confidential_envelope import (
+    SCHEMA_VERSION,
+    ConfidentialEnvelope,
+    ConfidentialEnvelopeError,
+)
 
+from runtime.confidential.protected_worker import (
+    ProtectedWorkerError,
+    ProtectedWorkerSessionManager,
+)
 
 MAX_WORKER_REQUEST_BYTES = 8 * 1024 * 1024 + 512 * 1024
 

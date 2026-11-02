@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from unittest.mock import patch
 
 from runtime.llama.job_bound_shared_trial import run_job_bound_shared_trial
@@ -20,7 +20,7 @@ class JobBoundSharedTrialTests(unittest.TestCase):
         self.output.mkdir()
         self.evidence = self.output / "shared_run_evidence.json"
         self.evidence.write_text(
-            json.dumps(_evidence(datetime.now(timezone.utc))),
+            json.dumps(_evidence(datetime.now(UTC))),
             encoding="utf-8",
         )
 

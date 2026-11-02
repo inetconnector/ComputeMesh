@@ -10,14 +10,14 @@ from __future__ import annotations
 
 import base64
 import ctypes
-from ctypes import wintypes
 import json
 import os
-from pathlib import Path
 import platform
 import secrets
 import stat
 import time
+from ctypes import wintypes
+from pathlib import Path
 from typing import Any
 
 from cryptography.exceptions import InvalidSignature
@@ -447,11 +447,11 @@ def _heartbeat_signing_message(
             separators=(",", ":"),
             ensure_ascii=True,
         )
-        return f"ComputeMesh.NodeHeartbeat.v2:{fields}".encode("utf-8")
+        return f"ComputeMesh.NodeHeartbeat.v2:{fields}".encode()
     # Keep verification of the historical format available for already
     # enrolled nodes.  The gateway requires the v2 nonce form for new key
     # bindings and token-rotation proofs.
-    return f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+    return f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode()
 
 
 def sign_node_heartbeat(

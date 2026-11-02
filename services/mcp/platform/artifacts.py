@@ -9,10 +9,11 @@ import tempfile
 import threading
 import time
 import uuid
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any
 
 
 class ArtifactError(RuntimeError):

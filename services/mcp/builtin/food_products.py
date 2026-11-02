@@ -7,16 +7,16 @@ Supports generic single and multi-product queries with concurrent execution.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
-PRODUCT_ALIASES: Dict[str, str] = {
+PRODUCT_ALIASES: dict[str, str] = {
     "hafermilch": "oat milk",
     "haferdrink": "oat milk",
     "sojamilch": "soy milk",
@@ -29,7 +29,7 @@ PRODUCT_ALIASES: Dict[str, str] = {
 }
 
 
-def _split_product_queries(raw: str) -> List[str]:
+def _split_product_queries(raw: str) -> list[str]:
     """Splits queries containing multiple food items."""
     cleaned = re.sub(r"^(?:nährwerte\s+(?:von|fuer|für)\s+|inhaltsstoffe\s+(?:von|fuer|für)\s+|zutaten\s+(?:von|fuer|für)\s+|kalorien\s+(?:in|von)\s+|lebensmittel\s+)", "", raw, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"[\?\.!]$", "", cleaned).strip()
@@ -42,7 +42,7 @@ def _split_product_queries(raw: str) -> List[str]:
     return results if results else ([raw.strip()] if raw.strip() else [])
 
 
-def _fetch_by_barcode(barcode: str, timeout: float = 6.0) -> Optional[Dict[str, Any]]:
+def _fetch_by_barcode(barcode: str, timeout: float = 6.0) -> dict[str, Any] | None:
     """Fetches food product by exact EAN/UPC barcode."""
     clean_code = barcode.strip().replace(" ", "").replace("-", "")
     url = f"https://world.openfoodfacts.org/api/v2/product/{clean_code}.json"
@@ -57,7 +57,7 @@ def _fetch_by_barcode(barcode: str, timeout: float = 6.0) -> Optional[Dict[str, 
     return None
 
 
-def _search_by_name(query: str, timeout: float = 6.0) -> Optional[Dict[str, Any]]:
+def _search_by_name(query: str, timeout: float = 6.0) -> dict[str, Any] | None:
     """Searches food product by keyword."""
     lookup_term = PRODUCT_ALIASES.get(query.strip().lower(), query.strip())
     encoded = urllib.parse.quote(lookup_term)
@@ -74,7 +74,7 @@ def _search_by_name(query: str, timeout: float = 6.0) -> Optional[Dict[str, Any]
     return None
 
 
-def _fetch_single_product(search_term: str, timeout: float = 7.0) -> Dict[str, Any]:
+def _fetch_single_product(search_term: str, timeout: float = 7.0) -> dict[str, Any]:
     clean_term = search_term.strip()
     prod_data = None
     if clean_term.isdigit() and len(clean_term) >= 8:
@@ -139,7 +139,7 @@ def lookup_food_product(
     barcode: str = "",
     query: str = "",
     timeout: float = 7.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Looks up food ingredients, allergens, Nutri-Score, calories, and macronutrients per 100g via Open Food Facts.
     Supports single or multiple product queries concurrently.

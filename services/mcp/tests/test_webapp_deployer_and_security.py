@@ -3,21 +3,25 @@
 
 import json
 import os
-from pathlib import Path
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from services.appliance_dashboard.webapp_handler import CSP_HEADER, WebAppsHandler
+from services.mcp.agent_loop import (
+    AgentLoop,
+    detect_direct_tool_intent,
+    format_tool_content_if_json,
+)
 from services.mcp.builtin.webapp_deployer import (
+    APPS_DIR,
+    _sanitize_slug,
+    _scan_code_safety,
     deploy_local_webapp,
     list_deployed_webapps,
     remove_deployed_webapp,
-    _scan_code_safety,
-    _sanitize_slug,
-    APPS_DIR,
 )
-from services.appliance_dashboard.webapp_handler import WebAppsHandler, CSP_HEADER
 from services.mcp.tool_registry import ToolRegistry
-from services.mcp.agent_loop import AgentLoop, format_tool_content_if_json, detect_direct_tool_intent
 
 
 class TestWebAppDeployerAndSecurity(unittest.TestCase):

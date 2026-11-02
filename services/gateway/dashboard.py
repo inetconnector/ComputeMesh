@@ -4,15 +4,15 @@ Provides authenticated web-based remote telemetry viewing for edge nodes and clu
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import html
 import ipaddress
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
 import threading
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from services.common.config import CONFIG
@@ -64,7 +64,7 @@ NODE_TELEMETRY_REGISTRY: dict[str, dict[str, Any]] = _load_registry()
 
 def fresh_node_telemetry_entries(max_age_seconds: int = 45, *, include_peer_relays: bool = False) -> list[dict[str, Any]]:
     """Return only recently refreshed node telemetry entries for live capacity views."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     entries: list[dict[str, Any]] = []
     for node_data in NODE_TELEMETRY_REGISTRY.values():
         if not include_peer_relays and node_data.get("is_peer_relay", False):

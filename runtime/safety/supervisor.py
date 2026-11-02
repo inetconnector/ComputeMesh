@@ -9,16 +9,16 @@ Runs outside the unprivileged AI agent payload:
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import json
 import logging
 import os
-from pathlib import Path
 import secrets
 import subprocess
 import sys
 import threading
 import time
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from .dead_mans_switch import (

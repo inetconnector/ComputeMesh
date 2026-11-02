@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import json
+import re
+import xml.etree.ElementTree as ET
+from collections.abc import Iterable
 from datetime import datetime
 from html import unescape
 from html.parser import HTMLParser
-import json
-import re
-from typing import Iterable
 from urllib.parse import urljoin
-import xml.etree.ElementTree as ET
 
 from .models import EventObservation
 

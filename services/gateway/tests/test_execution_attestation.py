@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 from services.gateway.execution_attestation import (
     AttestationClaims,
@@ -37,7 +36,7 @@ def _public_bytes(private_key: Ed25519PrivateKey) -> bytes:
 
 class ExecutionAttestationTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
+        self.now = datetime(2026, 8, 26, 8, 0, tzinfo=UTC)
         self.keys = {"node-a": Ed25519PrivateKey.generate(), "node-b": Ed25519PrivateKey.generate()}
         self.records = {}
         for node_id, private in self.keys.items():

@@ -7,7 +7,6 @@ from unittest.mock import patch
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from services.appliance_dashboard import tunnel_relay
 from tools.appliance import heartbeat_relay
 from tools.appliance.node_identity import (

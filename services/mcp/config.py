@@ -23,7 +23,7 @@ class MCPConfig:
     config_path: str = ""
     max_agent_iterations: int = 5
     request_timeout_seconds: float = 15.0
-    allowed_domains: List[str] = field(default_factory=lambda: ["*"])
+    allowed_domains: list[str] = field(default_factory=lambda: ["*"])
     custom_mcp_servers: dict = field(default_factory=dict)
 
     # Agents Platform rollout controls. Active by default with backward-compatible fallback.
@@ -106,7 +106,7 @@ class MCPConfig:
         )
 
 
-_default_config: Optional[MCPConfig] = None
+_default_config: MCPConfig | None = None
 
 
 def get_mcp_config() -> MCPConfig:

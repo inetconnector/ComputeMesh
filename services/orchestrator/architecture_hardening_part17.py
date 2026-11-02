@@ -10,6 +10,7 @@ import sqlite3
 import time
 from typing import Any, Dict, Optional
 
+
 class HardeningPart17Error(RuntimeError):
     """Base exception for Part 17 invariant violations."""
     pass

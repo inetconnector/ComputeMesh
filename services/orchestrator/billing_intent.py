@@ -1,13 +1,13 @@
 """Durable billing intents for verified ComputeMesh executions."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import sqlite3
 import threading
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
 
 from services.billing.ledger import (
     AccountType,
@@ -43,13 +43,13 @@ class BillingIntentConflict(RuntimeError):
 def _utc_text(value: datetime | None) -> str | None:
     if value is None:
         return None
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _parse_utc(value: str | None) -> datetime | None:
     if value is None:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
 
 
 class BillingIntentStore:
@@ -143,7 +143,7 @@ class BillingIntentStore:
             "total_charge_micro_units": total,
         }
         digest = self._payload_digest(payload)
-        now = _utc_text(datetime.now(timezone.utc))
+        now = _utc_text(datetime.now(UTC))
         shares_json = json.dumps(shares, separators=(",", ":"), ensure_ascii=False)
         with self._lock:
             existing = self._db.execute(
@@ -181,7 +181,7 @@ class BillingIntentStore:
         return tuple(self._from_row(row) for row in rows)
 
     def mark_recorded(self, job_id: str) -> bool:
-        now = _utc_text(datetime.now(timezone.utc))
+        now = _utc_text(datetime.now(UTC))
         with self._lock:
             cursor = self._db.execute(
                 "UPDATE billing_intent SET status='RECORDED', recorded_at=? "
@@ -249,7 +249,7 @@ def record_intent_exact(ledger, intent: BillingIntent) -> Transaction:
         tx = Transaction(
             tx_id=f"tx_job_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}",
             event_id=event_id,
-            created_at=_utc_text(datetime.now(timezone.utc)) or "",
+            created_at=_utc_text(datetime.now(UTC)) or "",
             description=f"Inference execution for {intent.job_id} ({intent.model_id}, {intent.prompt_tokens}+{intent.completion_tokens} tokens)",
             postings=tuple(postings),
         )

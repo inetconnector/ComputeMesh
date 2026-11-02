@@ -1,9 +1,10 @@
 """Bounded dynamic re-routing and fallback management for Agents Platform."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import time
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from typing import Any
 
 from .contracts import RequestEnvelope, RoutingDecision
 from .skill_registry import PersistentSkillRegistry

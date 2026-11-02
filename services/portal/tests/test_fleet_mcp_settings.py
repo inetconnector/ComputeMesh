@@ -1,16 +1,17 @@
-import unittest
-import tempfile
 import sys
+import tempfile
+import unittest
 from pathlib import Path
 
 _repo_root = Path(__file__).resolve().parent.parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
-from services.portal.fleet_accounts import FleetAccountStore
 from services.billing.owner_accounts import OwnerAccountStore
 from services.mcp.agent_loop import AgentLoop
 from services.mcp.tool_registry import ToolRegistry
+from services.portal.fleet_accounts import FleetAccountStore
+
 
 class TestFleetMcpSettings(unittest.TestCase):
     def setUp(self):

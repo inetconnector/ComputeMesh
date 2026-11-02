@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
@@ -10,7 +10,6 @@ from services.gateway.cancellable_owner_inference import CancellableUnifiedOwner
 from services.gateway.inference_backend import BackendResult
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
-
 
 MODEL = "qwen/qwen2.5-7b-instruct"
 

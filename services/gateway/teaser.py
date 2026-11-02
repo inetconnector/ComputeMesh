@@ -5,12 +5,12 @@ and delivers a high-conversion onboarding guide when the free quota is exhausted
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
 import sys
 import threading
 import time
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -61,7 +61,7 @@ class TeaserSession:
 
     @property
     def reset_at_iso(self) -> str:
-        return datetime.fromtimestamp(self.reset_at, tz=timezone.utc).isoformat()
+        return datetime.fromtimestamp(self.reset_at, tz=UTC).isoformat()
 
 
 def get_teaser_paywall_message(max_requests: int | None = None) -> str:

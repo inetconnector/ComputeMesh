@@ -25,15 +25,15 @@ def hash_pair(left: str, right: str) -> str:
 class MerkleTree:
     """Computes balanced Merkle Trees and generates inclusion proofs."""
 
-    def __init__(self, leaf_hashes: List[str]) -> None:
+    def __init__(self, leaf_hashes: list[str]) -> None:
         self.leaf_hashes = list(leaf_hashes) if leaf_hashes else [sha256_hash("EMPTY_BLOCK_LEAF")]
-        self.levels: List[List[str]] = [self.leaf_hashes]
+        self.levels: list[list[str]] = [self.leaf_hashes]
         self._build_tree()
 
     def _build_tree(self) -> None:
         current_level = self.leaf_hashes
         while len(current_level) > 1:
-            next_level: List[str] = []
+            next_level: list[str] = []
             for i in range(0, len(current_level), 2):
                 left = current_level[i]
                 right = current_level[i + 1] if (i + 1 < len(current_level)) else left  # Duplicate odd leaf
@@ -46,7 +46,7 @@ class MerkleTree:
         """Returns the 32-byte hexadecimal Merkle Root digest."""
         return self.levels[-1][0]
 
-    def get_proof(self, leaf_index: int) -> List[Tuple[str, str]]:
+    def get_proof(self, leaf_index: int) -> list[tuple[str, str]]:
         """
         Generates an inclusion proof for a leaf at given index.
         Returns a list of tuples: (sibling_hash, 'left' | 'right').
@@ -54,7 +54,7 @@ class MerkleTree:
         if leaf_index < 0 or leaf_index >= len(self.leaf_hashes):
             raise IndexError("Leaf-Index außerhalb des gültigen Bereichs.")
 
-        proof: List[Tuple[str, str]] = []
+        proof: list[tuple[str, str]] = []
         idx = leaf_index
 
         for level in self.levels[:-1]:
@@ -69,7 +69,7 @@ class MerkleTree:
         return proof
 
     @staticmethod
-    def verify_proof(leaf_hash: str, proof: List[Tuple[str, str]], expected_root: str) -> bool:
+    def verify_proof(leaf_hash: str, proof: list[tuple[str, str]], expected_root: str) -> bool:
         """Mathematically verifies whether a leaf hash belongs to the given Merkle Root."""
         current = leaf_hash
         for sibling, position in proof:

@@ -1,6 +1,6 @@
-import unittest
 import lzma
 import os
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
@@ -8,9 +8,9 @@ from unittest import mock
 from tools.build_all_releases import (
     ReleaseBuildError,
     _exclude_linux_release_path,
-    _write_nodeos_provenance_report,
     _validate_nodeos_artifacts,
     _validate_nodeos_provenance_report,
+    _write_nodeos_provenance_report,
     sign_and_verify_release,
 )
 

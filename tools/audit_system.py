@@ -4,6 +4,7 @@ import ssl
 import sys
 import urllib.request
 
+
 def main() -> int:
     ctx = ssl._create_unverified_context()
     endpoints = [

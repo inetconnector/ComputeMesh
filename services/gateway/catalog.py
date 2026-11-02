@@ -5,7 +5,6 @@ model alias resolution for OpenAI and Ollama formats, and provider share distrib
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import json
 import logging
 import os
@@ -14,6 +13,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass, replace
 
 from services.common.pricing import (
     DEFAULT_NETWORK_FEE_BPS,
@@ -24,7 +24,12 @@ from services.common.pricing import (
     calculate_token_charge_micro,
     get_price_tier,
 )
-from services.gateway.registry_client import ModelRegistryClient, RegistryClientError, RegistryModel, build_registry_client_from_env
+from services.gateway.registry_client import (
+    ModelRegistryClient,
+    RegistryClientError,
+    RegistryModel,
+    build_registry_client_from_env,
+)
 
 logger = logging.getLogger("computemesh.catalog")
 

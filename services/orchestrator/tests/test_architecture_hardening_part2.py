@@ -1,17 +1,19 @@
 """Tests for Architecture Hardening Part 2."""
-import unittest
 import time
+import unittest
+
 from services.orchestrator.architecture_hardening_part2 import (
-    NodeLifecycleManager,
-    NodeDrainingError,
-    StrictStateRecovery,
-    StateRecoveryError,
-    PrivacyConstraintEvaluator,
-    PrivacyConstraintError,
     ContentAddressedArtifactRegistry,
     ImmutableArtifactError,
-    PrivacyPreservingTelemetry
+    NodeDrainingError,
+    NodeLifecycleManager,
+    PrivacyConstraintError,
+    PrivacyConstraintEvaluator,
+    PrivacyPreservingTelemetry,
+    StateRecoveryError,
+    StrictStateRecovery,
 )
+
 
 class TestNodeLifecycleManager(unittest.TestCase):
     def test_node_lifecycle_manager_draining(self):

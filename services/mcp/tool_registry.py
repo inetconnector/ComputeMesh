@@ -12,24 +12,36 @@ from __future__ import annotations
 import json
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from .config import MCPConfig, get_mcp_config
-from .builtin.adb_bridge_tools import adb_list_devices, adb_capture_screenshot, adb_install_app, adb_get_system_log
+from services.memory.user_memory import delete_user_memory, get_user_memory, update_user_memory
+
+from .builtin.adb_bridge_tools import (
+    adb_capture_screenshot,
+    adb_get_system_log,
+    adb_install_app,
+    adb_list_devices,
+)
 from .builtin.android_play_store_tools import (
-    validate_store_listing,
-    validate_store_graphics,
     inspect_android_manifest_or_bundle,
     sync_play_console_metadata,
+    validate_store_graphics,
+    validate_store_listing,
+)
+from .builtin.archive_and_data_transform import (
+    convert_structured_data,
+    create_archive,
+    unpack_archive,
 )
 from .builtin.arxiv_research import search_arxiv_papers
-from .builtin.audio_tools import transcribe_audio_data, synthesize_speech_audio
+from .builtin.audio_tools import synthesize_speech_audio, transcribe_audio_data
 from .builtin.chemical_data import lookup_chemical_compound
-from .builtin.code_lint_and_syntax import validate_code_syntax, check_code_quality
-from .builtin.code_patch_engine import replace_file_content, multi_replace_file_content
-from .builtin.code_search_indexer import grep_search_code, extract_code_symbols
+from .builtin.code_lint_and_syntax import check_code_quality, validate_code_syntax
+from .builtin.code_patch_engine import multi_replace_file_content, replace_file_content
+from .builtin.code_search_indexer import extract_code_symbols, grep_search_code
 from .builtin.company_lookup import lookup_company
 from .builtin.country_data import lookup_country_data
 from .builtin.currency import convert_currency
@@ -39,41 +51,72 @@ from .builtin.document_reader import extract_document_content
 from .builtin.earthquake_feed import get_recent_earthquakes
 from .builtin.events import search_events
 from .builtin.fact_triangulation import verify_fact_multi_source
-from .builtin.file_system_tools import list_workspace_files, read_workspace_file, write_workspace_file
+from .builtin.file_system_tools import (
+    list_workspace_files,
+    read_workspace_file,
+    write_workspace_file,
+)
 from .builtin.finance_market import execute_finance_quote, get_market_movers
-
 from .builtin.food_products import lookup_food_product
 from .builtin.generate_image import generate_ai_image
 from .builtin.geo_routing import get_distance_route
-from .builtin.git_tools import get_git_status, get_git_diff, get_git_log
-from .builtin.github_ci_tools import github_list_releases, github_get_latest_release, github_list_commits, github_get_workflow_runs
-from .builtin.github_issue_tools import github_list_issues, github_get_issue, github_create_issue, github_add_issue_comment
-from .builtin.github_pr_tools import github_list_pull_requests, github_get_pull_request, github_get_pull_request_diff, github_get_pull_request_files
-from .builtin.github_repo_tools import github_get_repo, github_search_repositories, github_get_file_contents, github_list_repo_tree, github_search_code
-from .builtin.archive_and_data_transform import unpack_archive, create_archive, convert_structured_data
+from .builtin.git_tools import get_git_diff, get_git_log, get_git_status
+from .builtin.github_ci_tools import (
+    github_get_latest_release,
+    github_get_workflow_runs,
+    github_list_commits,
+    github_list_releases,
+)
+from .builtin.github_issue_tools import (
+    github_add_issue_comment,
+    github_create_issue,
+    github_get_issue,
+    github_list_issues,
+)
+from .builtin.github_pr_tools import (
+    github_get_pull_request,
+    github_get_pull_request_diff,
+    github_get_pull_request_files,
+    github_list_pull_requests,
+)
+from .builtin.github_repo_tools import (
+    github_get_file_contents,
+    github_get_repo,
+    github_list_repo_tree,
+    github_search_code,
+    github_search_repositories,
+)
 from .builtin.http_api_client import execute_http_request
-from .builtin.image_enhancer_tools import enhance_and_crop_image, create_contact_sheet
+from .builtin.image_enhancer_tools import create_contact_sheet, enhance_and_crop_image
 from .builtin.knowledge_fusion import cross_source_knowledge_search
 from .builtin.mission_journal import (
-    mission_start,
-    mission_log_step,
-    mission_verify_postconditions,
-    mission_get_summary,
-    checkpoint_save,
-    checkpoint_resume,
     checkpoint_list,
+    checkpoint_resume,
+    checkpoint_save,
+    mission_get_summary,
+    mission_log_step,
+    mission_start,
+    mission_verify_postconditions,
 )
 from .builtin.multilingual_wiki import fetch_multilingual_wikipedia
 from .builtin.network_tools import lookup_network_host
 from .builtin.news_feed import execute_get_news, get_live_news
-from .builtin.office_suite import generate_office_document, parse_office_document, convert_data_to_markdown_table
+from .builtin.office_suite import (
+    convert_data_to_markdown_table,
+    generate_office_document,
+    parse_office_document,
+)
 from .builtin.package_registry import lookup_software_package
 from .builtin.places import search_places
 from .builtin.product_price_engine import search_product_prices
 from .builtin.python_calc import run_python_calc
-from .builtin.rag_tool import search_knowledge_base, index_document_text, list_indexed_documents
+from .builtin.rag_tool import index_document_text, list_indexed_documents, search_knowledge_base
 from .builtin.sports_data import get_sports_data
-from .builtin.system_tools import execute_system_info, execute_gpu_telemetry, execute_process_summary
+from .builtin.system_tools import (
+    execute_gpu_telemetry,
+    execute_process_summary,
+    execute_system_info,
+)
 from .builtin.terminal_runner import run_terminal_command
 from .builtin.test_runner_tools import run_project_tests
 from .builtin.time_calendar import get_time_and_calendar
@@ -85,15 +128,25 @@ from .builtin.weather import execute_get_weather
 from .builtin.weather_forecast import get_weather_forecast
 from .builtin.web_fetch import execute_web_fetch
 from .builtin.web_search import execute_web_search
-from .builtin.webapp_deployer import deploy_local_webapp, list_deployed_webapps, remove_deployed_webapp, launch_deployed_webapp
+from .builtin.webapp_deployer import (
+    deploy_local_webapp,
+    launch_deployed_webapp,
+    list_deployed_webapps,
+    remove_deployed_webapp,
+)
 from .builtin.wikipedia import get_wikipedia_summary
-from .builtin.world_bank import get_world_bank_stats
 from .builtin.workspace_doctor import run_doctor_diagnostics
-from .builtin.workspace_quarantine import quarantine_stage_files, quarantine_validate, quarantine_commit, quarantine_rollback
+from .builtin.workspace_quarantine import (
+    quarantine_commit,
+    quarantine_rollback,
+    quarantine_stage_files,
+    quarantine_validate,
+)
+from .builtin.world_bank import get_world_bank_stats
+from .config import MCPConfig, get_mcp_config
 from .skill_execution import build_skill_engine
-from services.memory.user_memory import get_user_memory, update_user_memory, delete_user_memory
 
-DEFAULT_TOOL_TTL: Dict[str, float] = {
+DEFAULT_TOOL_TTL: dict[str, float] = {
     "list_deployed_webapps": 5.0,
     "run_doctor_diagnostics": 10.0,
     "quarantine_validate": 5.0,
@@ -173,18 +226,18 @@ class ToolCache:
     """Thread-safe in-memory cache with per-tool TTL to eliminate duplicate round-trips."""
 
     def __init__(self, max_size: int = 1000):
-        self._cache: Dict[str, tuple[float, Any]] = {}
+        self._cache: dict[str, tuple[float, Any]] = {}
         self._lock = threading.Lock()
         self._max_size = max_size
 
-    def _make_key(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+    def _make_key(self, tool_name: str, arguments: dict[str, Any]) -> str:
         try:
             serialized_args = json.dumps(arguments, sort_keys=True, ensure_ascii=False)
         except Exception:
             serialized_args = str(sorted(arguments.items()))
         return f"{tool_name}:{serialized_args}"
 
-    def get(self, tool_name: str, arguments: Dict[str, Any]) -> tuple[bool, Any]:
+    def get(self, tool_name: str, arguments: dict[str, Any]) -> tuple[bool, Any]:
         ttl = DEFAULT_TOOL_TTL.get(tool_name, 0.0)
         if ttl <= 0:
             return False, None
@@ -198,7 +251,7 @@ class ToolCache:
                 del self._cache[key]
         return False, None
 
-    def set(self, tool_name: str, arguments: Dict[str, Any], result: Any) -> None:
+    def set(self, tool_name: str, arguments: dict[str, Any], result: Any) -> None:
         ttl = DEFAULT_TOOL_TTL.get(tool_name, 0.0)
         if ttl <= 0:
             return
@@ -222,12 +275,12 @@ class ToolCache:
 class ToolDefinition:
     name: str
     description: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     handler: Callable[..., Any]
     owner_only: bool = False
     source: str = "builtin"
 
-    def to_openai_dict(self) -> Dict[str, Any]:
+    def to_openai_dict(self) -> dict[str, Any]:
         return {
             "type": "function",
             "function": {
@@ -238,7 +291,7 @@ class ToolDefinition:
         }
 
 
-TOOL_ALIASES: Dict[str, str] = {
+TOOL_ALIASES: dict[str, str] = {
     "get_weather": "get_current_weather",
     "weather": "get_current_weather",
     "current_weather": "get_current_weather",
@@ -495,7 +548,7 @@ def _matches_type(value: Any, expected: Any) -> bool:
     return False
 
 
-def _validate_strict_arguments(schema: Dict[str, Any], arguments: Any) -> Optional[str]:
+def _validate_strict_arguments(schema: dict[str, Any], arguments: Any) -> str | None:
     """Validate the subset needed by strict built-in schemas without a dependency."""
     if not isinstance(arguments, dict):
         return "Tool-Parameter müssen ein JSON-Objekt sein."
@@ -542,9 +595,9 @@ PUBLIC_INFORMATION_TOOLS = frozenset({
 
 
 class ToolRegistry:
-    def __init__(self, config: Optional[MCPConfig] = None):
+    def __init__(self, config: MCPConfig | None = None):
         self.config = config or get_mcp_config()
-        self._tools: Dict[str, ToolDefinition] = {}
+        self._tools: dict[str, ToolDefinition] = {}
         self._cache = ToolCache()
         self._register_default_tools()
         try:
@@ -557,7 +610,7 @@ class ToolRegistry:
         self,
         name: str,
         description: str,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         handler: Callable[..., Any],
         owner_only: bool = False,
         source: str = "builtin",
@@ -618,19 +671,19 @@ class ToolRegistry:
             return "get_live_news"
         return name
 
-    def get_tool(self, name: str) -> Optional[ToolDefinition]:
+    def get_tool(self, name: str) -> ToolDefinition | None:
         resolved = self._resolve_tool_name(name)
         return self._tools.get(resolved) or self._tools.get(name)
 
-    def list_tools(self, is_owner: bool = True) -> List[ToolDefinition]:
+    def list_tools(self, is_owner: bool = True) -> list[ToolDefinition]:
         if is_owner:
             return list(self._tools.values())
         return [tool for tool in self._tools.values() if not tool.owner_only]
 
-    def get_openai_tools(self, is_owner: bool = True) -> List[Dict[str, Any]]:
+    def get_openai_tools(self, is_owner: bool = True) -> list[dict[str, Any]]:
         return [tool.to_openai_dict() for tool in self.list_tools(is_owner=is_owner)]
 
-    def execute_tool(self, name: str, arguments: Dict[str, Any], is_owner: bool = True, owner_id: str | None = None) -> Any:
+    def execute_tool(self, name: str, arguments: dict[str, Any], is_owner: bool = True, owner_id: str | None = None) -> Any:
         resolved = self._resolve_tool_name(name)
         tool = self._tools.get(resolved) or self._tools.get(name)
         if not tool:
@@ -684,16 +737,16 @@ class ToolRegistry:
 
     def execute_tools_batch(
         self,
-        tool_calls: List[Dict[str, Any]],
+        tool_calls: list[dict[str, Any]],
         is_owner: bool = True,
         owner_id: str | None = None,
         max_workers: int = 8,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Executes multiple tool calls concurrently using a thread pool."""
         if not tool_calls:
             return []
 
-        def _process_single(tc: Dict[str, Any], index: int) -> Dict[str, Any]:
+        def _process_single(tc: dict[str, Any], index: int) -> dict[str, Any]:
             cid = str(tc.get("id") or f"call_{index+1}")
             fn = tc.get("function", {}) if isinstance(tc.get("function"), dict) else {}
             fn_name = str(fn.get("name") or "")
@@ -719,9 +772,9 @@ class ToolRegistry:
         if len(tool_calls) == 1:
             return [_process_single(tool_calls[0], 0)]
 
-        results: List[Optional[Dict[str, Any]]] = [None] * len(tool_calls)
+        results: list[dict[str, Any] | None] = [None] * len(tool_calls)
 
-        def _worker(index: int, tc: Dict[str, Any]) -> None:
+        def _worker(index: int, tc: dict[str, Any]) -> None:
             results[index] = _process_single(tc, index)
 
         worker_count = min(max_workers, len(tool_calls))
@@ -740,10 +793,10 @@ class ToolRegistry:
         def execute_universal_skill(
             request: str,
             operation: str = "execute",
-            skill_id: Optional[str] = None,
-            inputs: Optional[Dict[str, Any]] = None,
-            tool_calls: Optional[List[Dict[str, Any]]] = None,
-        ) -> Dict[str, Any]:
+            skill_id: str | None = None,
+            inputs: dict[str, Any] | None = None,
+            tool_calls: list[dict[str, Any]] | None = None,
+        ) -> dict[str, Any]:
             """Plan/execute a skill through this registry without inventing tool results."""
             engine = build_skill_engine(
                 tool_router=lambda tool_name, arguments: self.execute_tool(
@@ -783,15 +836,15 @@ class ToolRegistry:
             source="builtin_skill_execution",
         )
 
-        def schema(properties: Dict[str, Any], required: List[str] | None = None, *, strict: bool = False) -> Dict[str, Any]:
-            value: Dict[str, Any] = {"type": "object", "properties": properties}
+        def schema(properties: dict[str, Any], required: list[str] | None = None, *, strict: bool = False) -> dict[str, Any]:
+            value: dict[str, Any] = {"type": "object", "properties": properties}
             if required:
                 value["required"] = required
             if strict:
                 value["additionalProperties"] = False
             return value
 
-        def _execute_list_tools(**kwargs: Any) -> Dict[str, Any]:
+        def _execute_list_tools(**kwargs: Any) -> dict[str, Any]:
             return {
                 "available_tools": [
                     {"name": t.name, "description": t.description}
@@ -1985,7 +2038,7 @@ class ToolRegistry:
             source="builtin_coding",
         )
 
-        def dynamic_compute_tool(task_description: str, inputs: Optional[Dict[str, Any]] = None, code: Optional[str] = None) -> Dict[str, Any]:
+        def dynamic_compute_tool(task_description: str, inputs: dict[str, Any] | None = None, code: str | None = None) -> dict[str, Any]:
             from .dynamic.synthesizer import get_dynamic_tool_engine
             engine = get_dynamic_tool_engine()
             return engine.execute_dynamic_task(
@@ -2006,7 +2059,7 @@ class ToolRegistry:
             source="builtin_dynamic",
         )
 
-        def get_ledger_status() -> Dict[str, Any]:
+        def get_ledger_status() -> dict[str, Any]:
             from .ledger import get_compact_ledger
             return get_compact_ledger().get_stats()
 
@@ -2018,8 +2071,8 @@ class ToolRegistry:
             source="builtin_ledger",
         )
 
-        def verify_proof_of_execution(receipt_id: str) -> Dict[str, Any]:
-            from .ledger import get_compact_ledger, MerkleTree
+        def verify_proof_of_execution(receipt_id: str) -> dict[str, Any]:
+            from .ledger import MerkleTree, get_compact_ledger
             ledger = get_compact_ledger()
             res = ledger.get_receipt(receipt_id)
             if not res:
@@ -2059,10 +2112,10 @@ class ToolRegistry:
         def save_dynamic_tool(
             name: str,
             description: str,
-            parameters: Optional[Dict[str, Any]] = None,
+            parameters: dict[str, Any] | None = None,
             python_code: str = "",
-            tags: Optional[List[str]] = None,
-        ) -> Dict[str, Any]:
+            tags: list[str] | None = None,
+        ) -> dict[str, Any]:
             from .dynamic.custom_tool_store import get_custom_tool_store
             store = get_custom_tool_store()
             res = store.save_tool(
@@ -2090,9 +2143,9 @@ class ToolRegistry:
         )
 
         def list_saved_custom_tools(
-            tag: Optional[str] = None,
-            search: Optional[str] = None,
-        ) -> List[Dict[str, Any]]:
+            tag: str | None = None,
+            search: str | None = None,
+        ) -> list[dict[str, Any]]:
             from .dynamic.custom_tool_store import get_custom_tool_store
             return get_custom_tool_store().list_tools(tag=tag, search=search)
 
@@ -2107,7 +2160,7 @@ class ToolRegistry:
             source="builtin_custom_tools",
         )
 
-        def get_custom_tool_details(name: str) -> Dict[str, Any]:
+        def get_custom_tool_details(name: str) -> dict[str, Any]:
             from .dynamic.custom_tool_store import get_custom_tool_store
             tool = get_custom_tool_store().get_tool(name)
             if not tool:
@@ -2124,7 +2177,7 @@ class ToolRegistry:
             source="builtin_custom_tools",
         )
 
-        def remove_dynamic_tool(name: str) -> Dict[str, Any]:
+        def remove_dynamic_tool(name: str) -> dict[str, Any]:
             from .dynamic.custom_tool_store import get_custom_tool_store
             store = get_custom_tool_store()
             deleted = store.delete_tool(name)
@@ -2141,7 +2194,7 @@ class ToolRegistry:
             source="builtin_custom_tools",
         )
 
-        def execute_custom_tool(name: str, inputs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        def execute_custom_tool(name: str, inputs: dict[str, Any] | None = None) -> dict[str, Any]:
             from .dynamic.custom_tool_store import get_custom_tool_store
             return get_custom_tool_store().execute_tool(name=name, inputs=inputs or {})
 

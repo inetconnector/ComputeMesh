@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import unittest
+from datetime import UTC
+
 from services.appliance_dashboard.mesh_aggregator import MeshRegistryAggregator
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 from services.gateway.server import OWNER_ACCOUNT_STORE, _build_fleet_payload, owner_id_for_key
@@ -103,7 +105,7 @@ class TestHardwareDeduplication(unittest.TestCase):
     def test_gateway_fleet_payload_deduplicates_hardware_and_tokens(self) -> None:
         """Verify _build_fleet_payload treats multiple alias entries with same token/GPU as 1 node."""
         from datetime import datetime, timezone
-        now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
         owner_k = "inet-test-owner-dedup-01"
         owner_id = owner_id_for_key(owner_k)

@@ -7,17 +7,18 @@ to loopback/RFC1918 IPv4 and the coordinator HTTP listener is always loopback.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 import hashlib
 import ipaddress
 import json
-from pathlib import Path
 import re
 import secrets
 import subprocess
 import time
-from typing import Any, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
+from typing import Any
 from urllib import error as urlerror
 from urllib import request as urlrequest
 
@@ -306,7 +307,7 @@ def run_spike(plan: SpikePlan, *, prompt: str, output_dir: Path,
         content, tokens, timings = parse_completion_response(doc)
     except Exception as exc:
         failure = {"schema_version": 1, "run_id": run_id,
-                   "captured_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                   "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                    "phase": phase, "error_type": type(exc).__name__[:128],
                    "message": (str(exc) or type(exc).__name__)[:1024]}
         (output_dir / "runtime_spike_failure.json").write_text(json.dumps(failure, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -323,7 +324,7 @@ def run_spike(plan: SpikePlan, *, prompt: str, output_dir: Path,
     if tokens is not None:
         token_digest = hashlib.sha256(json.dumps(tokens, separators=(",", ":")).encode("ascii")).hexdigest()
     result = SpikeResult(
-        1, run_id, datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        1, run_id, datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         {"name": "llama.cpp", "version": version},
         {"basename": plan.model.name, "size_bytes": plan.model.stat().st_size, "sha256": model_digest},
         {"rpc_endpoints": [x.text() for x in plan.rpc_endpoints], "coordinator_http": f"127.0.0.1:{plan.local_port}"},

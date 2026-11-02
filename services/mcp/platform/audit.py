@@ -1,14 +1,15 @@
 """Append-only, secret-minimizing audit events for Agents Platform decisions/actions."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
-from pathlib import Path
 import re
 import threading
 import time
-from typing import Any, Mapping
 import uuid
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
 
 _SECRET_KEY_RE = re.compile(r"(token|secret|password|api[_-]?key|authorization|cookie|private[_-]?key)", re.I)
 

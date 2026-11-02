@@ -12,8 +12,8 @@ import ipaddress
 import socket
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 BLOCKED_HOST_SUFFIXES = (
     ".localhost",

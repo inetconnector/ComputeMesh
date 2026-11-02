@@ -8,8 +8,8 @@ recovered from escrow without customer content.
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
+from http import HTTPStatus
 from typing import Any
 from urllib.parse import urlparse
 
@@ -27,7 +27,8 @@ from services.gateway.confidential_coordinator import (
     ConfidentialCoordinatorError,
     ConfidentialInferenceCoordinator,
 )
-from services.gateway.live_handler import LiveGatewayHandler, MAX_CONFIDENTIAL_HTTP_BYTES
+from services.gateway.live_handler import MAX_CONFIDENTIAL_HTTP_BYTES, LiveGatewayHandler
+
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
 

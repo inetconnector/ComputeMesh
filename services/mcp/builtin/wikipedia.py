@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
 
-def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 6.0) -> Optional[Dict[str, Any]]:
+def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 6.0) -> dict[str, Any] | None:
     encoded_title = urllib.parse.quote(title.replace(" ", "_"))
     url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{encoded_title}"
     req = urllib.request.Request(
@@ -40,7 +40,7 @@ def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 
     return None
 
 
-def _opensearch_wiki(query: str, lang: str = "de", timeout: float = 6.0) -> Optional[str]:
+def _opensearch_wiki(query: str, lang: str = "de", timeout: float = 6.0) -> str | None:
     encoded_query = urllib.parse.quote(query.strip())
     url = f"https://{lang}.wikipedia.org/w/api.php?action=opensearch&search={encoded_query}&limit=3&namespace=0&format=json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -61,7 +61,7 @@ def get_wikipedia_summary(
     topic: str = "",
     language: str = "de",
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetches verified encyclopedia summaries, definitions, concepts, or biographies from Wikipedia.
     """

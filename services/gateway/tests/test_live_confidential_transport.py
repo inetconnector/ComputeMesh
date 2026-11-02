@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from io import BytesIO
-from http import HTTPStatus
 import json
 import unittest
+from http import HTTPStatus
+from io import BytesIO
 
 from protocol.confidential_envelope import (
     ConfidentialBinding,

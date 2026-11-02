@@ -7,9 +7,10 @@ these routes directly; the trusted local OpenAI proxy does.
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
-from typing import Any, Iterator
+from collections.abc import Iterator
+from http import HTTPStatus
+from typing import Any
 from urllib.parse import urlparse
 
 from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialEnvelopeError
@@ -31,8 +32,8 @@ from services.gateway.confidential_coordinator import (
     ConfidentialInferenceCoordinator,
 )
 from services.gateway.live_handler import MAX_CONFIDENTIAL_HTTP_BYTES
-from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
+from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
 INTERNAL_CONFIDENTIAL_SESSION_PATH = "/internal/v1/confidential/sessions"
 INTERNAL_CONFIDENTIAL_COMPLETION_PATH = "/internal/v1/confidential/chat/completions"

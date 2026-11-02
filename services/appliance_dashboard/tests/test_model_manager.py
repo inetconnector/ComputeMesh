@@ -1,11 +1,11 @@
-from io import BytesIO
 import hashlib
 import json
-from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
+from io import BytesIO
+from pathlib import Path
 from unittest.mock import patch
 
 from services.appliance_dashboard.model_manager import (

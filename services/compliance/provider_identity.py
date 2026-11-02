@@ -17,12 +17,12 @@ Key Architectural Principles:
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
 import hashlib
 import json
 import re
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime, timezone
+from enum import Enum
 from typing import Any
 
 from .dsa_policy import ApplicabilityDecision, DSAApplicabilityPolicy, PlatformOperatorLegalProfile
@@ -129,7 +129,7 @@ class EvidenceConfidence(str, Enum):
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 @dataclass(frozen=True)

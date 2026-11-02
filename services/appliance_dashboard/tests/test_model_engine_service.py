@@ -1,10 +1,14 @@
-from pathlib import Path
 import hashlib
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-from services.appliance_dashboard.model_engine_service import EngineModel, ModelEngineError, ModelEngineService
+from services.appliance_dashboard.model_engine_service import (
+    EngineModel,
+    ModelEngineError,
+    ModelEngineService,
+)
 from tools.appliance.hardware_detector import GpuDevice, RigInventory
 
 

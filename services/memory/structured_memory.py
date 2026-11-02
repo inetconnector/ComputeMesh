@@ -7,17 +7,18 @@ grants authority to overwrite or delete another principal's memory.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from enum import Enum
 import hashlib
 import json
-from pathlib import Path
 import re
 import sqlite3
 import threading
 import time
-from typing import Any, Mapping, Sequence
 import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 
 class MemoryType(str, Enum):

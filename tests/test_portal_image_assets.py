@@ -1,10 +1,9 @@
 """Keep public site image files and static references usable."""
 
+import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
-import xml.etree.ElementTree as ET
-
 
 PORTAL = Path(__file__).resolve().parents[1] / "portal"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}

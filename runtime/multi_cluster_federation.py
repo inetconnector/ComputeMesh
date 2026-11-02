@@ -32,7 +32,7 @@ class FederatedCluster:
     cluster_id: str
     name: str
     region: str
-    nodes: Dict[str, ClusterNode] = field(default_factory=dict)
+    nodes: dict[str, ClusterNode] = field(default_factory=dict)
     last_sync_timestamp: float = field(default_factory=time.time)
 
     @property
@@ -52,7 +52,7 @@ class MultiClusterFederator:
     """Production Multi-Cluster Federation engine managing cross-cluster placement and state."""
 
     def __init__(self) -> None:
-        self._clusters: Dict[str, FederatedCluster] = {}
+        self._clusters: dict[str, FederatedCluster] = {}
         # Pre-seed default primary cluster
         self.register_cluster(
             cluster_id="cluster-primary",
@@ -75,7 +75,7 @@ class MultiClusterFederator:
         cluster_id: str,
         name: str,
         region: str,
-        nodes: Optional[List[ClusterNode]] = None,
+        nodes: list[ClusterNode] | None = None,
     ) -> FederatedCluster:
         """Registers or updates a federated compute cluster."""
         if cluster_id not in self._clusters:
@@ -120,7 +120,7 @@ class MultiClusterFederator:
         cluster.last_sync_timestamp = time.time()
         return True
 
-    def sync_cluster_states(self, payload_list: List[Dict[str, Any]]) -> int:
+    def sync_cluster_states(self, payload_list: list[dict[str, Any]]) -> int:
         """Synchronizes remote cluster states from federation heartbeat payload."""
         synced_count = 0
         for payload in payload_list:
@@ -148,7 +148,7 @@ class MultiClusterFederator:
 
         return synced_count
 
-    def get_federated_capacity(self) -> Dict[str, Any]:
+    def get_federated_capacity(self) -> dict[str, Any]:
         """Returns total aggregated capacity across all federated clusters."""
         total_clusters = len(self._clusters)
         total_active_nodes = sum(c.active_nodes_count for c in self._clusters.values())
@@ -183,7 +183,7 @@ class MultiClusterFederator:
         model_id: str,
         total_layers: int,
         model_vram_bytes: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Calculates multi-cluster sharding allocation across federated clusters."""
         capacity = self.get_federated_capacity()
         total_vram = capacity["total_vram_bytes"]

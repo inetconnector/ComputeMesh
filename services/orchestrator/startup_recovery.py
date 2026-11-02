@@ -1,17 +1,16 @@
 """Fail-closed reconciliation of durable orchestration state after process restart."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 import sqlite3
 import threading
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
-from services.orchestrator.persistence import SQLiteStateStore, StateRecord
 from services.orchestrator.architecture_hardening_part12 import RecoveryStateEnforcer
+from services.orchestrator.persistence import SQLiteStateStore, StateRecord
 from services.orchestrator.state_machine import JobState, ReservationState
-
 
 _RECOVERABLE_JOB_STATES = frozenset({
     JobState.CREATED,
@@ -137,7 +136,7 @@ class RecoveryStateStore(SQLiteStateStore):
             state = JobState(row["state"]) if kind == "job" else ReservationState(row["state"])
             lease = None
             if row["lease_expires_at"] is not None:
-                lease = datetime.fromisoformat(row["lease_expires_at"].replace("Z", "+00:00")).astimezone(timezone.utc)
+                lease = datetime.fromisoformat(row["lease_expires_at"].replace("Z", "+00:00")).astimezone(UTC)
             result.append(StateRecord(row["entity_id"], kind, state, row["revision"], lease))
         return tuple(result)
 
@@ -153,7 +152,7 @@ class RecoveryStateStore(SQLiteStateStore):
         for row in rows:
             lease = None
             if row["lease_expires_at"] is not None:
-                lease = datetime.fromisoformat(row["lease_expires_at"].replace("Z", "+00:00")).astimezone(timezone.utc)
+                lease = datetime.fromisoformat(row["lease_expires_at"].replace("Z", "+00:00")).astimezone(UTC)
             result.append(StateRecord(
                 row["entity_id"], "reservation", ReservationState(row["state"]), row["revision"], lease
             ))
@@ -161,7 +160,7 @@ class RecoveryStateStore(SQLiteStateStore):
 
 
 def reconcile_startup_state(store: RecoveryStateStore, *, now: datetime | None = None) -> StartupRecoveryReport:
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     failed_jobs: list[str] = []
     released: list[str] = []
     expired: list[str] = []

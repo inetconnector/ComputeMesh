@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Dict, List
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
@@ -18,7 +18,7 @@ def get_recent_earthquakes(
     min_magnitude: float = 4.0,
     limit: int = 5,
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetches the latest significant global earthquakes from the USGS Seismic Feed in real-time.
     """
@@ -33,7 +33,7 @@ def get_recent_earthquakes(
             data = json.loads(resp.read().decode("utf-8"))
 
         features = data.get("features", [])
-        events: List[Dict[str, Any]] = []
+        events: list[dict[str, Any]] = []
 
         for f in features:
             props = f.get("properties", {})
@@ -41,7 +41,7 @@ def get_recent_earthquakes(
             coords = geom.get("coordinates", [0, 0, 0])  # [lon, lat, depth_km]
 
             epoch_ms = props.get("time", 0)
-            time_str = datetime.fromtimestamp(epoch_ms / 1000.0, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            time_str = datetime.fromtimestamp(epoch_ms / 1000.0, tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
             events.append({
                 "place": props.get("place", "Unbekannter Ort"),

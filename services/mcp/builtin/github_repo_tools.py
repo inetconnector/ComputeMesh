@@ -12,7 +12,7 @@ from .github_client import execute_github_request
 log = logging.getLogger("computemesh.mcp.github_repo_tools")
 
 
-def _resolve_owner_repo(repo: Optional[str] = None, owner: Optional[str] = None) -> tuple[str, str]:
+def _resolve_owner_repo(repo: str | None = None, owner: str | None = None) -> tuple[str, str]:
     import re
     if owner and repo and "/" not in repo:
         return owner.strip(), repo.strip()
@@ -25,7 +25,7 @@ def _resolve_owner_repo(repo: Optional[str] = None, owner: Optional[str] = None)
     return parts[0].strip(), parts[1].strip()
 
 
-def github_get_repo(repo: Optional[str] = None, owner: Optional[str] = None) -> Dict[str, Any]:
+def github_get_repo(repo: str | None = None, owner: str | None = None) -> dict[str, Any]:
     """Retrieves full repository metadata, stars, forks, language, topics, and default branch."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
@@ -58,7 +58,7 @@ def github_get_repo(repo: Optional[str] = None, owner: Optional[str] = None) -> 
     }
 
 
-def github_search_repositories(query: str, sort: str = "stars", limit: int = 10, per_page: int = 10) -> Dict[str, Any]:
+def github_search_repositories(query: str, sort: str = "stars", limit: int = 10, per_page: int = 10) -> dict[str, Any]:
     """Searches GitHub repositories by keyword, topic, or language."""
     q_str = str(query or "").strip()
     if not q_str:
@@ -70,7 +70,7 @@ def github_search_repositories(query: str, sort: str = "stars", limit: int = 10,
         return {"error": resp.get("error", "Suche fehlgeschlagen."), "repositories": []}
 
     items = resp.get("data", {}).get("items", [])
-    repos: List[Dict[str, Any]] = []
+    repos: list[dict[str, Any]] = []
     for it in items:
         repos.append({
             "full_name": it.get("full_name"),
@@ -89,7 +89,7 @@ def github_search_repositories(query: str, sort: str = "stars", limit: int = 10,
     }
 
 
-def github_get_file_contents(path: str, repo: Optional[str] = None, owner: Optional[str] = None, ref: Optional[str] = None) -> Dict[str, Any]:
+def github_get_file_contents(path: str, repo: str | None = None, owner: str | None = None, ref: str | None = None) -> dict[str, Any]:
     """Fetches and decodes the raw text content of a file directly from a GitHub repository."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
@@ -134,12 +134,12 @@ def github_get_file_contents(path: str, repo: Optional[str] = None, owner: Optio
     }
 
 
-def github_list_repo_tree(path: str = "", repo: Optional[str] = None, owner: Optional[str] = None, ref: Optional[str] = None) -> Dict[str, Any]:
+def github_list_repo_tree(path: str = "", repo: str | None = None, owner: str | None = None, ref: str | None = None) -> dict[str, Any]:
     """Lists files and folders inside a GitHub repository directory."""
     return github_get_file_contents(path=path, repo=repo, owner=owner, ref=ref)
 
 
-def github_search_code(query: str, repo: Optional[str] = None, owner: Optional[str] = None, limit: int = 10, per_page: int = 10) -> Dict[str, Any]:
+def github_search_code(query: str, repo: str | None = None, owner: str | None = None, limit: int = 10, per_page: int = 10) -> dict[str, Any]:
     """Searches source code across GitHub repositories using GitHub Code Search."""
     q_str = str(query or "").strip()
     if owner and repo:
@@ -153,7 +153,7 @@ def github_search_code(query: str, repo: Optional[str] = None, owner: Optional[s
         return {"error": resp.get("error", "Code-Suche fehlgeschlagen."), "matches": []}
 
     items = resp.get("data", {}).get("items", [])
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for it in items:
         results.append({
             "name": it.get("name"),

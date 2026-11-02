@@ -7,23 +7,24 @@ webhook confirms the Checkout Session payment.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
 import json
 import math
 import os
 import threading
-from pathlib import Path
-from typing import Any, Callable
-from urllib.parse import quote, urlencode
 import urllib.error
 import urllib.request
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
+from typing import Any
+from urllib.parse import quote, urlencode
 
 from services.billing.ledger import (
+    MICRO_UNIT_SCALE,
     DuplicateEventError,
     Ledger,
-    MICRO_UNIT_SCALE,
 )
 
 
@@ -197,7 +198,7 @@ WebhookVerifier = Callable[[bytes, str, str], dict[str, Any]]
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _stripe_get(obj: Any, key: str, default: Any = None) -> Any:

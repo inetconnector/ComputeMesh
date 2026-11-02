@@ -26,7 +26,7 @@ class ProofOfExecutionReceipt:
     elapsed_seconds: float
     node_id: str
     status: str = "verified_success"
-    block_index: Optional[int] = None
+    block_index: int | None = None
 
     @classmethod
     def create(
@@ -34,8 +34,8 @@ class ProofOfExecutionReceipt:
         tool_name: str,
         task_description: str,
         code: str,
-        inputs: Dict[str, Any],
-        outputs: Dict[str, Any],
+        inputs: dict[str, Any],
+        outputs: dict[str, Any],
         elapsed_seconds: float,
         node_id: str = "node_mesh_primary",
         status: str = "verified_success",
@@ -72,7 +72,7 @@ class ProofOfExecutionReceipt:
         )
         return sha256_hash(payload)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -84,7 +84,7 @@ class LedgerBlock:
     prev_hash: str
     merkle_root: str
     receipt_count: int
-    receipt_leaf_hashes: List[str]
+    receipt_leaf_hashes: list[str]
     node_id: str
     block_hash: str = ""
 
@@ -93,7 +93,7 @@ class LedgerBlock:
         cls,
         index: int,
         prev_hash: str,
-        receipts: List[ProofOfExecutionReceipt],
+        receipts: list[ProofOfExecutionReceipt],
         node_id: str = "node_mesh_primary",
     ) -> LedgerBlock:
         t = time.time()
@@ -128,5 +128,5 @@ class LedgerBlock:
             return False
         return self.compute_block_hash(self.index, self.timestamp, self.prev_hash, self.merkle_root, self.receipt_count, self.node_id) == self.block_hash
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)

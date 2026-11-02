@@ -17,7 +17,7 @@ GITHUB_API_BASE = "https://api.github.com"
 USER_AGENT = "ComputeMesh-Agent/1.2 (+https://computemesh.inetconnector.com)"
 
 
-def get_github_token() -> Optional[str]:
+def get_github_token() -> str | None:
     """Retrieves GitHub token from environment variables if configured."""
     return os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or None
 
@@ -25,11 +25,11 @@ def get_github_token() -> Optional[str]:
 def execute_github_request(
     endpoint: str,
     method: str = "GET",
-    params: Optional[Dict[str, Any]] = None,
-    json_body: Optional[Dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
+    json_body: dict[str, Any] | None = None,
     accept_header: str = "application/vnd.github.v3+json",
     timeout: float = 15.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Executes an authenticated or public HTTPS request against the GitHub REST API."""
     clean_endpoint = "/" + endpoint.strip().lstrip("/")
     url = f"{GITHUB_API_BASE}{clean_endpoint}"

@@ -11,17 +11,17 @@ Features:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import io
 import json
 import multiprocessing
 import os
-from pathlib import Path
 import subprocess
 import sys
 import threading
 import time
 import urllib.request
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 # Ensure PyInstaller Windows child process bootloader compatibility
 multiprocessing.freeze_support()
@@ -56,7 +56,8 @@ if str(REPO_ROOT) not in sys.path:
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from PIL import Image, ImageDraw, ImageTk, IcoImagePlugin
+from PIL import IcoImagePlugin, Image, ImageDraw, ImageTk
+
 try:
     import pystray
     import pystray._win32
@@ -107,12 +108,13 @@ def _create_computemesh_icon_image(size: tuple[int, int] = (32, 32)) -> Image.Im
 
 import traceback
 
+
 def _log_crash(msg: str) -> None:
     try:
         crash_log = Path.home() / ".computemesh" / "app_debug.log"
         crash_log.parent.mkdir(parents=True, exist_ok=True)
         with open(crash_log, "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now(timezone.utc).isoformat()}] {msg}\n")
+            f.write(f"[{datetime.now(UTC).isoformat()}] {msg}\n")
     except Exception:
         pass
 
@@ -270,8 +272,8 @@ class ComputeMeshProviderApp:
 
         # Explicitly start LAN P2P UDP Discovery Responder on port 13379 for Android & LAN pairing
         try:
-            from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
             from services.appliance_dashboard.tunnel_relay import get_default_node_id
+            from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
             cfg = load_appliance_config()
             nid = getattr(cfg, "rig_name", "") or getattr(cfg, "node_id", "") or get_default_node_id()
             gpu_desc = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"
@@ -1134,7 +1136,7 @@ class ComputeMeshProviderApp:
                 except Exception:
                     pass
             cfg_data["payout_address"] = wallet
-            cfg_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            cfg_data["updated_at"] = datetime.now(UTC).isoformat()
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             self.lbl_wallet_status.config(text="✓ Provider payout address saved. Customer payments run through Stripe.", foreground="#10b981")
         except Exception as e:
@@ -1156,12 +1158,12 @@ class ComputeMeshProviderApp:
             )
             self.dashboard_port = actual_port
             with open(log_file, "a", encoding="utf-8") as f:
-                f.write(f"[{datetime.now(timezone.utc).isoformat()}] Dashboard server listening on 0.0.0.0:{actual_port}\n")
+                f.write(f"[{datetime.now(UTC).isoformat()}] Dashboard server listening on 0.0.0.0:{actual_port}\n")
             server.serve_forever()
         except Exception as e:
             try:
                 with open(log_file, "a", encoding="utf-8") as f:
-                    f.write(f"[{datetime.now(timezone.utc).isoformat()}] Error in embedded server: {e}\n")
+                    f.write(f"[{datetime.now(UTC).isoformat()}] Error in embedded server: {e}\n")
             except Exception:
                 pass
 
@@ -1236,8 +1238,8 @@ class ComputeMeshProviderApp:
             if self.tray_icon:
                 self.tray_icon.title = "ComputeMesh AI Provider Node (Serving)"
             try:
-                from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
                 from services.appliance_dashboard.tunnel_relay import get_default_node_id
+                from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
                 cfg = load_appliance_config()
                 nid = getattr(cfg, "rig_name", "") or getattr(cfg, "node_id", "") or get_default_node_id()
                 gpu_desc = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"

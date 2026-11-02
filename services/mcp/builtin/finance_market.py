@@ -58,7 +58,7 @@ COMPANY_TICKER_MAPPINGS = {
 }
 
 
-def fetch_yahoo_quote(symbol: str, timeout: float = 8.0) -> Optional[Dict[str, Any]]:
+def fetch_yahoo_quote(symbol: str, timeout: float = 8.0) -> dict[str, Any] | None:
     """
     Fetches real-time market data from Yahoo Finance API.
     """
@@ -110,7 +110,7 @@ def fetch_yahoo_quote(symbol: str, timeout: float = 8.0) -> Optional[Dict[str, A
         return None
 
 
-def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> Optional[Dict[str, Any]]:
+def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> dict[str, Any] | None:
     """
     Fetches cryptocurrency price from CoinGecko public API.
     """
@@ -169,7 +169,7 @@ def get_market_movers(
     market: str = "nasdaq",
     count: int = 5,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Returns real-time top gainers and top losers for a specified market (NASDAQ, DAX, S&P 500, Crypto).
     """
@@ -225,7 +225,7 @@ def get_market_quote(
     crypto: str = "",
     ticker: str = "",
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Returns real-time quote for a stock, index, ETF, or cryptocurrency.
     """

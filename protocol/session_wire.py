@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Iterable, Mapping, Protocol
+from datetime import UTC, datetime, timezone
+from typing import Any, Protocol
 
 from .control import ControlEnvelope
 from .node_session import (
@@ -190,7 +191,7 @@ class NodeSessionWireHandler:
             return replay
 
         self._require_revision(envelope)
-        now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_utc = (now or datetime.now(UTC)).astimezone(UTC)
         payload = envelope.payload
 
         if envelope.message_type == "NodeHello":

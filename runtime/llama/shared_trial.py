@@ -11,21 +11,23 @@ It remains trusted-private-lab tooling. It does not authenticate upstream RPC.
 from __future__ import annotations
 
 import argparse
-from collections import deque
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
 import math
-from pathlib import Path
 import queue
 import re
 import subprocess
 import sys
 import threading
 import time
-from typing import Any, Callable, Sequence
+from collections import deque
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
+from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
+from services.scheduler.placement import PlannerPolicy
 
 from runtime.llama.rpc_spike import (
     RpcEndpoint,
@@ -38,7 +40,6 @@ from runtime.llama.rpc_spike import (
     sha256_file,
 )
 from runtime.llama.shared_run_evidence import write_shared_run_evidence
-from services.scheduler.placement import PlannerPolicy
 
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_SCHEMA = ROOT / "services" / "scheduler" / "experiment_bundle.schema.json"
@@ -121,7 +122,7 @@ def _parse_time(value: str) -> datetime:
         raise SharedTrialError("bundle captured_at is invalid") from exc
     if parsed.tzinfo is None:
         raise SharedTrialError("bundle captured_at must include a timezone")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _current_profile_age_ok(bundle: dict[str, Any], now: datetime) -> None:
@@ -167,10 +168,10 @@ def _selected_candidate(bundle: dict[str, Any]) -> dict[str, Any]:
 
 def load_trial_plan(bundle_path: Path, model_path: Path, *, now: datetime | None = None) -> TrialPlan:
     bundle = _read_bundle(bundle_path)
-    current = now or datetime.now(timezone.utc)
+    current = now or datetime.now(UTC)
     if current.tzinfo is None:
         raise ValueError("now must be timezone-aware")
-    _current_profile_age_ok(bundle, current.astimezone(timezone.utc))
+    _current_profile_age_ok(bundle, current.astimezone(UTC))
     candidate = _selected_candidate(bundle)
     placement = bundle["placement_decision"]
     coordinator = placement["nodes"]["coordinator"]
@@ -527,7 +528,7 @@ def _write_failure(root: Path, phase: str, exc: BaseException) -> None:
     message = (str(exc) or type(exc).__name__)[:MAX_FAILURE_MESSAGE]
     record = {
         "schema_version": 1,
-        "captured_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "phase": phase[:64],
         "error_type": type(exc).__name__[:128],
         "message": message,

@@ -16,7 +16,6 @@ from services.gateway.owner_provider_routes import UnifiedOwnerProviderRoutesHan
 from services.gateway.owner_server import build_unified_owner_handler
 from services.gateway.teaser import TeaserQuotaManager
 
-
 _ENV_NAMES = (
     "COMPUTEMESH_UNIFIED_OWNER_CREDITS",
     "COMPUTEMESH_LEDGER_PATH",

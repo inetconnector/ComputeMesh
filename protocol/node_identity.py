@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import base64
 import binascii
 import hashlib
 import json
 import struct
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Protocol
 
 from cryptography.exceptions import InvalidSignature
@@ -223,7 +223,7 @@ def create_node_auth_proof(
 ) -> str:
     if ttl <= timedelta(0) or ttl > MAX_PROOF_TTL:
         raise ValueError("proof ttl must be positive and <= 60 seconds")
-    now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    now_utc = (now or datetime.now(UTC)).astimezone(UTC)
     issued_at = int(now_utc.timestamp())
     expires_at = int((now_utc + ttl).timestamp())
     message = signing_message(
@@ -289,10 +289,10 @@ class Ed25519ChallengeVerifier:
         except NodeIdentityError:
             return self._deny("malformed node proof")
 
-        now_utc = now.astimezone(timezone.utc)
+        now_utc = now.astimezone(UTC)
         try:
-            issued = datetime.fromtimestamp(proof.issued_at, tz=timezone.utc)
-            expires = datetime.fromtimestamp(proof.expires_at, tz=timezone.utc)
+            issued = datetime.fromtimestamp(proof.issued_at, tz=UTC)
+            expires = datetime.fromtimestamp(proof.expires_at, tz=UTC)
         except (OverflowError, OSError, ValueError):
             return self._deny("malformed node proof timestamp")
         if expires - issued > self.max_proof_ttl:

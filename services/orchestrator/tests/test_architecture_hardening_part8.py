@@ -2,9 +2,9 @@
 import pytest
 from services.orchestrator.architecture_hardening_part8 import (
     ModelManifestEnforcer,
-    ShardManifestEnforcer,
     ModelManifestError,
-    ShardManifestError
+    ShardManifestEnforcer,
+    ShardManifestError,
 )
 
 

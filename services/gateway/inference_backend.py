@@ -10,9 +10,10 @@ from __future__ import annotations
 import json
 import os
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Protocol
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
@@ -579,7 +580,7 @@ class OrchestratedInferenceBackend:
         ]
 
     def _reserve_capacity(self, job_id: str) -> list[str]:
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.lease_seconds)
+        expires_at = datetime.now(UTC) + timedelta(seconds=self.lease_seconds)
         reservation_ids = self._reservation_ids(job_id)
         for index, (reservation_id, node_id) in enumerate(
             zip(reservation_ids, self.provider_node_ids)
@@ -608,7 +609,7 @@ class OrchestratedInferenceBackend:
             record = self.store.get_reservation(reservation_id)
             if record.state != ReservationState.COMMITTED:
                 raise InferenceBackendError("capacity reservation is not committed")
-            if record.lease_expires_at is None or record.lease_expires_at <= datetime.now(timezone.utc):
+            if record.lease_expires_at is None or record.lease_expires_at <= datetime.now(UTC):
                 self.store.transition_reservation(
                     reservation_id,
                     request_id=f"{job_id}:expire:{index}",
@@ -740,7 +741,7 @@ class OrchestratedInferenceBackend:
             self._advance_job(job_id, JobState.PREPARING)
             self._activate(job_id, reservation_ids)
             self._advance_job(job_id, JobState.RUNNING)
-            execution_started_at = datetime.now(timezone.utc)
+            execution_started_at = datetime.now(UTC)
             try:
                 result = self.delegate.complete(model_id=model_id, messages=messages, max_tokens=max_tokens)
             except TypeError:

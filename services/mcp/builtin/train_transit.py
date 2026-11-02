@@ -7,17 +7,17 @@ Supports generic single and multi-station queries with concurrent execution.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
 
-def _split_station_queries(raw: str) -> List[str]:
+def _split_station_queries(raw: str) -> list[str]:
     """Splits queries containing multiple stations."""
     cleaned = re.sub(r"^(?:fahrplan\s+(?:fuer|für|von|ab|in)\s+|abfahrten\s+(?:fuer|für|von|ab|in)\s+|züge\s+(?:ab|von)\s+|bahnhof\s+)", "", raw, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"[\?\.!]$", "", cleaned).strip()
@@ -30,7 +30,7 @@ def _split_station_queries(raw: str) -> List[str]:
     return results if results else ([raw.strip()] if raw.strip() else [])
 
 
-def _find_station_id(station_name: str, timeout: float = 3.0) -> Optional[Dict[str, Any]]:
+def _find_station_id(station_name: str, timeout: float = 3.0) -> dict[str, Any] | None:
     """Finds exact station EVA / UIC id using transport.rest location lookup."""
     encoded = urllib.parse.quote(station_name.strip())
     url = f"https://v6.db.transport.rest/locations?query={encoded}&results=1"
@@ -49,7 +49,7 @@ def _find_station_id(station_name: str, timeout: float = 3.0) -> Optional[Dict[s
     return None
 
 
-def _fallback_osm_station(station_name: str, timeout: float = 3.0) -> Optional[Dict[str, Any]]:
+def _fallback_osm_station(station_name: str, timeout: float = 3.0) -> dict[str, Any] | None:
     """Fallback station resolution via OpenStreetMap Nominatim."""
     query = f"{station_name} Bahnhof" if "bahnhof" not in station_name.lower() and "hbf" not in station_name.lower() else station_name
     encoded = urllib.parse.quote(query)
@@ -70,7 +70,7 @@ def _fallback_osm_station(station_name: str, timeout: float = 3.0) -> Optional[D
     return None
 
 
-def _fetch_single_station(station_query: str, max_results: int = 5, timeout: float = 6.0) -> Dict[str, Any]:
+def _fetch_single_station(station_query: str, max_results: int = 5, timeout: float = 6.0) -> dict[str, Any]:
     clean_station = station_query.strip()
     st_info = _find_station_id(clean_station, timeout=min(timeout / 2, 3.0))
 
@@ -87,7 +87,7 @@ def _fetch_single_station(station_query: str, max_results: int = 5, timeout: flo
                 data = json.loads(resp.read().decode("utf-8"))
 
             departures_raw = data.get("departures", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
-            departures: List[Dict[str, Any]] = []
+            departures: list[dict[str, Any]] = []
 
             for dep in departures_raw[:lim]:
                 line_obj = dep.get("line", {})
@@ -154,7 +154,7 @@ def lookup_train_schedule(
     query: str = "",
     max_results: int = 5,
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Looks up live train and transit departures, destinations, platforms, and delays for any German/European train station.
     Supports single or multiple stations concurrently.

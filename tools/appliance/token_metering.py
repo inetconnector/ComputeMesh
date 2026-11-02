@@ -6,13 +6,13 @@ Provides synchronization with local SQLite accounting and coordinator telemetry.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import threading
 import time
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from typing import Any
 
 # Historical display constant. Settlement policy is coordinator-owned and this
@@ -87,7 +87,7 @@ def flush_token_stats_to_disk(force: bool = False) -> None:
             return
         stats = _CACHED_STATS
         p = _get_token_storage_path()
-        stats.last_updated_at = datetime.now(timezone.utc).isoformat()
+        stats.last_updated_at = datetime.now(UTC).isoformat()
         try:
             data = stats.to_dict()
             tmp = p.with_suffix(".tmp")

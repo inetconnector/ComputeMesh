@@ -1,11 +1,11 @@
 """Unit tests for Stripe Checkout and signed webhook payment integration."""
 import json
 import os
-from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from services.billing.ledger import Ledger
 from services.billing.stripe_integration import (

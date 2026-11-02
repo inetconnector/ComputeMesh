@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import json
-from http import HTTPStatus
-from pathlib import Path
 import sys
 import unittest
+from http import HTTPStatus
+from pathlib import Path
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

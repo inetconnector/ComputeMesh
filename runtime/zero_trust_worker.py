@@ -27,18 +27,18 @@ class ZeroTrustWorkerSession:
     handshake_timestamp: float
     verified: bool = True
     is_isolated: bool = False
-    quarantine_reason: Optional[str] = None
-    processed_nonces: Set[str] = field(default_factory=set)
+    quarantine_reason: str | None = None
+    processed_nonces: set[str] = field(default_factory=set)
 
 
 class ZeroTrustWorkerCommunicator:
     """Production Zero-Trust Worker Communication Engine enforcing cryptographic guarantees."""
 
-    def __init__(self, hmac_secret: Optional[str] = None, nonce_window_seconds: float = 300.0) -> None:
+    def __init__(self, hmac_secret: str | None = None, nonce_window_seconds: float = 300.0) -> None:
         self._master_secret = (hmac_secret or secrets.token_hex(32)).encode("utf-8")
         self._nonce_window_seconds = nonce_window_seconds
-        self._sessions: Dict[str, ZeroTrustWorkerSession] = {}
-        self._isolated_workers: Dict[str, str] = {}  # worker_id -> reason
+        self._sessions: dict[str, ZeroTrustWorkerSession] = {}
+        self._isolated_workers: dict[str, str] = {}  # worker_id -> reason
         self._total_verified_payloads = 0
         self._total_tamper_attempts = 0
 
@@ -70,7 +70,7 @@ class ZeroTrustWorkerCommunicator:
         session_id = f"zt-session-{secrets.token_hex(16)}"
         session_key = hmac.new(
             self._master_secret,
-            f"{session_id}:{worker_id}:{client_cert_cn}".encode("utf-8"),
+            f"{session_id}:{worker_id}:{client_cert_cn}".encode(),
             hashlib.sha256,
         ).digest()
 
@@ -100,7 +100,7 @@ class ZeroTrustWorkerCommunicator:
                 session.quarantine_reason = reason
         log.warning(f"WORKER ISOLATED / QUARANTINED: {worker_id} (Reason: {reason})")
 
-    def sign_payload(self, session_id: str, payload_bytes: bytes) -> Dict[str, Any]:
+    def sign_payload(self, session_id: str, payload_bytes: bytes) -> dict[str, Any]:
         """Signs a payload using session key, generating HMAC signature and nonce."""
         if session_id not in self._sessions:
             raise KeyError(f"Invalid or expired session ID: {session_id}")
@@ -113,7 +113,7 @@ class ZeroTrustWorkerCommunicator:
         nonce = f"{int(timestamp * 1000)}-{secrets.token_hex(8)}"
 
         # Compute HMAC signature over (nonce + timestamp + payload)
-        message = f"{nonce}:{timestamp}:".encode("utf-8") + payload_bytes
+        message = f"{nonce}:{timestamp}:".encode() + payload_bytes
         signature = hmac.new(session.session_key, message, hashlib.sha256).hexdigest()
 
         return {
@@ -156,7 +156,7 @@ class ZeroTrustWorkerCommunicator:
             return False
 
         # 3. HMAC signature verification
-        message = f"{nonce}:{timestamp}:".encode("utf-8") + payload_bytes
+        message = f"{nonce}:{timestamp}:".encode() + payload_bytes
         expected_sig = hmac.new(session.session_key, message, hashlib.sha256).hexdigest()
 
         if not hmac.compare_digest(expected_sig, signature):
@@ -169,7 +169,7 @@ class ZeroTrustWorkerCommunicator:
         self._total_verified_payloads += 1
         return True
 
-    def get_zero_trust_status(self) -> Dict[str, Any]:
+    def get_zero_trust_status(self) -> dict[str, Any]:
         """Returns Zero-Trust security and isolation metrics."""
         active_sessions = sum(1 for s in self._sessions.values() if s.verified and not s.is_isolated)
         quarantined_count = len(self._isolated_workers)

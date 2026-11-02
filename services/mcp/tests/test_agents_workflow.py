@@ -1,11 +1,11 @@
 """Contract tests for the resumable Agents Platform DAG workflow engine."""
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 
 from services.mcp.platform.workflow import (
     DAGWorkflowEngine,

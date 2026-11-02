@@ -8,15 +8,15 @@ backend.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import glob
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import threading
-from typing import Any, TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from tools.appliance.hardware_detector import RigInventory

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timedelta, timezone
 import json
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from services.orchestrator.placement_provider import (
     PlacementProviderError,
     _canonical_unsigned_envelope,
@@ -21,7 +20,7 @@ def _b64u(value: bytes) -> str:
 
 
 def _envelope() -> dict:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "schema_version": 2,
         "decision_type": "execution_plan",
@@ -91,7 +90,7 @@ class PlacementProviderBoundaryTests(unittest.TestCase):
             _external_plan(envelope)
 
     def test_executor_version_2_n_stage_and_device_index(self) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         envelope = {
             "schema_version": 2,
             "decision_type": "execution_plan",
@@ -126,7 +125,7 @@ class PlacementProviderBoundaryTests(unittest.TestCase):
         self.assertEqual(plan.tensor_split, (3.0, 3.0, 3.0))
 
     def test_executor_version_2_gap_rejected(self) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         envelope = {
             "schema_version": 2,
             "decision_type": "execution_plan",

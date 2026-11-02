@@ -7,17 +7,17 @@ Supports generic single and multi-package queries with concurrent execution.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
 
-def _split_package_queries(raw: str) -> List[str]:
+def _split_package_queries(raw: str) -> list[str]:
     """Splits package queries containing multiple packages."""
     cleaned = re.sub(r"^(?:paketinfo\s+(?:zu|von|über|fuer|für)\s+|pakete\s+|paket\s+|packages?\s+|version\s+(?:von\s+)?|sicherheitslücken\s+(?:in\s+)?|cve\s+(?:in|zu)\s+)", "", raw, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"[\?\.!]$", "", cleaned).strip()
@@ -30,7 +30,7 @@ def _split_package_queries(raw: str) -> List[str]:
     return results if results else ([raw.strip()] if raw.strip() else [])
 
 
-def _fetch_pypi(package_name: str, timeout: float = 4.0) -> Optional[Dict[str, Any]]:
+def _fetch_pypi(package_name: str, timeout: float = 4.0) -> dict[str, Any] | None:
     """Fetches Python package metadata from PyPI JSON API."""
     clean = package_name.strip().lower()
     url = f"https://pypi.org/pypi/{clean}/json"
@@ -55,7 +55,7 @@ def _fetch_pypi(package_name: str, timeout: float = 4.0) -> Optional[Dict[str, A
     return None
 
 
-def _fetch_npm(package_name: str, timeout: float = 4.0) -> Optional[Dict[str, Any]]:
+def _fetch_npm(package_name: str, timeout: float = 4.0) -> dict[str, Any] | None:
     """Fetches JavaScript / TypeScript package metadata from NPM Registry API."""
     encoded = urllib.parse.quote(package_name.strip().lower(), safe="@")
     url = f"https://registry.npmjs.org/{encoded}"
@@ -81,14 +81,14 @@ def _fetch_npm(package_name: str, timeout: float = 4.0) -> Optional[Dict[str, An
     return None
 
 
-def _check_osv_vulnerabilities(ecosystem: str, package_name: str, version: str = "", timeout: float = 4.0) -> List[Dict[str, Any]]:
+def _check_osv_vulnerabilities(ecosystem: str, package_name: str, version: str = "", timeout: float = 4.0) -> list[dict[str, Any]]:
     """Queries OSV.dev for known security vulnerabilities (CVEs) affecting this package."""
     osv_eco = "PyPI" if "pypi" in ecosystem.lower() else "npm" if "npm" in ecosystem.lower() else ""
     if not osv_eco:
         return []
 
     url = "https://api.osv.dev/v1/query"
-    payload: Dict[str, Any] = {"package": {"name": package_name, "ecosystem": osv_eco}}
+    payload: dict[str, Any] = {"package": {"name": package_name, "ecosystem": osv_eco}}
     if version:
         payload["version"] = version
 
@@ -101,7 +101,7 @@ def _check_osv_vulnerabilities(ecosystem: str, package_name: str, version: str =
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             vulns = data.get("vulns", [])
-            results: List[Dict[str, Any]] = []
+            results: list[dict[str, Any]] = []
             for v in vulns[:4]:
                 results.append({
                     "id": v.get("id"),
@@ -113,7 +113,7 @@ def _check_osv_vulnerabilities(ecosystem: str, package_name: str, version: str =
         return []
 
 
-def _fetch_single_package(package_name: str, ecosystem: str = "pypi", timeout: float = 6.0) -> Dict[str, Any]:
+def _fetch_single_package(package_name: str, ecosystem: str = "pypi", timeout: float = 6.0) -> dict[str, Any]:
     clean_pkg = package_name.strip()
     eco = (ecosystem or "pypi").lower().strip()
     data = None
@@ -150,7 +150,7 @@ def lookup_software_package(
     ecosystem: str = "pypi",
     query: str = "",
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Looks up software package metadata, latest releases, dependencies, and OSV security vulnerabilities.
     Supports single or multiple package queries concurrently.

@@ -6,15 +6,16 @@ fleet bindings, operator legal profiles, and statutory retention lifecycle execu
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
-from pathlib import Path
 import secrets
 import sqlite3
 import threading
-from typing import Any, Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
 
 from .dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from .provider_identity import (
@@ -573,7 +574,7 @@ class ProviderIdentityStore:
         now = utc_now()
         decl_id = "decl_" + secrets.token_hex(12)
         ip_hash = hashlib.sha256(client_ip.encode("utf-8")).hexdigest()[:16] if client_ip else ""
-        t_hash = text_hash or hashlib.sha256(f"{declaration_type}:{legal_text_version}".encode("utf-8")).hexdigest()[:16]
+        t_hash = text_hash or hashlib.sha256(f"{declaration_type}:{legal_text_version}".encode()).hexdigest()[:16]
         audit_ref = audit_reference or f"audit_{secrets.token_hex(8)}"
 
         with self._lock, self._connection() as conn:
@@ -714,7 +715,7 @@ class ProviderIdentityStore:
 
     def apply_retention_lifecycle(self, now: datetime | None = None) -> dict[str, int]:
         """Executes statutory and privacy retention lifecycle rules against stored records."""
-        current_time = now or datetime.now(timezone.utc)
+        current_time = now or datetime.now(UTC)
         results = {
             "purged_draft_profiles": 0,
             "anonymized_audit_logs": 0,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from protocol.control import ControlEnvelope
 from protocol.node_session import NodeSessionState, SessionSnapshot
@@ -14,7 +14,7 @@ from services.orchestrator.live_provider_registration import (
 )
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 def session(state=NodeSessionState.PROFILE_SYNCED, revision=4):

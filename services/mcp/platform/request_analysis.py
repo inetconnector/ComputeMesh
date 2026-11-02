@@ -5,10 +5,11 @@ It is deliberately deterministic and does not expose hidden model reasoning.
 """
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-import re
-from typing import Any, Iterable
+from typing import Any
 
 from .contracts import RequestEnvelope, RiskLevel, SideEffectLevel
 

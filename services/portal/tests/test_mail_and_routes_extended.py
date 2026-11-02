@@ -1,9 +1,9 @@
 """Unit tests for mail dispatcher and extended passkey / magic link HTTP routes."""
+import tempfile
+import unittest
 from http import HTTPStatus
 from pathlib import Path
-import tempfile
 from typing import Any
-import unittest
 from unittest.mock import patch
 
 from services.portal import mail_dispatcher, passkey_routes

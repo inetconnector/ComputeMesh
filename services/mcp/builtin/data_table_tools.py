@@ -13,15 +13,15 @@ from typing import Any, Dict, List, Optional
 
 def analyze_data_table(
     data: str,
-    delimiter: Optional[str] = None,
+    delimiter: str | None = None,
     max_sample_rows: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Analyzes a CSV string or JSON dataset and computes statistical column summaries."""
     raw = str(data or "").strip()
     if not raw:
         return {"error": "Keine Daten zur Analyse übergeben."}
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
 
     # 1. Try parsing JSON array of objects
     if (raw.startswith("[") and raw.endswith("]")) or (raw.startswith("{") and raw.endswith("}")):
@@ -53,13 +53,13 @@ def analyze_data_table(
     total_rows = len(rows)
     all_columns = list(rows[0].keys())
 
-    column_summaries: Dict[str, Any] = {}
+    column_summaries: dict[str, Any] = {}
     for col in all_columns:
         vals = [r.get(col) for r in rows if r.get(col) is not None and str(r.get(col)).strip() != ""]
         null_count = total_rows - len(vals)
 
         # Check numeric conversion
-        num_vals: List[float] = []
+        num_vals: list[float] = []
         for v in vals:
             try:
                 num_vals.append(float(str(v).replace(",", ".").replace("%", "").strip()))
@@ -102,8 +102,8 @@ def analyze_data_table(
     }
 
 
-def collections_counter(items: List[str]) -> List[tuple[str, int]]:
-    counts: Dict[str, int] = {}
+def collections_counter(items: list[str]) -> list[tuple[str, int]]:
+    counts: dict[str, int] = {}
     for item in items:
         counts[item] = counts.get(item, 0) + 1
     return sorted(counts.items(), key=lambda x: x[1], reverse=True)

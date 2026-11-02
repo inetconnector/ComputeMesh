@@ -1,25 +1,21 @@
 """Direct orchestrated two-node llama.cpp request with signed settlement evidence."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
-from pathlib import Path
 import secrets
-from typing import Any, Callable
-from services.orchestrator.architecture_hardening_part12 import (
-    StaleProviderResponseEnforcer,
-    UserCancellationPropagator,
-    ExecutionEvidenceEnforcer,
-    RecoveryStateEnforcer
-)
-from services.orchestrator.architecture_hardening_part5 import AutomaticCapacityRelease, AgentExecutionPolicy, RelayPolicyEnforcer, CryptographicProofClaimVerifier
-from services.orchestrator.architecture_hardening_part7 import StatefulIdempotentCommandEnforcer, StatefulCapacityLeaseManager
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
 
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_request import SharedRequestResult, run_shared_request
 from runtime.llama.shared_request_live import SharedRequestCancelled
-from services.gateway.execution_attestation import VerificationKeyResolver, verify_execution_attestations
+from services.gateway.execution_attestation import (
+    VerificationKeyResolver,
+    verify_execution_attestations,
+)
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.gateway.placement_selection import PlacementSelection
 from services.gateway.shared_request_evidence import (
@@ -27,7 +23,26 @@ from services.gateway.shared_request_evidence import (
     VerifiedSharedRequestEvidence,
     verify_shared_request_evidence,
 )
-from services.orchestrator.attestation_collection import NodeAttestationTransport, collect_execution_attestations
+from services.orchestrator.architecture_hardening_part5 import (
+    AgentExecutionPolicy,
+    AutomaticCapacityRelease,
+    CryptographicProofClaimVerifier,
+    RelayPolicyEnforcer,
+)
+from services.orchestrator.architecture_hardening_part7 import (
+    StatefulCapacityLeaseManager,
+    StatefulIdempotentCommandEnforcer,
+)
+from services.orchestrator.architecture_hardening_part12 import (
+    ExecutionEvidenceEnforcer,
+    RecoveryStateEnforcer,
+    StaleProviderResponseEnforcer,
+    UserCancellationPropagator,
+)
+from services.orchestrator.attestation_collection import (
+    NodeAttestationTransport,
+    collect_execution_attestations,
+)
 from services.orchestrator.evidence_store import ExecutionEvidenceStore
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.state_machine import JobState, ReservationState
@@ -163,7 +178,7 @@ class SharedRequestOrchestratedBackend:
         return [f"{job_id}:capacity:{index}:{node}" for index, node in enumerate(self.placement.provider_node_ids)]
 
     def _reserve(self, job_id: str) -> list[str]:
-        expires = datetime.now(timezone.utc) + timedelta(seconds=self.lease_seconds)
+        expires = datetime.now(UTC) + timedelta(seconds=self.lease_seconds)
         ids = self._reservation_ids(job_id)
         for index, (reservation_id, node_id) in enumerate(zip(ids, self.placement.provider_node_ids)):
             self.store.ensure_reservation(reservation_id)
@@ -226,7 +241,7 @@ class SharedRequestOrchestratedBackend:
     def _activate(self, job_id: str, ids: list[str]) -> None:
         for index, reservation_id in enumerate(ids):
             current = self.store.get_reservation(reservation_id)
-            if current.state != ReservationState.COMMITTED or current.lease_expires_at is None or current.lease_expires_at <= datetime.now(timezone.utc):
+            if current.state != ReservationState.COMMITTED or current.lease_expires_at is None or current.lease_expires_at <= datetime.now(UTC):
                 raise SharedRequestSettlementError("capacity reservation is not dispatchable")
             self.store.transition_reservation(
                 reservation_id,
@@ -311,7 +326,7 @@ class SharedRequestOrchestratedBackend:
                 self._advance(job_id, JobState.PREPARING)
                 self._activate(job_id, reservations)
                 self._advance(job_id, JobState.RUNNING)
-                started = datetime.now(timezone.utc)
+                started = datetime.now(UTC)
                 prompt = self.prompt_renderer(messages)
                 work_dir = self.work_root / job_id
                 runtime_result = self.runner(

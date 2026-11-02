@@ -1,23 +1,23 @@
 """Unit and Integration Tests for ComputeMesh Fleet AI-Chat, llama.cpp WebUI, and MCP Live-Tools."""
-from http.client import HTTPConnection
-from dataclasses import replace
 import json
-from pathlib import Path
 import sys
 import tempfile
 import threading
 import time
 import unittest
+from dataclasses import replace
+from http.client import HTTPConnection
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import services.gateway.server as gateway_server_module
 import services.gateway.catalog as catalog_module
-from services.gateway.server import GatewayHandler, create_gateway_server
+import services.gateway.server as gateway_server_module
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
+from services.gateway.server import GatewayHandler, create_gateway_server
 
 
 class TestFleetAIChatAndMCP(unittest.TestCase):

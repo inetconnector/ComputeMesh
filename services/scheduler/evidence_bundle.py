@@ -11,16 +11,16 @@ local filesystem paths, plus the fully validated placement decision.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timezone
+from pathlib import Path
+from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.scheduler.placement import (
     PlacementInputError,
     PlannerPolicy,
@@ -94,7 +94,7 @@ def _timestamp(value: str, label: str) -> datetime:
         raise EvidenceBundleError(f"{label} has invalid RFC3339 timestamp") from exc
     if parsed.tzinfo is None:
         raise EvidenceBundleError(f"{label} timestamp must be timezone-aware")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _load_document(path: Path, *, label: str) -> EvidenceDocument:
@@ -490,7 +490,7 @@ def build_experiment_bundle(
     policy: PlannerPolicy = PlannerPolicy(),
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     llama_build_commit, llama_build_number = _selected_llama_build_identity(selected)
     decision = build_placement_decision(
         coordinator_profile=selected.coordinator.profile.value,

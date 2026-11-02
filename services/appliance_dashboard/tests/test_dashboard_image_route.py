@@ -1,15 +1,16 @@
 """Unit tests for Appliance Dashboard /v1/images/generations Route."""
 import json
 import unittest
-import urllib.request
 import urllib.error
+import urllib.request
 from http import HTTPStatus
 from urllib.parse import quote
 
 from services.appliance_dashboard.server import create_dashboard_server
+from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import RigInventory
-from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
+
 
 class TestDashboardImageRoute(unittest.TestCase):
     @classmethod

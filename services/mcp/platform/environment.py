@@ -9,10 +9,11 @@ from __future__ import annotations
 import re
 import time
 import uuid
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import PurePosixPath
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Protocol
 
 
 class EnvironmentError(RuntimeError):

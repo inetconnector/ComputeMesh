@@ -9,15 +9,15 @@ Validates the full lifecycle:
 """
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.ledger import (
+    MICRO_UNIT_SCALE,
     AccountType,
     BillingError,
     InsufficientBalanceError,
-    MICRO_UNIT_SCALE,
 )
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_credits import (

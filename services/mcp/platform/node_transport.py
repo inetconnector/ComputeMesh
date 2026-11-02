@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Callable, Mapping, Sequence
+from datetime import UTC, datetime, timezone
+from typing import Any
 
 from .node_registry import NodeLifecycle, NodeRecord, NodeRegistry
 
@@ -72,7 +73,7 @@ class AuthenticatedNodeRegistrySync:
         control_client: Any | None = None,
     ) -> None:
         self.registry = registry
-        self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.clock = clock or (lambda: datetime.now(UTC))
         self.required_capability = str(required_capability)
         self.control_client = control_client
 
@@ -90,8 +91,8 @@ class AuthenticatedNodeRegistrySync:
         expires = getattr(session, "credential_expires_at", None)
         if expires is None:
             raise AuthenticatedNodeSyncError("node session has no credential expiry")
-        expires = expires.astimezone(timezone.utc) if getattr(expires, "tzinfo", None) else None
-        if expires is None or expires <= self.clock().astimezone(timezone.utc):
+        expires = expires.astimezone(UTC) if getattr(expires, "tzinfo", None) else None
+        if expires is None or expires <= self.clock().astimezone(UTC):
             raise AuthenticatedNodeSyncError("node session credential has expired")
         capabilities = {str(item) for item in (getattr(session, "negotiated_capabilities", ()) or ())}
         if self.required_capability and self.required_capability not in capabilities:

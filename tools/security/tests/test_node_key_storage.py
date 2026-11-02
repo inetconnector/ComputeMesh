@@ -1,24 +1,23 @@
 import os
-from pathlib import Path
 import platform
 import stat
 import tempfile
 import unittest
+from pathlib import Path
 
+import tools.security.node_key_storage as node_key_storage
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from tools.security.node_key_storage import (
+    _HAS_DPAPI,
     DPAPI_ENVELOPE_PREFIX,
     KeyStorageError,
-    _HAS_DPAPI,
     dpapi_protect,
     dpapi_unprotect,
     load_node_private_key,
     save_node_private_key,
     shred_node_key,
 )
-import tools.security.node_key_storage as node_key_storage
 
 
 class TestNodeKeyStorage(unittest.TestCase):

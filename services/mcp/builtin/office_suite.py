@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Union
 log = logging.getLogger("computemesh.mcp.office_suite")
 
 
-def _convert_to_table_rows(data: Any) -> tuple[List[str], List[Dict[str, Any]]]:
+def _convert_to_table_rows(data: Any) -> tuple[list[str], list[dict[str, Any]]]:
     """Normalizes various input formats (JSON array, dict of lists, CSV string) into column headers and row dicts."""
     if not data:
         return [], []
@@ -92,10 +92,10 @@ def _convert_to_table_rows(data: Any) -> tuple[List[str], List[Dict[str, Any]]]:
 
 def convert_data_to_markdown_table(
     data: Any,
-    columns: Optional[List[str]] = None,
-    sort_by: Optional[str] = None,
+    columns: list[str] | None = None,
+    sort_by: str | None = None,
     ascending: bool = True,
-    title: Optional[str] = None,
+    title: str | None = None,
 ) -> str:
     """Converts structured dataset (list of dicts, CSV, or key-value map) into a formatted Markdown table.
 
@@ -119,7 +119,7 @@ def convert_data_to_markdown_table(
 
     if sort_by and sort_by in target_cols:
         try:
-            def _sort_key(r: Dict[str, Any]) -> Any:
+            def _sort_key(r: dict[str, Any]) -> Any:
                 v = r.get(sort_by)
                 if v is None:
                     return ""
@@ -174,10 +174,10 @@ def convert_data_to_markdown_table(
 def generate_office_document(
     file_format: str = "xlsx",
     title: str = "ComputeMesh Export",
-    data: Optional[Any] = None,
-    markdown_content: Optional[str] = None,
-    filename: Optional[str] = None,
-) -> Dict[str, Any]:
+    data: Any | None = None,
+    markdown_content: str | None = None,
+    filename: str | None = None,
+) -> dict[str, Any]:
     """Generates an Office spreadsheet (.xlsx, .csv) or document (.html, .md) with structured data.
 
     Args:
@@ -299,9 +299,9 @@ tr:hover {{ background: #334155; }}
 
 def parse_office_document(
     file_path_or_content: str,
-    file_format: Optional[str] = None,
+    file_format: str | None = None,
     max_preview_rows: int = 15,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Parses spreadsheets (Excel .xlsx, .csv), Word docs (.docx), PDFs, and text/Markdown files into structured JSON.
 
     Args:

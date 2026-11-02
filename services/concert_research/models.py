@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from datetime import date, datetime, timezone
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, date, datetime, timezone
 from typing import Any
 
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 @dataclass(slots=True)

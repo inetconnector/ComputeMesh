@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 from runtime.llama.job_attestation import (
     assemble_attestation_bundle,
@@ -109,7 +108,7 @@ class JobAttestationTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        self.now = datetime.now(timezone.utc)
+        self.now = datetime.now(UTC)
         self.evidence_path = self.root / "evidence.json"
         self.evidence_path.write_text(json.dumps(_evidence(self.now)), encoding="utf-8")
         self.request_path = self.root / "request.json"

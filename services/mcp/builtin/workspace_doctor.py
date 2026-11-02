@@ -33,12 +33,12 @@ def _check_command_version(cmd: str, version_flag: str = "--version", timeout: f
 
 
 def run_doctor_diagnostics(
-    categories: Optional[List[str]] = None,
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    categories: list[str] | None = None,
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Runs comprehensive diagnostics across compilers, hardware, network, and edge nodes."""
     root = os.path.abspath(workspace_root or ".")
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     overall = "healthy"
 
     def _add_item(name: str, cat: str, status: str, summary: str, latency_ms: int = 0, remediation: str = ""):

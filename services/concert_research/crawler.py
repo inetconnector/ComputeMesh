@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import gzip
-from html import unescape
 import json
 import random
 import re
 import threading
-from urllib import request, error, robotparser
-from urllib.parse import quote_plus, urljoin, urlsplit, unquote
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
+from html import unescape
+from urllib import error, request, robotparser
+from urllib.parse import quote_plus, unquote, urljoin, urlsplit
 
 from .config import ConcertResearchConfig
 from .extractors import extract_feed, extract_ics, extract_jsonld, html_snapshot
@@ -275,7 +275,7 @@ class ConcertCrawler:
                     except (TypeError,ValueError): conf=0.0
                     self.store.update_source_classification(int(source_id),source_type=str(cls.get('source_type') or 'discovery'),tier=str(cls.get('tier') or 'secondary'),score_delta=10*conf,priority=max(5,int(row['source_priority'] or 70)-int(10*conf)))
             if city and self.ai.available and not observations and self._looks_eventish(title,meaningful):
-                dfrom=date_from or datetime.now(timezone.utc).date().isoformat(); dto=date_to or (datetime.now(timezone.utc).date()+timedelta(days=30)).isoformat()
+                dfrom=date_from or datetime.now(UTC).date().isoformat(); dto=date_to or (datetime.now(UTC).date()+timedelta(days=30)).isoformat()
                 observations += self.ai.extract_events(url=result.url,source_name=source_name,city=city,text=meaningful,date_from=dfrom,date_to=dto)
         new_links=self._enqueue_links(result.url,links,row); new_events=0
         for obs in observations:

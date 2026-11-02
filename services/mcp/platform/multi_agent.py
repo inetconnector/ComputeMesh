@@ -1,9 +1,9 @@
 """Durable, bounded fan-out/fan-in coordination for agent sub-sessions."""
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Callable, Sequence
 
 from .leases import LeaseState, NodeLease, NodeLeaseStore
 from .session import AgentSession, AgentSessionStore, AgentTurn, TurnStatus

@@ -7,8 +7,9 @@ credentials or treats an unverified discovery response as routable.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from .node_registry import NodeLifecycle, NodeRecord, NodeRegistry
 

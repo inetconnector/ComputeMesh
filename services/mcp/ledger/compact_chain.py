@@ -13,7 +13,8 @@ import os
 import sqlite3
 import threading
 import time
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from collections.abc import Generator
+from typing import Any, Dict, List, Optional, Tuple
 
 from .block import LedgerBlock, ProofOfExecutionReceipt
 from .merkle_tree import MerkleTree, sha256_hash
@@ -26,11 +27,11 @@ GENESIS_PREV_HASH = "00000000000000000000000000000000000000000000000000000000000
 class CompactLedger:
     """Manages the append-only cryptographic block chain and proof-of-execution receipts."""
 
-    def __init__(self, db_path: Optional[str] = None, auto_commit_batch_size: int = 50) -> None:
+    def __init__(self, db_path: str | None = None, auto_commit_batch_size: int = 50) -> None:
         self.db_path = db_path or os.path.join(os.path.dirname(__file__), "computemesh_ledger.db")
         self.auto_commit_batch_size = auto_commit_batch_size
         self._lock = threading.Lock()
-        self._pending_receipts: List[ProofOfExecutionReceipt] = []
+        self._pending_receipts: list[ProofOfExecutionReceipt] = []
         self._init_db()
         self._ensure_genesis()
 
@@ -116,7 +117,7 @@ class CompactLedger:
         self,
         conn: sqlite3.Connection,
         block: LedgerBlock,
-        receipts: List[ProofOfExecutionReceipt],
+        receipts: list[ProofOfExecutionReceipt],
     ) -> None:
         conn.execute(
             """
@@ -164,8 +165,8 @@ class CompactLedger:
         tool_name: str,
         task_description: str,
         code: str,
-        inputs: Dict[str, Any],
-        outputs: Dict[str, Any],
+        inputs: dict[str, Any],
+        outputs: dict[str, Any],
         elapsed_seconds: float,
         node_id: str = "node_mesh_primary",
         status: str = "verified_success",
@@ -190,12 +191,12 @@ class CompactLedger:
 
         return receipt
 
-    def commit_block(self, node_id: str = "node_mesh_primary") -> Optional[LedgerBlock]:
+    def commit_block(self, node_id: str = "node_mesh_primary") -> LedgerBlock | None:
         """Manually seals all pending execution receipts into a new block."""
         with self._lock:
             return self._commit_pending_batch_locked(node_id=node_id)
 
-    def _commit_pending_batch_locked(self, node_id: str = "node_mesh_primary") -> Optional[LedgerBlock]:
+    def _commit_pending_batch_locked(self, node_id: str = "node_mesh_primary") -> LedgerBlock | None:
         if not self._pending_receipts:
             return None
 
@@ -219,7 +220,7 @@ class CompactLedger:
             logger.info(f"Committed Ledger Block #{new_block.index} ({len(receipts_to_commit)} receipts, hash: {new_block.block_hash[:16]})")
             return new_block
 
-    def get_receipt(self, receipt_id: str) -> Optional[Dict[str, Any]]:
+    def get_receipt(self, receipt_id: str) -> dict[str, Any] | None:
         """Retrieves a receipt and its associated Merkle proof."""
         with self._lock:
             for pending in self._pending_receipts:
@@ -305,7 +306,7 @@ class CompactLedger:
                 "is_confirmed": True,
             }
 
-    def verify_chain_integrity(self) -> Tuple[bool, Optional[str]]:
+    def verify_chain_integrity(self) -> tuple[bool, str | None]:
         """Verifies full cryptographic continuity of all blocks from Genesis to Head."""
         with self._db_session() as conn:
             cur = conn.cursor()
@@ -339,7 +340,7 @@ class CompactLedger:
 
             return True, None
 
-    def get_blocks_slice(self, offset: int = 0, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_blocks_slice(self, offset: int = 0, limit: int = 20) -> list[dict[str, Any]]:
         """Returns a paginated list of blocks (ordered newest first)."""
         safe_limit = max(1, min(100, limit))
         safe_offset = max(0, offset)
@@ -371,7 +372,7 @@ class CompactLedger:
                 blocks.append(b.to_dict())
             return blocks
 
-    def get_block_by_index(self, block_index: int, include_receipts: bool = True) -> Optional[Dict[str, Any]]:
+    def get_block_by_index(self, block_index: int, include_receipts: bool = True) -> dict[str, Any] | None:
         """Returns full block details and optionally all contained receipts."""
         with self._db_session() as conn:
             cur = conn.cursor()
@@ -429,14 +430,14 @@ class CompactLedger:
 
             return data
 
-    def ingest_block_direct(self, block: LedgerBlock, receipts: List[ProofOfExecutionReceipt]) -> bool:
+    def ingest_block_direct(self, block: LedgerBlock, receipts: list[ProofOfExecutionReceipt]) -> bool:
         """Directly writes a cryptographically validated remote block and its receipts into the local chain."""
         with self._lock:
             with self._db_session() as conn:
                 self._write_block_and_receipts(conn, block, receipts)
             return True
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Returns high-level statistics for fleet monitoring and health checks."""
         with self._db_session() as conn:
             cur = conn.cursor()
@@ -459,7 +460,7 @@ class CompactLedger:
             }
 
 
-_global_ledger: Optional[CompactLedger] = None
+_global_ledger: CompactLedger | None = None
 
 
 def get_compact_ledger() -> CompactLedger:

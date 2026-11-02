@@ -5,9 +5,9 @@ research paths remain available unless COMPUTEMESH_PRODUCTION_MODE=1 is set.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 

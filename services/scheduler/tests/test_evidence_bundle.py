@@ -1,19 +1,18 @@
 import copy
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.scheduler.evidence_bundle import (
     EvidenceBundleError,
     build_experiment_bundle,
     select_evidence,
 )
 
-NOW = datetime(2026, 8, 22, 4, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 22, 4, 0, tzinfo=UTC)
 MODEL_SIZE = 8_000_000_000
 DIGEST = "sha256:" + "b" * 64
 

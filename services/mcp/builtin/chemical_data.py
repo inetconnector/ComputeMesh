@@ -7,16 +7,16 @@ Supports generic single and multi-compound queries with concurrent execution.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
-DE_TRANSLATIONS: Dict[str, str] = {
+DE_TRANSLATIONS: dict[str, str] = {
     "koffein": "caffeine",
     "coffein": "caffeine",
     "traubenzucker": "glucose",
@@ -51,7 +51,7 @@ DE_TRANSLATIONS: Dict[str, str] = {
 }
 
 
-def _split_compound_queries(raw: str) -> List[str]:
+def _split_compound_queries(raw: str) -> list[str]:
     """Splits compound queries containing multiple items."""
     cleaned = re.sub(r"^(?:chemische\s+formel\s+(?:von|fuer|für)\s+|eigenschaften\s+(?:von|fuer|für)\s+|molekül\s+(?:von\s+)?|molekulargewicht\s+(?:von\s+)?|struktur\s+(?:von\s+)?|verbindung\s+)", "", raw, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"[\?\.!]$", "", cleaned).strip()
@@ -64,7 +64,7 @@ def _split_compound_queries(raw: str) -> List[str]:
     return results if results else ([raw.strip()] if raw.strip() else [])
 
 
-def _fetch_single_compound(search_term: str, timeout: float = 6.0) -> Dict[str, Any]:
+def _fetch_single_compound(search_term: str, timeout: float = 6.0) -> dict[str, Any]:
     clean_term = search_term.strip()
     lookup_str = DE_TRANSLATIONS.get(clean_term.lower(), clean_term)
     encoded = urllib.parse.quote(lookup_str)
@@ -115,7 +115,7 @@ def lookup_chemical_compound(
     name: str = "",
     query: str = "",
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Looks up verified chemical compound properties (molecular formula, molecular weight, IUPAC name, SMILES) via NIH PubChem.
     Supports single or multiple compound names concurrently.

@@ -54,12 +54,12 @@ def clean_text(s: str) -> str:
     return SPACE_RE.sub(" ", text).strip()
 
 
-def fetch_rss_news(rss_url: str, max_items: int = 5, timeout: float = 8.0) -> List[Dict[str, str]]:
+def fetch_rss_news(rss_url: str, max_items: int = 5, timeout: float = 8.0) -> list[dict[str, str]]:
     req = urllib.request.Request(
         rss_url,
         headers={"User-Agent": USER_AGENT, "Accept": "application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.8"},
     )
-    items: List[Dict[str, str]] = []
+    items: list[dict[str, str]] = []
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             content = resp.read().decode("utf-8", errors="ignore")
@@ -118,7 +118,7 @@ def fetch_rss_news(rss_url: str, max_items: int = 5, timeout: float = 8.0) -> Li
     return items
 
 
-def _get_single_feed_news(raw_topic: str, max_results: int = 5, timeout: float = 10.0) -> Dict[str, Any]:
+def _get_single_feed_news(raw_topic: str, max_results: int = 5, timeout: float = 10.0) -> dict[str, Any]:
     clean_topic = raw_topic.strip().lower()
     feed_url = None
     display_topic = raw_topic.strip()
@@ -191,7 +191,7 @@ def get_live_news(
     search: str = "",
     max_results: int = 5,
     timeout: float = 10.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetches real-time news articles by topic or custom search term.
     Supports multi-portal queries (e.g. 'Tagesschau und Spiegel' or 'Tech und Finanzen').

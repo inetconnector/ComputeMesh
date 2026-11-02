@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import datetime
-from datetime import UTC, datetime, timedelta
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
 import time
 import unittest
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 # Ensure project root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -156,7 +156,7 @@ class TestHardwareRelays(unittest.TestCase):
     def test_smart_pdu_relay_mock(self) -> None:
         pdu = SmartPDUWebhookRelay(cutoff_url="http://127.0.0.1:9999/pdu/off", auth_token="secret-pdu", timeout_seconds=0.01)
         self.assertFalse(pdu.tripped)
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
         with patch("urllib.request.urlopen") as mock_open:
             mock_resp = MagicMock()
             mock_resp.status = 200

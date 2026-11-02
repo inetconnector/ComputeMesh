@@ -1,8 +1,8 @@
 """Second-pass safety tests for write retries and emergency-stop enforcement."""
 from __future__ import annotations
 
-from unittest.mock import patch
 import unittest
+from unittest.mock import patch
 
 from services.mcp.config import MCPConfig
 from services.mcp.platform.contracts import (

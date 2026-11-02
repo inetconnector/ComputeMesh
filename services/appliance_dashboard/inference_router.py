@@ -1,17 +1,18 @@
 """Inference, Model Discovery, and MCP Agent Routing for ComputeMesh Appliance."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any, Callable, Dict, List, Optional
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
+from http import HTTPStatus
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("computemesh.appliance.inference")
 
@@ -361,8 +362,8 @@ class InferenceRouter:
             is_stream = payload.get("stream", True)
 
             from services.mcp.agent_loop import AgentLoop
-            from services.mcp.tool_registry import ToolRegistry
             from services.mcp.config import get_mcp_config
+            from services.mcp.tool_registry import ToolRegistry
 
             agent_loop = AgentLoop(registry=ToolRegistry(get_mcp_config()))
 

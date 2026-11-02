@@ -1,9 +1,9 @@
-from pathlib import Path
 import os
 import subprocess
 import sys
-import unittest
 import tempfile
+import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from deploy.appliance import build_real_live_appliance as builder
@@ -12,10 +12,10 @@ from deploy.appliance.build_real_live_appliance import (
     LLAMA_CPP_COMMIT,
     LLAMA_CPP_VERSION,
     _copy_source_snapshot,
-    _resolve_source_repo,
     _render_heartbeat_unit,
     _render_module_launcher,
     _render_preflight_unit,
+    _resolve_source_repo,
 )
 
 

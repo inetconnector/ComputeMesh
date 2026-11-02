@@ -10,9 +10,9 @@ import argparse
 import importlib
 import os
 import sys
+from collections.abc import Callable
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-from typing import Callable
 
 from protocol.node_identity import Ed25519ChallengeVerifier
 from services.billing.threadsafe_ledger import SynchronizedLedgerProxy

@@ -1,15 +1,15 @@
 import json
 import os
-from pathlib import Path
-import tempfile
-import unittest
-from unittest.mock import call, patch
 import subprocess
 import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import call, patch
 
+from services.appliance_dashboard import tunnel_relay
 from tools.appliance.boot_preflight import PreflightError, run_preflight
 from tools.appliance.enroll import EnrollmentError, _activate_nodeos_services, enroll
-from services.appliance_dashboard import tunnel_relay
 
 
 def _write_valid_evidence(root: Path, node_id: str) -> tuple[Path, Path, Path]:

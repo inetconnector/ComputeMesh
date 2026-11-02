@@ -16,10 +16,10 @@ from typing import Any, Dict, List, Optional
 
 def unpack_archive(
     archive_path: str,
-    extract_to: Optional[str] = None,
+    extract_to: str | None = None,
     list_only: bool = False,
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Unpacks ZIP, TAR, TAR.GZ, TAR.BZ2, or GEDZIP archives, inventorying all files and formats."""
     root = os.path.abspath(workspace_root or ".")
     abs_archive = os.path.abspath(os.path.join(root, archive_path)) if not os.path.isabs(archive_path) else archive_path
@@ -29,7 +29,7 @@ def unpack_archive(
         
     target_dir = os.path.abspath(os.path.join(root, extract_to)) if extract_to else os.path.splitext(abs_archive)[0]
     
-    inventory: List[Dict[str, Any]] = []
+    inventory: list[dict[str, Any]] = []
     total_size = 0
     
     try:
@@ -81,10 +81,10 @@ def unpack_archive(
 
 def create_archive(
     output_path: str,
-    input_paths: List[str],
+    input_paths: list[str],
     archive_type: str = "zip",
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Packs files or directories into a ZIP, GEDZIP, or TAR.GZ archive."""
     root = os.path.abspath(workspace_root or ".")
     abs_output = os.path.abspath(os.path.join(root, output_path)) if not os.path.isabs(output_path) else output_path
@@ -132,9 +132,9 @@ def create_archive(
 def convert_structured_data(
     source_path: str,
     target_format: str = "json",
-    output_path: Optional[str] = None,
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    output_path: str | None = None,
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Converts structured data between CSV, TSV, JSON, Markdown tables, and text lines."""
     root = os.path.abspath(workspace_root or ".")
     abs_source = os.path.abspath(os.path.join(root, source_path)) if not os.path.isabs(source_path) else source_path
@@ -148,7 +148,7 @@ def convert_structured_data(
         with open(abs_source, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
             
-        rows: List[Dict[str, Any]] = []
+        rows: list[dict[str, Any]] = []
         # Detect source format
         if abs_source.endswith(".json"):
             loaded = json.loads(content)

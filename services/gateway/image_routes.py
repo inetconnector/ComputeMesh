@@ -6,10 +6,10 @@ accidentally exposing an unmoderated image model.
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 import base64
 import json
 import os
+from http import HTTPStatus
 from typing import Any
 from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError

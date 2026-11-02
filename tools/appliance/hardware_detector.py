@@ -8,18 +8,18 @@ for ComputeMesh inference provider nodes and mixed-vendor mining rigs.
 from __future__ import annotations
 
 import argparse
-from ctypes import CDLL, POINTER, Structure, byref, c_char, c_char_p, c_uint32, c_void_p
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 import glob
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
 import time
+from ctypes import CDLL, POINTER, Structure, byref, c_char, c_char_p, c_uint32, c_void_p
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 1
@@ -764,7 +764,7 @@ def scan_rig_hardware() -> RigInventory:
 
     return RigInventory(
         schema_version=SCHEMA_VERSION,
-        captured_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        captured_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         host_architecture=sys.platform,
         total_gpus=len(all_gpus),
         total_vram_bytes=total_vram,

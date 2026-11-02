@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """ComputeMesh Local Document RAG & Vector Search Subsystem."""
 
+from .chunker import DocumentChunk, chunk_text
 from .document_parser import extract_text_from_file, parse_document_content
-from .chunker import chunk_text, DocumentChunk
-from .embeddings import get_text_embedding, compute_embeddings
+from .embeddings import compute_embeddings, get_text_embedding
 from .vector_store import VectorStore, get_default_vector_store
 
 __all__ = [

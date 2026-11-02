@@ -1,11 +1,12 @@
-import unittest
+import json
 import multiprocessing
 import socket
 import time
-import json
+import unittest
 from typing import Optional
 
 from runtime.zero_trust_worker import ZeroTrustWorkerCommunicator
+
 
 def run_worker_rpc_server(
     port_queue: multiprocessing.Queue,
@@ -131,11 +132,11 @@ class TestPublicGatewayWorkerRPC(unittest.TestCase):
 
         # We must inject the exact session into the gateway so they share keys.
         # ZeroTrustWorkerCommunicator derives the key using the session_id.
-        import hmac
         import hashlib
+        import hmac
         session_key = hmac.new(
             self.gateway_zt._master_secret,
-            f"{self.worker_session_id}:{self.worker_id}:{self.client_cert_cn}".encode("utf-8"),
+            f"{self.worker_session_id}:{self.worker_id}:{self.client_cert_cn}".encode(),
             hashlib.sha256,
         ).digest()
 
@@ -282,11 +283,11 @@ class TestPublicGatewayWorkerRPC(unittest.TestCase):
         new_port = new_port_queue.get(timeout=2.0)
         new_worker_session_id = new_session_id_queue.get(timeout=2.0)
 
-        import hmac
         import hashlib
+        import hmac
         session_key = hmac.new(
             self.gateway_zt._master_secret,
-            f"{new_worker_session_id}:{self.worker_id}:{self.client_cert_cn}".encode("utf-8"),
+            f"{new_worker_session_id}:{self.worker_id}:{self.client_cert_cn}".encode(),
             hashlib.sha256,
         ).digest()
 

@@ -1,15 +1,15 @@
 """Node-local handler for authenticated execution-attestation requests."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
-
 from protocol.node_identity import key_id_from_public_key
-from runtime.llama.job_attestation import JobAttestationError, _canonical_sha256, _load_private_key
 from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
+
+from runtime.llama.job_attestation import JobAttestationError, _canonical_sha256, _load_private_key
 
 
 class NodeAttestationServiceError(RuntimeError):
@@ -61,7 +61,7 @@ class NodeAttestationService:
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw,
         )
-        issued = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        issued = (now or datetime.now(UTC)).astimezone(UTC)
         claims = AttestationClaims(
             node_id=self.node_id,
             key_id=key_id_from_public_key(public_raw),

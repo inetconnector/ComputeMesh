@@ -5,24 +5,24 @@ usage receipt.  It never decrypts OpenAI stream chunks.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import hmac
 import http.client
 import json
 import ssl
-from typing import Iterator
+from collections.abc import Iterator
+from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialResponseEnvelope
 from protocol.confidential_metering import ConfidentialUsageReceipt
+
 from runtime.confidential.data_plane import (
     AttestedConfidentialEndpoint,
     ConfidentialDataPlaneError,
     ConnectionFactory,
     _default_connection_factory,
 )
-
 
 MAX_STREAM_LINE_BYTES = 2 * 1024 * 1024
 MAX_STREAM_EVENTS = 10_000_001

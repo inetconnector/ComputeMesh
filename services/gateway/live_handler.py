@@ -1,10 +1,11 @@
 """Live gateway with cancellation and fail-closed encrypted protected execution."""
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from contextlib import nullcontext
 from http import HTTPStatus
-import json
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urlparse
 
 from protocol.confidential_envelope import (
@@ -30,8 +31,8 @@ from runtime.confidential.replay_store import (
 from services.compliance.mesh_policy import ExecutionPrivacyClass
 from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.server import GatewayHandler
-from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
+from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
 ProtectedEvidenceResolver = Callable[
     [ExecutionPrivacyClass, dict[str, Any]],

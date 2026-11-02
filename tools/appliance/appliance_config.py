@@ -9,14 +9,14 @@ thermal throttle limits, and power management profiles.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 import json
 import os
 import platform
-from pathlib import Path
 import re
 import sys
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from config import CONFIG
@@ -258,7 +258,7 @@ def save_system_config(config: ApplianceConfig, path: Path = DEFAULT_SYSTEM_CONF
         user_data["owner_key"] = config.owner_key
         user_data["fan_control_mode"] = config.fan_control_mode
         user_data["fan_target_percent"] = config.fan_target_percent
-        user_data["updated_at"] = datetime.now(timezone.utc).isoformat() if "datetime" in globals() else ""
+        user_data["updated_at"] = datetime.now(UTC).isoformat() if "datetime" in globals() else ""
         user_cfg.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
         if platform.system().lower() != "windows":
             try:

@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
 # Standard fallback fiat rates (relative to EUR) in case public API is momentarily unreachable
-FALLBACK_RATES_TO_EUR: Dict[str, float] = {
+FALLBACK_RATES_TO_EUR: dict[str, float] = {
     "EUR": 1.0,
     "USD": 1.085,
     "GBP": 0.855,
@@ -32,7 +32,7 @@ FALLBACK_RATES_TO_EUR: Dict[str, float] = {
     "BRL": 6.10,
 }
 
-CURRENCY_ALIASES: Dict[str, str] = {
+CURRENCY_ALIASES: dict[str, str] = {
     "euro": "EUR",
     "dollar": "USD",
     "us-dollar": "USD",
@@ -90,7 +90,7 @@ CURRENCY_ALIASES: Dict[str, str] = {
     "bnb": "BNB",
 }
 
-CRYPTO_MAP: Dict[str, str] = {
+CRYPTO_MAP: dict[str, str] = {
     "BTC": "bitcoin",
     "BITCOIN": "bitcoin",
     "ETH": "ethereum",
@@ -112,7 +112,7 @@ def _resolve_currency_code(code_or_name: str) -> str:
     return CURRENCY_ALIASES.get(cleaned, code_or_name.strip().upper())
 
 
-def _fetch_frankfurter(amount: float, from_curr: str, to_curr: str, timeout: float = 5.0) -> Optional[Dict[str, Any]]:
+def _fetch_frankfurter(amount: float, from_curr: str, to_curr: str, timeout: float = 5.0) -> dict[str, Any] | None:
     """Fetches ECB exchange rate from public Frankfurter API."""
     url = f"https://api.frankfurter.app/latest?amount={amount}&from={from_curr}&to={to_curr}"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -137,7 +137,7 @@ def _fetch_frankfurter(amount: float, from_curr: str, to_curr: str, timeout: flo
     return None
 
 
-def _fetch_coingecko_crypto(symbol: str, target_curr: str = "USD", timeout: float = 5.0) -> Optional[Dict[str, Any]]:
+def _fetch_coingecko_crypto(symbol: str, target_curr: str = "USD", timeout: float = 5.0) -> dict[str, Any] | None:
     """Fetches live crypto price from CoinGecko API."""
     coin_id = CRYPTO_MAP.get(symbol.upper())
     if not coin_id:
@@ -164,7 +164,7 @@ def _fetch_coingecko_crypto(symbol: str, target_curr: str = "USD", timeout: floa
     return None
 
 
-def _convert_single_pair(amount: float, from_c: str, to_c: str, timeout: float = 5.0) -> Dict[str, Any]:
+def _convert_single_pair(amount: float, from_c: str, to_c: str, timeout: float = 5.0) -> dict[str, Any]:
     """Converts a single currency pair with fallbacks."""
     from_c = _resolve_currency_code(from_c)
     to_c = _resolve_currency_code(to_c)
@@ -250,7 +250,7 @@ def convert_currency(
     to_currency: str = "USD",
     query: str = "",
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Converts amounts between fiat currencies (EUR, USD, GBP, CHF, JPY, etc.) or cryptocurrencies (BTC, ETH, SOL).
     Supports multiple destination currencies (e.g. 'USD, GBP, JPY' or query '100 EUR in USD und CHF').
