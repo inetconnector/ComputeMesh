@@ -75,8 +75,9 @@ def _load_api_key_store(path: Path | None) -> dict[str, str]:
         return {}
     try:
         raw = path.read_text(encoding="utf-8").strip()
-    except Exception:
-        return {}
+    except OSError as exc:
+        # An inaccessible configured key registry is not an empty registry.
+        raise GatewayCredentialStoreError("configured gateway key registry is unreadable") from exc
     if not raw:
         return {}
 
@@ -162,6 +163,10 @@ def resolve_client_ip(
         except ValueError:
             continue
     return peer_ip
+
+
+class GatewayCredentialStoreError(RuntimeError):
+    """The configured persistent gateway API credential registry is unavailable."""
 
 
 class FleetBanLookupError(RuntimeError):
@@ -311,7 +316,13 @@ class GatewayAuthManager:
             # Check registered keys using constant-time comparison. In unified mode,
             # the configured account_id is the durable owner_id. No automatic
             # production credit is created merely by presenting a key.
-            account_id = self._lookup_registered_key(token)
+            try:
+                account_id = self._lookup_registered_key(token)
+            except GatewayCredentialStoreError:
+                return AuthResult(
+                    error_message="Gateway key registry temporarily unavailable",
+                    status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+                )
             if account_id:
                 if self.uses_owner_credits:
                     self._bind_owner_credential(token, account_id)
