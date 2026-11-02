@@ -7,7 +7,7 @@ from urllib import error
 import pytest
 
 from services.concert_research.config import ConcertResearchConfig
-from services.concert_research.crawler import SafeFetcher
+from services.concert_research.http_client import HardenedSafeFetcher as SafeFetcher
 
 
 @pytest.fixture
@@ -25,8 +25,8 @@ def fetcher() -> SafeFetcher:
 ])
 def test_robots_network_error_is_denied(fetcher: SafeFetcher, failure: Exception) -> None:
     with (
-        patch("services.concert_research.crawler.validate_public_http_url", side_effect=lambda url: url),
-        patch("services.concert_research.crawler.request.urlopen", side_effect=failure),
+        patch("services.concert_research.http_client.validate_public_http_url", side_effect=lambda url: url),
+        patch("services.concert_research.http_client.HardenedSafeFetcher._open", side_effect=failure),
     ):
         with pytest.raises(PermissionError, match="cannot verify robots"):
             fetcher.allowed("https://concert.example/private")
@@ -39,8 +39,8 @@ def test_confirmed_missing_robots_is_not_an_error(fetcher: SafeFetcher, not_foun
         "https://concert.example/robots.txt", not_found, "not found", {}, None,
     )
     with (
-        patch("services.concert_research.crawler.validate_public_http_url", side_effect=lambda url: url),
-        patch("services.concert_research.crawler.request.urlopen", side_effect=failure),
+        patch("services.concert_research.http_client.validate_public_http_url", side_effect=lambda url: url),
+        patch("services.concert_research.http_client.HardenedSafeFetcher._open", side_effect=failure),
     ):
         assert fetcher.allowed("https://concert.example/agenda") is True
 
@@ -50,8 +50,8 @@ def test_robots_disallow_rule_is_observed(fetcher: SafeFetcher) -> None:
     response.geturl.return_value = "https://concert.example/robots.txt"
     response.read.return_value = b"User-agent: *\nDisallow: /private\n"
     with (
-        patch("services.concert_research.crawler.validate_public_http_url", side_effect=lambda url: url),
-        patch("services.concert_research.crawler.request.urlopen", return_value=nullcontext(response)),
+        patch("services.concert_research.http_client.validate_public_http_url", side_effect=lambda url: url),
+        patch("services.concert_research.http_client.HardenedSafeFetcher._open", return_value=nullcontext(response)),
     ):
         assert fetcher.allowed("https://concert.example/private") is False
         assert fetcher.allowed("https://concert.example/agenda") is True
