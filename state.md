@@ -4892,3 +4892,11 @@ independent protected TrustedBridge receipt for this immutable head, physical
 QR/device/WAN/BFT acceptance, staging/rollback and operator approval. The
 state is explicitly **RELEASE_NO_GO**.
 
+GitHub hosted preflight `41426359584` completed successfully on the exact
+source head `9f8c84c1a01ac94517ff3888792359a387149cd2`: targeted isolated
+security/portal `51 passed, 5 skipped, 9 subtests`, critical syntax/Ruff checks
+passed, and the separate networkless public `tests/` snapshot passed `181
+passed, 13 skipped`. This is independent hosted automation, not the protected
+TrustedBridge receipt requested for the final source, and it does not prove
+Android production signing, physical QR/WAN/BFT behavior or operator approval.
+
