@@ -6,6 +6,8 @@ updates SHA-256 checksums, and signs version.json with the Master Ed25519 key.
 """
 from __future__ import annotations
 
+import gzip
+import io
 import hashlib
 import json
 import lzma
@@ -195,54 +197,90 @@ def _exclude_linux_release_path(name: str) -> bool:
         return True
     if parts[:2] == ("runtime", "sd_cpp"):
         return len(parts) > 2 and parts[2] != "image_engine_service.py"
-    return False
+    returdef build_linux_tarball() -> Path:
+    """Package exactly the tracked bytes of one immutable Git commit.
 
-
-def build_linux_tarball() -> Path:
-    """Pack all repository source directories into a clean Linux release archive."""
+    A working-directory walk can silently include dirty, untracked or generated
+    code. Git archive and an embedded provenance record make the input source
+    explicit without touching the current operator checkout.
+    """
     print("\n[1/4] Packing Linux Release Package (computemesh-linux-x86_64.tar.gz)...")
     tar_path = DOWNLOADS_DIR / "computemesh-linux-x86_64.tar.gz"
     DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    commit = _source_commit()
+    include_dirs = {"services", "runtime", "tools", "deploy", "protocol", "config", "apps"}
+    include_files = {
+        "config.py", "requirements.txt", "pyproject.toml", "README.md",
+        "README.de.md", "ARCHITECTURE.md", "PROTOCOL.md", "SECURITY.md",
+    }
 
-    include_dirs = [
-        "services",
-        "runtime",
-        "tools",
-        "deploy",
-        "protocol",
-        "config",
-        "apps",
-    ]
-    include_files = [
-        "config.py",
-        "requirements.txt",
-        "pyproject.toml",
-        "README.md",
-        "README.de.md",
-        "ARCHITECTURE.md",
-        "PROTOCOL.md",
-        "SECURITY.md",
-    ]
+    with tempfile.TemporaryDirectory(
+        prefix=".computemesh-linux-", dir=str(DOWNLOADS_DIR)
+    ) as staging_dir:
+        snapshot = Path(staging_dir) / "source.tar"
+        candidate = Path(staging_dir) / "computemesh-linux-x86_64.tar.gz"
+        # Archive by exact object id, not HEAD after it may have moved.
+        with snapshot.open("wb") as stream:
+            subprocess.run(
+                ["git", "-C", str(REPO_ROOT), "archive", "--format=tar", commit],
+                stdout=stream, check=True,
+            )
+        with (
+            tarfile.open(snapshot, "r:") as committed,
+            candidate.open("wb") as output,
+            gzip.GzipFile(fileobj=output, mode="wb", filename="", mtime=0) as gz,
+            tarfile.open(fileobj=gz, mode="w") as release_tar,
+        ):
+            for member in committed:
+                name = member.name.rstrip("/")
+                if (
+                    not name
+                    or _exclude_linux_release_path(name)
+                    or not (
+                        name in include_files
+                        or name.split("/", 1)[0] in include_dirs
+                    )
+                ):
+                    continue
+                if member.isdir():
+                    release_tar.addfile(member)
+                elif member.isfile():
+                    entry_stream = committed.extractfile(member)
+                    if entry_stream is None:
+                        raise ReleaseBuildError(f"cannot read committed Linux entry: {name}")
+                    with entry_stream:
+                        release_tar.addfile(member, entry_stream)
+                else:
+                    raise ReleaseBuildError(
+                        f"unsupported symlink or special file in committed release: {name}"
+                    )
 
-    def _filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
-        if _exclude_linux_release_path(tarinfo.name):
-            return None
-        return tarinfo
-
-    with tarfile.open(tar_path, "w:gz", compresslevel=9) as tar:
-        for d in include_dirs:
-            dp = REPO_ROOT / d
-            if dp.exists():
-                tar.add(dp, arcname=d, filter=_filter)
-        for f in include_files:
-            fp = REPO_ROOT / f
-            if fp.exists():
-                tar.add(fp, arcname=f)
+            provenance = (
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "artifact_kind": "linux-x64",
+                        "source_commit": commit,
+                        "version": VERSION,
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode("utf-8")
+            info = tarfile.TarInfo("computemesh-build-provenance.json")
+            info.size = len(provenance)
+            info.mode = 0o644
+            info.mtime = 0
+            release_tar.addfile(info, io.BytesIO(provenance))
+        # Only promote the complete deterministic archive; never a partial tar.
+        os.replace(candidate, tar_path)
 
     size = tar_path.stat().st_size
-    sha = hashlib.sha256(tar_path.read_bytes()).hexdigest()
-    print(f"--> Linux Tarball built: {size:,} bytes | SHA256: {sha}")
+    sha = _sha256(tar_path)
+    print(f"--> Linux Tarball built from {commit}: {size:,} bytes | SHA256: {sha}")
     return tar_path
+
+tar_path
 
 
 def build_windows_exe() -> Path:
