@@ -128,7 +128,12 @@ class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):
 
         self.assertEqual(periodic_result["node_id"], "old-rig-name")
         self.assertEqual(renamed_result["node_id"], "new-rig-name")
-        sent_ids = [json.loads(call.args[0].data.decode("utf-8"))["node_id"] for call in mock_urlopen.call_args_list]
+        heartbeat_payloads = [
+            call.args[0].data
+            for call in mock_urlopen.call_args_list
+            if getattr(call.args[0], "data", None) is not None
+        ]
+        sent_ids = [json.loads(payload.decode("utf-8"))["node_id"] for payload in heartbeat_payloads]
         self.assertEqual(sent_ids, ["old-rig-name", "new-rig-name"])
 
     def test_coordinator_heartbeat_unlinks_previous_node_id_and_stores_payout(self) -> None:

@@ -4794,3 +4794,8 @@ entrypoints and `bash setup.sh --help` both exited 0. The Windows full-suite
 failures therefore remain a harness/path portability issue, not a claim that
 the Linux scripts failed their native shell checks.
 
+The Windows harness was then corrected in `setup/tests/test_linux_setup.py` to
+use the installed Ubuntu WSL distribution with `/mnt/<drive>/...` paths while
+leaving native Unix execution unchanged. The exact setup test file now passes
+with `10 passed` on this Windows host.
+
