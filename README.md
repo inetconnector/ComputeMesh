@@ -3,15 +3,15 @@
 ## Current release-gate status (2026-11-02)
 
 This checkout contains the public PR-139 candidate at commit
-`b8ebd47`. The existing v1.2.189 manifest
+`b9e8076`. The existing v1.2.189 manifest
 signature is independently Ed25519-valid under the trusted release public key
 (`verify_manifest=True`, key fingerprint `28be75e3…e2656`), but its local
 artifact-integrity check is not a release approval: when the newly built
 Windows binary was present, the test correctly reported a SHA-256 mismatch
-against the historical manifest entry. The exact public suite is green at `2076 passed, 20 skipped, 69
-subtests` (latest run 302.27 s), and the candidate has passed Android debug
+against the historical manifest entry. The exact public suite is green at `2090 passed, 20 skipped, 69
+subtests` (latest run 294.97 s), and the candidate has passed Android debug
 JUnit (`4`), Gradle compilation and debug Lint (`0` issues). The release
-candidate is nevertheless not a release: full Ruff is now `1287` findings
+candidate is nevertheless not a release: full Ruff is now `1282` findings
 (initially `4372`, initially `226` in PR diff; the current changed-file view
 contains `1435` inherited findings), production Android signing is not
 configured, NodeOS artifacts cannot be rebuilt on this Windows host, current
@@ -31,6 +31,12 @@ complete public suite passed `2076 passed, 20 skipped, 69 subtests` in 302.27 s.
 Hosted run `41441718994` also passed on exact code head `b8ebd47`: isolated
 security/portal `51 passed, 5 skipped, 9 subtests`, critical syntax/selected
 Ruff passed, and offline public `tests/` snapshot `181 passed, 13 skipped`.
+Current hosted run `41445060446` passed on exact head `b9e8076`: isolated
+security/portal `59 passed, 5 skipped, 9 subtests`, critical syntax/selected
+Ruff passed, and offline public `tests/` snapshot `194 passed, 13 skipped`.
+The branch also contains fail-closed NodeOS boot validation, operator-pinned
+Android APK/AAB signer checks, signed Android inventory/version consistency,
+and a Git-enabled isolated release fixture image.
 
 ## Current local P0 integration candidate (2026-10-26)
 

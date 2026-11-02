@@ -4987,3 +4987,26 @@ security/portal `51 passed, 5 skipped, 9 subtests`, critical syntax/selected
 Ruff passed, and offline public `tests/` snapshot `181 passed, 13 skipped`.
 Release status remains **RELEASE_NO_GO**.
 
+Remote release-hardening commits integrated without taking over dirty worktrees:
+`2590bf2` rejects missing/empty/mismatched NodeOS kernel/initramfs files and
+requires checked download permission commands; `faef738` requires an approved
+Android certificate SHA-256 pin and verifies APK/AAB signatures before
+packaging; `0393f4e` restricts stable Android publishing to manual `main`
+workflow runs with an operator-approved exact SHA; `59f64ed` rejects signed
+stale Android inventory versions and adds the release checks to the hosted
+preflight; and `e767520` installs real Git in the isolated fixture image for
+ephemeral signed-tag tests. The Windows-path correction in `30cfc64` and the
+preceding SIM117 fixes are also present in the current tree.
+
+The direct exact-head verification on `b9e8076` passed the complete public suite:
+`2090 passed, 20 skipped, 69 subtests passed` in `294.97s`. Exact-head full
+Ruff is `1282` findings with the machine-readable inventory at
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-b9e8076.json`; compileall
+over `services tools runtime protocol deploy tests` and `git diff --check`
+passed. The exact-head hosted run `41445060446` passed with isolated
+security/portal `59 passed, 5 skipped, 9 subtests`, critical syntax/selected
+Ruff passed, and offline public `tests/` snapshot `194 passed, 13 skipped`.
+The full Ruff gate is still open; remaining largest groups are
+`BLE001=699`, `S110=293`, `TRY004=44`, `SIM117=42`, `PLW1510=34`,
+`SIM102=30` and `FURB162=26`.
+
