@@ -103,6 +103,12 @@ def parse_numeric_price(price_str: str) -> float | None:
 
 def _safe_offer_host(url: str) -> str | None:
     """Only permit direct HTTPS, public-looking DNS URLs without embedded credentials."""
+    # urlsplit silently strips CR/LF/TAB. Reject ambiguous raw input *before*
+    # parsing, including control characters and surrounding whitespace.
+    if (not isinstance(url, str) or not url or url != url.strip()
+            or len(url) > 4096 or "\\" in url
+            or any(ord(ch) < 32 or ord(ch) == 127 for ch in url)):
+        return None
     try:
         parsed = urllib.parse.urlsplit(url)
         host = (parsed.hostname or "").lower()

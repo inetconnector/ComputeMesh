@@ -163,6 +163,12 @@ class TestProductPriceEngine(unittest.TestCase):
             {**safe, "price": 25_001.0},
             {**safe, "currency": "USD"},
             {**safe, "url": "https://127.0.0.1/admin"},
+            {**safe, "url": "https://shop.example.org/item\nother"},
+            {**safe, "url": "https://shop.example.org/item\rmore"},
+            {**safe, "url": "https://shop.example.org/item\tmore"},
+            {**safe, "url": "https://shop.example.org/item "},
+            {**safe, "url": "https://shop.example.org/item\x7f"},
+            {**safe, "url": "https://shop.example.org/" + "a" * 4096},
             {**safe, "url": "javascript:alert(1)"},
             {**safe, "url": ""},
             {"merchant": "No URL", "price": 219.0},
@@ -236,6 +242,9 @@ class TestProductPriceEngine(unittest.TestCase):
                 {"merchant": "Infinity", "price": float("inf")},
                 {"merchant": "Giant", "price": 10 ** 400},
                 {"merchant": "Zero", "price": 0},
+                {"merchant": "FiniteTooHigh", "price": 1e99},
+                {"merchant": "AboveBound", "price": 25_000.01},
+                {"merchant": "BelowBound", "price": 4.99},
                 {"merchant": "Negative", "price": -1},
                 {"merchant": "String", "price": "1.0"},
                 "malformed",
@@ -244,7 +253,8 @@ class TestProductPriceEngine(unittest.TestCase):
         rendered = format_tool_content_if_json(json.dumps(data))
         self.assertIn("Safe", rendered)
         self.assertIn("219.00 €", rendered)
-        for invalid in ("Bool", "NaN", "Infinity", "Giant", "Zero", "Negative", "String"):
+        for invalid in ("Bool", "NaN", "Infinity", "Giant", "Zero", "Negative", "String",
+                        "FiniteTooHigh", "AboveBound", "BelowBound"):
             self.assertNotIn("| " + invalid + " |", rendered)
         self.assertEqual(rendered.count("[Suchtreffer]("), 1)
 
@@ -429,6 +439,11 @@ class TestProductPriceEngine(unittest.TestCase):
             "http://shop.example.org/item",
             "javascript:alert(1)",
             "https://shop.example.org\\@127.0.0.1/",
+            "https://shop.example.org/item\ncontrol",
+            "https://shop.example.org/item\rcontrol",
+            "https://shop.example.org/item\tcontrol",
+            "https://shop.example.org/item\x7f",
+            "https://shop.example.org/" + "a" * 4096,
         )
         for url in blocked_urls:
             with self.subTest(url=url):
@@ -463,6 +478,26 @@ class TestProductPriceEngine(unittest.TestCase):
         escaped_link = format_tool_content_if_json(json.dumps(valid_data))
         self.assertIn("[Suchtreffer](https://shop.example.org/a%29)", escaped_link)
         self.assertNotIn("[Suchtreffer](https://shop.example.org/a))", escaped_link)
+
+    def test_unverified_formatter_never_promotes_stock_or_shipping_claims(self):
+        data = {
+            "status": "unverified",
+            "data_quality": "search_snippet_unverified",
+            "product_name": "Sample",
+            "offers": [{
+                "merchant": "Example Shop", "price": 89.0,
+                "shipping": "0,00 € (Kostenlos)",
+                "availability": "Auf Lager",
+                "verified": True, "stock": 900,
+                "url": "https://shop.example.org/item",
+            }],
+        }
+        rendered = format_tool_content_if_json(json.dumps(data))
+        self.assertIn("| Unbekannt | Nicht verifiziert |", rendered)
+        self.assertNotIn("Auf Lager", rendered)
+        self.assertNotIn("Kostenlos", rendered)
+        self.assertNotIn("900", rendered)
+        self.assertIn("[Suchtreffer](https://shop.example.org/item)", rendered)
 
     def test_product_price_formatter_table(self):
         sample_data = {

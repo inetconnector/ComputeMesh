@@ -64,7 +64,7 @@ def _safe_unverified_snippet_link(value: Any) -> str | None:
     """
     if not isinstance(value, str) or not value or value != value.strip():
         return None
-    if "\\" in value or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+    if len(value) > 4096 or "\\" in value or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
         return None
     try:
         target = urlsplit(value)
@@ -185,11 +185,18 @@ def format_tool_content_if_json(content: str) -> str:
                     price = float(raw_price)
                 except (OverflowError, ValueError):
                     continue
-                if not math.isfinite(price) or price <= 0:
+                # Mirror the validated extraction interval even for JSON that
+                # did not pass through the product engine first.
+                if not math.isfinite(price) or not 5.0 <= price <= 25_000.0:
                     continue
                 merchant = safe_cell(offer.get("merchant") or "Unbekannt")
-                shipping = safe_cell(offer.get("shipping") or "Unbekannt")
-                available = safe_cell(offer.get("availability") or "Nicht verifiziert")
+                # The formatter is a second trust boundary: arbitrary upstream
+                # JSON must not relabel an unverified snippet as in-stock or
+                # invent confirmed delivery fees.
+                shipping = ("0,00 € (laut Suchtreffer)"
+                            if offer.get("shipping") == "0,00 € (laut Suchtreffer)"
+                            else "Unbekannt")
+                available = "Nicht verifiziert"
                 url = offer.get("url")
                 # Only render a link when the hostname is unambiguously
                 # public-looking. This is display safety, NOT DNS or SSRF
