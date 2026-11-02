@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  complete-ruff-inventory:
+  default-and-security-ruff:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-      - name: Full unfiltered Ruff audit on exact Git source
+      - name: Default Ruff and explicit BLE001/S110 security audit
         shell: bash
         run: |
           set -euo pipefail
@@ -28,7 +28,9 @@ jobs:
           echo "Exact source SHA: $GITHUB_SHA"
           set +e
           ruff check --no-cache --output-format=json . > ruff-full-inventory.json
-          result=$?
+          default_result=$?
+          ruff check --no-cache --select BLE001,S110 --output-format=json . > ruff-safety-inventory.json
+          safety_result=$?
           set -e
           python - <<'PY'
           from collections import Counter
@@ -38,10 +40,13 @@ jobs:
 
           report = Path("ruff-full-inventory.json")
           findings = json.loads(report.read_text(encoding="utf-8"))
-          counts = Counter(item["code"] for item in findings)
+          safety = json.loads(Path("ruff-safety-inventory.json").read_text(encoding="utf-8"))
+          counts = Counter(item["code"] for item in [*findings, *safety])
           lines = [
               f"### Full Ruff report for {os.environ['GITHUB_SHA']}",
-              f"Total findings: **{len(findings)}**",
+              f"Default Ruff findings: **{len(findings)}**",
+              f"Security BLE001/S110 findings: **{len(safety)}**",
+              f"Combined scope findings: **{len(findings) + len(safety)}**",
               "",
               "| Rule | Findings |",
               "| --- | ---: |",
@@ -52,14 +57,17 @@ jobs:
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as stream:
               stream.write(summary)
           PY
-          # A full lint gate passes only at zero, not at the old baseline.
-          test "$result" -eq 0
+          # Both explicit rule scopes must be clear. Never count a subset as GO.
+          test "$default_result" -eq 0
+          test "$safety_result" -eq 0
       - name: Preserve complete machine-readable Ruff inventory
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: full-ruff-inventory
-          path: ruff-full-inventory.json
+          path: |
+            ruff-full-inventory.json
+            ruff-safety-inventory.json
           if-no-files-found: error
           retention-days: 14
 
