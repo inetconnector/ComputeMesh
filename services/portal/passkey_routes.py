@@ -10,6 +10,7 @@ Rate limiting: Token-bucket sliding window to prevent brute-force and email spam
 """
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import sqlite3
@@ -123,16 +124,31 @@ MAGIC_LINK_RATE_LIMITER = SimpleRateLimiter(max_requests=3, window_seconds=300)
 
 
 def _client_ip(headers: Any, client_address: tuple[str, int] | None = None) -> str:
-    if headers:
-        forwarded = str(headers.get("X-Forwarded-For", "")).strip()
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        real_ip = str(headers.get("X-Real-IP", "")).strip()
-        if real_ip:
-            return real_ip
-    if client_address and isinstance(client_address, tuple) and len(client_address) > 0:
-        return str(client_address[0])
-    return "127.0.0.1"
+    """Trust forwarded client IP only when the immediate peer is an approved proxy.
+
+    Untrusted callers must not choose their rate-limit and audit identity.
+    Additional proxy IPs can be configured through COMPUTEMESH_TRUSTED_PROXY_IPS;
+    this must contain transport peers, not addresses supplied in a header.
+    """
+    peer = str(client_address[0]).strip() if client_address else "127.0.0.1"
+    trusted = {"127.0.0.1", "::1"}
+    trusted.update(
+        item.strip()
+        for item in os.environ.get("COMPUTEMESH_TRUSTED_PROXY_IPS", "").split(",")
+        if item.strip()
+    )
+    if client_address is None or peer not in trusted or not headers or not hasattr(headers, "get"):
+        return peer
+
+    for raw in (
+        str(headers.get("X-Forwarded-For", "")).split(",", 1)[0].strip(),
+        str(headers.get("X-Real-IP", "")).strip(),
+    ):
+        try:
+            return str(ipaddress.ip_address(raw))
+        except ValueError:
+            continue
+    return peer
 
 
 def _session_cookie_header(token: str, max_age_days: int = 30, *, clear: bool = False) -> str:
