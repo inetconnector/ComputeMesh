@@ -163,7 +163,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
 
         # Verify audit log
         logs = self.store.get_audit_log(acc.account_id)
-        self.assertTrue(any(l["event_type"] == "owner_key_rotated" for l in logs))
+        self.assertTrue(any(record["event_type"] == "owner_key_rotated" for record in logs))
 
     def test_register_begin_returns_dict_options(self) -> None:
         data, status, _cookie = self.handler.register_begin({"email": "bob@example.com"})

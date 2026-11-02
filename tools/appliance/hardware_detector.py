@@ -340,9 +340,9 @@ def collect_hardware_debug() -> dict[str, Any]:
                                 **_get_subprocess_flags(),
                             )
                             controller["memory_lines"] = [
-                                l.strip()
-                                for l in verbose.stdout.splitlines()
-                                if "Memory at" in l or "[size=" in l
+                                line.strip()
+                                for line in verbose.stdout.splitlines()
+                                if "Memory at" in line or "[size=" in line
                             ][:20]
                         except Exception as exc:
                             controller["verbose_error"] = str(exc)
@@ -712,8 +712,8 @@ def scan_rig_hardware() -> RigInventory:
                 **_get_subprocess_flags(),
             )
             gpu_lines = [
-                l for l in res.stdout.splitlines()
-                if "VGA compatible controller" in l or "3D controller" in l or "Display controller" in l
+                line for line in res.stdout.splitlines()
+                if "VGA compatible controller" in line or "3D controller" in line or "Display controller" in line
             ]
             for line in gpu_lines:
                 slot_match = re.match(r"^([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9a-fA-F])", line)

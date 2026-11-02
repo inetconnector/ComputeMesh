@@ -666,7 +666,7 @@ def format_tool_content_if_json(content: str) -> str:
                 auth = iss.get("author", "")
                 comments = iss.get("comments_count", 0)
                 labels = iss.get("labels", [])
-                label_str = " " + " ".join(f"`{l}`" for l in labels) if labels else ""
+                label_str = " " + " ".join(f"`{label}`" for label in labels) if labels else ""
                 res += f"- {st_icon} [#{num} {title}]({i_url}){label_str} *(von @{auth}, 💬 {comments})*\n"
             return res.strip()
 

@@ -98,7 +98,7 @@ def run_doctor_diagnostics(
     adb_bin = _find_adb_binary()
     adb_ok, adb_out, adb_lat = _check_command_version(adb_bin, "devices")
     if adb_ok:
-        dev_lines = [l.strip() for l in adb_out.splitlines() if "\tdevice" in l]
+        dev_lines = [line.strip() for line in adb_out.splitlines() if "\tdevice" in line]
         dev_count = len(dev_lines)
         _add_item("Android ADB Edge Nodes", "edge_devices", "healthy", f"{dev_count} Gerät(e) verbunden", adb_lat)
     else:
