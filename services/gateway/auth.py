@@ -6,6 +6,7 @@ import json
 import os
 import re
 import secrets
+import sqlite3
 import sys
 import threading
 from dataclasses import dataclass
@@ -159,6 +160,10 @@ def resolve_client_ip(
     return peer_ip
 
 
+class FleetBanLookupError(RuntimeError):
+    """The authoritative fleet ban registry could not be checked."""
+
+
 class GatewayAuthManager:
     """Manages API keys, customer accounts, and caller entitlement tiers with constant-time security."""
 
@@ -241,14 +246,16 @@ class GatewayAuthManager:
         cleaned = str(owner_or_account_id).strip()
         try:
             from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
+
             if FLEET_ACCOUNT_STORE.is_fleet_banned(cleaned):
                 info = FLEET_ACCOUNT_STORE.get_fleet_ban_info(cleaned)
                 return info.get("reason", "Administrative suspension") if info else "Administrative suspension"
-        except Exception:
-            pass
-        if self.owner_account_store and self.owner_account_store.is_owner_banned(cleaned):
-            info = self.owner_account_store.get_owner_ban_info(cleaned)
-            return info.get("reason", "Administrative suspension") if info else "Administrative suspension"
+            if self.owner_account_store and self.owner_account_store.is_owner_banned(cleaned):
+                info = self.owner_account_store.get_owner_ban_info(cleaned)
+                return info.get("reason", "Administrative suspension") if info else "Administrative suspension"
+        except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError) as exc:
+            # Never treat a failed ban check as "not banned".
+            raise FleetBanLookupError("cannot verify fleet suspension state") from exc
         return None
 
     def _guard_auth_result(self, res: AuthResult) -> AuthResult:
@@ -256,7 +263,15 @@ class GatewayAuthManager:
         if not res.is_authenticated or res.account_id in ("admin_root", None):
             return res
         target = res.owner_id or res.account_id
-        ban_reason = self._check_fleet_banned(target)
+        try:
+            ban_reason = self._check_fleet_banned(target)
+        except FleetBanLookupError:
+            return AuthResult(
+                account_id=None,
+                owner_id=None,
+                error_message="Fleet authorization temporarily unavailable: ban status cannot be verified",
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+            )
         if ban_reason:
             return AuthResult(
                 account_id=None,
