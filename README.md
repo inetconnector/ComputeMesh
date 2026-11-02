@@ -3,15 +3,15 @@
 ## Current release-gate status (2026-11-02)
 
 This checkout contains the public PR-139 candidate at commit
-`9fedf025c68ca6643d4eecb55d0839f6288f8453`. The existing v1.2.189 manifest
+`9967d0d4003aa6439d5b056f750bcc0c28663a3d`. The existing v1.2.189 manifest
 signature is independently Ed25519-valid under the trusted release public key
 (`verify_manifest=True`, key fingerprint `28be75e3…e2656`), but its local
 artifact-integrity check is not a release approval: when the newly built
 Windows binary was present, the test correctly reported a SHA-256 mismatch
 against the historical manifest entry. The exact public suite is green at `2076 passed, 20 skipped, 69
-subtests` (latest run 287.15 s), and the candidate has passed Android debug
+subtests` (latest run 295.11 s), and the candidate has passed Android debug
 JUnit (`4`), Gradle compilation and debug Lint (`0` issues). The release
-candidate is nevertheless not a release: full Ruff is now `1488` findings
+candidate is nevertheless not a release: full Ruff is now `1440` findings
 (initially `4372`, initially `226` in PR diff; the current changed-file view
 contains `1435` inherited findings), production Android signing is not
 configured, NodeOS artifacts cannot be rebuilt on this Windows host, current

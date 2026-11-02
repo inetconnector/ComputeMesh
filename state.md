@@ -4920,3 +4920,9 @@ not committed or signed; the same targeted regression then passed `1 passed,
 21 deselected`. This confirms that no locally rebuilt artifact was silently
 accepted as the historical release payload.
 
+Quality batch `9967d0d4003aa6439d5b056f750bcc0c28663a3d` removed all `48`
+`PIE790` findings from 17 reviewed files, plus one trailing-blank-line fix.
+The affected regression block passed `96 passed`; the required repeat then
+passed compileall, diff-check, full Ruff with `1440` findings, and the full
+public suite `2076 passed, 20 skipped, 69 subtests passed` in `295.11s`.
+
