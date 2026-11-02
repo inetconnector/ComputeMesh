@@ -483,8 +483,14 @@ class GatewayAuthManager:
                     is_provider_self_compute=True,
                     is_quota_exceeded=False,
                 ))
-        except Exception:
-            pass
+        except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError, TypeError) as exc:
+            # A failed session/owner lookup must not silently fall back to
+            # an anonymous teaser or a weaker provider-IP authorization path.
+            logger.warning("gateway session lookup unavailable: %s", type(exc).__name__)
+            return AuthResult(
+                error_message="Gateway session authorization temporarily unavailable",
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+            )
 
         # Check if caller IP matches a registered active provider node in cluster
         try:
@@ -510,8 +516,12 @@ class GatewayAuthManager:
                                 is_provider_self_compute=True,
                                 is_quota_exceeded=False,
                             ))
-        except Exception:
-            pass
+        except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError, TypeError) as exc:
+            logger.warning("provider-node authorization unavailable: %s", type(exc).__name__)
+            return AuthResult(
+                error_message="Provider authorization temporarily unavailable",
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+            )
 
         # No token or session provided: evaluate Free Teaser Playground Mode.
         if allow_teaser:
