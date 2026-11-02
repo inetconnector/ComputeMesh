@@ -85,9 +85,8 @@ class PinnedVerifierProcessTests(unittest.TestCase):
         with patch(
             "services.attestation.pinned_verifier_process.subprocess.run",
             return_value=completed,
-        ):
-            with self.assertRaisesRegex(VerifierProcessError, "rejected"):
-                verifier.verify({"nonce": "nonce-1"})
+        ), self.assertRaisesRegex(VerifierProcessError, "rejected"):
+            verifier.verify({"nonce": "nonce-1"})
 
     def test_response_technology_substitution_is_rejected(self) -> None:
         tmp, path, digest = self._temp_executable()
@@ -113,9 +112,8 @@ class PinnedVerifierProcessTests(unittest.TestCase):
         with patch(
             "services.attestation.pinned_verifier_process.subprocess.run",
             return_value=completed,
-        ):
-            with self.assertRaisesRegex(VerifierProcessError, "technology mismatch"):
-                verifier.verify({"nonce": "nonce-1"})
+        ), self.assertRaisesRegex(VerifierProcessError, "technology mismatch"):
+            verifier.verify({"nonce": "nonce-1"})
 
 
 if __name__ == "__main__":

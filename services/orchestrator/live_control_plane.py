@@ -143,7 +143,7 @@ class IntegratedLiveControlPlane:
         while not self._stop.is_set():
             try:
                 raw, _ = self._listener.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break

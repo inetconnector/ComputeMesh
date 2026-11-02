@@ -145,12 +145,11 @@ class TestStripeIntegration(unittest.TestCase):
                     "COMPUTEMESH_STRIPE_SESSION_STORE": str(store_path),
                 },
                 clear=True,
+            ), patch(
+                "services.billing.stripe_integration._load_stripe_module",
+                return_value=SimpleNamespace(),
             ):
-                with patch(
-                    "services.billing.stripe_integration._load_stripe_module",
-                    return_value=SimpleNamespace(),
-                ):
-                    svc = StripePaymentService.from_env(ledger=self.ledger)
+                svc = StripePaymentService.from_env(ledger=self.ledger)
             self.assertIsInstance(svc.session_store, StripeSessionStore)
             self.assertEqual(svc.session_store.storage_path, store_path)
 

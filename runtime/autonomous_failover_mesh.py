@@ -143,12 +143,12 @@ class AutonomousFailoverMeshFabric:
 
         while True:
             if time.time() - start_time > timeout:
-                raise socket.timeout("Handshake timeout")
+                raise TimeoutError("Handshake timeout")
 
             try:
                 chunk = sock.recv(min(1024, max_length - len(response_data) + 1))
-            except socket.timeout:
-                raise socket.timeout("Handshake timeout during recv")
+            except TimeoutError:
+                raise TimeoutError("Handshake timeout during recv")
 
             if not chunk:
                 return False
@@ -218,7 +218,7 @@ class AutonomousFailoverMeshFabric:
                 status_tag = "_AUTHENTICATED" if self._last_handshake_authenticated else "_LOCAL_UNAUTHENTICATED_ONLY"
                 self.active_connections[target_node_id] = f"{route.route_id}{status_tag}"
                 return True
-            except (socket.timeout, ConnectionRefusedError, OSError) as e:
+            except (TimeoutError, ConnectionRefusedError, OSError) as e:
                 log.warning(f"Failed to connect to {target_node_id} via {route.route_id}: {e}")
                 # Update error rate and try failover immediately
                 self.optimizer.update_route_metrics(route.route_id, latency_ms=route.latency_ms, error_rate=1.0)
@@ -242,7 +242,7 @@ class AutonomousFailoverMeshFabric:
                 with socket.create_connection((new_route.host, new_route.port), timeout=2.0) as sock:
                     if not self._perform_handshake(sock, target_node_id):
                         raise OSError("Handshake verification failed")
-            except (socket.timeout, ConnectionRefusedError, OSError) as exc:
+            except (TimeoutError, ConnectionRefusedError, OSError) as exc:
                 log.warning("Replacement route %s failed its TCP probe: %s", new_route.route_id, type(exc).__name__)
                 new_route.is_active = False
                 new_route.error_rate = 1.0
@@ -325,7 +325,7 @@ class AutonomousFailoverMeshFabric:
                 self._processed_jobs.add(job_id)
                 return resp
 
-            except (socket.timeout, ConnectionRefusedError, OSError) as exc:
+            except (TimeoutError, ConnectionRefusedError, OSError) as exc:
                 log.warning(f"Worker {target_node_id} failed during job {job_id} on route {route.route_id}: {exc}")
                 self.optimizer.update_route_metrics(route.route_id, latency_ms=route.latency_ms, error_rate=1.0)
                 if not self.handle_connection_failure(target_node_id, route.route_id):

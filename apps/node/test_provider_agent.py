@@ -309,9 +309,8 @@ class TestProviderAgentUnit(unittest.TestCase):
             with patch(
                 "services.appliance_dashboard.model_manager.get_model_manager",
                 return_value=Mock(engine=engine),
-            ):
-                with self.assertRaisesRegex(ProviderAgentError, "owned by NodeOS model engine"):
-                    _managed_model_cancel_callback("http://127.0.0.1:8082/v1/chat/completions")
+            ), self.assertRaisesRegex(ProviderAgentError, "owned by NodeOS model engine"):
+                _managed_model_cancel_callback("http://127.0.0.1:8082/v1/chat/completions")
         finally:
             if old_val is not None:
                 os.environ["COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL"] = old_val

@@ -229,11 +229,10 @@ class CustomToolStore:
     def delete_tool(self, name: str) -> bool:
         """Removes a custom tool from persistent storage."""
         clean_name = str(name).strip()
-        with self._lock:
-            with self._db_session() as conn:
-                cur = conn.cursor()
-                cur.execute("DELETE FROM custom_tools WHERE name = ?", (clean_name,))
-                deleted = cur.rowcount > 0
+        with self._lock, self._db_session() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM custom_tools WHERE name = ?", (clean_name,))
+            deleted = cur.rowcount > 0
         if deleted:
             logger.info(f"Custom Tool '{clean_name}' aus dem Persistent Tool Store gelöscht.")
         return deleted
@@ -274,21 +273,20 @@ class CustomToolStore:
         )
 
         # Update execution metrics in SQLite
-        with self._lock:
-            with self._db_session() as conn:
-                cur = conn.cursor()
-                old_count = tool.get("execution_count", 0)
-                old_avg = tool.get("avg_elapsed_ms", 0.0)
-                new_count = old_count + 1
-                new_avg = ((old_avg * old_count) + elapsed_ms) / new_count
-                conn.execute(
-                    """
+        with self._lock, self._db_session() as conn:
+            cur = conn.cursor()
+            old_count = tool.get("execution_count", 0)
+            old_avg = tool.get("avg_elapsed_ms", 0.0)
+            new_count = old_count + 1
+            new_avg = ((old_avg * old_count) + elapsed_ms) / new_count
+            conn.execute(
+                """
                     UPDATE custom_tools
                     SET execution_count = ?, avg_elapsed_ms = ?, receipt_count = receipt_count + 1
                     WHERE name = ?
                     """,
-                    (new_count, new_avg, name),
-                )
+                (new_count, new_avg, name),
+            )
 
         return {
             "name": name,

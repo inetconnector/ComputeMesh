@@ -70,7 +70,7 @@ def fetch_json(
             raw = response.read(max_bytes + 1)
     except urllib.error.HTTPError as exc:
         raise ProviderError(f"Provider antwortete mit HTTP {exc.code}.") from exc
-    except (urllib.error.URLError, TimeoutError, socket.timeout, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
         reason = getattr(exc, "reason", exc)
         raise ProviderError(f"Provider nicht erreichbar: {reason}") from exc
 

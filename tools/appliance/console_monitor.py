@@ -26,7 +26,7 @@ def _unit_state(unit: str) -> str:
 def read_status(url: str = "http://127.0.0.1:8080/api/status") -> dict[str, object]:
     """Read only the loopback status endpoint; never print response secrets."""
     try:
-        with urlopen(url, timeout=2) as response:  # noqa: S310 - fixed loopback default
+        with urlopen(url, timeout=2) as response:
             payload = json.loads(response.read(128 * 1024).decode("utf-8"))
         if not isinstance(payload, dict):
             return {"state": "invalid"}

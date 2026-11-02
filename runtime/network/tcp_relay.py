@@ -529,7 +529,7 @@ def run_relay(
 
             try:
                 coordinator, _ = listener.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break

@@ -105,7 +105,7 @@ def run_authenticated_worker_node(
                         resp["result_mac"] = resp_mac
 
                     conn.sendall(json.dumps(resp).encode("utf-8") + b"\n")
-        except socket.timeout:
+        except TimeoutError:
             continue
         except OSError:
             break

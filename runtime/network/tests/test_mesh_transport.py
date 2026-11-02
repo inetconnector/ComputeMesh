@@ -104,7 +104,7 @@ class TestMeshTransport(unittest.TestCase):
                     if not chunk:
                         break
                     response += chunk
-                except (socket.timeout, TimeoutError):
+                except TimeoutError:
                     break
             app_sock.close()
 

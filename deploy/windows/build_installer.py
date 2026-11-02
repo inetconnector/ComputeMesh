@@ -141,7 +141,7 @@ def build_windows_standalone_bundle(
     ]
 
     try:
-        import PyInstaller  # noqa: F401
+        import PyInstaller
     except ImportError as exc:
         raise RuntimeError("PyInstaller is required to build the Windows executable") from exc
 

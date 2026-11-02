@@ -312,9 +312,8 @@ class TestNodeOSRuntimeTools(unittest.TestCase):
             ), patch(
                 "tools.appliance.boot_preflight.subprocess.run",
                 return_value=subprocess.CompletedProcess(["findmnt"], 0, "", ""),
-            ):
-                with self.assertRaisesRegex(PreflightError, "evidence"):
-                    run_preflight(env_path=env_path, require_hardware=False)
+            ), self.assertRaisesRegex(PreflightError, "evidence"):
+                run_preflight(env_path=env_path, require_hardware=False)
 
     def test_enrollment_rejects_missing_runtime_evidence_before_gateway_acceptance(self) -> None:
         class Response:

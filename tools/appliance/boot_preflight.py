@@ -206,7 +206,7 @@ def run_preflight(
         raise PreflightError("provider control port is invalid")
     try:
         load_node_private_key(paths[0])
-    except Exception as exc:  # noqa: BLE001 - convert to one safe diagnostic
+    except Exception as exc:
         raise PreflightError("persistent node private key is unavailable") from exc
     if paths[1].is_symlink() or not paths[1].is_file():
         raise PreflightError("control-plane CA file is unavailable")

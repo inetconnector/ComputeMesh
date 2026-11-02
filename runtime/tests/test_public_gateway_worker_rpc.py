@@ -46,7 +46,7 @@ def run_worker_rpc_server(
                         data += chunk
                         if b'\n' in data:
                             break
-                    except socket.timeout:
+                    except TimeoutError:
                         break
 
                 if data:
@@ -90,7 +90,7 @@ def run_worker_rpc_server(
 
                     except (json.JSONDecodeError, KeyError):
                         pass
-        except socket.timeout:
+        except TimeoutError:
             continue
         except OSError:
             break

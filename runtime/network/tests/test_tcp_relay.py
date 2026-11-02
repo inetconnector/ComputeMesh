@@ -26,7 +26,7 @@ def start_multi_echo_server(stop_event: threading.Event | None = None):
                 while stop_event is None or not stop_event.is_set():
                     try:
                         conn, _ = listener.accept()
-                    except socket.timeout:
+                    except TimeoutError:
                         continue
                     except OSError:
                         break

@@ -68,7 +68,7 @@ class LanDiscoveryResponder:
                     response = f"COMPUTEMESH_PONG:{self.node_id};{self.port};{self.gpu_summary}".encode()
                     self._sock.sendto(response, addr)
                     logger.debug("Sent discovery pong to %s for node %s", addr, self.node_id)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except Exception as exc:
                 if self._running:

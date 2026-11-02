@@ -127,7 +127,7 @@ class SafePublicRedirectHandler(urllib.request.HTTPRedirectHandler):
     max_repeats = 3
     max_redirections = 5
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
         absolute = urllib.parse.urljoin(req.full_url, newurl)
         validate_public_url(absolute)
         return super().redirect_request(req, fp, code, msg, headers, absolute)

@@ -39,9 +39,8 @@ class TestSecureMemory(unittest.TestCase):
         self.assertTrue(all(b == 0 for b in buf._ciphertext))
 
         # 4. Access after zeroization raises RuntimeError
-        with self.assertRaises(RuntimeError):
-            with buf.open_plaintext():
-                pass
+        with self.assertRaises(RuntimeError), buf.open_plaintext():
+            pass
 
     def test_secure_zero_memory_bytearray(self) -> None:
         arr = bytearray(b"sensitive_keys_1234567890")

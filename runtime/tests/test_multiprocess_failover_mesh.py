@@ -46,7 +46,7 @@ def run_real_node_server(
                         data += chunk
                         if b'\n' in data:
                             break
-                    except socket.timeout:
+                    except TimeoutError:
                         break
                 if data:
                     try:
@@ -75,7 +75,7 @@ def run_real_node_server(
                                 conn.sendall(resp_bytes + b'\n')
                     except json.JSONDecodeError:
                         pass
-        except socket.timeout:
+        except TimeoutError:
             continue
         except OSError:
             break

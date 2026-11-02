@@ -177,7 +177,7 @@ class CloudTunnelRelay:
                 )
         except NodeIdentityError as exc:
             raise NodeAuthTokenStorageError(str(exc)) from exc
-        except Exception as exc:  # noqa: BLE001 - fail closed without exposing key details
+        except Exception as exc:
             message = str(exc).strip() or "persistent enrolled node private key is unavailable"
             raise NodeAuthTokenStorageError(message) from exc
         raw_pub = self._private_key.public_key().public_bytes(

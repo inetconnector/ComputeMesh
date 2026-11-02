@@ -56,7 +56,7 @@ def _activate_nodeos_services(provider_env: Path) -> None:
         from tools.appliance.boot_preflight import run_preflight
 
         run_preflight(env_path=provider_env, ready_file=marker)
-    except Exception as exc:  # noqa: BLE001 - enrollment diagnostics stay secret-free
+    except Exception as exc:
         raise EnrollmentError("enrollment completed but NodeOS preflight failed") from exc
 
     for unit in (
@@ -218,7 +218,7 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
     if nodeos_mode:
         try:
             secure_path_for_service(key_path, "computemesh", mode=0o600)
-        except Exception as exc:  # noqa: BLE001 - do not leak path/credential details
+        except Exception as exc:
             raise EnrollmentError("private key cannot be assigned to the provider service") from exc
     public_key = private_key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
     timestamp = int(time.time())
@@ -245,7 +245,7 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
     )
     context = ssl.create_default_context(cafile=str(ca_file)) if parsed.scheme == "https" else None
     try:
-        with urlopen(request, timeout=10, context=context) as response:  # noqa: S310 - URL is operator bundle input
+        with urlopen(request, timeout=10, context=context) as response:
             result = json.loads(response.read(64 * 1024).decode("utf-8"))
     except (OSError, HTTPError, URLError, UnicodeError, json.JSONDecodeError) as exc:
         raise EnrollmentError("control-plane enrollment request failed") from exc
@@ -260,7 +260,7 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
     _reject_live_path(node_auth_token_path, "node authentication token")
     try:
         persisted_token_path = persist_node_auth_token(auth_token, node_auth_token_path)
-    except Exception as exc:  # noqa: BLE001 - keep enrollment diagnostics secret-free
+    except Exception as exc:
         raise EnrollmentError("node authentication token cannot be persisted") from exc
     env_text = "\n".join(
         (
@@ -305,7 +305,7 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
         try:
             for path in (persisted_token_path, provider_env, receipt):
                 secure_path_for_service(path, "computemesh", mode=0o600)
-        except Exception as exc:  # noqa: BLE001 - keep enrollment diagnostics secret-free
+        except Exception as exc:
             raise EnrollmentError("provider credentials cannot be assigned to the provider service") from exc
     _activate_nodeos_services(provider_env)
     bundle_path.unlink()

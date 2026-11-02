@@ -235,15 +235,14 @@ class GatewayAgentWorkerRuntimeTests(unittest.TestCase):
                 with patch.dict(os.environ, {
                     "COMPUTEMESH_AGENTS_WORKER_ENABLED": "1",
                     "COMPUTEMESH_AGENTS_BILLING_ENABLED": "1",
-                }, clear=False):
-                    with self.assertRaises(RuntimeError):
-                        build_gateway_agent_worker_runtime(
-                            backend=_Backend(),
-                            session_store=gateway_store,
-                            config=_config(root),
-                            repo_root=root,
-                            ledger=object(),
-                        )
+                }, clear=False), self.assertRaises(RuntimeError):
+                    build_gateway_agent_worker_runtime(
+                        backend=_Backend(),
+                        session_store=gateway_store,
+                        config=_config(root),
+                        repo_root=root,
+                        ledger=object(),
+                    )
             finally:
                 if runtime is not None:
                     runtime.close()
@@ -257,15 +256,14 @@ class GatewayAgentWorkerRuntimeTests(unittest.TestCase):
                 with patch.dict(os.environ, {
                     "COMPUTEMESH_AGENTS_WORKER_ENABLED": "1",
                     "COMPUTEMESH_AGENTS_BILLING_ENABLED": "1",
-                }, clear=False):
-                    with self.assertRaises(RuntimeError):
-                        build_gateway_agent_worker_runtime(
-                            backend=_Backend(),
-                            session_store=gateway_store,
-                            config=_config(root),
-                            repo_root=root,
-                            ledger=Ledger(),
-                        )
+                }, clear=False), self.assertRaises(RuntimeError):
+                    build_gateway_agent_worker_runtime(
+                        backend=_Backend(),
+                        session_store=gateway_store,
+                        config=_config(root),
+                        repo_root=root,
+                        ledger=Ledger(),
+                    )
             finally:
                 gateway_store.close()
 
@@ -278,14 +276,13 @@ class GatewayAgentWorkerRuntimeTests(unittest.TestCase):
                     "COMPUTEMESH_AGENTS_WORKER_ENABLED": "1",
                     "COMPUTEMESH_AGENTS_BILLING_ENABLED": "0",
                     "COMPUTEMESH_AGENTS_MESH_DISPATCH_ENABLED": "1",
-                }, clear=False):
-                    with self.assertRaises(RuntimeError):
-                        build_gateway_agent_worker_runtime(
-                            backend=_Backend(),
-                            session_store=store,
-                            config=_config(root),
-                            repo_root=root,
-                        )
+                }, clear=False), self.assertRaises(RuntimeError):
+                    build_gateway_agent_worker_runtime(
+                        backend=_Backend(),
+                        session_store=store,
+                        config=_config(root),
+                        repo_root=root,
+                    )
             finally:
                 store.close()
 

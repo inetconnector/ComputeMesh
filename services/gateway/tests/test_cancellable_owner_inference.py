@@ -89,9 +89,8 @@ class CancellableOwnerInferenceTests(unittest.TestCase):
         self.assertEqual(self.backend.cancelled, ["req-active"])
 
     def test_invalid_request_id_fails_closed(self) -> None:
-        with self.assertRaises(ValueError):
-            with self.engine.request_scope("bad request id"):
-                pass
+        with self.assertRaises(ValueError), self.engine.request_scope("bad request id"):
+            pass
 
 
 if __name__ == "__main__":

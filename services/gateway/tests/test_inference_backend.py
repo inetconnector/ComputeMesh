@@ -105,9 +105,8 @@ class InferenceBackendTests(unittest.TestCase):
         with patch(
             "services.gateway.inference_backend.request.urlopen",
             return_value=_FakeResponse({"choices": []}),
-        ):
-            with self.assertRaises(InferenceBackendError):
-                backend.complete(model_id="test-model", messages=[])
+        ), self.assertRaises(InferenceBackendError):
+            backend.complete(model_id="test-model", messages=[])
 
     def test_invalid_url_is_rejected(self) -> None:
         with self.assertRaises(ValueError):

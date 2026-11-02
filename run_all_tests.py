@@ -212,7 +212,7 @@ def run_test_suite() -> int:
         for mod in modules:
             try:
                 suite.addTests(loader.loadTestsFromName(mod))
-            except Exception as exc:  # noqa: BLE001 - report a bad module and continue other suites.
+            except Exception as exc:
                 print(f"  [ERROR] Failed to load test module {mod}: {exc}")
                 all_successful = False
         cat_start = time.perf_counter()

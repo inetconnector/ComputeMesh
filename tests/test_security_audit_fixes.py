@@ -162,7 +162,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
                         if data:
                             conn.sendall(b"ECHO:" + data)
                         conn.close()
-                    except (socket.timeout, OSError):
+                    except (TimeoutError, OSError):
                         break
             except Exception:
                 pass

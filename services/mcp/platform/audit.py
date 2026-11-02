@@ -51,10 +51,9 @@ class AuditLogger:
             evidence=self._redact(dict(evidence or {})), metadata=self._redact(dict(metadata or {})),
         )
         line = json.dumps(asdict(event), ensure_ascii=False, sort_keys=True, default=str) + "\n"
-        with self._lock:
-            with self.path.open("a", encoding="utf-8") as handle:
-                handle.write(line)
-                handle.flush()
+        with self._lock, self.path.open("a", encoding="utf-8") as handle:
+            handle.write(line)
+            handle.flush()
         return event
 
     def read(self, *, limit: int = 100) -> list[dict[str, Any]]:

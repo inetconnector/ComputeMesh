@@ -236,7 +236,7 @@ class WebRTCP2PPeer:
                     break
                 try:
                     chunk = self._sock.recv(65536)
-                except socket.timeout:
+                except TimeoutError:
                     continue
                 except (OSError, ConnectionResetError):
                     break

@@ -332,7 +332,7 @@ class MeshTunnelServer:
             while self._running and not stop_event.is_set():
                 try:
                     n = src.recv_into(buf)
-                except (socket.timeout, TimeoutError):
+                except TimeoutError:
                     continue
                 except OSError:
                     break
@@ -464,7 +464,7 @@ class MeshTunnelClient:
             while self._running and not stop_event.is_set():
                 try:
                     n = src.recv_into(buf)
-                except (socket.timeout, TimeoutError):
+                except TimeoutError:
                     continue
                 except OSError:
                     break
