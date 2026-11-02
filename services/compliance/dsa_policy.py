@@ -20,7 +20,6 @@ from enum import Enum
 from typing import Any
 
 
-
 class PlatformEnterpriseSize(str, Enum):
     """Enterprise size classification according to EC Recommendation 2003/361/EC and DSA Art. 29."""
     MICRO_ENTERPRISE = "MICRO_ENTERPRISE"        # < 10 headcount, <= 2M EUR turnover/balance sheet

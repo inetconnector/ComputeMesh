@@ -5,7 +5,6 @@ with embedded owner keys, enrollment tokens, and cluster endpoints.
 """
 from __future__ import annotations
 
-
 DEFAULT_CLUSTER_URL = "https://mesh.inetconnector.com"
 
 

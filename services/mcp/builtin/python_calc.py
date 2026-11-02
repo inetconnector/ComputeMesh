@@ -132,11 +132,13 @@ class SecurityValidator(ast.NodeVisitor):
         if target.startswith("_") or target in SAFE_GLOBALS:
             self.reject(f"Variable '{target}' darf nicht überschrieben werden")
             return
-        if isinstance(node.value, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
-            self.sequence_names.add(target)
-        elif isinstance(node.value, ast.Constant) and isinstance(node.value.value, (str, bytes)):
-            self.sequence_names.add(target)
-        elif isinstance(node.value, ast.Name) and node.value.id in self.sequence_names:
+        if (
+            isinstance(node.value, (ast.List, ast.Tuple, ast.Set, ast.Dict))
+            or isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, (str, bytes))
+            or isinstance(node.value, ast.Name)
+            and node.value.id in self.sequence_names
+        ):
             self.sequence_names.add(target)
         self.generic_visit(node)
 
@@ -222,11 +224,13 @@ class SecurityValidator(ast.NodeVisitor):
         if isinstance(node.op, ast.Mult):
             sequence_operand = False
             for operand in (node.left, node.right):
-                if isinstance(operand, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
-                    sequence_operand = True
-                elif isinstance(operand, ast.Constant) and isinstance(operand.value, (str, bytes)):
-                    sequence_operand = True
-                elif isinstance(operand, ast.Name) and operand.id in self.sequence_names:
+                if (
+                    isinstance(operand, (ast.List, ast.Tuple, ast.Set, ast.Dict))
+                    or isinstance(operand, ast.Constant)
+                    and isinstance(operand.value, (str, bytes))
+                    or isinstance(operand, ast.Name)
+                    and operand.id in self.sequence_names
+                ):
                     sequence_operand = True
             if sequence_operand:
                 other = node.right if self._looks_sequence(node.left) else node.left
