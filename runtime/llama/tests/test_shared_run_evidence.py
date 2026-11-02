@@ -262,7 +262,8 @@ class SharedRunEvidenceTests(unittest.TestCase):
         self.assertNotIn("raw", json.dumps(result).lower())
 
     def test_rejects_bundle_without_shared_recommendation(self):
-        value = bundle(); value["placement_decision"]["recommendation"]["mode"] = "local_only"
+        value = bundle()
+        value["placement_decision"]["recommendation"]["mode"] = "local_only"
         self.assert_rejected(b=value)
 
     def test_rejects_model_or_runtime_mismatch(self):
@@ -273,53 +274,69 @@ class SharedRunEvidenceTests(unittest.TestCase):
             with self.subTest(mutation=mutation): self.assert_rejected(shared=value)
 
     def test_rejects_split_or_device_order_not_selected_by_planner(self):
-        split = spike("shared_rpc"); split["placement"]["tensor_split"] = [20.0, 20.0]
+        split = spike("shared_rpc")
+        split["placement"]["tensor_split"] = [20.0, 20.0]
         self.assert_rejected(shared=split)
-        order = spike("shared_rpc"); order["placement"]["devices"] = list(reversed(order["placement"]["devices"]))
+        order = spike("shared_rpc")
+        order["placement"]["devices"] = list(reversed(order["placement"]["devices"]))
         self.assert_rejected(shared=order)
-        local = spike("shared_rpc"); local["placement"]["devices"][0] = "CUDA1"
+        local = spike("shared_rpc")
+        local["placement"]["devices"][0] = "CUDA1"
         self.assert_rejected(shared=local)
 
     def test_rejects_shared_run_that_bypasses_relay_or_public_target(self):
-        value = spike("shared_rpc"); value["topology"]["rpc_endpoints"] = ["192.168.1.20:50052"]
+        value = spike("shared_rpc")
+        value["topology"]["rpc_endpoints"] = ["192.168.1.20:50052"]
         self.assert_rejected(shared=value)
-        metrics = relay(); metrics["target"] = "8.8.8.8:50052"
+        metrics = relay()
+        metrics["target"] = "8.8.8.8:50052"
         self.assert_rejected(relay_doc=metrics)
 
     def test_rejects_perturbed_or_forced_disconnect_relay_for_first_proof(self):
-        delay = relay(); delay["configured"]["one_way_delay_ms"] = 5.0
+        delay = relay()
+        delay["configured"]["one_way_delay_ms"] = 5.0
         self.assert_rejected(relay_doc=delay)
-        disconnect = relay(); disconnect["configured"]["disconnect_after_bytes"] = 10
+        disconnect = relay()
+        disconnect["configured"]["disconnect_after_bytes"] = 10
         self.assert_rejected(relay_doc=disconnect)
 
     def test_rejects_non_bidirectional_or_inconsistent_relay_bytes(self):
-        zero = relay(); zero["traffic"]["worker_to_coordinator_bytes"] = 0; zero["traffic"]["total_forwarded_bytes"] = 1000
+        zero = relay()
+        zero["traffic"]["worker_to_coordinator_bytes"] = 0
+        zero["traffic"]["total_forwarded_bytes"] = 1000
         self.assert_rejected(relay_doc=zero)
-        bad_sum = relay(); bad_sum["traffic"]["total_forwarded_bytes"] = 9999
+        bad_sum = relay()
+        bad_sum["traffic"]["total_forwarded_bytes"] = 9999
         self.assert_rejected(relay_doc=bad_sum)
 
     def test_rejects_incorrect_shared_output(self):
-        value = spike("shared_rpc"); value["correctness"]["token_ids_sha256"] = "e" * 64
+        value = spike("shared_rpc")
+        value["correctness"]["token_ids_sha256"] = "e" * 64
         self.assert_rejected(shared=value)
 
     def test_allows_output_digest_fallback_when_token_ids_are_absent(self):
         base, shared = spike("local_baseline"), spike("shared_rpc")
-        base["correctness"]["token_ids_sha256"] = None; shared["correctness"]["token_ids_sha256"] = None
+        base["correctness"]["token_ids_sha256"] = None
+        shared["correctness"]["token_ids_sha256"] = None
         with tempfile.TemporaryDirectory() as tmp:
             result = self.build(Path(tmp), base=base, shared=shared)
         self.assertEqual(result["correctness"]["match_basis"], "output_sha256")
 
     def test_rejects_stale_or_misordered_proof_timestamps(self):
-        before_bundle = spike("local_baseline"); before_bundle["captured_at"] = "2026-08-22T05:29:59Z"
+        before_bundle = spike("local_baseline")
+        before_bundle["captured_at"] = "2026-08-22T05:29:59Z"
         self.assert_rejected(base=before_bundle)
-        late = spike("shared_rpc"); late["captured_at"] = "2026-08-22T07:00:00Z"
+        late = spike("shared_rpc")
+        late["captured_at"] = "2026-08-22T07:00:00Z"
         self.assert_rejected(shared=late)
-        bad_relay = relay(); bad_relay["connected_at"] = "2026-08-22T05:30:20Z"
+        bad_relay = relay()
+        bad_relay["connected_at"] = "2026-08-22T05:30:20Z"
         self.assert_rejected(relay_doc=bad_relay)
 
     def test_rejects_non_finite_json(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); paths = self.write_inputs(root)
+            root = Path(tmp)
+            paths = self.write_inputs(root)
             paths[2].write_text(paths[2].read_text().replace("120.0", "NaN", 1), encoding="utf-8")
             with self.assertRaises(SharedRunEvidenceError):
                 build_shared_run_evidence(
@@ -328,14 +345,18 @@ class SharedRunEvidenceTests(unittest.TestCase):
 
     def test_write_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); paths = self.write_inputs(root); output = root / "proof.json"
+            root = Path(tmp)
+            paths = self.write_inputs(root)
+            output = root / "proof.json"
             kwargs = {"bundle_path": paths[0], "baseline_path": paths[1], "shared_path": paths[2], "relay_path": paths[3], "output_path": output}
             write_shared_run_evidence(**kwargs)
             with self.assertRaises(SharedRunEvidenceError): write_shared_run_evidence(**kwargs)
 
     def test_symlink_input_is_rejected_when_supported(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); paths = self.write_inputs(root); link = root / "bundle-link.json"
+            root = Path(tmp)
+            paths = self.write_inputs(root)
+            link = root / "bundle-link.json"
             try: link.symlink_to(paths[0].name)
             except (OSError, NotImplementedError): self.skipTest("symlink creation unavailable")
             with self.assertRaises(SharedRunEvidenceError):

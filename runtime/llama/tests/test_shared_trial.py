@@ -84,7 +84,8 @@ class SharedTrialTests(unittest.TestCase):
 
     def test_discover_devices_is_bounded_and_requires_successful_process(self):
         with tempfile.TemporaryDirectory() as tmp:
-            exe = Path(tmp) / "llama-server"; exe.write_bytes(b"x")
+            exe = Path(tmp) / "llama-server"
+            exe.write_bytes(b"x")
             good = subprocess.CompletedProcess([], 0, stdout="Available devices:\n CUDA0: GPU (1 MiB, 1 MiB free)\n")
             devices = discover_devices(exe, runner=lambda *a, **k: good)
             self.assertEqual(devices[0].name, "CUDA0")
@@ -151,7 +152,9 @@ class SharedTrialTests(unittest.TestCase):
 
     def test_sibling_cli_is_only_used_when_real_regular_file_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); server = root / "llama-server"; cli = root / "llama-cli"
+            root = Path(tmp)
+            server = root / "llama-server"
+            cli = root / "llama-cli"
             server.write_bytes(b"s")
             self.assertIsNone(sibling_llama_cli(server))
             cli.write_bytes(b"c")
@@ -159,9 +162,12 @@ class SharedTrialTests(unittest.TestCase):
 
     def test_load_trial_plan_binds_exact_model_and_rechecks_profile_freshness(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); model = root / "model.gguf"; model.write_bytes(b"abc")
+            root = Path(tmp)
+            model = root / "model.gguf"
+            model.write_bytes(b"abc")
             value = valid_bundle_for_model(model)
-            bundle_path = root / "bundle.json"; bundle_path.write_text(json.dumps(value), encoding="utf-8")
+            bundle_path = root / "bundle.json"
+            bundle_path.write_text(json.dumps(value), encoding="utf-8")
             loaded = load_trial_plan(bundle_path, model, now=NOW)
             self.assertEqual(loaded.model_sha256, hashlib.sha256(b"abc").hexdigest())
             self.assertEqual(loaded.tensor_split, (30.0, 10.0))
@@ -173,19 +179,25 @@ class SharedTrialTests(unittest.TestCase):
 
     def test_load_trial_plan_rejects_cpu_coordinator_for_automated_split(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); model = root / "model.gguf"; model.write_bytes(b"abc")
+            root = Path(tmp)
+            model = root / "model.gguf"
+            model.write_bytes(b"abc")
             value = valid_bundle_for_model(model)
             value["placement_decision"]["nodes"]["coordinator"]["kind"] = "cpu"
             value["placement_decision"]["nodes"]["coordinator"]["name"] = "Intel CPU"
-            bundle_path = root / "bundle.json"; bundle_path.write_text(json.dumps(value), encoding="utf-8")
+            bundle_path = root / "bundle.json"
+            bundle_path.write_text(json.dumps(value), encoding="utf-8")
             with self.assertRaisesRegex(SharedTrialError, "accelerator-backed coordinator"):
                 load_trial_plan(bundle_path, model, now=NOW)
 
     def test_load_trial_plan_rejects_wrong_model_or_forced_nonshared_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); model = root / "model.gguf"; model.write_bytes(b"abc")
+            root = Path(tmp)
+            model = root / "model.gguf"
+            model.write_bytes(b"abc")
             value = valid_bundle_for_model(model)
-            bundle_path = root / "bundle.json"; bundle_path.write_text(json.dumps(value), encoding="utf-8")
+            bundle_path = root / "bundle.json"
+            bundle_path.write_text(json.dumps(value), encoding="utf-8")
             model.write_bytes(b"abd")
             with self.assertRaisesRegex(SharedTrialError, "SHA-256|byte size"):
                 load_trial_plan(bundle_path, model, now=NOW)
@@ -197,10 +209,14 @@ class SharedTrialTests(unittest.TestCase):
 
     def test_runner_uses_exact_planner_split_and_builds_final_proof(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); output = root / "trial"
-            server = root / "llama-server"; server.write_bytes(b"x")
-            model = root / "model.gguf"; model.write_bytes(b"abc")
-            bundle_path = root / "bundle.json"; bundle_path.write_text("{}", encoding="utf-8")
+            root = Path(tmp)
+            output = root / "trial"
+            server = root / "llama-server"
+            server.write_bytes(b"x")
+            model = root / "model.gguf"
+            model.write_bytes(b"abc")
+            bundle_path = root / "bundle.json"
+            bundle_path.write_text("{}", encoding="utf-8")
             worker = RpcEndpoint.parse("192.168.1.20:50052")
             fake_plan = plan()
             captured_plans = []
@@ -243,10 +259,14 @@ class SharedTrialTests(unittest.TestCase):
 
     def test_runner_rejects_current_server_from_different_bound_build(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); output = root / "trial"
-            server = root / "llama-server"; server.write_bytes(b"x")
-            model = root / "model.gguf"; model.write_bytes(b"abc")
-            bundle_path = root / "bundle.json"; bundle_path.write_text("{}", encoding="utf-8")
+            root = Path(tmp)
+            output = root / "trial"
+            server = root / "llama-server"
+            server.write_bytes(b"x")
+            model = root / "model.gguf"
+            model.write_bytes(b"abc")
+            bundle_path = root / "bundle.json"
+            bundle_path.write_text("{}", encoding="utf-8")
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
                  patch("runtime.llama.shared_trial.runtime_version", return_value="version: 1000 (`deadbee`)\nbuilt with test"):
                 with self.assertRaisesRegex(SharedTrialError, "does not match the build bound"):
@@ -262,10 +282,14 @@ class SharedTrialTests(unittest.TestCase):
 
     def test_runner_rejects_rpc_preflight_that_drops_selected_local_device(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); output = root / "trial"
-            server = root / "llama-server"; server.write_bytes(b"x")
-            model = root / "model.gguf"; model.write_bytes(b"abc")
-            bundle_path = root / "bundle.json"; bundle_path.write_text("{}", encoding="utf-8")
+            root = Path(tmp)
+            output = root / "trial"
+            server = root / "llama-server"
+            server.write_bytes(b"x")
+            model = root / "model.gguf"
+            model.write_bytes(b"abc")
+            bundle_path = root / "bundle.json"
+            bundle_path.write_text("{}", encoding="utf-8")
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
                  patch("runtime.llama.shared_trial.runtime_version", return_value="version: 999 (`abcdef0`)\nbuilt with test"), \
                  patch("runtime.llama.shared_trial.discover_devices", return_value=(DeviceInfo("CUDA0", plan().coordinator_name),)), \
@@ -283,15 +307,21 @@ class SharedTrialTests(unittest.TestCase):
 
     def test_runner_retains_bounded_failure_record_on_correctness_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); output = root / "trial"
-            server = root / "llama-server"; server.write_bytes(b"x")
-            model = root / "model.gguf"; model.write_bytes(b"abc")
-            bundle_path = root / "bundle.json"; bundle_path.write_text("{}", encoding="utf-8")
+            root = Path(tmp)
+            output = root / "trial"
+            server = root / "llama-server"
+            server.write_bytes(b"x")
+            model = root / "model.gguf"
+            model.write_bytes(b"abc")
+            bundle_path = root / "bundle.json"
+            bundle_path.write_text("{}", encoding="utf-8")
             relay = SimpleNamespace(endpoint=RpcEndpoint.parse("127.0.0.1:50053"))
 
             def fake_spike(spike_plan, *, prompt, output_dir, startup_timeout, request_timeout):
                 output_dir.mkdir(parents=True, exist_ok=False)
-                path = output_dir / "runtime_spike_result.json"; path.write_text("{}", encoding="utf-8"); return path
+                path = output_dir / "runtime_spike_result.json"
+                path.write_text("{}", encoding="utf-8")
+                return path
 
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
                  patch("runtime.llama.shared_trial.runtime_version", return_value="version: 999 (`abcdef0`)\nbuilt with test"), \
