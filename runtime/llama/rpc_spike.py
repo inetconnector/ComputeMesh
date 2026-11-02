@@ -318,7 +318,8 @@ def run_spike(plan: SpikePlan, *, prompt: str, output_dir: Path,
             try:
                 process.wait(timeout=10)
             except subprocess.TimeoutExpired:
-                process.kill(); process.wait(timeout=5)
+                process.kill()
+                process.wait(timeout=5)
 
     token_digest = None
     if tokens is not None:
@@ -364,41 +365,96 @@ def compare_results(baseline_path: Path, shared_path: Path) -> dict[str, Any]:
 
 def _devices(value: str) -> tuple[str, ...]:
     result = tuple(x.strip() for x in value.split(",") if x.strip())
-    if not result: raise argparse.ArgumentTypeError("devices must not be empty")
+    if not result:
+        raise argparse.ArgumentTypeError("devices must not be empty")
     return result
 
 
 def _split(value: str) -> tuple[float, ...]:
-    try: result = tuple(float(x.strip()) for x in value.split(",") if x.strip())
-    except ValueError as exc: raise argparse.ArgumentTypeError("tensor split must contain numbers") from exc
-    if not result or any(x <= 0 for x in result): raise argparse.ArgumentTypeError("tensor split must be positive")
+    try:
+        result = tuple(float(x.strip()) for x in value.split(",") if x.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("tensor split must contain numbers") from exc
+    if not result or any(x <= 0 for x in result):
+        raise argparse.ArgumentTypeError("tensor split must be positive")
     return result
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="ComputeMesh controlled llama.cpp RPC M1 spike")
     sub = parser.add_subparsers(dest="command", required=True)
-    worker = sub.add_parser("worker"); worker.add_argument("--rpc-server", type=Path, required=True); worker.add_argument("--bind", required=True); worker.add_argument("--port", type=int, default=50052); worker.add_argument("--devices", type=_devices, default=()); worker.add_argument("--threads", type=int)
-    discover = sub.add_parser("discover"); discover.add_argument("--llama-server", type=Path, required=True); discover.add_argument("--rpc", action="append", required=True, type=RpcEndpoint.parse)
+
+    worker = sub.add_parser("worker")
+    worker.add_argument("--rpc-server", type=Path, required=True)
+    worker.add_argument("--bind", required=True)
+    worker.add_argument("--port", type=int, default=50052)
+    worker.add_argument("--devices", type=_devices, default=())
+    worker.add_argument("--threads", type=int)
+
+    discover = sub.add_parser("discover")
+    discover.add_argument("--llama-server", type=Path, required=True)
+    discover.add_argument("--rpc", action="append", required=True, type=RpcEndpoint.parse)
+
     for name in ("baseline", "run"):
-        p = sub.add_parser(name); p.add_argument("--llama-server", type=Path, required=True); p.add_argument("--model", type=Path, required=True); p.add_argument("--devices", required=True, type=_devices); p.add_argument("--tensor-split", type=_split, required=name == "run"); p.add_argument("--port", type=int, default=18080); p.add_argument("--ctx-size", type=int, default=2048); p.add_argument("--n-predict", type=int, default=32); p.add_argument("--seed", type=int, default=1); p.add_argument("--prompt", default="ComputeMesh deterministic M1 correctness probe. Reply with READY."); p.add_argument("--output-dir", type=Path, required=True); p.add_argument("--startup-timeout", type=float, default=300.0); p.add_argument("--request-timeout", type=float, default=300.0)
-        if name == "run": p.add_argument("--rpc", action="append", required=True, type=RpcEndpoint.parse)
-    compare = sub.add_parser("compare"); compare.add_argument("--baseline", type=Path, required=True); compare.add_argument("--shared", type=Path, required=True); compare.add_argument("--output", type=Path)
+        p = sub.add_parser(name)
+        p.add_argument("--llama-server", type=Path, required=True)
+        p.add_argument("--model", type=Path, required=True)
+        p.add_argument("--devices", required=True, type=_devices)
+        p.add_argument("--tensor-split", type=_split, required=name == "run")
+        p.add_argument("--port", type=int, default=18080)
+        p.add_argument("--ctx-size", type=int, default=2048)
+        p.add_argument("--n-predict", type=int, default=32)
+        p.add_argument("--seed", type=int, default=1)
+        p.add_argument("--prompt", default="ComputeMesh deterministic M1 correctness probe. Reply with READY.")
+        p.add_argument("--output-dir", type=Path, required=True)
+        p.add_argument("--startup-timeout", type=float, default=300.0)
+        p.add_argument("--request-timeout", type=float, default=300.0)
+        if name == "run":
+            p.add_argument("--rpc", action="append", required=True, type=RpcEndpoint.parse)
+
+    compare = sub.add_parser("compare")
+    compare.add_argument("--baseline", type=Path, required=True)
+    compare.add_argument("--shared", type=Path, required=True)
+    compare.add_argument("--output", type=Path)
+
     args = parser.parse_args(argv)
-    if args.command == "worker": return subprocess.run(build_worker_command(args.rpc_server, bind=args.bind, port=args.port, devices=args.devices, threads=args.threads), check=False).returncode
-    if args.command == "discover": return subprocess.run(build_discover_command(args.llama_server, args.rpc), check=False).returncode
+    if args.command == "worker":
+        return subprocess.run(
+            build_worker_command(
+                args.rpc_server, bind=args.bind, port=args.port,
+                devices=args.devices, threads=args.threads,
+            ),
+            check=False,
+        ).returncode
+    if args.command == "discover":
+        return subprocess.run(
+            build_discover_command(args.llama_server, args.rpc), check=False,
+        ).returncode
     if args.command in {"baseline", "run"}:
         endpoints = () if args.command == "baseline" else tuple(args.rpc)
         split = args.tensor_split or tuple(1.0 for _ in args.devices)
-        plan = SpikePlan(args.llama_server, args.model, endpoints, args.devices, split,
-                         mode="local_baseline" if args.command == "baseline" else "shared_rpc",
-                         local_port=args.port, context_size=args.ctx_size, n_predict=args.n_predict, seed=args.seed)
-        print(run_spike(plan, prompt=args.prompt, output_dir=args.output_dir,
-                        startup_timeout=args.startup_timeout, request_timeout=args.request_timeout)); return 0
+        plan = SpikePlan(
+            args.llama_server, args.model, endpoints, args.devices, split,
+            mode="local_baseline" if args.command == "baseline" else "shared_rpc",
+            local_port=args.port, context_size=args.ctx_size,
+            n_predict=args.n_predict, seed=args.seed,
+        )
+        print(
+            run_spike(
+                plan, prompt=args.prompt, output_dir=args.output_dir,
+                startup_timeout=args.startup_timeout,
+                request_timeout=args.request_timeout,
+            )
+        )
+        return 0
+
     result = compare_results(args.baseline, args.shared)
     text = json.dumps(result, indent=2, sort_keys=True) + "\n"
-    if args.output: args.output.parent.mkdir(parents=True, exist_ok=True); args.output.write_text(text, encoding="utf-8")
-    else: print(text, end="")
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(text, encoding="utf-8")
+    else:
+        print(text, end="")
     return 0 if result["exact_output_match"] else 3
 
 
