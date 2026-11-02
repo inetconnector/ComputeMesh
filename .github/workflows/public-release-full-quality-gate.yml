@@ -1,0 +1,105 @@
+name: Exact-source full release quality gate
+
+on:
+  push:
+    branches:
+      - release/portal-platform-sync-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  complete-ruff-inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Full unfiltered Ruff audit on exact Git source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check ruff==0.14.4
+          echo "Exact source SHA: $GITHUB_SHA"
+          set +e
+          ruff check --no-cache --output-format=json . > ruff-full-inventory.json
+          result=$?
+          set -e
+          python - <<'PY'
+          from collections import Counter
+          from pathlib import Path
+          import json
+          import os
+
+          report = Path("ruff-full-inventory.json")
+          findings = json.loads(report.read_text(encoding="utf-8"))
+          counts = Counter(item["code"] for item in findings)
+          lines = [
+              f"### Full Ruff report for {os.environ['GITHUB_SHA']}",
+              f"Total findings: **{len(findings)}**",
+              "",
+              "| Rule | Findings |",
+              "| --- | ---: |",
+          ]
+          lines += [f"| {rule} | {count} |" for rule, count in counts.most_common()]
+          summary = "\n".join(lines) + "\n"
+          print(summary)
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as stream:
+              stream.write(summary)
+          PY
+          # A full lint gate passes only at zero, not at the old baseline.
+          test "$result" -eq 0
+      - name: Preserve complete machine-readable Ruff inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-ruff-inventory
+          path: ruff-full-inventory.json
+          if-no-files-found: error
+          retention-days: 14
+
+  complete-public-test-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install test-only dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -r requirements.txt -r requirements-dev.txt
+          python -m pip install --disable-pip-version-check pytest==9.0.2 requests==2.32.5 beautifulsoup4==4.14.2 Pillow==12.0.0 pydantic==2.12.4 numpy==2.3.4
+      - name: Full public compile and Pytest (no narrowed test paths)
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+          COMPUTEMESH_NODE_AUTH_TOKEN_PATH: ${{ runner.temp }}/ci-node-auth-token.txt
+          COMPUTEMESH_ACCOUNTING_DB_PATH: ${{ runner.temp }}/cm-accounting.db
+          COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH: ${{ runner.temp }}/cm-fleet.db
+        run: |
+          set -euo pipefail
+          echo "Exact source SHA: $GITHUB_SHA"
+          python -m compileall -q apps deploy services runtime protocol tools tests
+          set +e
+          python -m pytest -q --import-mode=prepend -p no:cacheprovider 2>&1 | tee full-pytest.log
+          result=${PIPESTATUS[0]}
+          set -e
+          exit "$result"
+      - name: Preserve complete test transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-public-pytest-transcript
+          path: full-pytest.log
+          if-no-files-found: warn
+          retention-days: 14
