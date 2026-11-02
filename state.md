@@ -4948,3 +4948,26 @@ passed `57 passed` and Ruff/compileall/diff-check passed. The repeated full
 public suite passed `2076 passed, 20 skipped, 69 subtests passed` in
 `300.46s`. Full Ruff is now `1369` findings with `F841=26` remaining.
 
+Quality batch `fa1b13f` manually cleared the remaining `26` F841 findings
+without unsafe autofixes or rule suppressions. The changes cover only unused
+bindings/assignments and preserve the executed behavior; the affected
+deployment, appliance, billing, compliance, gateway, MCP, orchestrator,
+scheduler, updater, disk-clone and security-audit regression group passed
+`297 passed, 13 subtests passed` in `17.69s`. The required repeat checks
+`ruff check --select F841 .`, `python -m compileall -q services tools runtime
+protocol deploy tests` and `git diff --check` all exited 0. The full Ruff
+inventory is now `1343` findings; the largest remaining groups are
+`BLE001=699`, `S110=293`, `FURB167=56`, `SIM117=45`, `TRY004=44`,
+`PLW1510=36`, `SIM102=30` and `FURB162=26`. The complete machine-readable
+post-batch inventory is at
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-f841-fa1b13f.json`.
+
+The complete public suite was then rerun on exact commit `fa1b13f` with
+`python -m pytest -q --import-mode=prepend`: `2076 passed, 20 skipped, 69
+subtests passed` in `290.93s`. This quality batch is pushed to the existing
+PR-139 branch as `fa1b13f`; no merge, tag, release or deployment was done.
+The overall release decision remains **RELEASE_NO_GO** because the complete
+source-bound nine-artifact set, production Android signer, NodeOS build,
+protected exact-head TrustedBridge receipt, physical QR/WAN/mTLS/BFT tests,
+staging/canary/rollback and operator approval are still absent.
+

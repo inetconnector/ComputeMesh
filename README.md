@@ -3,21 +3,24 @@
 ## Current release-gate status (2026-11-02)
 
 This checkout contains the public PR-139 candidate at commit
-`dc387b29a51e7879118f0d81df52749fe5e8f895`. The existing v1.2.189 manifest
+`fa1b13f`. The existing v1.2.189 manifest
 signature is independently Ed25519-valid under the trusted release public key
 (`verify_manifest=True`, key fingerprint `28be75e3…e2656`), but its local
 artifact-integrity check is not a release approval: when the newly built
 Windows binary was present, the test correctly reported a SHA-256 mismatch
 against the historical manifest entry. The exact public suite is green at `2076 passed, 20 skipped, 69
-subtests` (latest run 300.46 s), and the candidate has passed Android debug
+subtests` (latest run 290.93 s), and the candidate has passed Android debug
 JUnit (`4`), Gradle compilation and debug Lint (`0` issues). The release
-candidate is nevertheless not a release: full Ruff is now `1369` findings
+candidate is nevertheless not a release: full Ruff is now `1343` findings
 (initially `4372`, initially `226` in PR diff; the current changed-file view
 contains `1435` inherited findings), production Android signing is not
 configured, NodeOS artifacts cannot be rebuilt on this Windows host, current
 artifacts are not source-bound to this head, the DiskStation UNC is currently
 unreachable, and protected TrustedBridge/physical/operator evidence is absent.
-The production `assembleRelease` attempt failed closed because the four
+The 26 remaining F841 findings were cleared manually with behavior-neutral
+changes; the affected regression group passed `297 passed, 13 subtests` and
+compileall/diff-check passed. The production `assembleRelease` attempt failed
+closed because the four
 `CM_ANDROID_*` signing variables were not configured. **RELEASE_NO_GO** remains
 authoritative.
 
