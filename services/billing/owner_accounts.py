@@ -226,20 +226,24 @@ class OwnerAccountStore:
         if self.get_owner(oid) is None:
             raise OwnerAccountStoreError(f"unknown owner {oid}")
         with self._connection() as conn:
+            # A SELECT followed by INSERT is not atomic across independent
+            # SQLite connections. Concurrent authenticated heartbeats binding
+            # the same node to the same owner must be idempotent; a competing
+            # owner must never be able to overwrite the existing binding.
+            conn.execute(
+                f"INSERT INTO {table}({key_column}, owner_id, created_at) "
+                "VALUES(?, ?, ?) "
+                f"ON CONFLICT({key_column}) DO NOTHING",
+                (resource_id, oid, utc_now()),
+            )
             row = conn.execute(
                 f"SELECT owner_id FROM {table} WHERE {key_column} = ?",
                 (resource_id,),
             ).fetchone()
-            if row is not None:
-                if row["owner_id"] != oid:
-                    raise OwnerAccountStoreError(
-                        f"{key_column} {resource_id!r} is already bound to another owner"
-                    )
-                return
-            conn.execute(
-                f"INSERT INTO {table}({key_column}, owner_id, created_at) VALUES(?, ?, ?)",
-                (resource_id, oid, utc_now()),
-            )
+            if row is None or row["owner_id"] != oid:
+                raise OwnerAccountStoreError(
+                    f"{key_column} {resource_id!r} is already bound to another owner"
+                )
 
     def bind_api_credential(self, owner_id: str, credential_id: str) -> None:
         self._bind_unique(

@@ -452,6 +452,22 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_parallel_owner_bindings_are_idempotent_and_cannot_change_owner(self) -> None:
+        """Parallel heartbeats may bind the same owner/node, never another owner."""
+        store = gateway_server.OWNER_ACCOUNT_STORE
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(
+                lambda _item: store.bind_provider_node(self.owner_id, self.node_id),
+                range(24),
+            ))
+        self.assertEqual(store.owner_for_provider_node(self.node_id), self.owner_id)
+        another_owner = owner_id_for_key("cm_owner_parallel_conflict")
+        store.ensure_owner(another_owner)
+        from services.billing.owner_accounts import OwnerAccountStoreError
+        with self.assertRaises(OwnerAccountStoreError):
+            store.bind_provider_node(another_owner, self.node_id)
+        self.assertEqual(store.owner_for_provider_node(self.node_id), self.owner_id)
+
     def test_negative_security_parallel_replay_of_same_heartbeat_nonce_rejected(self) -> None:
         """Only one concurrent request may consume a signed heartbeat nonce."""
         old_token = "parallel-old-token"
