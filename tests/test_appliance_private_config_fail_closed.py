@@ -59,3 +59,24 @@ def test_invalid_existing_provider_json_does_not_modify_system_config(tmp_path: 
         with pytest.raises(json.JSONDecodeError):
             storage.save_system_config(storage.ApplianceConfig(owner_key="test"), system_file)
     assert not system_file.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ownership test")
+def test_atomic_replace_keeps_existing_service_user_ownership(tmp_path: Path) -> None:
+    path = tmp_path / "owner.json"
+    path.write_text('{"owner_key":"old"}', encoding="utf-8")
+    before = path.stat()
+    storage._write_private_json(path, {"owner_key": "new-test-key"})
+    after = path.stat()
+    assert (after.st_uid, after.st_gid) == (before.st_uid, before.st_gid)
+    assert stat.S_IMODE(after.st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ownership test")
+def test_chown_failure_never_replaces_existing_secret(tmp_path: Path) -> None:
+    path = tmp_path / "owner.json"
+    path.write_text("existing secret", encoding="utf-8")
+    with patch.object(storage.os, "chown", side_effect=PermissionError("chown denied")):
+        with pytest.raises(PermissionError, match="chown denied"):
+            storage._write_private_json(path, {"owner_key": "new-secret"})
+    assert path.read_text(encoding="utf-8") == "existing secret"

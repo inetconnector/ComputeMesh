@@ -221,6 +221,9 @@ def _write_private_json(path: Path, data: dict[str, Any]) -> None:
     """Write owner credentials in a private tempfile before atomic publication."""
     if path.is_symlink():
         raise OSError("refusing to replace symlinked private appliance config")
+    # Atomic replacement must preserve a pre-existing service-user owner:
+    # root-owned 0600 files would lock the unprivileged NodeOS daemon out.
+    prior_owner = path.stat() if path.exists() and os.name == "posix" else None
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     temp_path: Path | None = None
     try:
@@ -230,6 +233,8 @@ def _write_private_json(path: Path, data: dict[str, Any]) -> None:
         ) as stream:
             temp_path = Path(stream.name)
             if platform.system().lower() != "windows":
+                if prior_owner is not None:
+                    os.chown(temp_path, prior_owner.st_uid, prior_owner.st_gid)
                 os.chmod(temp_path, 0o600)
                 if stat.S_IMODE(temp_path.stat().st_mode) != 0o600:
                     raise OSError("private config file mode is not 0600")
