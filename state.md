@@ -4971,3 +4971,17 @@ source-bound nine-artifact set, production Android signer, NodeOS build,
 protected exact-head TrustedBridge receipt, physical QR/WAN/mTLS/BFT tests,
 staging/canary/rollback and operator approval are still absent.
 
+Quality batch `b8ebd47ee1718dc3c511acc44ab029cd63aebcff` removed all `56`
+`FURB167` regex flag aliases in nine reviewed Concert Research/MCP files using
+the rule's safe fix only; no unsafe-fix mode or suppression was used. The
+affected tests passed `55 passed, 10 subtests passed` in `2.80s`. The required
+full Ruff check is now `1287` findings, with `FURB167=0`; compileall over
+`services tools runtime protocol deploy tests` and `git diff --check` exited 0.
+The complete public suite was rerun on exact code head `b8ebd47` and passed
+`2076 passed, 20 skipped, 69 subtests passed` in `302.27s`. The machine-readable
+post-charge inventory is at
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-furb167.json`.
+The code commit is pushed to the existing PR-139 branch; the next docs-only
+commit will record the hosted result. Release status remains
+**RELEASE_NO_GO**.
+
