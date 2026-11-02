@@ -3,15 +3,15 @@
 ## Current release-gate status (2026-11-02)
 
 This checkout contains the public PR-139 candidate at commit
-`b9e8076`. The existing v1.2.189 manifest
+`c32bcc3`. The existing v1.2.189 manifest
 signature is independently Ed25519-valid under the trusted release public key
 (`verify_manifest=True`, key fingerprint `28be75e3…e2656`), but its local
 artifact-integrity check is not a release approval: when the newly built
 Windows binary was present, the test correctly reported a SHA-256 mismatch
 against the historical manifest entry. The exact public suite is green at `2090 passed, 20 skipped, 69
-subtests` (latest run 294.97 s), and the candidate has passed Android debug
+subtests` (latest run 300.72 s), and the candidate has passed Android debug
 JUnit (`4`), Gradle compilation and debug Lint (`0` issues). The release
-candidate is nevertheless not a release: full Ruff is now `1282` findings
+candidate is nevertheless not a release: full Ruff is now `1274` findings
 (initially `4372`, initially `226` in PR diff; the current changed-file view
 contains `1435` inherited findings), production Android signing is not
 configured, NodeOS artifacts cannot be rebuilt on this Windows host, current
@@ -37,6 +37,10 @@ Ruff passed, and offline public `tests/` snapshot `194 passed, 13 skipped`.
 The branch also contains fail-closed NodeOS boot validation, operator-pinned
 Android APK/AAB signer checks, signed Android inventory/version consistency,
 and a Git-enabled isolated release fixture image.
+The latest code head `c32bcc3` also removes four unsorted-import/duplicate-
+branch findings; its hosted run is `41447029822` with the same `59 passed,
+5 skipped, 9 subtests` isolated result and `194 passed, 13 skipped` offline
+snapshot.
 
 ## Current local P0 integration candidate (2026-10-26)
 

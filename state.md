@@ -5010,3 +5010,17 @@ The full Ruff gate is still open; remaining largest groups are
 `BLE001=699`, `S110=293`, `TRY004=44`, `SIM117=42`, `PLW1510=34`,
 `SIM102=30` and `FURB162=26`.
 
+Quality batch `c32bcc3` removed four I001 import-order findings and four SIM114
+duplicate-branch findings using the targeted safe fixer, with a manual
+readability pass for the resulting boolean expressions. Affected compliance,
+MCP calculation, portal, orchestrator and security-audit tests passed
+`136 passed, 9 subtests passed` in `11.61s`; targeted Ruff, compileall and
+diff-check passed. The complete public suite on the exact code head passed
+`2090 passed, 20 skipped, 69 subtests passed` in `300.72s`. Full Ruff is now
+`1274` findings; inventory:
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-i001-sim114.json`.
+Hosted run `41447029822` passed on exact head with isolated security/portal
+`59 passed, 5 skipped, 9 subtests`, critical syntax/selected Ruff passed, and
+offline public `tests/` snapshot `194 passed, 13 skipped`. Release status
+remains **RELEASE_NO_GO**.
+
