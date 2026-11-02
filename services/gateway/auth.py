@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import logging
 import os
 import re
 import secrets
@@ -28,6 +29,7 @@ from services.gateway.teaser import TeaserQuotaManager
 PROVIDER_NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
 API_KEY_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{8,128}$")
 ADMIN_KEY_MIN_LENGTH = 24
+logger = logging.getLogger(__name__)
 
 
 def _env_truthy(name: str) -> bool:
@@ -365,8 +367,14 @@ class GatewayAuthManager:
                             is_provider_self_compute=True,
                             is_quota_exceeded=False,
                         ))
-                except Exception:
-                    pass
+                except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError) as exc:
+                    # A failed owner-key registry/billing lookup must not turn an
+                    # authenticated owner into a new anonymous teaser session.
+                    logger.warning("owner-key authorization unavailable: %s", type(exc).__name__)
+                    return AuthResult(
+                        error_message="Owner-key authorization temporarily unavailable",
+                        status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+                    )
 
             # Lab/private appliance compatibility must be enabled explicitly.
             if token.startswith("cm_provider_") and _env_truthy("COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS"):
