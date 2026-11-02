@@ -5,7 +5,7 @@ This code deliberately does not share the legacy node bearer authorization path.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Any
 
@@ -49,9 +49,9 @@ def mobile_heartbeat(
     if any(key in body for key in ("owner_key", "auth_token", "enrollment_token", "previous_node_id")):
         return {"error": "legacy fleet secrets and aliases are forbidden"}, HTTPStatus.BAD_REQUEST
 
-    from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, save_node_telemetry_registry
-    from services.gateway.server import OWNER_ACCOUNT_STORE, _NODE_HEARTBEAT_LOCK, owner_id_for_key
     from services.billing.owner_accounts import OwnerAccountStoreError
+    from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, save_node_telemetry_registry
+    from services.gateway.server import _NODE_HEARTBEAT_LOCK, OWNER_ACCOUNT_STORE, owner_id_for_key
 
     with _NODE_HEARTBEAT_LOCK:
         existing = NODE_TELEMETRY_REGISTRY.get(node_id)
@@ -103,7 +103,7 @@ def mobile_heartbeat(
                 "tokens_processed": 0,
                 "earnings_cm": 0,
             },
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
         save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
     return {"status": "ok", "node_id": node_id, "mobile_device": True}, HTTPStatus.OK
@@ -117,7 +117,9 @@ def revoke_mobile_device(
 
     from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, save_node_telemetry_registry
     from services.gateway.server import (
-        OWNER_ACCOUNT_STORE, _NODE_HEARTBEAT_LOCK, owner_id_for_key,
+        _NODE_HEARTBEAT_LOCK,
+        OWNER_ACCOUNT_STORE,
+        owner_id_for_key,
     )
     # Serialize with mobile_heartbeat. Revoke the database credential BEFORE
     # deleting telemetry so an in-flight valid heartbeat cannot re-register.

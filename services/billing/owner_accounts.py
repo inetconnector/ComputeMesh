@@ -8,17 +8,18 @@ e-mail address, node name or local OS installation.
 """
 from __future__ import annotations
 
+import logging
+import sqlite3
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-import sqlite3
-
 
 SCHEMA_VERSION = 1
 PROMO_DEVICE = "device_onboarding"
 PROMO_GPU = "gpu_onboarding"
+logger = logging.getLogger(__name__)
 
 
 class OwnerAccountStoreError(Exception):
@@ -51,7 +52,7 @@ class PromoClaim:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _clean_identifier(value: str, *, field: str, max_len: int = 256) -> str:
@@ -528,7 +529,7 @@ class OwnerAccountStore:
             try:
                 res = json.loads(row["disabled_tools"])
                 return list(res) if isinstance(res, list) else []
-            except Exception:
+            except (json.JSONDecodeError, TypeError, KeyError):
                 return []
 
     def set_mcp_disabled_tools(self, owner_id: str, disabled_tools: list[str]) -> None:
@@ -587,8 +588,8 @@ class OwnerAccountStore:
             from runtime.safety.dead_mans_switch import get_lease_guard
             guard = get_lease_guard()
             guard.trip_fleet(oid, reason=f"ADMIN_BANNED: {clean_reason}")
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError) as exc:
+            logger.debug("dead-man switch ban notification failed: %s", exc, exc_info=True)
 
         return {
             "owner_id": oid,
@@ -628,8 +629,8 @@ class OwnerAccountStore:
             from runtime.safety.dead_mans_switch import get_lease_guard
             guard = get_lease_guard()
             guard.reset_fleet(oid, reason=f"ADMIN_UNBANNED: {clean_reason}")
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError) as exc:
+            logger.debug("dead-man switch unban notification failed: %s", exc, exc_info=True)
 
         return affected
 

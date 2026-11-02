@@ -1,8 +1,4 @@
 """HTTP-level tests for the /fleet page and its session-authenticated APIs."""
-from http import HTTPStatus
-from http.server import ThreadingHTTPServer
-from pathlib import Path
-from datetime import datetime, timezone
 import json
 import tempfile
 import threading
@@ -10,15 +6,19 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime
+from http import HTTPStatus
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 
-from services.portal.server import PortalHandler
+import services.gateway.server as gateway_server_module
+from services.billing.owner_accounts import OwnerAccountStore
+from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 from services.portal import passkey_routes
 from services.portal import server_core as portal_server_core
 from services.portal.fleet_accounts import FleetAccountStore
-from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
-import services.gateway.server as gateway_server_module
-from services.billing.owner_accounts import OwnerAccountStore
+from services.portal.server import PortalHandler
 
 PORT = 13020
 BASE = f"http://127.0.0.1:{PORT}"
@@ -140,11 +140,11 @@ class TestFleetHttp(unittest.TestCase):
         self.assertIn("Passkey", content)
 
     def test_me_requires_session(self) -> None:
-        status, resp = self._get("/api/auth/me")
+        status, _resp = self._get("/api/auth/me")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
     def test_portal_fleet_requires_session(self) -> None:
-        status, resp = self._get("/api/portal/fleet")
+        status, _resp = self._get("/api/portal/fleet")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
     def test_register_begin_for_new_email(self) -> None:
@@ -153,7 +153,7 @@ class TestFleetHttp(unittest.TestCase):
         self.assertIn("options", data)
 
     def test_login_begin_for_unknown_email(self) -> None:
-        status, data, _ = self._post("/api/auth/login/begin", {"email": "ghost@example.com"})
+        status, _data, _ = self._post("/api/auth/login/begin", {"email": "ghost@example.com"})
         self.assertEqual(status, HTTPStatus.NOT_FOUND)
 
     def test_me_and_portal_fleet_with_valid_session(self) -> None:
@@ -175,7 +175,7 @@ class TestFleetHttp(unittest.TestCase):
             "auth_token": "cm_tunnel_abc123",
             "inventory": {"gpus": [{"model_name": "RTX 3080", "vram_bytes": 10 * 1024**3, "vendor": "nvidia"}]},
             "telemetry": {"local_compute_tflops": 20.0},
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
         status, resp = self._get("/api/portal/fleet", cookie=cookie)
@@ -196,7 +196,7 @@ class TestFleetHttp(unittest.TestCase):
             "auth_token": "cm_tunnel_direct_456",
             "inventory": {"gpus": [{"model_name": "RTX 4090", "vram_bytes": 24 * 1024**3, "vendor": "nvidia"}]},
             "telemetry": {"local_compute_tflops": 82.6},
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
         # Owner keys must never be accepted in URLs.
@@ -214,7 +214,7 @@ class TestFleetHttp(unittest.TestCase):
         self.assertEqual(data_hdr["nodes"][0]["node_id"], "node-direct-01")
 
     def test_invalid_session_cookie_rejected(self) -> None:
-        status, resp = self._get("/api/auth/me", cookie=f"{passkey_routes.SESSION_COOKIE_NAME}=garbage-token")
+        status, _resp = self._get("/api/auth/me", cookie=f"{passkey_routes.SESSION_COOKIE_NAME}=garbage-token")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
     def test_unbind_node_api_removes_from_fleet_and_registry(self) -> None:
@@ -227,7 +227,7 @@ class TestFleetHttp(unittest.TestCase):
             "auth_token": "cm_tunnel_stale_123",
             "inventory": {"gpus": []},
             "telemetry": {"local_compute_tflops": 0.0},
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
         # 1. Missing node_id returns 400
@@ -430,7 +430,7 @@ class TestFleetHttp(unittest.TestCase):
             "auth_token": "tok_live",
             "inventory": {"gpus": [{"model_name": "NVIDIA GeForce RTX 3080 Laptop GPU", "vram_bytes": 16 * 1024**3, "vendor": "nvidia"}]},
             "telemetry": {"local_compute_tflops": 24.0},
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
         # 2. Stale node: heartbeat from 5 minutes ago (offline)

@@ -8,12 +8,12 @@ Routes reflect Apache clean-URL rewrites and explicit download aliases.
 from __future__ import annotations
 
 import argparse
-from html.parser import HTMLParser
 import json
-from pathlib import Path
 import re
 import sys
-from urllib.parse import urlsplit, unquote
+from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 CALL = re.compile(r"(?<![\w.$])([A-Za-z_$][\w$]*)\s*\(")
 DECLARE = re.compile(
@@ -65,7 +65,7 @@ class Index(HTMLParser):
 
 def local_path(root: Path, current: Path, url: str) -> Path | None:
     link = url.strip()
-    if not link or link.startswith("#") or link.startswith("//"):
+    if not link or link.startswith(("#", "//")):
         return None
     parsed = urlsplit(link)
     if parsed.scheme or parsed.netloc:

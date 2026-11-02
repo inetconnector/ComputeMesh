@@ -7,15 +7,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
 from tools.release.verify_portal_bundle import REQUIRED, ReleaseGateError, verify_release
 from tools.security import release_signer
 

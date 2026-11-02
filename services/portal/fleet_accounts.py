@@ -7,16 +7,17 @@ to bind themselves to a fleet in services/billing/owner_accounts.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
-from pathlib import Path
+import logging
 import re
 import secrets
-import time
 import sqlite3
+import time
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 2
@@ -24,6 +25,7 @@ CHALLENGE_TTL_MINUTES = 5
 SESSION_TTL_DAYS = 30
 MAGIC_LINK_TTL_MINUTES = 15
 ENROLLMENT_TOKEN_TTL_MINUTES = 30
+logger = logging.getLogger(__name__)
 
 
 class FleetAccountStoreError(Exception):
@@ -59,7 +61,7 @@ class FleetPasskey:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _clean_email(value: str) -> str:
@@ -418,7 +420,7 @@ class FleetAccountStore:
 
     def store_challenge(self, email: str, kind: str, challenge: str) -> None:
         cleaned = _clean_email(email)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = (now + timedelta(minutes=CHALLENGE_TTL_MINUTES)).isoformat().replace("+00:00", "Z")
         with self._connection() as conn:
             conn.execute(
@@ -437,8 +439,8 @@ class FleetAccountStore:
             conn.execute("DELETE FROM fleet_challenges WHERE email = ? AND kind = ?", (cleaned, kind))
         if row is None:
             return None
-        expires_at = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
-        if datetime.now(timezone.utc) > expires_at:
+        expires_at = datetime.fromisoformat(str(row["expires_at"]))
+        if datetime.now(UTC) > expires_at:
             return None
         return str(row["challenge"])
 
@@ -448,7 +450,7 @@ class FleetAccountStore:
         cleaned = _clean_email(email)
         raw_token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = (now + timedelta(minutes=ttl_minutes)).isoformat().replace("+00:00", "Z")
         with self._connection() as conn:
             conn.execute(
@@ -471,8 +473,8 @@ class FleetAccountStore:
             if row is None or row["consumed"]:
                 return None
             conn.execute("UPDATE fleet_recovery_tokens SET consumed = 1 WHERE token_hash = ?", (token_hash,))
-            expires_at = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
-            if datetime.now(timezone.utc) > expires_at:
+            expires_at = datetime.fromisoformat(str(row["expires_at"]))
+            if datetime.now(UTC) > expires_at:
                 return None
             email = row["email"]
             account_row = conn.execute("SELECT * FROM fleet_accounts WHERE email = ?", (email,)).fetchone()
@@ -498,7 +500,7 @@ class FleetAccountStore:
         if scope not in {"legacy_node", "mobile_device"}:
             raise FleetAccountStoreError("invalid enrollment scope")
         token = "cmenroll_" + secrets.token_urlsafe(20)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = (now + timedelta(minutes=ttl_minutes)).isoformat().replace("+00:00", "Z")
         with self._connection() as conn:
             conn.execute(
@@ -521,8 +523,8 @@ class FleetAccountStore:
             ).fetchone()
             if row is None or row["used"]:
                 return None
-            expires_at = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
-            if datetime.now(timezone.utc) > expires_at:
+            expires_at = datetime.fromisoformat(str(row["expires_at"]))
+            if datetime.now(UTC) > expires_at:
                 return None
             account = conn.execute(
                 "SELECT owner_key FROM fleet_accounts WHERE account_id = ?",
@@ -547,7 +549,7 @@ class FleetAccountStore:
         raw = str(enrollment_token or "").strip()
         if not re.fullmatch(r"cmenroll_[A-Za-z0-9_-]{20,64}", raw):
             return None
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self._connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
             record = conn.execute(
@@ -557,7 +559,7 @@ class FleetAccountStore:
             ).fetchone()
             if not record:
                 return None
-            if now > datetime.fromisoformat(str(record["expires_at"]).replace("Z", "+00:00")):
+            if now > datetime.fromisoformat(str(record["expires_at"])):
                 return None
             existing = conn.execute(
                 "SELECT account_id, revoked FROM fleet_mobile_devices WHERE node_id = ?",
@@ -673,7 +675,7 @@ class FleetAccountStore:
 
     def create_session(self, account_id: str) -> str:
         token = secrets.token_urlsafe(32)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = (now + timedelta(days=SESSION_TTL_DAYS)).isoformat().replace("+00:00", "Z")
         with self._connection() as conn:
             conn.execute(
@@ -692,8 +694,8 @@ class FleetAccountStore:
             ).fetchone()
             if row is None:
                 return None
-            expires_at = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
-            if datetime.now(timezone.utc) > expires_at:
+            expires_at = datetime.fromisoformat(str(row["expires_at"]))
+            if datetime.now(UTC) > expires_at:
                 conn.execute("DELETE FROM fleet_sessions WHERE session_token = ?", (token,))
                 return None
             account_row = conn.execute(
@@ -765,7 +767,7 @@ class FleetAccountStore:
             try:
                 res = json.loads(row["disabled_tools"])
                 return list(res) if isinstance(res, list) else []
-            except Exception:
+            except (json.JSONDecodeError, TypeError, KeyError):
                 return []
 
     def set_mcp_disabled_tools(self, owner_id: str, disabled_tools: list[str]) -> None:
@@ -862,8 +864,8 @@ class FleetAccountStore:
             guard.trip_fleet(canonical_id, reason=f"ADMIN_BANNED: {clean_reason}")
             if canonical_id != raw_id:
                 guard.trip_fleet(raw_id, reason=f"ADMIN_BANNED: {clean_reason}")
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError) as exc:
+            logger.debug("dead-man switch ban notification failed: %s", exc, exc_info=True)
 
         return {
             "owner_id": canonical_id,
@@ -923,8 +925,8 @@ class FleetAccountStore:
             guard.reset_fleet(canonical_id, reason=f"ADMIN_UNBANNED: {clean_reason}")
             if canonical_id != raw_id:
                 guard.reset_fleet(raw_id, reason=f"ADMIN_UNBANNED: {clean_reason}")
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError) as exc:
+            logger.debug("dead-man switch unban notification failed: %s", exc, exc_info=True)
 
         return affected
 
@@ -942,8 +944,8 @@ class FleetAccountStore:
                 acct = self.get_account_by_owner_key(resolved_key)
             if acct:
                 canonical_id = acct.account_id
-        except Exception:
-            pass
+        except (FleetAccountStoreError, OSError, RuntimeError, ValueError) as exc:
+            logger.debug("fleet ban lookup failed: %s", exc, exc_info=True)
 
         with self._connection() as conn:
             row = conn.execute(
@@ -966,8 +968,8 @@ class FleetAccountStore:
                 acct = self.get_account_by_owner_key(resolved_key)
             if acct:
                 canonical_id = acct.account_id
-        except Exception:
-            pass
+        except (FleetAccountStoreError, OSError, RuntimeError, ValueError) as exc:
+            logger.debug("fleet ban lookup failed: %s", exc, exc_info=True)
 
         with self._connection() as conn:
             row = conn.execute(
@@ -1007,7 +1009,7 @@ class FleetAccountStore:
                 if oid:
                     guard.trip_fleet(oid, reason=f"ADMIN_BANNED: {reason}")
                     count += 1
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError) as exc:
+            logger.debug("dead-man switch bulk ban failed: %s", exc, exc_info=True)
         return count
 

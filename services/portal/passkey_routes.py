@@ -10,37 +10,37 @@ Rate limiting: Token-bucket sliding window to prevent brute-force and email spam
 """
 from __future__ import annotations
 
-from collections import defaultdict
-from datetime import datetime, timezone
-from http import HTTPStatus
-from http.cookies import SimpleCookie
 import logging
 import os
-from pathlib import Path
+import sqlite3
 import sys
 import threading
 import time
+from collections import defaultdict
+from http import HTTPStatus
+from http.cookies import CookieError, SimpleCookie
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+import hashlib
+import json
+
 import webauthn
+from config import CONFIG
+from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError, utc_now
+from services.portal.mail_dispatcher import send_magic_link, send_security_alert
 from webauthn.helpers import bytes_to_base64url
-from webauthn.helpers.exceptions import InvalidRegistrationResponse, InvalidAuthenticationResponse
+from webauthn.helpers.exceptions import InvalidAuthenticationResponse, InvalidRegistrationResponse
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     PublicKeyCredentialDescriptor,
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
-
-import hashlib
-import json
-from config import CONFIG
-from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError, utc_now
-from services.portal.mail_dispatcher import send_magic_link, send_security_alert
 
 logger = logging.getLogger("computemesh.passkey_routes")
 
@@ -57,9 +57,8 @@ def _get_expected_origins(headers: Any = None) -> list[str]:
     origins = [EXPECTED_ORIGIN, "https://mesh.inetconnector.com", "https://inetconnector.com", "http://localhost:8000", "http://127.0.0.1:8000"]
     if headers and hasattr(headers, "get"):
         origin = str(headers.get("Origin", "")).strip().rstrip("/")
-        if origin and (origin.startswith("https://") or origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")):
-            if origin not in origins:
-                origins.append(origin)
+        if origin and origin.startswith(("https://", "http://localhost", "http://127.0.0.1")) and origin not in origins:
+            origins.append(origin)
     return origins
 
 
@@ -73,7 +72,7 @@ def _resolve_store_path() -> Path:
 def _build_store() -> FleetAccountStore:
     try:
         return FleetAccountStore(_resolve_store_path())
-    except Exception:
+    except (OSError, RuntimeError):
         return FleetAccountStore(Path("/tmp/computemesh_fleet_accounts.db"))
 
 
@@ -162,8 +161,8 @@ def session_account_from_headers(headers: Any):
                     acct = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_cookie)
                     if acct is not None:
                         return acct
-        except Exception:
-            pass
+        except (FleetAccountStoreError, OSError, RuntimeError, ValueError) as exc:
+            logger.debug("owner-cookie account lookup failed: %s", exc, exc_info=True)
 
     # 2. Check X-Owner-Key or Authorization Bearer header
     owner_key = ""
@@ -173,7 +172,7 @@ def session_account_from_headers(headers: Any):
             auth_hdr = str(headers.get("Authorization", "")).strip()
             if auth_hdr.startswith("Bearer "):
                 candidate = auth_hdr[7:].strip()
-                if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("inet-") or candidate.startswith("owk_"):
+                if candidate.startswith(("ok_", "owner_", "cm_owner_", "inet-", "owk_")):
                     owner_key = candidate
 
     if owner_key:
@@ -190,8 +189,8 @@ def session_account_from_headers(headers: Any):
                     (acct_id, f"owner_{acct_id[5:13]}@inetconnector.local", owner_key, utc_now(), utc_now()),
                 )
             return FLEET_ACCOUNT_STORE.get_account(acct_id)
-        except Exception:
-            pass
+        except (sqlite3.Error, OSError, RuntimeError, ValueError) as exc:
+            logger.debug("owner-key account provisioning failed: %s", exc, exc_info=True)
 
     return None
 
@@ -210,13 +209,12 @@ class PasskeyAuthHandler:
 
         current_auth = session_account_from_headers(headers) if headers else None
         existing = FLEET_ACCOUNT_STORE.get_account_by_email(email)
-        if existing is not None:
-            if current_auth is None or current_auth.email.lower() != email:
-                return (
-                    {"error": "an account for this email already exists -- sign in instead"},
-                    HTTPStatus.CONFLICT,
-                    None,
-                )
+        if existing is not None and (current_auth is None or current_auth.email.lower() != email):
+            return (
+                {"error": "an account for this email already exists -- sign in instead"},
+                HTTPStatus.CONFLICT,
+                None,
+            )
 
         options = webauthn.generate_registration_options(
             rp_id=RP_ID,
@@ -367,7 +365,6 @@ class PasskeyAuthHandler:
     # -- Magic Links --------------------------------------------------------
 
     def request_magic_link(self, body: dict[str, Any], headers: Any = None, client_address: tuple[str, int] | None = None) -> tuple[dict[str, Any], HTTPStatus, str | None]:
-        ip = _client_ip(headers, client_address)
         email = str(body.get("email", "")).strip().lower()
         if not email or "@" not in email:
             return {"error": "a valid email address is required"}, HTTPStatus.BAD_REQUEST, None
@@ -518,20 +515,20 @@ class PasskeyAuthHandler:
         # Auto-migrate node bindings in OWNER_ACCOUNT_STORE & in-memory registry
         try:
             from services.gateway.server import (
-                OWNER_ACCOUNT_STORE,
                 NODE_TELEMETRY_REGISTRY,
-                save_node_telemetry_registry,
+                OWNER_ACCOUNT_STORE,
                 owner_id_for_key,
+                save_node_telemetry_registry,
             )
             old_owner_id = owner_id_for_key(old_key)
             new_owner_id = owner_id_for_key(new_key)
             if old_owner_id and new_owner_id and old_owner_id != new_owner_id:
                 OWNER_ACCOUNT_STORE.migrate_owner_bindings(old_owner_id, new_owner_id)
-                for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
+                for n_data in NODE_TELEMETRY_REGISTRY.values():
                     if n_data.get("owner_id") == old_owner_id:
                         n_data["owner_id"] = new_owner_id
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("Could not auto-migrate node bindings during key rotation: %s", exc)
 
         # Record audit event
@@ -554,7 +551,7 @@ class PasskeyAuthHandler:
                 ip,
                 ua,
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("Failed to dispatch security alert email for owner key rotation: %s", exc)
 
         return {
@@ -614,7 +611,7 @@ class PasskeyAuthHandler:
                 ip,
                 ua,
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("Failed to dispatch security confirmation email: %s", exc)
 
         return {
@@ -629,8 +626,8 @@ class PasskeyAuthHandler:
         cookie: SimpleCookie = SimpleCookie()
         try:
             cookie.load(raw)
-        except Exception:
-            pass
+        except (CookieError, ValueError) as exc:
+            logger.debug("invalid session cookie ignored: %s", exc, exc_info=True)
         morsel = cookie.get(SESSION_COOKIE_NAME)
         if morsel is not None:
             FLEET_ACCOUNT_STORE.delete_session(morsel.value)

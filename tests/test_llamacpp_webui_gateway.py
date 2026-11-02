@@ -1,21 +1,20 @@
 """Unit and Integration Tests for llama.cpp WebUI and OpenAI endpoints in ComputeMesh Gateway."""
-from http.client import HTTPConnection
 import json
-from pathlib import Path
 import sys
 import tempfile
 import threading
 import time
 import unittest
+from http.client import HTTPConnection
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import services.gateway.server as gateway_server_module
-from services.gateway.server import GatewayHandler, create_gateway_server
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
+from services.gateway.server import GatewayHandler, create_gateway_server
 
 
 class TestLlamaCppWebUIGateway(unittest.TestCase):
@@ -52,7 +51,7 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         raw = res.read().decode("utf-8")
         try:
             payload = json.loads(raw)
-        except Exception:
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
             payload = raw
         conn.close()
         return res.status, payload
@@ -66,7 +65,7 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         raw = res.read().decode("utf-8")
         try:
             payload = json.loads(raw)
-        except Exception:
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
             payload = raw
         conn.close()
         return res.status, payload

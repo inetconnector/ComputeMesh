@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Comprehensive Test Suite for OpenAI Feature & Performance Parity Architecture in ComputeMesh."""
 
-import json
 import math
 import os
 import unittest
@@ -11,15 +10,17 @@ try:
 except ImportError:
     np = None
 
+from services.grammar.json_schema_to_gbnf import compile_json_schema_to_gbnf
+from services.mcp.agent_loop import (
+    detect_direct_tool_intent,
+    format_reasoning_and_thinking_blocks,
+)
 from services.mcp.builtin.python_sandbox import execute_python_code
-from services.rag.document_parser import parse_document_text
+from services.memory.user_memory import UserMemoryStore
 from services.rag.chunker import chunk_text
 from services.rag.embeddings import compute_semantic_embedding, cosine_similarity
 from services.rag.vector_store import VectorStore
-from services.grammar.json_schema_to_gbnf import compile_json_schema_to_gbnf
-from services.memory.user_memory import UserMemoryStore
-from services.voice.voice_realtime import RealtimeVoiceSession, compute_audio_energy
-from services.mcp.agent_loop import format_reasoning_and_thinking_blocks, format_tool_content_if_json, detect_direct_tool_intent
+from services.voice.voice_realtime import RealtimeVoiceSession
 
 
 class TestOpenAIParityCodeInterpreter(unittest.TestCase):
@@ -76,8 +77,8 @@ class TestOpenAIParityDocumentRAG(unittest.TestCase):
 
 
     def test_vector_store_persistence_and_search(self):
-        import tempfile
         import shutil
+        import tempfile
         temp_dir = tempfile.mkdtemp()
         try:
             store = VectorStore(storage_dir=temp_dir)
@@ -142,8 +143,8 @@ class TestOpenAIParityPersistentUserMemory(unittest.TestCase):
     """Pillar 5: Persistent User Memory."""
 
     def test_memory_profile_lifecycle(self):
-        import tempfile
         import shutil
+        import tempfile
         temp_dir = tempfile.mkdtemp()
         try:
             profile_path = os.path.join(temp_dir, "test_profile.json")

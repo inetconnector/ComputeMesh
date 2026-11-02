@@ -14,7 +14,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
 
 REQUIRED = {
     "windows-x64": "ComputeMesh-Setup-x64.exe",

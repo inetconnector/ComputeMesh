@@ -4,13 +4,13 @@ No real keys, live API endpoints, or actual devices are used.
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
 import hashlib
-from pathlib import Path
 import tempfile
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from services.portal.fleet_accounts import FleetAccountStore
 
@@ -72,7 +72,7 @@ class TestMobileDeviceCredentials(unittest.TestCase):
         with self.store._connection() as db:
             db.execute(
                 "UPDATE fleet_enrollment_tokens SET expires_at=? WHERE token=?",
-                ((datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat(), expired),
+                ((datetime.now(UTC) - timedelta(minutes=2)).isoformat(), expired),
             )
         self.assertIsNone(self.store.consume_mobile_enrollment(expired, self.node))
         credential = self.store.consume_mobile_enrollment(self.issue(), self.node)
