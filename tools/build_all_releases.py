@@ -7,8 +7,8 @@ updates SHA-256 checksums, and signs version.json with the Master Ed25519 key.
 from __future__ import annotations
 
 import gzip
-import io
 import hashlib
+import io
 import json
 import lzma
 import os
