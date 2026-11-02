@@ -4900,3 +4900,23 @@ passed, 13 skipped`. This is independent hosted automation, not the protected
 TrustedBridge receipt requested for the final source, and it does not prove
 Android production signing, physical QR/WAN/BFT behavior or operator approval.
 
+The current public candidate head is the documentation-only follow-up
+`9fedf025c68ca6643d4eecb55d0839f6288f8453`; hosted run `41426590791` passed
+on that exact SHA with `51 passed, 5 skipped, 9 subtests` and `181 passed, 13
+skipped`. No product-code changes occurred after tested code head `9fbd524`.
+
+The independent manifest check was re-run from the candidate worktree:
+`tools.security.release_signer.verify_manifest()` returned `True` for the
+existing v1.2.189 signature and the public-key fingerprint was
+`28be75e3c8229362239f896da07f27ead6764ef9482fd474f433dc33176e2656`.
+The targeted artifact-integrity regression initially failed as designed when
+the locally rebuilt Windows executable was placed in `portal/downloads`:
+the actual SHA-256 was
+`6d20eb573b5a5e7b0dc8695ece6e1928f3d8972c195072aa6cc56cbf75c1243a`, while
+the historical manifest claims `3cb5547d24c6ae95d63e7bd42d1f292f1963f3ebe53e5440d870d8239ba99a71`.
+The generated Windows and Linux files were moved to the external evidence
+directory `C:\Users\frede\AppData\Local\Temp\computemesh-artifact-evidence-20261102`,
+not committed or signed; the same targeted regression then passed `1 passed,
+21 deselected`. This confirms that no locally rebuilt artifact was silently
+accepted as the historical release payload.
+
