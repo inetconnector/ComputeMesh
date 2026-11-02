@@ -40,7 +40,6 @@ class TestGenericResearchAndTransformationSuite(unittest.TestCase):
         with open(doc1, "w", encoding="utf-8") as f:
             f.write("Familie Herbert / Fiedler / Hirsch\nJohann Georg Hirsch oo Beate Louise Geidler")
 
-        zip_path = os.path.join(self.temp_dir, "stammbaumdokumente(1).zip")
         create_res = create_archive(
             output_path="stammbaumdokumente(1).zip",
             input_paths=[img1, img2, doc1],

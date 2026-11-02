@@ -113,7 +113,7 @@ class TestFleetPayoutsSubsystem(unittest.TestCase):
 
     def test_settlement_rejected_when_payouts_not_enabled(self) -> None:
         # Give $50 earned balance
-        earned_account = owner_bucket_account("owner_test_123", "earned")
+        _earned_account = owner_bucket_account("owner_test_123", "earned")
         self.ledger.credit_owner_earned_credits(
             owner_id="owner_test_123",
             amount_micro_units=50 * MICRO_UNIT_SCALE,

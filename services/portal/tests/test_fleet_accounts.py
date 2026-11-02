@@ -135,7 +135,7 @@ class TestFleetAccountStore(unittest.TestCase):
 
     def test_update_email_success_and_uniqueness(self) -> None:
         acc1 = self.store.create_account("dummy@inetconnector.local")
-        acc2 = self.store.create_account("existing@example.com")
+        _acc2 = self.store.create_account("existing@example.com")
 
         # Success update
         updated = self.store.update_email(acc1.account_id, "Real-Owner@domain.com")

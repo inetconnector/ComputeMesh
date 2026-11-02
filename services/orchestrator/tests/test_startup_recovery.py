@@ -28,7 +28,7 @@ class StartupRecoveryTests(unittest.TestCase):
         record = self.store.ensure_job(job_id)
         for state in order:
             if state.value == target.value or record.state != target:
-                result = self.store.transition_job(
+                _result = self.store.transition_job(
                     job_id,
                     request_id=f"advance:{job_id}:{state.value}",
                     expected_revision=record.revision,

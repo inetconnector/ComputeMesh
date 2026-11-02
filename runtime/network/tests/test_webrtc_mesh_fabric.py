@@ -87,7 +87,7 @@ class TestWebRTCMeshFabric(unittest.TestCase):
 
         # Now attach a P2P peer
         sock_a, sock_b = socket.socketpair()
-        peer_a = mgr_a.register_peer_p2p("node-b", sock_a)
+        _peer_a = mgr_a.register_peer_p2p("node-b", sock_a)
         peer_b = WebRTCP2PPeer(local_creds=self.node_b_creds, remote_node_id="node-a")
         peer_b.attach_socket(sock_b)
 
