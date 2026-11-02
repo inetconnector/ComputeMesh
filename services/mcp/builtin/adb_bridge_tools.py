@@ -143,7 +143,7 @@ def adb_get_system_log(
         raw_log = proc.stdout or ""
         log_lines = raw_log.splitlines()
         if filter_tag:
-            log_lines = [l for l in log_lines if filter_tag.lower() in l.lower()]
+            log_lines = [line for line in log_lines if filter_tag.lower() in line.lower()]
 
         return {
             "success": True,

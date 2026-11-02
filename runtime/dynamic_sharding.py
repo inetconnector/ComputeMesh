@@ -126,7 +126,7 @@ class DynamicShardingEngine:
         sum_weights = sum(node_weights)
 
         raw_layer_counts = [(w / sum_weights) * total_layers for w in node_weights]
-        assigned_layers = [int(l) for l in raw_layer_counts]
+        assigned_layers = [int(layer_count) for layer_count in raw_layer_counts]
         remaining = total_layers - sum(assigned_layers)
 
         # Distribute remaining layers to nodes with largest fractional remainders
