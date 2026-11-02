@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from deploy.appliance.build_real_iso import (
     _copy_matched_boot_files,
     _set_download_permissions,
@@ -42,9 +41,10 @@ def test_matched_nonempty_boot_files_copied(tmp_path: Path) -> None:
 
 def test_release_permission_errors_abort(tmp_path: Path) -> None:
     failure = subprocess.CalledProcessError(1, ["chown"])
-    with patch("deploy.appliance.build_real_iso.subprocess.run", side_effect=failure) as run:
-        with pytest.raises(subprocess.CalledProcessError):
-            _set_download_permissions(tmp_path / "iso", tmp_path / "xz")
+    with patch("deploy.appliance.build_real_iso.subprocess.run", side_effect=failure) as run, pytest.raises(
+        subprocess.CalledProcessError
+    ):
+        _set_download_permissions(tmp_path / "iso", tmp_path / "xz")
     run.assert_called_once()
     assert run.call_args.kwargs["check"] is True
 
