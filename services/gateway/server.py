@@ -15,6 +15,7 @@ import os
 import sqlite3
 import sys
 import threading
+import time
 from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -529,11 +530,16 @@ from services.mcp.platform.session import (
 )
 from services.mcp.platform.session_projection import (
     SessionProjectionDenied,
+    authorize_session,
     project_approval,
     project_approvals,
     project_events,
+    project_item,
+    project_items,
     project_session,
     project_sessions,
+    project_turn,
+    project_turns,
 )
 
 DEFAULT_PORT = CONFIG.default_gateway_port
@@ -801,6 +807,110 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(error_message or "Operator authentication required", "authentication_error", status)
         return allowed
 
+    def _stream_agent_events_sse(
+        self,
+        store: AgentSessionStore,
+        session_id: str,
+        *,
+        principal_id: str | None,
+        is_admin: bool,
+        after_sequence: int,
+        max_events: int,
+        wait_seconds: float,
+        heartbeat_seconds: float,
+    ) -> None:
+        session = authorize_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+        cursor = max(0, int(after_sequence))
+        event_budget = max(1, min(int(max_events), 500))
+        page = store.read_event_page(session.session_id, after_sequence=cursor, limit=event_budget)
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Connection", "close")
+        self.end_headers()
+
+        def write_sse(event_name: str, data: dict[str, Any], *, event_id: int | None = None, comment: str | None = None) -> bool:
+            lines: list[str] = []
+            if comment:
+                lines.append(f": {comment}")
+            if event_id is not None:
+                lines.append(f"id: {event_id}")
+            lines.append(f"event: {event_name}")
+            lines.append("data: " + json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+            frame = ("\n".join(lines) + "\n\n").encode("utf-8")
+            try:
+                self.wfile.write(frame)
+                self.wfile.flush()
+            except (OSError, ValueError):
+                return False
+            return True
+
+        open_payload: dict[str, Any] = {
+            "session_id": session.session_id,
+            "cursor": cursor,
+            "cursor_gap": page.cursor_gap,
+            "latest_sequence": page.latest_sequence,
+        }
+        if page.gap_reason:
+            open_payload["gap_reason"] = page.gap_reason
+        if not write_sse("stream.open", open_payload):
+            self.close_connection = True
+            return
+        if page.cursor_gap and not write_sse("cursor.gap", {
+            "session_id": session.session_id,
+            "requested_after_sequence": cursor,
+            "latest_sequence": page.latest_sequence,
+            "gap_reason": page.gap_reason,
+        }):
+            self.close_connection = True
+            return
+
+        emitted = 0
+        has_more = page.has_more
+        deadline = time.monotonic() + max(0.0, min(float(wait_seconds), 30.0))
+        while True:
+            for event in page.events:
+                if not write_sse(event.event_type, event.to_dict(), event_id=event.sequence):
+                    self.close_connection = True
+                    return
+                cursor = event.sequence
+                emitted += 1
+                if emitted >= event_budget:
+                    break
+            has_more = page.has_more or (emitted >= event_budget and store.latest_event_sequence(session.session_id) > cursor)
+            if emitted >= event_budget or time.monotonic() >= deadline:
+                break
+            remaining = deadline - time.monotonic()
+            step_wait = min(max(0.05, float(heartbeat_seconds)), remaining)
+            page = store.read_event_page(
+                session.session_id,
+                after_sequence=cursor,
+                limit=max(1, event_budget - emitted),
+                wait_seconds=step_wait,
+            )
+            if (
+                not page.events
+                and time.monotonic() < deadline
+                and not write_sse("heartbeat", {"cursor": cursor, "ts": time.time()}, comment="heartbeat")
+            ):
+                self.close_connection = True
+                return
+
+        backpressure = bool(emitted >= event_budget and has_more)
+        write_sse("stream.checkpoint", {
+            "session_id": session.session_id,
+            "next_sequence": cursor,
+            "has_more": has_more,
+            "backpressure": backpressure,
+            "emitted_count": emitted,
+        })
+        self.close_connection = True
+
     def do_DELETE(self) -> None:
         if not self._check_rate_limit():
             return
@@ -834,7 +944,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
         )
         if agent_prefix is not None:
             relative = clean_path[len(agent_prefix):].strip("/").split("/") if clean_path[len(agent_prefix):].strip("/") else []
-            if len(relative) > 2 or (len(relative) == 2 and relative[1] not in {"events", "artifacts", "turns", "items"}):
+            valid_subpaths = (
+                len(relative) <= 1
+                or (len(relative) == 2 and relative[1] in {"events", "artifacts", "turns", "items"})
+                or (len(relative) == 3 and relative[1] == "events" and relative[2] == "stream")
+            )
+            if not valid_subpaths:
                 self._send_error_response("Invalid agent session path", "invalid_request_error", HTTPStatus.NOT_FOUND)
                 return
             auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
@@ -845,12 +960,41 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 store = self._get_agent_session_store()
                 principal_id = auth.owner_id or auth.account_id
                 is_admin = auth.account_id == "admin_root"
+
+                def bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
+                    raw = query.get(name, [str(default)])[0]
+                    value = int(raw)
+                    if value < minimum or value > maximum:
+                        raise ValueError(f"{name} is outside the allowed range")
+                    return value
+
+                def optional_bool(name: str) -> bool | None:
+                    raw = query.get(name, [None])[0]
+                    if raw is None or str(raw).strip() == "":
+                        return None
+                    norm = str(raw).strip().lower()
+                    if norm in {"1", "true", "yes"}:
+                        return True
+                    if norm in {"0", "false", "no"}:
+                        return False
+                    raise ValueError(f"{name} must be a boolean")
+
                 if len(relative) == 0:
-                    raw_limit = query.get("limit", ["100"])[0]
-                    list_limit = int(raw_limit)
-                    if list_limit < 1 or list_limit > 500:
-                        raise ValueError("limit is outside the allowed range")
-                    payload = project_sessions(store, principal_id=principal_id, limit=list_limit, is_admin=is_admin)
+                    list_limit = bounded_int("limit", 100, 1, 500)
+                    payload = project_sessions(
+                        store,
+                        principal_id=principal_id,
+                        limit=list_limit,
+                        cursor=query.get("cursor", [None])[0],
+                        search=query.get("search", query.get("q", [None]))[0],
+                        status=query.get("status", [None])[0],
+                        workspace=query.get("workspace", [None])[0],
+                        pinned=optional_bool("pinned"),
+                        archived=optional_bool("archived"),
+                        parent_session_id=query.get("parent_session_id", [None])[0],
+                        session_kind=query.get("session_kind", [None])[0],
+                        is_admin=is_admin,
+                    )
                 elif len(relative) == 1:
                     session_id = relative[0]
                     payload = project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
@@ -874,41 +1018,66 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     }
                 elif relative[1] == "turns":
                     session_id = relative[0]
-                    project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
-                    raw_limit = query.get("limit", ["100"])[0]
-                    turns = store.list_turns(session_id=session_id, limit=int(raw_limit))
-                    payload = {
-                        "schema_version": 2,
-                        "object": "agent_turns",
-                        "session_id": session_id,
-                        "turns": [turn.to_dict() for turn in turns],
-                    }
+                    list_limit = bounded_int("limit", 100, 1, 500)
+                    status_param = query.get("status", [None])[0]
+                    statuses = [s.strip() for s in str(status_param).split(",") if s.strip()] if status_param else None
+                    payload = project_turns(
+                        store,
+                        session_id,
+                        principal_id=principal_id,
+                        statuses=statuses,
+                        limit=list_limit,
+                        is_admin=is_admin,
+                    )
                 elif relative[1] == "items":
                     session_id = relative[0]
-                    project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
                     turn_filter = query.get("turn_id", [None])[0]
-                    items = store.list_items(session_id, turn_id=turn_filter)
-                    payload = {
-                        "schema_version": 2,
-                        "object": "agent_items",
-                        "session_id": session_id,
-                        "items": [item.to_dict() for item in items],
-                    }
+                    payload = project_items(
+                        store,
+                        session_id,
+                        principal_id=principal_id,
+                        turn_id=turn_filter,
+                        after_sequence=bounded_int("after_sequence", 0, 0, 2_147_483_647),
+                        limit=bounded_int("limit", 200, 1, 500),
+                        is_admin=is_admin,
+                    )
                 else:
-                    def bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
-                        raw = query.get(name, [str(default)])[0]
-                        value = int(raw)
-                        if value < minimum or value > maximum:
-                            raise ValueError(f"{name} is outside the allowed range")
-                        return value
-
+                    last_event_id_hdr = str(self.headers.get("Last-Event-ID") or "").strip()
+                    default_after = int(last_event_id_hdr) if last_event_id_hdr else 0
+                    if default_after < 0 or default_after > 2_147_483_647:
+                        raise ValueError("Last-Event-ID is outside the allowed range")
+                    after_seq = bounded_int("after_sequence", default_after, 0, 2_147_483_647)
+                    ev_limit = bounded_int("limit", 100, 1, 500)
+                    wait_sec = float(query.get("wait_seconds", ["0"])[0])
+                    if not (0.0 <= wait_sec <= 30.0):
+                        raise ValueError("wait_seconds is outside the allowed range")
+                    want_sse = (
+                        len(relative) == 3
+                        or query.get("stream", ["0"])[0] in {"1", "true"}
+                        or "text/event-stream" in str(self.headers.get("Accept") or "").lower()
+                    )
+                    if want_sse:
+                        hb_sec = float(query.get("heartbeat_seconds", ["5"])[0])
+                        if not (0.05 <= hb_sec <= 15.0):
+                            raise ValueError("heartbeat_seconds is outside the allowed range")
+                        self._stream_agent_events_sse(
+                            store,
+                            relative[0],
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                            after_sequence=after_seq,
+                            max_events=ev_limit,
+                            wait_seconds=wait_sec,
+                            heartbeat_seconds=hb_sec,
+                        )
+                        return
                     payload = project_events(
                         store,
                         relative[0],
                         principal_id=principal_id,
-                        after_sequence=bounded_int("after_sequence", 0, 0, 2_147_483_647),
-                        limit=bounded_int("limit", 100, 1, 1000),
-                        wait_seconds=float(query.get("wait_seconds", ["0"])[0]),
+                        after_sequence=after_seq,
+                        limit=ev_limit,
+                        wait_seconds=wait_sec,
                         is_admin=is_admin,
                     )
                 self._send_json(payload)
@@ -1694,7 +1863,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         )
         if agent_session_prefix is not None:
             relative = clean_path[len(agent_session_prefix):].strip("/").split("/") if clean_path[len(agent_session_prefix):].strip("/") else []
-            if (relative and (len(relative) != 2 or relative[1] not in {"turns", "control", "steer", "metadata"})) or not isinstance(body, dict):
+            allowed_actions = {"turns", "queue", "control", "steer", "metadata", "fork", "side-chat"}
+            if (relative and (len(relative) != 2 or relative[1] not in allowed_actions)) or not isinstance(body, dict):
                 self._send_error_response("Invalid agent task path", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
             auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
@@ -1706,6 +1876,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 store = self._get_agent_session_store()
                 principal_id = auth.owner_id or auth.account_id
                 is_admin = auth.account_id == "admin_root"
+                idem_key = body.get("idempotency_key") or self.headers.get("Idempotency-Key")
+                raw_expected_ver = body.get("expected_version")
+                expected_ver = int(raw_expected_ver) if raw_expected_ver is not None else None
                 if relative:
                     if relative[1] == "control":
                         action = str(body.get("action") or "").strip().lower()
@@ -1726,7 +1899,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             principal_id=principal_id,
                             is_admin=is_admin,
                         )
-                        turn_payload = store.get_turn(control.turn_id).to_dict() if control.turn_id else None
+                        turn_payload = project_turn(store.get_turn(control.turn_id)) if control.turn_id else None
                         self._send_json({
                             "schema_version": 1,
                             "object": "agent_control",
@@ -1742,7 +1915,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
                         turn_id = str(body.get("turn_id") or "").strip()
                         if not turn_id:
-                            # Auto-resolve currently active running turn
                             active_turns = store.list_turns(
                                 statuses=[
                                     TurnStatus.RUNNING,
@@ -1758,26 +1930,32 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             if not active_turns:
                                 raise SessionStateConflict("no active turn found in session to steer")
                             turn_id = active_turns[0].turn_id
-                        item = store.steer_turn(session_id, turn_id, input_items)
+                        item = store.steer_turn(
+                            session_id,
+                            turn_id,
+                            input_items,
+                            expected_version=expected_ver,
+                            idempotency_key=idem_key,
+                        )
                         session_payload = project_session(
                             store,
                             session_id,
                             principal_id=principal_id,
                             is_admin=is_admin,
                         )
-                        turn_payload = store.get_turn(turn_id).to_dict()
+                        turn_payload = project_turn(store.get_turn(turn_id))
                         self._send_json({
                             "schema_version": 2,
                             "object": "agent_steer",
                             "session": session_payload["session"],
                             "turn": turn_payload,
-                            "item": item.to_dict(),
+                            "item": project_item(item),
                         }, HTTPStatus.OK)
                         return
                     if relative[1] == "metadata":
                         session_id = relative[0]
                         project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
-                        store.update_metadata(session_id, body)
+                        store.update_metadata(session_id, body, expected_version=expected_ver)
                         session_payload = project_session(
                             store,
                             session_id,
@@ -1790,15 +1968,75 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             "session": session_payload["session"],
                         }, HTTPStatus.OK)
                         return
+                    if relative[1] == "fork":
+                        session_id = relative[0]
+                        project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                        raw_up_to = body.get("up_to_sequence")
+                        up_to_seq = int(raw_up_to) if raw_up_to is not None else None
+                        forked = store.fork_session(
+                            session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                            up_to_sequence=up_to_seq,
+                            title=str(body.get("title") or "").strip() or None,
+                        )
+                        session_payload = project_session(
+                            store,
+                            forked.session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                        )
+                        self._send_json({
+                            "schema_version": 2,
+                            "object": "agent_session_fork",
+                            "session": session_payload["session"],
+                        }, HTTPStatus.CREATED)
+                        return
+                    if relative[1] == "side-chat":
+                        session_id = relative[0]
+                        project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                        ctx_turn = str(body.get("context_turn_id") or "").strip() or None
+                        side_chat = store.create_side_chat(
+                            session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                            context_turn_id=ctx_turn,
+                            title=str(body.get("title") or "").strip() or None,
+                        )
+                        side_turn = None
+                        if input_items is not None:
+                            side_turn = store.start_turn(
+                                side_chat.session_id,
+                                input_items,
+                                priority=body.get("priority", 0),
+                                deadline_at=body.get("deadline_at"),
+                            )
+                        session_payload = project_session(
+                            store,
+                            side_chat.session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                        )
+                        self._send_json({
+                            "schema_version": 2,
+                            "object": "agent_side_chat",
+                            "session": session_payload["session"],
+                            "turn": project_turn(side_turn) if side_turn is not None else None,
+                        }, HTTPStatus.CREATED)
+                        return
                     if input_items is None:
                         raise ValueError("input is required")
                     session_id = relative[0]
                     project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                    allow_queue = relative[1] == "queue" or bool(body.get("queue", False))
                     turn = store.start_turn(
                         session_id,
                         input_items,
                         priority=body.get("priority", 0),
                         deadline_at=body.get("deadline_at"),
+                        expected_version=expected_ver,
+                        idempotency_key=idem_key,
+                        allow_queue=allow_queue,
                     )
                     session_payload = project_session(
                         store,
@@ -1810,7 +2048,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         "schema_version": 1,
                         "object": "agent_turn",
                         "session": session_payload["session"],
-                        "turn": turn.to_dict(),
+                        "turn": project_turn(turn),
                     }, HTTPStatus.CREATED)
                     return
                 agent_id = str(body.get("agent_id") or "").strip()
