@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -354,6 +355,60 @@ WantedBy=multi-user.target
 """
 
 
+def _mount_points_below(root: Path) -> list[Path]:
+    """Read the kernel mount table; do not mistake live mounts for files."""
+    try:
+        mountinfo = Path("/proc/self/mountinfo").read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError("cannot inspect Linux mount table before NodeOS cleanup") from exc
+    root = Path(os.path.abspath(root))
+    mounts: set[Path] = set()
+    for line in mountinfo.splitlines():
+        fields = line.split()
+        if len(fields) < 6:
+            raise RuntimeError("malformed Linux mount table; refusing NodeOS cleanup")
+        # mountinfo encodes spaces, tabs, newlines and backslashes as octal.
+        mount_name = re.sub(
+            r"\\([0-7]{3})",
+            lambda match: chr(int(match.group(1), 8)),
+            fields[4],
+        )
+        mount = Path(mount_name)
+        if mount == root or root in mount.parents:
+            mounts.add(mount)
+    return sorted(mounts, key=lambda item: len(item.parts), reverse=True)
+
+
+def _unmount_build_filesystems() -> None:
+    """Unmount only known NodeOS mounts; never delete a still-mounted tree."""
+    approved = {
+        CHROOT_DIR / "dev" / "pts",
+        CHROOT_DIR / "dev",
+        CHROOT_DIR / "proc",
+        CHROOT_DIR / "sys",
+        BUILD_DIR / "persistence_mount",
+    }
+    current = _mount_points_below(BUILD_DIR)
+    unexpected = set(current) - approved
+    if unexpected:
+        raise RuntimeError("unrecognized NodeOS build mount; refusing to unmount or delete")
+    for mount in current:
+        subprocess.run(
+            ["umount", str(mount)], capture_output=True, text=True, check=True,
+        )
+    if _mount_points_below(BUILD_DIR):
+        raise RuntimeError("NodeOS build mounts remain after unmount; refusing cleanup")
+
+
+def _cleanup_stale_build_tree() -> None:
+    """Never recurse into an active mount or symlinked build directory."""
+    if BUILD_DIR.is_symlink():
+        raise RuntimeError("NodeOS build directory is a symlink; refusing cleanup")
+    if BUILD_DIR.exists():
+        _unmount_build_filesystems()
+        shutil.rmtree(BUILD_DIR)
+
+
 def build_appliance(
     output_dir: Path | None = None,
     *,
@@ -371,14 +426,8 @@ def build_appliance(
         expected_commit=expected_source_commit,
     )
 
-    if BUILD_DIR.exists():
-        print(f"Cleaning up previous build directory at {BUILD_DIR}...")
-        # Unmount any mounts inside chroot if any
-        subprocess.run(["umount", "-f", str(CHROOT_DIR / "dev" / "pts")], stderr=subprocess.DEVNULL)
-        subprocess.run(["umount", "-f", str(CHROOT_DIR / "dev")], stderr=subprocess.DEVNULL)
-        subprocess.run(["umount", "-f", str(CHROOT_DIR / "proc")], stderr=subprocess.DEVNULL)
-        subprocess.run(["umount", "-f", str(CHROOT_DIR / "sys")], stderr=subprocess.DEVNULL)
-        shutil.rmtree(BUILD_DIR, ignore_errors=True)
+    # A failed unmount must never be followed by recursive deletion.
+    _cleanup_stale_build_tree()
 
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     CHROOT_DIR.mkdir(parents=True, exist_ok=True)
@@ -403,13 +452,13 @@ def build_appliance(
     # 2. Configure Chroot & Install Kernel & Live-Boot
     print("\n[Step 2/6] Configuring live system, kernel, and packages...")
     
-    # Mount virtual filesystems for chroot
-    run(["mount", "--bind", "/dev", str(CHROOT_DIR / "dev")])
-    run(["mount", "--bind", "/dev/pts", str(CHROOT_DIR / "dev" / "pts")])
-    run(["mount", "-t", "proc", "proc", str(CHROOT_DIR / "proc")])
-    run(["mount", "-t", "sysfs", "sysfs", str(CHROOT_DIR / "sys")])
-
+    # Even a partial mount failure enters the trusted unmount path.
     try:
+        run(["mount", "--bind", "/dev", str(CHROOT_DIR / "dev")])
+        run(["mount", "--bind", "/dev/pts", str(CHROOT_DIR / "dev" / "pts")])
+        run(["mount", "-t", "proc", "proc", str(CHROOT_DIR / "proc")])
+        run(["mount", "-t", "sysfs", "sysfs", str(CHROOT_DIR / "sys")])
+
         # Configure sources.list for non-free & firmware
         sources = f"""deb {debian_mirror} trixie main contrib non-free non-free-firmware
 deb {debian_mirror} trixie-updates main contrib non-free non-free-firmware
@@ -741,11 +790,7 @@ WantedBy=multi-user.target
         chroot_exec("rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*")
 
     finally:
-        # Unmount chroot
-        subprocess.run(["umount", "-f", str(CHROOT_DIR / "dev" / "pts")], stderr=subprocess.DEVNULL)
-        subprocess.run(["umount", "-f", str(CHROOT_DIR / "dev")], stderr=subprocess.DEVNULL)
-        subprocess.run(["umount", "-f", str(CHROOT_DIR / "proc")], stderr=subprocess.DEVNULL)
-        subprocess.run(["umount", "-f", str(CHROOT_DIR / "sys")], stderr=subprocess.DEVNULL)
+        _unmount_build_filesystems()
 
     # 4. Extract Kernel and Initrd from Chroot
     print("\n[Step 4/6] Extracting live kernel and initrd...")
@@ -983,11 +1028,8 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
 
     run(["xz", "-f", "-6", "-k", str(temp_img)])
 
-    # Set permissions on staged build outputs
-    try:
-        run(["chmod", "644", str(temp_iso), str(temp_xz)], check=False)
-    except Exception as exc:
-        print(f"Notice: Artifact permissions setup: {exc}")
+    # Staging permissions are required before any artifact is published.
+    run(["chmod", "644", str(temp_iso), str(temp_xz)])
 
     # Do not expose partially written images to a release publisher.  The
     # temporary files have already completed the full build and persistence
