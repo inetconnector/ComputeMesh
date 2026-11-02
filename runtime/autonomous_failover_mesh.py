@@ -115,7 +115,7 @@ class AutonomousFailoverMeshFabric:
         self.active_connections: dict[str, str] = {} # target_node_id -> active route_id
         self.failover_history: list[dict[str, Any]] = []
         self._last_handshake_authenticated: bool = False
-        self._processed_jobs: Set[str] = set()
+        self._processed_jobs: set[str] = set()
 
 
     def _perform_handshake(self, sock: socket.socket, target_node_id: str, timeout: float = 2.0) -> bool:

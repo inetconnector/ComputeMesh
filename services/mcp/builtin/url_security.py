@@ -14,6 +14,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 BLOCKED_HOST_SUFFIXES = (
     ".localhost",

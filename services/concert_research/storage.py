@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
+from typing import Any
 
 from .classifier import EventClassification, classify_event
 from .geocoding import geocode_city
