@@ -197,7 +197,10 @@ def _exclude_linux_release_path(name: str) -> bool:
         return True
     if parts[:2] == ("runtime", "sd_cpp"):
         return len(parts) > 2 and parts[2] != "image_engine_service.py"
-    returdef build_linux_tarball() -> Path:
+    return False
+
+
+def build_linux_tarball() -> Path:
     """Package exactly the tracked bytes of one immutable Git commit.
 
     A working-directory walk can silently include dirty, untracked or generated
@@ -280,7 +283,6 @@ def _exclude_linux_release_path(name: str) -> bool:
     print(f"--> Linux Tarball built from {commit}: {size:,} bytes | SHA256: {sha}")
     return tar_path
 
-tar_path
 
 
 def build_windows_exe() -> Path:
