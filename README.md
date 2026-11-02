@@ -8,9 +8,10 @@ signature is independently Ed25519-valid under the trusted release public key,
 and the focused release/security tests pass. The candidate is nevertheless not
 a release: the complete current artifact inventory, Android certificate and
 physical-device evidence, independent protected-runner receipt, and operator
-approval are still missing. The full local suite also has three stale parity
-expectations for the deliberately disabled Python executor and three Windows
-`bash.exe` path-translation failures. **RELEASE_NO_GO** remains authoritative.
+approval are still missing. The MCP parity tests now match the deliberately
+disabled fail-closed Python executor; Linux setup syntax/help was separately
+verified in Ubuntu WSL because the Windows `bash.exe` harness cannot translate
+the worktree path. **RELEASE_NO_GO** remains authoritative.
 
 ## Current local P0 integration candidate (2026-10-26)
 

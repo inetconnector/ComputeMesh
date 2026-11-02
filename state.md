@@ -4785,3 +4785,12 @@ Gradle/lint, APK certificate identity, physical QR pairing, WAN/hardware
 behavior, complete release artifacts, staging/rollback, or production approval.
 The PR remains draft and the release decision is **RELEASE_NO_GO**.
 
+After this run, `services/mcp/tests/test_openai_parity_suite.py` was corrected
+to assert the documented fail-closed Python-executor contract rather than
+expecting unsafe in-process execution. The parity plus disabled-sandbox group
+passes with `19 passed, 9 subtests`. The Linux setup scripts were independently
+checked in the installed Ubuntu WSL distribution: `bash -n` over all setup
+entrypoints and `bash setup.sh --help` both exited 0. The Windows full-suite
+failures therefore remain a harness/path portability issue, not a claim that
+the Linux scripts failed their native shell checks.
+

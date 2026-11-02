@@ -28,9 +28,10 @@ class TestOpenAIParityCodeInterpreter(unittest.TestCase):
     def test_math_and_stdout(self):
         code = "import math\nprint('Factorial of 6 is', math.factorial(6))\nresult = 42 * 2"
         res = execute_python_code(code)
-        self.assertEqual(res.get("status"), "success")
-        self.assertIn("Factorial of 6 is 720", res.get("stdout", ""))
-        self.assertEqual(res.get("result"), "84")
+        self.assertEqual(res.get("status"), "disabled")
+        self.assertFalse(res.get("success"))
+        self.assertEqual(res.get("stdout"), "")
+        self.assertIsNone(res.get("result"))
 
     def test_matplotlib_plot_interception(self):
         code = (
@@ -40,13 +41,16 @@ class TestOpenAIParityCodeInterpreter(unittest.TestCase):
             "result = sum(y)\n"
         )
         res = execute_python_code(code)
-        self.assertEqual(res.get("status"), "success")
-        self.assertIsNotNone(res.get("result"))
+        self.assertEqual(res.get("status"), "disabled")
+        self.assertFalse(res.get("success"))
+        self.assertIsNone(res.get("result"))
 
     def test_sandbox_security(self):
         malicious_code = "import os\nos.system('dir')"
         res = execute_python_code(malicious_code)
-        self.assertIn(res.get("status"), ["error", "security_violation"])
+        self.assertEqual(res.get("status"), "disabled")
+        self.assertFalse(res.get("success"))
+        self.assertEqual(res.get("stdout"), "")
 
 
 class TestOpenAIParityDocumentRAG(unittest.TestCase):
