@@ -69,7 +69,7 @@ class TriplineMonitor:
     def _hash_file(path: Path) -> str | None:
         try:
             return hashlib.sha256(path.read_bytes()).hexdigest()
-        except Exception:
+        except OSError:
             return None
 
     def start(self) -> None:
@@ -99,7 +99,7 @@ class TriplineMonitor:
         logger.critical("TRIPLINE BREACH DETECTED: %s - %s", tripline_name, details)
         try:
             self.on_breach_callback(tripline_name, details)
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
             logger.error("Error executing tripline breach callback: %s", exc)
 
     def verify_integrity_now(self) -> tuple[bool, str | None]:
@@ -127,7 +127,7 @@ class TriplineMonitor:
                 ok, _reason = self.verify_integrity_now()
                 if not ok:
                     break
-            except Exception as exc:
+            except (OSError, RuntimeError, ValueError) as exc:
                 logger.debug("Tripline loop iteration error: %s", exc)
 
             time.sleep(self.check_interval_seconds)

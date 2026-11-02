@@ -137,7 +137,7 @@ def main() -> None:
         try:
             resp = relay.send_heartbeat()
             logger.info("Heartbeat acknowledged: %s", resp)
-        except Exception as exc:
+        except (OSError, ValueError, TypeError) as exc:
             logger.error("Heartbeat error: %s", exc)
         time.sleep(args.interval)
 

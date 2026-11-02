@@ -7,6 +7,7 @@ public key, verifies SHA-256 artifact hashes, and applies seamless updates.
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -141,7 +142,7 @@ class AutoUpdater:
                 is_newer=is_newer,
             )
 
-        except Exception as _e:
+        except (OSError, ValueError, TypeError, KeyError, SignatureVerificationError):
             # Network failure or signature error
             return None
 
@@ -279,7 +280,7 @@ start "" "%DST%"
             for target_dir in self._linux_update_targets():
                 p = Path(target_dir)
                 if p.exists():
-                    try:
+                    with contextlib.suppress(OSError, shutil.Error, ValueError):
                         shutil.unpack_archive(str(downloaded_pkg), str(p))
                         nested = p / "computemesh"
                         if nested.exists():
@@ -289,8 +290,6 @@ start "" "%DST%"
                                     shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
                                 else:
                                     shutil.copy2(str(item), str(dest))
-                    except Exception:
-                        pass
 
             # Restart only explicitly configured, validated ComputeMesh units.
             subprocess.Popen(
@@ -326,7 +325,7 @@ def main() -> int:
                     updater.current_version = info.version
                 else:
                     print(f"[{datetime.now(UTC).isoformat()}] System is up to date (running v{updater.current_version}).")
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError, ChecksumMismatchError, SignatureVerificationError, RuntimeError) as e:
                 print(f"[{datetime.now(UTC).isoformat()}] Update check error: {e}")
             time.sleep(args.interval)
 

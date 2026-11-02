@@ -90,7 +90,7 @@ def run_batch_settlement_cycle(
             record = settlement_executor.run_owner_settlement(owner_id=owner_id)
             logger.info(f"✓ Settlement '{record.settlement_id}' completed for owner '{owner_id}': Status={record.status}, TransferID={record.stripe_transfer_id}")
             results.append(record.to_dict())
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
             logger.error(f"⚠️ Settlement failed for owner '{owner_id}': {exc}")
             results.append({"owner_id": owner_id, "error": str(exc), "status": "failed"})
 
@@ -127,7 +127,7 @@ def main() -> int:
         while True:
             try:
                 run_batch_settlement_cycle(ledger, account_store, stripe_connect)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                 logger.error(f"Unexpected error in settlement daemon: {exc}")
             time.sleep(args.interval)
     else:

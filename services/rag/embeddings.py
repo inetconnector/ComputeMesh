@@ -78,8 +78,8 @@ def _fetch_remote_embedding(text: str, endpoint: str, timeout: float = 4.0) -> l
                 emb = data["data"][0].get("embedding")
                 if isinstance(emb, list) and emb:
                     return emb
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
     return None
 
 

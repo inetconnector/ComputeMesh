@@ -69,7 +69,7 @@ def extract_text_from_file(file_path: str | Path) -> dict[str, Any]:
                     "text": full_text,
                     "metadata": {"type": "pdf", "pages": len(reader.pages)},
                 }
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, RuntimeError):
                 # Fallback: simple binary text extraction
                 with open(path, "rb") as f:
                     raw_data = f.read()
@@ -98,8 +98,8 @@ def extract_text_from_file(file_path: str | Path) -> dict[str, Any]:
                     "text": "\n\n".join(paras),
                     "metadata": {"type": "docx", "paragraphs": len(paras)},
                 }
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
+                log.debug("DOCX extraction fallback for %s: %s", file_name, exc)
 
         # Fallback binary text read
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -113,7 +113,7 @@ def extract_text_from_file(file_path: str | Path) -> dict[str, Any]:
             "metadata": {"type": "fallback_text"},
         }
 
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
         return {
             "error": f"Fehler beim Einlesen von '{file_name}': {exc}",
             "file_name": file_name,

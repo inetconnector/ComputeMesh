@@ -105,7 +105,7 @@ if platform.system().lower() == "windows":
         _LocalFree.argtypes = [ctypes.c_void_p]
         _LocalFree.restype = ctypes.c_void_p
         _HAS_DPAPI = True
-    except Exception:
+    except (OSError, AttributeError, TypeError, ValueError):
         _HAS_DPAPI = False
 else:
     _HAS_DPAPI = False
@@ -548,5 +548,5 @@ def verify_node_heartbeat(
         )
         pub.verify(sig_bytes, message)
         return True
-    except (InvalidSignature, ValueError, TypeError, Exception):
+    except (InvalidSignature, ValueError, TypeError):
         return False

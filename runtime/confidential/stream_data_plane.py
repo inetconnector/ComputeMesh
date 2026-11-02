@@ -5,6 +5,7 @@ usage receipt.  It never decrypts OpenAI stream chunks.
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import http.client
@@ -14,7 +15,10 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialResponseEnvelope
+from protocol.confidential_envelope import (
+    ConfidentialEnvelope,
+    ConfidentialResponseEnvelope,
+)
 from protocol.confidential_metering import ConfidentialUsageReceipt
 from runtime.confidential.data_plane import (
     AttestedConfidentialEndpoint,
@@ -127,10 +131,8 @@ class PinnedHttpsConfidentialStreamDataPlane:
         except (OSError, ssl.SSLError, http.client.HTTPException, TimeoutError) as exc:
             raise ConfidentialDataPlaneError("confidential streaming transport failed") from exc
         finally:
-            try:
+            with contextlib.suppress(OSError, http.client.HTTPException, ValueError):
                 connection.close()
-            except Exception:
-                pass
 
     @staticmethod
     def _parse_event(

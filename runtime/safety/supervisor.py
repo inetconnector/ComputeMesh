@@ -9,6 +9,7 @@ Runs outside the unprivileged AI agent payload:
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import secrets
@@ -77,7 +78,7 @@ class SafetySupervisor:
             priv = ed25519.Ed25519PrivateKey.from_private_bytes(self.master_private_key_bytes)
             sig = priv.sign(data)
             return sig.hex()
-        except Exception as exc:
+        except (ValueError, TypeError, OSError) as exc:
             logger.error("Failed to sign lease with Ed25519 private key: %s", exc)
             return ""
 
@@ -122,7 +123,7 @@ class SafetySupervisor:
             try:
                 self.guard.update_lease(lease, verify_signature=bool(self.master_public_key_hex))
                 return True
-            except Exception as exc:
+            except (ValueError, TypeError, RuntimeError, OSError) as exc:
                 logger.error("Failed to renew positive authorization: %s", exc)
                 return False
 
@@ -191,7 +192,7 @@ class SafetySupervisor:
         # 3. Trip hardware power / network relay if equipped
         try:
             self.hardware_relay.trip_hardware(reason)
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             logger.error("Hardware relay trip failed: %s", exc)
 
         # 4. Stop background tripline loop
@@ -223,15 +224,13 @@ class SafetySupervisor:
                         import signal
                         try:
                             os.killpg(os.getpgid(pid), signal.SIGKILL)
-                        except Exception:
+                        except (OSError, ValueError, ProcessLookupError):
                             proc.kill()
                     killed_count += 1
-                except Exception as exc:
+                except (OSError, subprocess.SubprocessError, ValueError) as exc:
                     logger.error("Failed to terminate PID %d: %s", pid, exc)
-                    try:
+                    with contextlib.suppress(OSError, ProcessLookupError):
                         proc.kill()
-                    except Exception:
-                        pass
         return killed_count
 
     def get_status(self) -> dict[str, Any]:

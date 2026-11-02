@@ -7,6 +7,7 @@ content-free usage receipt whose Ed25519 key is also attested.
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import http.client
@@ -17,7 +18,10 @@ from dataclasses import dataclass
 from typing import Protocol
 from urllib.parse import urlparse
 
-from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialResponseEnvelope
+from protocol.confidential_envelope import (
+    ConfidentialEnvelope,
+    ConfidentialResponseEnvelope,
+)
 from protocol.confidential_metering import ConfidentialUsageReceipt
 
 MAX_DATA_PLANE_RESPONSE_BYTES = 8 * 1024 * 1024 + 512 * 1024
@@ -176,10 +180,8 @@ class PinnedHttpsConfidentialDataPlane:
         except (OSError, ssl.SSLError, http.client.HTTPException, TimeoutError) as exc:
             raise ConfidentialDataPlaneError("confidential data-plane transport failed") from exc
         finally:
-            try:
+            with contextlib.suppress(OSError, http.client.HTTPException, ValueError):
                 connection.close()
-            except Exception:
-                pass
 
         try:
             value = json.loads(raw.decode("utf-8"))

@@ -45,7 +45,7 @@ def _resolve_provider_store_path() -> Path:
 def _build_provider_store() -> ProviderIdentityStore:
     try:
         return ProviderIdentityStore(_resolve_provider_store_path())
-    except Exception:
+    except (OSError, RuntimeError, ValueError):
         return ProviderIdentityStore(Path("/tmp/computemesh_provider_identity.db"))
 
 

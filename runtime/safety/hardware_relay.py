@@ -89,7 +89,7 @@ class SmartPDUWebhookRelay(HardwareKillRelay):
                 success = 200 <= resp.status < 300
                 logger.info("[PDU_RELAY] Cutoff webhook response status: %s", resp.status)
                 return success
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             logger.error("[PDU_RELAY] Failed to trigger PDU webhook: %s", exc)
             return False
 
@@ -104,7 +104,7 @@ class SmartPDUWebhookRelay(HardwareKillRelay):
             with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
                 self.tripped = not (200 <= resp.status < 300)
                 return 200 <= resp.status < 300
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             logger.error("[PDU_RELAY] Failed to restore PDU: %s", exc)
             return False
 
@@ -138,7 +138,7 @@ class GPIOApplianceRelay(HardwareKillRelay):
         except ImportError:
             logger.debug("[GPIO_RELAY] RPi.GPIO not available on this platform.")
             return True
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError, AttributeError) as exc:
             logger.error("[GPIO_RELAY] GPIO trigger failed: %s", exc)
             return False
 
@@ -149,7 +149,7 @@ class GPIOApplianceRelay(HardwareKillRelay):
             rpi = importlib.import_module("RPi.GPIO")
             rpi.output(self.pin, rpi.HIGH if self.active_low else rpi.LOW)
             return True
-        except Exception:
+        except (ImportError, OSError, RuntimeError, ValueError, AttributeError):
             return True
 
     def get_status(self) -> dict[str, Any]:

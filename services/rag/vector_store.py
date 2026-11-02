@@ -62,7 +62,7 @@ class VectorStore:
                     if isinstance(data, dict):
                         self._chunks = data.get("chunks", {})
                     log.info(f"Loaded {len(self._chunks)} vector chunks for collection '{self.collection_name}'")
-                except Exception as exc:
+                except (OSError, ValueError, TypeError, KeyError) as exc:
                     log.warning(f"Error loading vector store '{self.collection_name}': {exc}")
                     self._chunks = {}
             else:
@@ -82,7 +82,7 @@ class VectorStore:
                     json.dump(payload, f, ensure_ascii=False)
                 if temp_file.exists():
                     temp_file.replace(self.persist_file)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError) as exc:
                 log.error(f"Error saving vector store '{self.collection_name}': {exc}")
 
     def add_document(

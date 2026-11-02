@@ -57,7 +57,7 @@ class UserMemoryStore:
                                 facts=prof.get("facts", []),
                             )
                     log.info(f"Loaded {len(self._memories)} persistent memory facts")
-                except Exception as exc:
+                except (OSError, ValueError, TypeError, KeyError) as exc:
                     log.warning(f"Error loading user memory: {exc}")
                     self._memories = {}
                     self._profile = UserProfile()
@@ -79,7 +79,7 @@ class UserMemoryStore:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
                 if temp_file.exists():
                     temp_file.replace(self.persist_file)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError) as exc:
                 log.error(f"Error saving user memory: {exc}")
 
     def update_profile(

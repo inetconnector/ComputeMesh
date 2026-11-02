@@ -5,6 +5,7 @@ and authenticated withdrawal settlements with double-entry ledger protection.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -20,6 +21,7 @@ from services.billing.owner_credits import owner_bucket_account
 from services.billing.owner_settlement import OwnerPayoutProfileStore
 from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecutor
 from services.billing.stripe_connect import StripeConnectService
+from services.billing.stripe_integration import StripeIntegrationError
 
 
 def _resolve_accounting_store() -> AccountingStore:
@@ -30,10 +32,8 @@ def _resolve_accounting_store() -> AccountingStore:
         p = Path.home() / ".computemesh" / "accounting.db"
     else:
         p = Path("/var/lib/computemesh/accounting.db")
-    try:
+    with contextlib.suppress(OSError):
         p.parent.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
     return AccountingStore(storage_path=p)
 
 
@@ -151,8 +151,8 @@ class PortalPayoutsHandler:
                 payouts_enabled=status_res.payouts_enabled,
                 details_submitted=status_res.details_submitted,
             )
-        except Exception:
-            pass
+        except (StripeIntegrationError, OSError, ValueError, TypeError, KeyError, RuntimeError):
+            return self.get_payout_overview(owner_id)
 
         return self.get_payout_overview(owner_id)
 

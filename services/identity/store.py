@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import secrets
 import sqlite3
@@ -107,10 +108,8 @@ class SQLiteIdentityStore:
 
     def _notify_revocation(self, target_type: str, target_id: str) -> None:
         for listener in list(self._revocation_listeners):
-            try:
+            with contextlib.suppress(OSError, ValueError, TypeError, RuntimeError):
                 listener(target_type, target_id)
-            except Exception:
-                pass
 
     def close(self) -> None:
         self._db.close()

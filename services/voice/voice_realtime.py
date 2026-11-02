@@ -20,7 +20,7 @@ def compute_audio_energy(pcm_16bit_bytes: bytes) -> float:
     fmt = f"<{num_samples}h"
     try:
         samples = struct.unpack(fmt, pcm_16bit_bytes[: num_samples * 2])
-    except Exception:
+    except (struct.error, ValueError, TypeError):
         return 0.0
     if not samples:
         return 0.0

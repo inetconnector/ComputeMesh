@@ -78,7 +78,7 @@ class ExecutionLease:
         try:
             exp = datetime.fromisoformat(self.expires_at_iso)
             return current >= exp
-        except Exception:
+        except (ValueError, TypeError):
             return True
 
     def time_to_live_seconds(self, now: datetime | None = None) -> float:
@@ -86,7 +86,7 @@ class ExecutionLease:
         try:
             exp = datetime.fromisoformat(self.expires_at_iso)
             return max(0.0, (exp - current).total_seconds())
-        except Exception:
+        except (ValueError, TypeError):
             return 0.0
 
     def as_dict(self) -> dict[str, Any]:
@@ -384,7 +384,7 @@ def get_lease_guard(node_id: str = "local-node") -> DeadMansLeaseGuard:
             anchor_file = Path(__file__).resolve().parents[2] / "config" / "safety" / "master_killswitch_public.hex"
             if anchor_file.exists():
                 pub_hex = anchor_file.read_text(encoding="utf-8").strip()
-        except Exception:
+        except (OSError, UnicodeError, ValueError):
             pub_hex = None
 
         _GLOBAL_LEASE_GUARD = DeadMansLeaseGuard(

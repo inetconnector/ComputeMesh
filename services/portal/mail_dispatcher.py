@@ -35,7 +35,7 @@ def _load_mail_env() -> dict[str, str]:
                     continue
                 k, v = line.split("=", 1)
                 result[k.strip()] = v.strip()
-        except Exception as exc:
+        except (OSError, UnicodeError, ValueError) as exc:
             logger.warning("Could not read mail.env: %s", exc)
     return result
 
@@ -100,8 +100,8 @@ def send_email(
             server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
             try:
                 server.starttls()
-            except Exception:
-                pass  # Localhost unencrypted relay if configured
+            except (smtplib.SMTPException, OSError) as tls_exc:
+                logger.debug("STARTTLS skipped for relay %s: %s", SMTP_HOST, tls_exc)
 
         if SMTP_USER and SMTP_PASS:
             server.login(SMTP_USER, SMTP_PASS)
@@ -110,7 +110,7 @@ def send_email(
         server.quit()
         logger.info("Sent email '%s' to %s", subject, to_address)
         return True
-    except Exception as exc:
+    except (smtplib.SMTPException, OSError, ValueError) as exc:
         logger.error("Failed to send email to %s: %s", to_address, exc)
         return False
 

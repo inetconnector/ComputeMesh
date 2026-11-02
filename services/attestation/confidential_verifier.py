@@ -120,6 +120,6 @@ def verify_confidential_attestation(
         return AttestationVerification(False, technology, "no concrete verifier registered")
     try:
         ok = verifier(record) is True
-    except Exception:
+    except (ValueError, TypeError, KeyError, RuntimeError, OSError, LookupError):
         ok = False
     return AttestationVerification(ok, technology, "verified" if ok else "technology verification failed")

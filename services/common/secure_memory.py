@@ -12,7 +12,7 @@ import os
 import platform
 import secrets
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import Self
 
 try:
@@ -273,7 +273,5 @@ class SecureMemoryBuffer:
         self.zeroize()
 
     def __del__(self) -> None:
-        try:
+        with suppress(AttributeError, OSError, ValueError, TypeError, BufferError, RuntimeError):
             self.zeroize()
-        except Exception:
-            pass

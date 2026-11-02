@@ -19,7 +19,9 @@ from typing import Any
 from protocol.node_identity import Ed25519ChallengeVerifier
 from runtime.confidential.provider_control import CONFIDENTIAL_PROVISION_MESSAGE
 from services.identity.store import SQLiteIdentityStore
-from services.orchestrator.confidential_live_registry import ConfidentialLiveRuntimeRegistry
+from services.orchestrator.confidential_live_registry import (
+    ConfidentialLiveRuntimeRegistry,
+)
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
 
 MAX_SIDECAR_BODY_BYTES = 256 * 1024
@@ -179,7 +181,7 @@ class ConfidentialControlSidecar:
                     if not isinstance(response, dict):
                         raise ConfidentialControlSidecarError("provider returned invalid provision response")
                     self._json(HTTPStatus.OK, response)
-                except Exception:
+                except (ConfidentialControlSidecarError, OSError, ValueError, TypeError, KeyError, RuntimeError, TimeoutError):
                     self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "confidential_provision_unavailable"})
 
             def log_message(self, format: str, *args: Any) -> None:

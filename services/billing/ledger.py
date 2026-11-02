@@ -7,6 +7,7 @@ strict idempotency, and automated provider payout settlements.
 """
 from __future__ import annotations
 
+import contextlib
 import enum
 import hashlib
 import json
@@ -193,13 +194,13 @@ class Ledger:
                     if hold.status == "active" and hold.expires_at < now_ts:
                         hold.status = "expired"
                     self._holds[hold.hold_id] = hold
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError):
+            return
 
     def _persist_hold(self, hold: CreditHold) -> None:
         if not self.holds_storage_path:
             return
-        try:
+        with contextlib.suppress(OSError, ValueError, TypeError):
             self.holds_storage_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.holds_storage_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps({
@@ -211,8 +212,6 @@ class Ledger:
                     "expires_at": hold.expires_at,
                     "status": hold.status,
                 }) + "\n")
-        except Exception:
-            pass
 
     def get_available_balance(self, account_id: str) -> int:
         """Returns the customer spendable balance after deducting unexpired active credit holds."""

@@ -484,7 +484,7 @@ class StructuredMemoryStore:
             }
         payload = json.loads(raw.decode("utf-8"))
         if not isinstance(payload, dict):
-            raise ValueError("legacy memory root must be an object")
+            raise TypeError("legacy memory root must be an object")
         imported = 0
         profile = payload.get("profile") if isinstance(payload.get("profile"), dict) else {}
         if profile.get("name"):

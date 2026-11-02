@@ -12,6 +12,7 @@ isolation are separate mandatory P0 controls.
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import secrets
 from collections.abc import Mapping
@@ -20,7 +21,10 @@ from typing import Any, Self
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import (
+    X25519PrivateKey,
+    X25519PublicKey,
+)
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
@@ -274,10 +278,8 @@ class ConfidentialClientContext:
         self.close()
 
     def __del__(self) -> None:
-        try:
+        with contextlib.suppress(AttributeError, OSError, ValueError, TypeError, BufferError, RuntimeError):
             self.close()
-        except Exception:
-            pass
 
 
 def _validate_hex_id(value: Any, label: str) -> None:

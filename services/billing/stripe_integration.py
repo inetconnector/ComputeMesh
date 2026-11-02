@@ -495,11 +495,11 @@ class StripePaymentService:
                         stripe = self.stripe_client or _load_stripe_module()
                         payload = stripe.Webhook.construct_event(raw_payload, signature_header, secret)
                     break
-                except Exception as exc:
+                except (StripeIntegrationError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                     last_error = exc
             if payload is None:
                 raise last_error or StripeIntegrationError("no Stripe webhook secret accepted the signature")
-        except Exception as exc:
+        except (StripeIntegrationError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
             raise StripeIntegrationError(f"Stripe webhook signature verification failed: {exc}") from exc
 
         return self.process_webhook_event(payload=_stripe_to_plain(payload), trusted=True)

@@ -127,7 +127,7 @@ class P2PStreamFederator:
 
                 yield token
 
-        except Exception as exc:
+        except (OSError, ValueError, RuntimeError, LookupError) as exc:
             log.warning("P2P Stream error on primary peer %s: %s. Initiating zero-drop failover...", primary_peer_id, exc)
             metrics.failover_occurred = True
             next_peer = fallback_peer_id or "local_failover"

@@ -5,7 +5,7 @@ import secrets
 import threading
 import time
 from dataclasses import dataclass
-from http.cookies import SimpleCookie
+from http.cookies import CookieError, SimpleCookie
 from typing import Any
 
 NODE_SESSION_COOKIE = "cm_node_session"
@@ -43,7 +43,7 @@ def get_node_session(headers: Any, node_id: str) -> NodeSession | None:
     cookie = SimpleCookie()
     try:
         cookie.load(raw_cookie)
-    except Exception:
+    except (CookieError, ValueError, TypeError):
         return None
     morsel = cookie.get(NODE_SESSION_COOKIE)
     if morsel is None:

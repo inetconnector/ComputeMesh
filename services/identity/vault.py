@@ -42,7 +42,7 @@ class EncryptedVault:
                     self._key = decoded
                 else:
                     self._key = env_val.encode("utf-8")[:32].ljust(32, b"\0")
-            except Exception:
+            except (ValueError, TypeError):
                 self._key = env_val.encode("utf-8")[:32].ljust(32, b"\0")
         elif key_file is not None and key_file.exists():
             content = key_file.read_bytes().strip()

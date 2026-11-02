@@ -25,6 +25,7 @@ from services.billing.owner_settlement import (
     OwnerSettlementExecutor,
     _event_tx_id,
 )
+from services.billing.stripe_integration import StripeIntegrationError
 
 _IN_FLIGHT = {"reserving", "pending", "pending_retry", "transferred"}
 _TERMINAL = {"completed", "cancelled"}
@@ -185,7 +186,7 @@ class RobustOwnerSettlementExecutor(OwnerSettlementExecutor):
                     stripe_connected_account_id=current.stripe_connected_account_id,
                     currency=current.currency,
                 )
-            except Exception as exc:
+            except (StripeIntegrationError, BillingError, AccountingStoreError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                 # This includes transport/API exceptions whose remote outcome may be
                 # unknown. The reservation is deliberately retained for a same-id retry.
                 return self.account_store.upsert_settlement(
