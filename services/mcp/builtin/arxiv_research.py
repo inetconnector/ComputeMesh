@@ -96,7 +96,7 @@ def search_arxiv_papers(
             "source": "arXiv.org Open Access API",
         }
     except Exception as e:
-        return {"error": f"Fehler bei arXiv-Suche nach '{search_q}': {str(e)}"}
+        return {"error": f"Fehler bei arXiv-Suche nach '{search_q}': {e!s}"}
 
 
 # Backwards-compatible alias

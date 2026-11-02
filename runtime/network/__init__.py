@@ -18,16 +18,16 @@ from .webrtc_mesh_fabric import (
 )
 
 __all__ = [
+    "MeshFabricMetrics",
     "PrivateEndpoint",
     "RelayConfig",
     "RelayError",
     "RelayMetrics",
-    "run_relay",
-    "run_relay_once",
-    "MeshFabricMetrics",
     "ResilientMeshFabricManager",
     "WebRTCFabricError",
     "WebRTCP2PPeer",
     "WebRTCP2PState",
     "WebRTCSignalingEnvelope",
+    "run_relay",
+    "run_relay_once",
 ]

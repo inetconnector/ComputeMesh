@@ -8,7 +8,7 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 
 
 class ErrorCode(str, Enum):
@@ -98,7 +98,7 @@ class EvidenceRecord:
 class EvidenceLedger:
     """In-memory request-level evidence ledger with explicit provenance classes."""
 
-    ALLOWED_SOURCE_TYPES = {
+    ALLOWED_SOURCE_TYPES: ClassVar[set[str]] = {
         "USER",
         "FILE",
         "WEB",

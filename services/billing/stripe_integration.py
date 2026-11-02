@@ -304,7 +304,7 @@ class StripePaymentService:
             self._require_live_configuration()
 
     @classmethod
-    def from_env(cls, *, ledger: Ledger) -> "StripePaymentService":
+    def from_env(cls, *, ledger: Ledger) -> StripePaymentService:
         session_store_path = stripe_session_store_path_from_env()
         session_store = StripeSessionStore(Path(session_store_path)) if session_store_path else None
         return cls(

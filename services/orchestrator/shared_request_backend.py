@@ -155,7 +155,7 @@ class SharedRequestOrchestratedBackend:
     def close(self) -> None:
         self.evidence_store.close()
 
-    def __enter__(self) -> "SharedRequestOrchestratedBackend":
+    def __enter__(self) -> SharedRequestOrchestratedBackend:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

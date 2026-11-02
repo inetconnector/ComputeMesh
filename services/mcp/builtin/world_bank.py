@@ -113,7 +113,7 @@ def _get_single_country_stats(
             "source": "World Bank Open Data API",
         }
     except Exception as e:
-        return {"error": f"Fehler bei Abfrage der Weltbank-Datenbank: {str(e)}"}
+        return {"error": f"Fehler bei Abfrage der Weltbank-Datenbank: {e!s}"}
 
 
 def get_world_bank_stats(

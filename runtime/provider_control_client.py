@@ -128,8 +128,8 @@ def make_handshake(*, node_id: str, key_id: str, private_key: Ed25519PrivateKey,
 
 __all__ = [
     "ProviderHandshakeError",
-    "perform_provider_handshake",
     "make_handshake",
     "make_inference_request_handler",
     "make_inference_stream_handler",
+    "perform_provider_handshake",
 ]

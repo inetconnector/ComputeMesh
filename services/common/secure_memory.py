@@ -265,7 +265,7 @@ class SecureMemoryBuffer:
             unlock_memory_buffer(self._key)
         self._is_zeroized = True
 
-    def __enter__(self) -> "SecureMemoryBuffer":
+    def __enter__(self) -> SecureMemoryBuffer:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

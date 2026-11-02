@@ -296,7 +296,7 @@ class NodeLeaseStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> "NodeLeaseStore":
+    def __enter__(self) -> NodeLeaseStore:
         return self
 
     def __exit__(self, *exc: Any) -> None:

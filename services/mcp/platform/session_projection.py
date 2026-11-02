@@ -37,7 +37,7 @@ class SessionProjection:
     archived: bool = False
 
     @classmethod
-    def from_session(cls, session: AgentSession) -> "SessionProjection":
+    def from_session(cls, session: AgentSession) -> SessionProjection:
         st = dict(session.state) if hasattr(session, "state") and isinstance(session.state, (dict, Mapping)) else {}
         return cls(
             session_id=session.session_id,

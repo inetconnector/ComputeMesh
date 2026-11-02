@@ -170,7 +170,7 @@ class NodeSession:
     key_id: str | None = None
 
     @classmethod
-    def create(cls, session_id: str, *, challenge: str | None = None) -> "NodeSession":
+    def create(cls, session_id: str, *, challenge: str | None = None) -> NodeSession:
         if not (1 <= len(session_id) <= 128):
             raise ValueError("session_id must be 1..128 characters")
         challenge_value = challenge or secrets.token_urlsafe(32)

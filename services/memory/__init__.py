@@ -21,14 +21,14 @@ from .user_memory import (
 )
 
 __all__ = [
-    "UserMemoryStore",
-    "get_user_memory_store",
-    "get_user_memory",
-    "update_user_memory",
-    "delete_user_memory",
     "MemoryRecord",
     "MemoryScope",
     "MemoryType",
     "Sensitivity",
     "StructuredMemoryStore",
+    "UserMemoryStore",
+    "delete_user_memory",
+    "get_user_memory",
+    "get_user_memory_store",
+    "update_user_memory",
 ]

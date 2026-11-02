@@ -46,7 +46,7 @@ class RpcEndpoint:
             raise ValueError("RPC endpoint port must be 1..65535")
 
     @classmethod
-    def parse(cls, value: str) -> "RpcEndpoint":
+    def parse(cls, value: str) -> RpcEndpoint:
         if not isinstance(value, str) or value.count(":") != 1:
             raise ValueError("RPC endpoint must use IPv4:port")
         host, raw_port = value.rsplit(":", 1)

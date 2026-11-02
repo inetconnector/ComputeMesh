@@ -416,7 +416,7 @@ class UsageLedger:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> "UsageLedger":
+    def __enter__(self) -> UsageLedger:
         return self
 
     def __exit__(self, *exc: Any) -> None:

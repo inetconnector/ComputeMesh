@@ -552,7 +552,7 @@ class OrchestratedInferenceBackend:
         if self.evidence_store is not None:
             self.evidence_store.close()
 
-    def __enter__(self) -> "OrchestratedInferenceBackend":
+    def __enter__(self) -> OrchestratedInferenceBackend:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

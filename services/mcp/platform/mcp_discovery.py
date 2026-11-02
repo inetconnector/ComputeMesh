@@ -39,7 +39,7 @@ class MCPDiscoveryPolicy:
     allowed_tools: frozenset[str] | None = None
     allow_execution: bool = False
 
-    def allows(self, tool: "MCPToolDescriptor", *, execute: bool = False) -> bool:
+    def allows(self, tool: MCPToolDescriptor, *, execute: bool = False) -> bool:
         if tool.origin.value not in self.allowed_origins:
             return False
         if self.allowed_servers is not None and tool.server_name not in self.allowed_servers:

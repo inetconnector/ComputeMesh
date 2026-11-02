@@ -10,7 +10,7 @@ import base64
 import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 
 from services.gateway.image_safety import (
     ImageSafetyOrchestrator,
@@ -56,7 +56,7 @@ class ImageGenerationRejected(RuntimeError):
 
 class ImageGenerationService:
     MAX_IMAGES = 4
-    ALLOWED_SIZES = {"512x512", "768x768", "1024x1024", "1024x1536", "1536x1024"}
+    ALLOWED_SIZES: ClassVar[set[str]] = {"512x512", "768x768", "1024x1024", "1024x1536", "1536x1024"}
 
     def __init__(self, *, backend: ImageBackend, safety: ImageSafetyOrchestrator) -> None:
         if backend is None:

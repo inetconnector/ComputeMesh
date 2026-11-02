@@ -118,7 +118,7 @@ class SQLiteStateStore:
     def close(self) -> None:
         self._db.close()
 
-    def __enter__(self) -> "SQLiteStateStore":
+    def __enter__(self) -> SQLiteStateStore:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

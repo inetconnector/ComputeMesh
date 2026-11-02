@@ -22,8 +22,6 @@ __all__ = [
     "ContractValidationError",
     "ContractValidator",
     "ControlResult",
-    "dispatch_control_envelope",
-    "handle_control_message",
     "ExecutionEvidenceBinding",
     "ExecutionEvidenceBindingError",
     "ExecutionEvidenceStore",
@@ -36,4 +34,6 @@ __all__ = [
     "StaleRevision",
     "StateRecord",
     "TransitionResult",
+    "dispatch_control_envelope",
+    "handle_control_message",
 ]

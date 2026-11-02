@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 
 
 class RetentionCategory(str, Enum):
@@ -65,7 +65,7 @@ class RetentionRule:
 class RetentionEngine:
     """Manages statutory and security retention rules across ComputeMesh data categories."""
 
-    DEFAULT_RULES: dict[RetentionCategory, RetentionRule] = {
+    DEFAULT_RULES: ClassVar[dict[RetentionCategory, RetentionRule]] = {
         RetentionCategory.PROMPT_INFERENCE_DATA: RetentionRule(
             category=RetentionCategory.PROMPT_INFERENCE_DATA,
             legal_basis="GDPR Art. 5(1)(e) - Privacy by Design & Zero-Disk volatile processing",

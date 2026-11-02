@@ -454,7 +454,7 @@ class NodeRegistry:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> "NodeRegistry":
+    def __enter__(self) -> NodeRegistry:
         return self
 
     def __exit__(self, *exc: Any) -> None:

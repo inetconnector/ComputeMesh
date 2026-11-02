@@ -47,7 +47,7 @@ class LiveProviderRegistration:
         self,
         registry: LiveSharedRuntimeRegistry,
         *,
-        agent_node_admission: "LiveAgentNodeAdmission | None" = None,
+        agent_node_admission: LiveAgentNodeAdmission | None = None,
     ) -> None:
         self.registry = registry
         self.agent_node_admission = agent_node_admission

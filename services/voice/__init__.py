@@ -8,7 +8,7 @@ from .voice_realtime import (
 )
 
 __all__ = [
-    "SimpleEnergyVAD",
     "RealtimeVoiceSession",
+    "SimpleEnergyVAD",
     "create_voice_session",
 ]

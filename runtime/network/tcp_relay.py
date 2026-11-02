@@ -51,7 +51,7 @@ class PrivateEndpoint:
             raise ValueError("endpoint port must be 1..65535")
 
     @classmethod
-    def parse(cls, value: str) -> "PrivateEndpoint":
+    def parse(cls, value: str) -> PrivateEndpoint:
         if not isinstance(value, str) or value.count(":") != 1:
             raise ValueError("endpoint must use IPv4:port")
         host, raw_port = value.rsplit(":", 1)

@@ -161,7 +161,7 @@ class RequestEnvelope:
         privacy_level: str = "default",
         side_effect_intent: SideEffectLevel = SideEffectLevel.NONE,
         request_id: str | None = None,
-    ) -> "RequestEnvelope":
+    ) -> RequestEnvelope:
         raw = str(text or "")
         normalized = " ".join(raw.casefold().split())
         if isinstance(explicit_skill, str):
@@ -209,7 +209,7 @@ class RuntimePolicyEnvelope:
     policy_version: str = "1"
 
     @classmethod
-    def from_mapping(cls, value: Mapping[str, Any]) -> "RuntimePolicyEnvelope":
+    def from_mapping(cls, value: Mapping[str, Any]) -> RuntimePolicyEnvelope:
         return cls(
             decision_id=str(value.get("decision_id") or ""),
             request_id=str(value.get("request_id") or ""),
@@ -345,7 +345,7 @@ class ToolAuthorizationGrant:
         idempotency_key: str | None = None,
         allowed_permissions: Sequence[str] = (),
         ttl_seconds: float = 300.0,
-    ) -> "ToolAuthorizationGrant":
+    ) -> ToolAuthorizationGrant:
         return cls(
             tool_id=str(tool_id),
             request_id=str(request_id),

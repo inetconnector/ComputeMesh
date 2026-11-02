@@ -7,12 +7,12 @@ from .embeddings import compute_embeddings, get_text_embedding
 from .vector_store import VectorStore, get_default_vector_store
 
 __all__ = [
-    "extract_text_from_file",
-    "parse_document_content",
-    "chunk_text",
     "DocumentChunk",
-    "get_text_embedding",
-    "compute_embeddings",
     "VectorStore",
+    "chunk_text",
+    "compute_embeddings",
+    "extract_text_from_file",
     "get_default_vector_store",
+    "get_text_embedding",
+    "parse_document_content",
 ]

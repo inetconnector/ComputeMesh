@@ -160,7 +160,7 @@ class AgentEventOutboxDispatcher:
         self.stop()
         self.join(timeout)
 
-    def __enter__(self) -> "AgentEventOutboxDispatcher":
+    def __enter__(self) -> AgentEventOutboxDispatcher:
         return self
 
     def __exit__(self, *exc: object) -> None:

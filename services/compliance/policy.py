@@ -77,7 +77,7 @@ class ProviderComplianceRegistry:
         self._records = records
 
     @classmethod
-    def from_path(cls, path: Path) -> "ProviderComplianceRegistry":
+    def from_path(cls, path: Path) -> ProviderComplianceRegistry:
         if path.is_symlink() or not path.is_file():
             raise ProductionComplianceError("provider compliance registry must be a regular file")
         try:

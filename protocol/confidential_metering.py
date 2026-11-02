@@ -96,7 +96,7 @@ class ConfidentialUsageReceipt:
         _decode_b64(self.signature, expected_len=64, label="metering signature")
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ConfidentialUsageReceipt":
+    def from_dict(cls, value: Mapping[str, Any]) -> ConfidentialUsageReceipt:
         expected = {
             "schema_version",
             "receipt_id",

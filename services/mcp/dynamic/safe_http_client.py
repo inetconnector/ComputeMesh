@@ -12,7 +12,7 @@ import json
 import socket
 import urllib.parse
 import urllib.request
-from typing import Any, Union
+from typing import Any, ClassVar, Union
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh-DynamicRunner/1.0"
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB
@@ -28,7 +28,7 @@ class SafeHttpClient:
     """Zero-Trust HTTP client with DNS pinning and strict SSRF egress firewall."""
 
     # Disallowed IP Networks
-    BLOCKED_NETWORKS = [
+    BLOCKED_NETWORKS: ClassVar[list[ipaddress.IPv4Network | ipaddress.IPv6Network]] = [
         ipaddress.ip_network("0.0.0.0/8"),          # Current network
         ipaddress.ip_network("10.0.0.0/8"),         # RFC1918 Private
         ipaddress.ip_network("100.64.0.0/10"),      # Carrier-grade NAT
@@ -163,4 +163,4 @@ class SafeHttpClient:
         except Exception as e:
             if isinstance(e, SSRFBlockedException):
                 raise
-            return {"error": f"HTTP-Anfrage fehlgeschlagen: {str(e)}", "status_code": getattr(e, "code", 500)}
+            return {"error": f"HTTP-Anfrage fehlgeschlagen: {e!s}", "status_code": getattr(e, "code", 500)}

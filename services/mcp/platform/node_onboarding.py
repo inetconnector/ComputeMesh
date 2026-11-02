@@ -58,7 +58,7 @@ class NodeOnboardingObservation:
             raise ValueError("benchmark_accepted must be boolean or absent")
 
     @classmethod
-    def from_mapping(cls, value: Mapping[str, Any]) -> "NodeOnboardingObservation":
+    def from_mapping(cls, value: Mapping[str, Any]) -> NodeOnboardingObservation:
         if not isinstance(value, Mapping):
             raise NodeOnboardingError("node probe returned a non-object")
         raw_models = value.get("models", ())

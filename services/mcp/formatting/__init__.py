@@ -5,7 +5,7 @@ from .reasoning_formatter import THINKING_RE, format_reasoning_and_thinking_bloc
 from .tool_formatter import format_tool_content_if_json
 
 __all__ = [
-    "format_reasoning_and_thinking_blocks",
     "THINKING_RE",
+    "format_reasoning_and_thinking_blocks",
     "format_tool_content_if_json",
 ]

@@ -85,7 +85,7 @@ class ConfidentialBinding:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ConfidentialBinding":
+    def from_dict(cls, value: Mapping[str, Any]) -> ConfidentialBinding:
         if not isinstance(value, Mapping) or set(value) != {
             "account_id",
             "job_id",
@@ -135,7 +135,7 @@ class ConfidentialEnvelope:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ConfidentialEnvelope":
+    def from_dict(cls, value: Mapping[str, Any]) -> ConfidentialEnvelope:
         if not isinstance(value, Mapping):
             raise ConfidentialEnvelopeError("envelope must be an object")
         required = {
@@ -205,7 +205,7 @@ class ConfidentialResponseEnvelope:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ConfidentialResponseEnvelope":
+    def from_dict(cls, value: Mapping[str, Any]) -> ConfidentialResponseEnvelope:
         if not isinstance(value, Mapping) or set(value) != {
             "schema_version",
             "algorithm",
@@ -264,7 +264,7 @@ class ConfidentialClientContext:
             secure_zero_memory(self._response_key)
             self._closed = True
 
-    def __enter__(self) -> "ConfidentialClientContext":
+    def __enter__(self) -> ConfidentialClientContext:
         if self._closed:
             raise ConfidentialEnvelopeError("confidential client context is closed")
         return self

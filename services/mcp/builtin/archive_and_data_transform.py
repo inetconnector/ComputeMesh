@@ -65,7 +65,7 @@ def unpack_archive(
         else:
             return {"error": f"Nicht unterstütztes Archivformat für '{archive_path}'.", "success": False}
     except Exception as e:
-        return {"error": f"Fehler beim Entpacken von '{archive_path}': {str(e)}", "success": False}
+        return {"error": f"Fehler beim Entpacken von '{archive_path}': {e!s}", "success": False}
         
     return {
         "success": True,
@@ -117,7 +117,7 @@ def create_archive(
         else:
             return {"error": f"Nicht unterstützter Archivtyp '{archive_type}'.", "success": False}
     except Exception as e:
-        return {"error": f"Fehler beim Erstellen des Archivs '{output_path}': {str(e)}", "success": False}
+        return {"error": f"Fehler beim Erstellen des Archivs '{output_path}': {e!s}", "success": False}
         
     return {
         "success": True,
@@ -202,4 +202,4 @@ def convert_structured_data(
             "content_preview": target_content[:3000],
         }
     except Exception as e:
-        return {"error": f"Fehler bei der Datenkonvertierung: {str(e)}", "success": False}
+        return {"error": f"Fehler bei der Datenkonvertierung: {e!s}", "success": False}

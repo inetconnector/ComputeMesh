@@ -109,7 +109,7 @@ def enhance_and_crop_image(
             "output_size_bytes": os.path.getsize(out_file),
         }
     except Exception as e:
-        return {"error": f"Fehler bei der Bildverarbeitung von '{image_path}': {str(e)}", "success": False}
+        return {"error": f"Fehler bei der Bildverarbeitung von '{image_path}': {e!s}", "success": False}
 
 
 def create_contact_sheet(

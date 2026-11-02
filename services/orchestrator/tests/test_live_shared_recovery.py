@@ -5,6 +5,7 @@ import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import patch
 
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
@@ -51,8 +52,8 @@ def _plan(*nodes: str):
 
 
 class _FakeAttemptBackend:
-    outcomes = []
-    jobs = []
+    outcomes: ClassVar[list[object]] = []
+    jobs: ClassVar[list[str]] = []
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs

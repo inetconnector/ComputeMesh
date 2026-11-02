@@ -574,7 +574,7 @@ class MeshAgentWorkerService:
         self,
         session_store: AgentSessionStore,
         *,
-        worker_factory: Callable[[str], "MeshAgentWorker"],
+        worker_factory: Callable[[str], MeshAgentWorker],
         worker_count: int = 1,
         worker_prefix: str = "mesh-agent",
         poll_interval: float = 0.25,
@@ -636,7 +636,7 @@ class MeshAgentWorkerService:
             for worker in self.workers:
                 worker.set_concurrency_gate(self.concurrency_gate)
 
-    def _run_worker(self, worker: "MeshAgentWorker") -> None:
+    def _run_worker(self, worker: MeshAgentWorker) -> None:
         try:
             results = worker.run_until_stopped(
                 self._stop_event,

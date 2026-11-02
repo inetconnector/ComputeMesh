@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import ClassVar
 from unittest.mock import patch
 
 from services.mcp.config import MCPConfig
@@ -39,7 +40,7 @@ class OwnerCaptureRegistry:
     class _Tool:
         name = "read_tool"
         description = "read"
-        parameters = {"type": "object", "properties": {}}
+        parameters: ClassVar[dict[str, object]] = {"type": "object", "properties": {}}
         owner_only = False
         source = "test"
 

@@ -77,7 +77,7 @@ if os.name == "nt":
     _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
 
 
-def _attach_windows_job(process: subprocess.Popen[str], policy: "ProcessSandboxPolicy") -> Any:
+def _attach_windows_job(process: subprocess.Popen[str], policy: ProcessSandboxPolicy) -> Any:
     """Apply hard Windows process and memory limits to the child process."""
     if os.name != "nt":
         return None
@@ -404,11 +404,11 @@ class ProcessIsolatedWorkspaceTransport:
             self._closed = True
             self._terminate()
 
-    def __enter__(self) -> "ProcessIsolatedWorkspaceTransport":
+    def __enter__(self) -> ProcessIsolatedWorkspaceTransport:
         return self
 
     def __exit__(self, *_: Any) -> None:
         self.close()
 
 
-__all__ = ["ProcessSandboxError", "ProcessSandboxPolicy", "ProcessSandboxTimeout", "ProcessIsolatedWorkspaceTransport"]
+__all__ = ["ProcessIsolatedWorkspaceTransport", "ProcessSandboxError", "ProcessSandboxPolicy", "ProcessSandboxTimeout"]

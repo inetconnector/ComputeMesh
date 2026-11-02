@@ -147,7 +147,7 @@ class TraceStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> "TraceStore":
+    def __enter__(self) -> TraceStore:
         return self
 
     def __exit__(self, *exc: Any) -> None:

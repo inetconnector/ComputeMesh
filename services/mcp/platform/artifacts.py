@@ -343,7 +343,7 @@ class ArtifactStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> "ArtifactStore":
+    def __enter__(self) -> ArtifactStore:
         return self
 
     def __exit__(self, *exc: Any) -> None:

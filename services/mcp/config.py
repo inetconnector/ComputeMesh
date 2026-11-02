@@ -50,7 +50,7 @@ class MCPConfig:
     agents_platform_openai_agents_api_key_env: str = "OPENAI_API_KEY"
 
     @classmethod
-    def from_env(cls) -> "MCPConfig":
+    def from_env(cls) -> MCPConfig:
         try:
             max_iter = int(os.getenv("COMPUTEMESH_MCP_MAX_ITERATIONS", "5"))
         except ValueError:

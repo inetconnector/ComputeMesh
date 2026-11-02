@@ -121,7 +121,7 @@ def deploy_local_webapp(
         }
     except Exception as exc:
         log.error(f"Error deploying webapp {slug}: {exc}")
-        return {"error": f"Fehler bei Bereitstellung: {str(exc)}", "success": False}
+        return {"error": f"Fehler bei Bereitstellung: {exc!s}", "success": False}
 
 
 def list_deployed_webapps() -> dict[str, Any]:

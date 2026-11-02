@@ -67,7 +67,7 @@ def get_recent_earthquakes(
             "source": "USGS Earthquake Hazards Program",
         }
     except Exception as e:
-        return {"error": f"Fehler bei Abfrage des USGS-Erdbebenfeeds: {str(e)}"}
+        return {"error": f"Fehler bei Abfrage des USGS-Erdbebenfeeds: {e!s}"}
 
 
 # Backwards-compatible alias

@@ -109,7 +109,7 @@ class NodeAuthProof:
         return _b64u(raw)
 
     @classmethod
-    def decode(cls, credential: str) -> "NodeAuthProof":
+    def decode(cls, credential: str) -> NodeAuthProof:
         if not isinstance(credential, str) or not (1 <= len(credential) <= 4096):
             raise NodeProofMalformed("credential must be a bounded string")
         try:

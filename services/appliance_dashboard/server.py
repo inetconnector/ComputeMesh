@@ -19,7 +19,7 @@ import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -114,7 +114,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     tokens_served: int = 0
     earnings_cm: float = 0.0
     _qr_rate_lock = threading.Lock()
-    _qr_rate_windows: dict[str, list[float]] = {}
+    _qr_rate_windows: ClassVar[dict[str, list[float]]] = {}
 
     def _current_node_id(self) -> str:
         enrolled = read_enrolled_node_id()

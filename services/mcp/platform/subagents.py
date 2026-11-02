@@ -34,7 +34,7 @@ class SubagentContract:
         forbidden_actions: Sequence[str] = (),
         max_steps: int = 20,
         context_refs: Sequence[str] = (),
-    ) -> "SubagentContract":
+    ) -> SubagentContract:
         clean_task = str(task or "").strip()
         if not clean_task:
             raise ValueError("subagent task is required")

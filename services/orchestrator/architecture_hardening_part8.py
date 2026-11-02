@@ -5,7 +5,7 @@ Enforces invariants:
 - "A shard must declare: immutable digest; model version; byte size; tensor/layer/expert range; quantization; runtime compatibility; expected device memory; artifact signature metadata."
 """
 
-from typing import Any
+from typing import Any, ClassVar
 
 
 class HardeningPart8Error(RuntimeError):
@@ -26,7 +26,7 @@ class ShardManifestError(HardeningPart8Error):
 class ModelManifestEnforcer:
     """Enforces: A model version must declare at least: ..."""
 
-    REQUIRED_KEYS = [
+    REQUIRED_KEYS: ClassVar[list[str]] = [
         "model_id",
         "model_version",
         "upstream",  # source metadata
@@ -73,7 +73,7 @@ class ModelManifestEnforcer:
 class ShardManifestEnforcer:
     """Enforces: A shard must declare: ..."""
 
-    REQUIRED_KEYS = [
+    REQUIRED_KEYS: ClassVar[list[str]] = [
         "digest", # immutable digest
         "model_version",
         "size_bytes", # byte size

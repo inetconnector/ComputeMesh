@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 
 from services.billing.ledger import Ledger
 from services.common.pricing import calculate_token_charge_micro
@@ -142,7 +143,7 @@ class GatewayAgentBillingTests(unittest.TestCase):
             node_id = "node-mesh"
             lease = SimpleNamespace(lease_id="lease-mesh")
 
-            response = {
+            response: ClassVar[dict[str, object]] = {
                 "output": "mesh answer",
                 "usage": {"prompt_tokens": 4, "completion_tokens": 6},
             }

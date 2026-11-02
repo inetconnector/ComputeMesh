@@ -63,7 +63,7 @@ class ConcertResearchConfig:
     timezone: str
 
     @classmethod
-    def from_env(cls) -> "ConcertResearchConfig":
+    def from_env(cls) -> ConcertResearchConfig:
         default_db = Path(os.getenv("COMPUTEMESH_CONCERT_DB", "/var/lib/computemesh/concert_research.sqlite"))
         if os.name == "nt" and "COMPUTEMESH_CONCERT_DB" not in os.environ:
             default_db = Path.home() / ".computemesh" / "concert_research.sqlite"

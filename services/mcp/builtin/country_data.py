@@ -270,7 +270,7 @@ def _lookup_single_country(search_term: str, timeout: float = 6.0) -> dict[str, 
             "source": "World Bank Open Data",
         }
     except Exception as e:
-        return {"error": f"Länderdaten-Abfrage für '{search_term}' fehlgeschlagen: {str(e)}"}
+        return {"error": f"Länderdaten-Abfrage für '{search_term}' fehlgeschlagen: {e!s}"}
 
 
 def lookup_country_data(

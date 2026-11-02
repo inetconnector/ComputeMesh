@@ -107,7 +107,7 @@ def _fetch_single_compound(search_term: str, timeout: float = 6.0) -> dict[str, 
             "source": "NIH PubChem PUG REST API",
         }
     except Exception as e:
-        return {"error": f"Fehler bei PubChem-Abfrage für '{clean_term}': {str(e)}", "compound_name": clean_term}
+        return {"error": f"Fehler bei PubChem-Abfrage für '{clean_term}': {e!s}", "compound_name": clean_term}
 
 
 def lookup_chemical_compound(

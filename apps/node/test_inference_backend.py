@@ -34,7 +34,7 @@ class _Response:
     def __init__(self, document: dict[str, object]):
         self.document = document
 
-    def __enter__(self) -> "_Response":
+    def __enter__(self) -> _Response:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -58,7 +58,7 @@ class _BlockingResponse:
     def close(self) -> None:
         self.closed.set()
 
-    def __enter__(self) -> "_BlockingResponse":
+    def __enter__(self) -> _BlockingResponse:
         return self
 
     def __exit__(self, *args: object) -> None:

@@ -517,7 +517,7 @@ class InferenceRouter:
                     handler._send_json(openai_resp)
                 return True
             except Exception as e:
-                err_msg = f"Fehler bei Node-Inferenz: {str(e)}"
+                err_msg = f"Fehler bei Node-Inferenz: {e!s}"
                 handler._send_json({"error": {"message": err_msg, "code": 502}}, HTTPStatus.BAD_GATEWAY)
                 return True
 

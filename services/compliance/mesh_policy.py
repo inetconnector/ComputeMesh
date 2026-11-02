@@ -39,7 +39,7 @@ class MeshFeatureFlags:
     crypto_private_execution: bool = False
 
     @classmethod
-    def from_env(cls) -> "MeshFeatureFlags":
+    def from_env(cls) -> MeshFeatureFlags:
         return cls(
             confidential_execution=os.environ.get(
                 "COMPUTEMESH_CONFIDENTIAL_EXECUTION_ENABLED", ""
@@ -63,7 +63,7 @@ class JobRoutingPolicy:
         *,
         minimum_trust_tier: ProviderTrustTier = ProviderTrustTier.OPEN,
         allowed_regions: Iterable[str] = (),
-    ) -> "JobRoutingPolicy":
+    ) -> JobRoutingPolicy:
         return cls(
             privacy_class=ExecutionPrivacyClass.PUBLIC,
             minimum_trust_tier=minimum_trust_tier,
