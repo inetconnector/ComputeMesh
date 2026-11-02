@@ -31,9 +31,6 @@ import hashlib
 import json
 
 import webauthn
-from config import CONFIG
-from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError, utc_now
-from services.portal.mail_dispatcher import send_magic_link, send_security_alert
 from webauthn.helpers import bytes_to_base64url
 from webauthn.helpers.exceptions import InvalidAuthenticationResponse, InvalidRegistrationResponse
 from webauthn.helpers.structs import (
@@ -42,6 +39,10 @@ from webauthn.helpers.structs import (
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
+
+from config import CONFIG
+from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError, utc_now
+from services.portal.mail_dispatcher import send_magic_link, send_security_alert
 
 logger = logging.getLogger("computemesh.passkey_routes")
 

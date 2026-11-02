@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
+
 from runtime.network.tcp_relay import PrivateEndpoint, RelayConfig, run_relay, run_relay_once
 
 
@@ -498,7 +499,7 @@ class TcpRelayTests(unittest.TestCase):
                     self.assertEqual(received, payload)
 
             workers = [threading.Thread(target=concurrent_worker, args=(j,)) for j in range(3)]
-            total_sent += 3 * len("conc-msg-0-".encode() * 100)
+            total_sent += 3 * len(b"conc-msg-0-" * 100)
             for w in workers:
                 w.start()
             for w in workers:

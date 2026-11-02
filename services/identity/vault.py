@@ -34,7 +34,7 @@ class EncryptedVault:
             if len(key_bytes) != 32:
                 raise VaultError("Vault key must be exactly 32 bytes (256-bit)")
             self._key = key_bytes
-        elif key_env in os.environ and os.environ[key_env]:
+        elif os.environ.get(key_env):
             env_val = os.environ[key_env].strip()
             try:
                 decoded = base64.b64decode(env_val)

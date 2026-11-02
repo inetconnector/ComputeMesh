@@ -13,6 +13,7 @@ from urllib import request as urlrequest
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 from services.scheduler.placement import build_placement_decision
 
 
@@ -141,8 +142,8 @@ def _verify_envelope(value: dict[str, Any], *, verification_key_b64u: str, expec
     except (InvalidSignature, ValueError) as exc:
         raise PlacementProviderError("private placement signature verification failed on Handoff-Envelope") from exc
     try:
-        issued = datetime.fromisoformat(str(value["issued_at"]).replace("Z", "+00:00"))
-        expires = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00"))
+        issued = datetime.fromisoformat(str(value["issued_at"]))
+        expires = datetime.fromisoformat(str(value["expires_at"]))
     except (KeyError, ValueError) as exc:
         raise PlacementProviderError("private placement timestamps are invalid") from exc
     if issued.tzinfo is None or expires.tzinfo is None:

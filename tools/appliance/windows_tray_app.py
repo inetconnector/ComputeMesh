@@ -28,7 +28,7 @@ multiprocessing.freeze_support()
 
 # Sanitize PyInstaller child process environment variables to prevent bootloader security check errors
 for _pyi_env in list(os.environ.keys()):
-    if _pyi_env.startswith("_MEI") or _pyi_env.startswith("_PYI") or _pyi_env.startswith("PYINSTALLER"):
+    if _pyi_env.startswith(("_MEI", "_PYI", "PYINSTALLER")):
         os.environ.pop(_pyi_env, None)
 
 if sys.stdout is None:
@@ -1329,7 +1329,7 @@ class ComputeMeshProviderApp:
                     "inventory": self.inventory.to_dict(),
                     "telemetry": {
                         "tokens_processed": self.total_tokens_served,
-                        "earnings_cm": int(round(self.total_earnings_usd * 1_000_000)),
+                        "earnings_cm": round(self.total_earnings_usd * 1_000_000),
                         "payout_usd": self.total_earnings_usd,
                         "local_compute_tflops": self._calculate_local_tflops(),
                     },

@@ -352,12 +352,12 @@ class GatewayAuthManager:
                 return self._guard_auth_result(AuthResult(
                     account_id=account_id,
                     is_teaser=False,
-                    is_provider_self_compute=token.startswith("cm_provider_") or token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_"),
+                    is_provider_self_compute=token.startswith(("cm_provider_", "inet-", "ok_", "cm_owner_")),
                     is_quota_exceeded=False,
                 ))
 
             # Fleet Owner Key authentication (e.g. inet-..., ok_..., cm_owner_...)
-            if token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_") or token.startswith("owner_"):
+            if token.startswith(("inet-", "ok_", "cm_owner_", "owner_")):
                 try:
                     from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
                     resolved = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(token) or token

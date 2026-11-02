@@ -27,7 +27,6 @@ from services.gateway.confidential_coordinator import (
     ConfidentialInferenceCoordinator,
 )
 from services.gateway.live_handler import MAX_CONFIDENTIAL_HTTP_BYTES, LiveGatewayHandler
-
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
 

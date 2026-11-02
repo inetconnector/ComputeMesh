@@ -162,7 +162,7 @@ def generate_ai_image(
     _ensure_image_engine_running(timeout=1.5)
 
     local_endpoints = _get_candidate_endpoints()
-    timeout_sec = float(os.environ.get("COMPUTEMESH_IMAGE_TIMEOUT_SECONDS", 60.0))
+    timeout_sec = float(os.environ.get("COMPUTEMESH_IMAGE_TIMEOUT_SECONDS", "60.0"))
 
     provenance_meta = {
         "engine": "ComputeMesh RealVisXL / stable-diffusion.cpp (CUDA)",

@@ -16,6 +16,7 @@ from typing import Any, Protocol
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+
 from protocol.confidential_envelope import (
     ConfidentialBinding,
     ConfidentialEnvelope,
@@ -31,9 +32,8 @@ from protocol.confidential_metering import (
 )
 from protocol.confidential_request_contract import create_committed_session_attestation_nonce
 from protocol.confidential_stream import encrypt_stream_event_in_attested_recipient
-from services.common.secure_memory import secure_zero_memory
-
 from runtime.confidential.replay_store import ConfidentialReplayStore
+from services.common.secure_memory import secure_zero_memory
 
 CONFIDENTIAL_PROVISION_CAPABILITY = "confidential_session_provision_v1"
 MAX_PROTECTED_SESSION_SECONDS = 300

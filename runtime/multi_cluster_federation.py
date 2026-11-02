@@ -212,7 +212,7 @@ class MultiClusterFederator:
                 break
 
             fraction = cluster.total_vram_bytes / total_vram
-            assigned_layers = max(1, min(total_layers - current_layer, int(round(total_layers * fraction))))
+            assigned_layers = max(1, min(total_layers - current_layer, round(total_layers * fraction)))
 
             start = current_layer
             end = min(total_layers, start + assigned_layers)

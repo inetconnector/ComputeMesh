@@ -167,7 +167,7 @@ class LedgerSyncEngine:
             return True, f"Block #{block.index} erfolgreich verifiziert und synchronisiert."
 
         except Exception as exc:
-            logger.error(f"Fehler bei Ingestion von Remote-Block: {exc}", exc_info=True)
+            logger.exception("Fehler bei Ingestion von Remote-Block")
             return False, f"Ausnahmefehler bei Block-Ingestion: {exc}"
 
     def sync_from_peer(

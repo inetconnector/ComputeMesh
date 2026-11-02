@@ -61,7 +61,7 @@ def _parse_time(value: Any, field: str, request_id: str | None) -> datetime:
     if not isinstance(value, str):
         raise _fault("INVALID_ARGUMENT", "invalid_argument", f"{field} must be an RFC3339 string", request_id=request_id)
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise _fault("INVALID_ARGUMENT", "invalid_argument", f"{field} must be RFC3339 date-time", request_id=request_id) from exc
     if parsed.tzinfo is None:

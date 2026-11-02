@@ -17,6 +17,7 @@ from typing import Any
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from jsonschema import Draft202012Validator, FormatChecker
+
 from protocol.node_identity import key_id_from_public_key
 from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
 from tools.security.node_key_storage import load_node_private_key

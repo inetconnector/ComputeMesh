@@ -7,6 +7,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from runtime.llama.job_attestation import _canonical_sha256
 from runtime.llama.node_attestation_service import NodeAttestationService

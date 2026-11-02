@@ -48,8 +48,7 @@ class ResearchRequest:
         end = parse(self.date_to, today.fromordinal(today.toordinal() + 1))
         if self.day_scope == "today":
             end = start
-        if end < start:
-            end = start
+        end = max(end, start)
         return start, end
 
 

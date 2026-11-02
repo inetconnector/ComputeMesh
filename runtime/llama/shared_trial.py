@@ -27,7 +27,6 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-from services.scheduler.placement import PlannerPolicy
 
 from runtime.llama.rpc_spike import (
     RpcEndpoint,
@@ -40,6 +39,7 @@ from runtime.llama.rpc_spike import (
     sha256_file,
 )
 from runtime.llama.shared_run_evidence import write_shared_run_evidence
+from services.scheduler.placement import PlannerPolicy
 
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_SCHEMA = ROOT / "services" / "scheduler" / "experiment_bundle.schema.json"
@@ -117,7 +117,7 @@ def _read_bundle(path: Path) -> dict[str, Any]:
 
 def _parse_time(value: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise SharedTrialError("bundle captured_at is invalid") from exc
     if parsed.tzinfo is None:

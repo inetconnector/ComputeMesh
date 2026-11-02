@@ -378,7 +378,7 @@ def _validate_manifest(value: Any) -> dict[str, Any]:
     if isinstance(revision, bool) or not isinstance(revision, int) or revision <= 0:
         raise EvidenceTransferError("profile_revision must be a positive integer")
     try:
-        captured = datetime.fromisoformat(str(value["created_at"]).replace("Z", "+00:00"))
+        captured = datetime.fromisoformat(str(value["created_at"]))
     except ValueError as exc:
         raise EvidenceTransferError("created_at must be RFC3339 date-time") from exc
     if captured.tzinfo is None:

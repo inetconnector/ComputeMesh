@@ -179,7 +179,7 @@ class VectorStore:
 
                 # Keyword BM25 overlap boost
                 c_text = chunk.get("text", "").lower()
-                stop_words = {"wie", "und", "oder", "der", "die", "das", "in", "von", "zu", "mit", "den", "dem", "des", "ein", "eine", "ist", "sind", "für", "auf", "the", "and", "or", "is", "of", "to", "in", "a", "an"}
+                stop_words = {"wie", "und", "oder", "der", "die", "das", "in", "von", "zu", "mit", "den", "dem", "des", "ein", "eine", "ist", "sind", "für", "auf", "the", "and", "or", "is", "of", "to", "a", "an"}
                 meaningful_q_terms = [t for t in q_terms if t not in stop_words and len(t) >= 2]
                 if not meaningful_q_terms:
                     meaningful_q_terms = list(q_terms)

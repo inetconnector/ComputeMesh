@@ -5,15 +5,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from runtime.confidential.execution_gate import ProtectedExecutionEvidence
+from runtime.confidential.key_release import KeyReleaseBinding, KeyReleaseError
 from services.attestation.confidential_verifier import (
     ConfidentialAttestationError,
     Verifier,
     verify_confidential_attestation,
 )
 from services.compliance.mesh_policy import ExecutionPrivacyClass
-
-from runtime.confidential.execution_gate import ProtectedExecutionEvidence
-from runtime.confidential.key_release import KeyReleaseBinding, KeyReleaseError
 
 
 class ProtectedContextError(RuntimeError):

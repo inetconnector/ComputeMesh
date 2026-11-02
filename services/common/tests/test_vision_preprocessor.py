@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from PIL import Image
+
 from services.common.vision_preprocessor import (
     ProcessedImage,
     VisionPreprocessingError,

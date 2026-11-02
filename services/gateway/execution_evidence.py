@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
+
 from services.gateway.placement_selection import PlacementSelection
 
 MAX_EVIDENCE_BYTES = 4 * 1024 * 1024
@@ -69,7 +70,7 @@ def _load_schema() -> dict[str, Any]:
 
 def _parse_time(value: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except (TypeError, ValueError, AttributeError) as exc:
         raise ExecutionEvidenceError("evidence captured_at is invalid") from exc
     if parsed.tzinfo is None:

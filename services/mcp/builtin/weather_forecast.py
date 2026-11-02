@@ -63,16 +63,7 @@ def get_weather_forecast(
     params = urllib.parse.urlencode({
         "latitude": geo["latitude"],
         "longitude": geo["longitude"],
-        "daily": ",".join([
-            "weather_code",
-            "temperature_2m_max",
-            "temperature_2m_min",
-            "precipitation_sum",
-            "precipitation_probability_max",
-            "wind_speed_10m_max",
-            "sunrise",
-            "sunset",
-        ]),
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset",
         "timezone": "auto",
         "forecast_days": forecast_days,
     })

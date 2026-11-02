@@ -7,6 +7,7 @@ from typing import Self
 from unittest.mock import patch
 
 import pytest
+
 from apps.node.inference_backend import LocalInferenceError, LocalOpenAIInferenceBackend
 from protocol.node_session import NodeSessionState, SessionSnapshot
 

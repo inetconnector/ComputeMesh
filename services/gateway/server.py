@@ -513,6 +513,12 @@ from services.gateway.inference import InferenceEngine
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.routes_billing import BillingRoutesHandler
 from services.gateway.routes_provider import ProviderRoutesHandler
+from services.gateway.security import (
+    GLOBAL_RATE_LIMITER,
+    MAX_REQUEST_PAYLOAD_BYTES,
+    SECURITY_HEADERS,
+    sanitize_error_message,
+)
 from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
 from services.mcp.platform.artifacts import ArtifactAccessDenied, ArtifactNotFound, ArtifactStore
 from services.mcp.platform.session import (
@@ -528,13 +534,6 @@ from services.mcp.platform.session_projection import (
     project_events,
     project_session,
     project_sessions,
-)
-
-from services.gateway.security import (
-    GLOBAL_RATE_LIMITER,
-    MAX_REQUEST_PAYLOAD_BYTES,
-    SECURITY_HEADERS,
-    sanitize_error_message,
 )
 
 DEFAULT_PORT = CONFIG.default_gateway_port

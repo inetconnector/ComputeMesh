@@ -6,6 +6,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from apps.node.provider_agent import (
     ProviderAgent,
     ProviderAgentError,
@@ -14,8 +17,6 @@ from apps.node.provider_agent import (
     _optional_path,
     _runtime_document,
 )
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
 from runtime.capacity_guard import CapacityExceededError

@@ -16,7 +16,6 @@ from urllib.parse import urlparse
 
 from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialResponseEnvelope
 from protocol.confidential_metering import ConfidentialUsageReceipt
-
 from runtime.confidential.data_plane import (
     AttestedConfidentialEndpoint,
     ConfidentialDataPlaneError,
@@ -46,8 +45,7 @@ class PinnedHttpsConfidentialStreamDataPlane:
         if not 0.1 <= timeout_seconds <= 600.0:
             raise ValueError("confidential stream timeout must be between 0.1 and 600 seconds")
         context = ssl_context or ssl.create_default_context()
-        if context.minimum_version < ssl.TLSVersion.TLSv1_3:
-            context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.minimum_version = max(context.minimum_version, ssl.TLSVersion.TLSv1_3)
         self.ssl_context = context
         self.timeout_seconds = timeout_seconds
         self.connection_factory = connection_factory

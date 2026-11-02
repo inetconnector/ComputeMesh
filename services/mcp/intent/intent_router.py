@@ -647,7 +647,7 @@ def detect_direct_tool_intent(text: str, registry: ToolRegistry | None = None, a
         matched_portal = next((p for p in KNOWN_NEWS_PORTALS if p in target_portal), None)
         if matched_portal or any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "top news", "artikel", "titel")):
             return ("get_live_news", {"topic": matched_portal or target_portal})
-        elif target_portal.startswith("http://") or target_portal.startswith("https://") or any(target_portal.endswith(tld) for tld in (".de", ".com", ".org", ".net", ".io", ".ai", ".eu")):
+        elif target_portal.startswith(("http://", "https://")) or any(target_portal.endswith(tld) for tld in (".de", ".com", ".org", ".net", ".io", ".ai", ".eu")):
             return ("fetch_web_page", {"url": target_portal if target_portal.startswith("http") else f"https://{target_portal}"})
 
     m_portal_news = re.search(

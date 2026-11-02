@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
+
 from services.scheduler.placement import (
     PlacementInputError,
     PlannerPolicy,
@@ -89,7 +90,7 @@ def _validate_schema(value: dict[str, Any], schema_path: Path, label: str) -> No
 
 def _timestamp(value: str, label: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except (AttributeError, ValueError) as exc:
         raise EvidenceBundleError(f"{label} has invalid RFC3339 timestamp") from exc
     if parsed.tzinfo is None:
@@ -206,7 +207,7 @@ def _select_current_profile(
         raise EvidenceBundleError(
             f"{role} root has conflicting profiles at revision {max_revision}"
         )
-    return sorted(latest, key=lambda doc: (doc.file_name, doc.sha256))[0]
+    return min(latest, key=lambda doc: (doc.file_name, doc.sha256))
 
 
 def _select_artifact(manifest: dict[str, Any], digest: str | None) -> dict[str, Any]:
@@ -282,7 +283,7 @@ def _latest_unique(
         raise EvidenceBundleError(
             f"ambiguous equally recent {label} candidates: {run_ids}"
         )
-    return sorted(latest, key=lambda doc: (str(doc.value.get("run_id")), doc.sha256))[0]
+    return min(latest, key=lambda doc: (str(doc.value.get("run_id")), doc.sha256))
 
 
 def _select_llama_pair(
@@ -484,10 +485,13 @@ def _source(doc: EvidenceDocument, *, extra: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_DEFAULT_PLANNER_POLICY = PlannerPolicy()
+
+
 def build_experiment_bundle(
     selected: SelectedEvidence,
     *,
-    policy: PlannerPolicy = PlannerPolicy(),
+    policy: PlannerPolicy = _DEFAULT_PLANNER_POLICY,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     current = (now or datetime.now(UTC)).astimezone(UTC)

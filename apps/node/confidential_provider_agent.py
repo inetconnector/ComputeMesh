@@ -14,6 +14,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
+
 from apps.node.provider_agent import (
     ProviderAgent,
     ProviderAgentError,
@@ -21,8 +24,6 @@ from apps.node.provider_agent import (
     _load_json,
     _runtime_document,
 )
-from cryptography import x509
-from cryptography.hazmat.primitives import serialization
 from runtime.confidential.openai_backend import LoopbackOpenAIBackend
 from runtime.confidential.protected_worker import (
     CONFIDENTIAL_PROVISION_CAPABILITY,

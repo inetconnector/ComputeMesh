@@ -74,7 +74,7 @@ class FakeAccountAPI:
 
     def retrieve(self, account_id: str):
         if account_id not in self.accounts:
-            raise Exception(f"Account {account_id} not found")
+            raise KeyError(f"Account {account_id} not found")
         return self.accounts[account_id]
 
 

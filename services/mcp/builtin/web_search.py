@@ -55,7 +55,7 @@ def duckduckgo_search(query: str, max_results: int = 5, timeout: float = 8.0) ->
             if "uddg=" in raw_url:
                 parsed = urllib.parse.urlparse(raw_url)
                 qs = urllib.parse.parse_qs(parsed.query)
-                if "uddg" in qs and qs["uddg"]:
+                if qs.get("uddg"):
                     target_url = qs["uddg"][0]
 
             title = clean_html(raw_title)

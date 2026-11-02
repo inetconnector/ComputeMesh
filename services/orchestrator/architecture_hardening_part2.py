@@ -155,10 +155,8 @@ class PrivacyPreservingTelemetry:
         """Records a telemetry event while strictly stripping raw prompt/output content."""
         safe_metadata = dict(metadata)
         # Ensure we never leak prompt or output content into telemetry
-        if "prompt" in safe_metadata:
-            del safe_metadata["prompt"]
-        if "output" in safe_metadata:
-            del safe_metadata["output"]
+        safe_metadata.pop("prompt", None)
+        safe_metadata.pop("output", None)
 
         event = {
             "type": event_type,

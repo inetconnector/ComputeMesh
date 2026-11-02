@@ -114,7 +114,7 @@ def plan_multi_gpu_rig(
             # Assign remainder to the last device
             layer_count = total_layers - assigned_layers
         else:
-            layer_count = int(math.floor(total_layers * (dev.vram_bytes / total_rig_vram)))
+            layer_count = math.floor(total_layers * (dev.vram_bytes / total_rig_vram))
             # Ensure at least 1 layer if device has capacity and layers remain
             if layer_count == 0 and (total_layers - assigned_layers) > (len(devices) - i):
                 layer_count = 1

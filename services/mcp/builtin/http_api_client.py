@@ -37,7 +37,7 @@ def execute_http_request(
 ) -> dict[str, Any]:
     """Executes arbitrary HTTP REST API requests (GET, POST, PUT, DELETE, PATCH)."""
     clean_url = str(url or "").strip()
-    if not (clean_url.startswith("http://") or clean_url.startswith("https://")):
+    if not (clean_url.startswith(("http://", "https://"))):
         return {"error": "Ungültige URL: Muss mit http:// oder https:// beginnen.", "success": False}
 
     # SSRF / Private IP protection

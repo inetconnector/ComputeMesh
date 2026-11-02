@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
+
 from services.compliance.policy import require_production_model_attribution
 from services.orchestrator.architecture_hardening_part8 import (
     ModelManifestEnforcer,

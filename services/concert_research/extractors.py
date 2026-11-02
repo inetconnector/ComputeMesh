@@ -71,7 +71,7 @@ def _date_time(value: str | None) -> tuple[str | None,str | None]:
         return None,None
     raw = value.strip()
     try:
-        dt = datetime.fromisoformat(raw.replace("Z","+00:00"))
+        dt = datetime.fromisoformat(raw)
         return dt.date().isoformat(), dt.strftime("%H:%M") if "T" in raw or ":" in raw else None
     except ValueError:
         pass
@@ -211,8 +211,8 @@ def extract_feed(text: str, *, source_url: str, source_name: str) -> list[EventO
     out: list[EventObservation] = []
     items = list(root.iter("item")) + [e for e in root.iter() if e.tag.endswith("entry")]
     for item in items:
-        def child_text(names: tuple[str,...]) -> str | None:
-            for ch in item.iter():
+        def child_text(names: tuple[str, ...], _item: ET.Element = item) -> str | None:
+            for ch in _item.iter():
                 if ch.tag.split("}")[-1].lower() in names and ch.text and ch.text.strip():
                     return ch.text.strip()
             return None

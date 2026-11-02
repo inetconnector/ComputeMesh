@@ -81,7 +81,7 @@ def _fingerprint(env: ControlEnvelope) -> str:
 def _parse_lease(env: ControlEnvelope) -> datetime:
     raw = env.payload["lease_expires_at"]
     try:
-        value = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        value = datetime.fromisoformat(str(raw))
     except ValueError as exc:
         raise _bad_payload(env, "lease_expires_at must be RFC3339 date-time") from exc
     if value.tzinfo is None:

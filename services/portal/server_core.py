@@ -35,6 +35,10 @@ from services.gateway.dashboard import (
     save_node_telemetry_registry,
 )
 from services.gateway.model_inventory import sanitize_model_inventory
+from services.gateway.security import (
+    GLOBAL_RATE_LIMITER,
+    SECURITY_HEADERS,
+)
 from services.portal.mail_dispatcher import send_contact_inquiry
 from services.portal.passkey_routes import (
     FLEET_ACCOUNT_STORE,
@@ -46,11 +50,6 @@ from services.portal.routes_payouts import PortalPayoutsHandler
 from services.portal.routes_provider_identity import PortalProviderIdentityHandler
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.routes_registration import PortalRegistrationHandler
-
-from services.gateway.security import (
-    GLOBAL_RATE_LIMITER,
-    SECURITY_HEADERS,
-)
 
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")

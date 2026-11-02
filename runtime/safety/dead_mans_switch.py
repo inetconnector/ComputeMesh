@@ -76,7 +76,7 @@ class ExecutionLease:
     def is_expired(self, now: datetime | None = None) -> bool:
         current = now or utc_now()
         try:
-            exp = datetime.fromisoformat(self.expires_at_iso.replace("Z", "+00:00"))
+            exp = datetime.fromisoformat(self.expires_at_iso)
             return current >= exp
         except Exception:
             return True
@@ -84,7 +84,7 @@ class ExecutionLease:
     def time_to_live_seconds(self, now: datetime | None = None) -> float:
         current = now or utc_now()
         try:
-            exp = datetime.fromisoformat(self.expires_at_iso.replace("Z", "+00:00"))
+            exp = datetime.fromisoformat(self.expires_at_iso)
             return max(0.0, (exp - current).total_seconds())
         except Exception:
             return 0.0
@@ -303,9 +303,7 @@ class DeadMansLeaseGuard:
                 return False
             if self._active_lease is None:
                 return False
-            if self._active_lease.is_expired():
-                return False
-            return True
+            return not self._active_lease.is_expired()
 
     def assert_authorized(self, scope: str = "inference", owner_id: str | None = None, node_id: str | None = None) -> ExecutionLease:
         """Assert authorization or raise specific KillSwitchError."""

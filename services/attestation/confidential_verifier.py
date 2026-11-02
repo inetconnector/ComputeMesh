@@ -47,7 +47,7 @@ def _timestamp(value: Any, label: str) -> datetime:
     if not isinstance(value, str):
         raise ConfidentialAttestationError(f"{label} must be a timestamp string")
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise ConfidentialAttestationError(f"{label} is not RFC3339") from exc
     if parsed.tzinfo is None:

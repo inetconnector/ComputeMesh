@@ -2,7 +2,6 @@
 
 from tools.security.ed25519_verify import _pure_verify, verify_ed25519_signature
 
-
 PUBLIC_KEY = bytes.fromhex(
     "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
 )

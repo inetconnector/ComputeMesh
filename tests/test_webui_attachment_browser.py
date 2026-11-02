@@ -267,12 +267,16 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
                 page = context.new_page()
                 completions = []
 
-                def respond(route):
+                def respond(
+                    route,
+                    _completions=completions,
+                    _failure=failure,
+                ):
                     url = route.request.url
                     if "chat/completions" in url and "peer.test" in url:
                         route.abort()
                     elif "chat/completions" in url:
-                        completions.append(route.request.post_data_json)
+                        _completions.append(route.request.post_data_json)
                         route.fulfill(json={"choices": []})
                     elif url == "https://gateway.test/webui/":
                         route.fulfill(content_type="text/html", body="<html><body></body></html>")
@@ -281,14 +285,14 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
                             {"id": "qwen2.5:3b", "available": True},
                             {"id": "qwen2.5:1.5b", "available": True},
                         ]})
-                    elif url.endswith("/v1/models") and failure == "completion":
+                    elif url.endswith("/v1/models") and _failure == "completion":
                         route.fulfill(json={"data": [{"id": "peer:7b", "available": True}]})
                     elif "/fleet" in url:
                         nodes = [{"is_online": True, "endpoint": "https://peer.test"}]
                         route.fulfill(json={
-                            "nodes": nodes if failure in ("peer", "completion") else [],
+                            "nodes": nodes if _failure in ("peer", "completion") else [],
                         })
-                    elif url.endswith("/slots") and failure != "slots":
+                    elif url.endswith("/slots") and _failure != "slots":
                         route.fulfill(json=[])
                     else:
                         route.abort()

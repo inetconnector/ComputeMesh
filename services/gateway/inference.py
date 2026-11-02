@@ -37,12 +37,11 @@ from services.gateway.inference_backend import (
     build_inference_backend_from_env,
 )
 from services.gateway.metrics_exporter import MetricsRegistry
+from services.gateway.security import sanitize_error_message
 from services.gateway.teaser import TeaserQuotaManager
 from services.mcp.agent_loop import AgentLoop
 from services.mcp.config import get_mcp_config
 from services.mcp.tool_registry import ToolRegistry
-
-from services.gateway.security import sanitize_error_message
 
 _TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 _EXECUTION_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(

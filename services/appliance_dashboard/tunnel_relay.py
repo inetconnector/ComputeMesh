@@ -165,6 +165,7 @@ class CloudTunnelRelay:
         self._sync_lock = threading.RLock()
         self._wake_event = threading.Event()
         from cryptography.hazmat.primitives import serialization
+
         from tools.security.node_key_storage import get_or_create_node_private_key
         try:
             if _nodeos_mode():
@@ -364,7 +365,7 @@ class CloudTunnelRelay:
                 __import__("services.identity.machine_identity", fromlist=["collect_machine_identity"])
                 .collect_machine_identity()
                 .to_public_dict()
-                if "services.identity.machine_identity" in sys.modules or True
+                if True
                 else {}
             ),
         }
@@ -484,7 +485,6 @@ def trigger_immediate_mesh_sync(
     authorize_node_id_migration: bool = False,
 ) -> dict[str, Any]:
     """Expedites zero-delay mesh, LAN discovery, and coordinator synchronization."""
-    global CLOUD_TUNNEL_RELAY
     relay = CLOUD_TUNNEL_RELAY
     if relay is None:
         node_id = getattr(updated_cfg, "rig_name", "") if updated_cfg else None

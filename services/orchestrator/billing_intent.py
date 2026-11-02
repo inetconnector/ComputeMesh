@@ -49,7 +49,7 @@ def _utc_text(value: datetime | None) -> str | None:
 def _parse_utc(value: str | None) -> datetime | None:
     if value is None:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    return datetime.fromisoformat(value).astimezone(UTC)
 
 
 class BillingIntentStore:

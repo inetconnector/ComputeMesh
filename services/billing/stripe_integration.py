@@ -252,7 +252,7 @@ def _connect_v2_recipient_status(account: dict[str, Any]) -> tuple[str, bool, bo
 
 def _amount_to_cents(amount_usd: float) -> int:
     amount = Decimal(str(amount_usd))
-    return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return int((amount * Decimal(100)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
 def _cents_to_micro_units(amount_cents: int) -> int:

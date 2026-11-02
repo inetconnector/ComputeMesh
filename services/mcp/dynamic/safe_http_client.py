@@ -12,7 +12,7 @@ import json
 import socket
 import urllib.parse
 import urllib.request
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh-DynamicRunner/1.0"
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB
@@ -73,7 +73,7 @@ class SafeHttpClient:
         url: str,
         method: str = "GET",
         params: dict[str, Any] | None = None,
-        data: Union[dict[str, Any], str, bytes] | None = None,
+        data: dict[str, Any] | str | bytes | None = None,
         headers: dict[str, str] | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
     ) -> dict[str, Any]:

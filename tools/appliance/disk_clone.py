@@ -327,7 +327,6 @@ def _post_clone_fixup(target_dev: str) -> None:
 
 
 def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb: int) -> None:
-    global _status
     block_bytes = block_size_mb * 1024 * 1024
     count = -(-total_bytes // block_bytes)  # ceil division
     proc = subprocess.Popen(

@@ -135,7 +135,7 @@ class ExecutionEvidenceStore:
             raise KeyError(f"no execution evidence binding for job {job_id!r}")
         raw_shares = json.loads(row["provider_shares_json"])
         shares = tuple((str(node_id), float(ratio)) for node_id, ratio in raw_shares)
-        created_at = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")).astimezone(UTC)
+        created_at = datetime.fromisoformat(row["created_at"]).astimezone(UTC)
         return ExecutionEvidenceBinding(
             row["job_id"],
             row["evidence_id"],

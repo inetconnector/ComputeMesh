@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
+
 from services.gateway.placement_selection import PlacementSelection
 
 MAX_EVIDENCE_BYTES = 4 * 1024 * 1024
@@ -119,7 +120,7 @@ def verify_shared_request_evidence(
     if doc["evidence_id"] != expected_id:
         raise SharedRequestEvidenceError("evidence id does not match document claims")
     try:
-        captured = datetime.fromisoformat(doc["captured_at"].replace("Z", "+00:00")).astimezone(UTC)
+        captured = datetime.fromisoformat(doc["captured_at"]).astimezone(UTC)
     except (ValueError, AttributeError) as exc:
         raise SharedRequestEvidenceError("invalid evidence timestamp") from exc
     current = (now or datetime.now(UTC)).astimezone(UTC)

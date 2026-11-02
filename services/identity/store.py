@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Self
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 
 MAX_ENROLLMENT_TOKEN_TTL = timedelta(minutes=15)
@@ -62,7 +63,7 @@ def _utc_text(value: datetime) -> str:
 def _parse_utc(value: str | None) -> datetime | None:
     if value is None:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    return datetime.fromisoformat(value).astimezone(UTC)
 
 
 def _token_hash(token: str) -> str:

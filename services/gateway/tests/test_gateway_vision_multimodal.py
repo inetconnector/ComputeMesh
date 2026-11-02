@@ -19,6 +19,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from PIL import Image
+
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
 from services.gateway.inference import InferenceEngine

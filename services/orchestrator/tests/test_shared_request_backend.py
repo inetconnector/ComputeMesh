@@ -8,6 +8,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_request import SharedRequestResult, build_shared_request_evidence

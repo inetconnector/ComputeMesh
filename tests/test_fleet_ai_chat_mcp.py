@@ -63,7 +63,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
         gateway_server_module.NODE_TELEMETRY_REGISTRY.pop("cm-inference-node-01", None)
         self.tmp_dir.cleanup()
 
-    def _get(self, path: str, headers: dict = None):
+    def _get(self, path: str, headers: dict | None = None):
         conn = HTTPConnection("127.0.0.1", self.port, timeout=5)
         req_headers = headers or {}
         conn.request("GET", path, headers=req_headers)
@@ -76,7 +76,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
         conn.close()
         return res.status, payload
 
-    def _post(self, path: str, body: dict, headers: dict = None):
+    def _post(self, path: str, body: dict, headers: dict | None = None):
         conn = HTTPConnection("127.0.0.1", self.port, timeout=5)
         data = json.dumps(body).encode("utf-8")
         req_headers = {"Content-Type": "application/json", "Content-Length": str(len(data))}

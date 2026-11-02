@@ -22,6 +22,7 @@ from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 from services.billing.ledger import DuplicateEventError
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError, PromoClaim
 from services.billing.owner_credits import OwnerCreditLedger
@@ -168,7 +169,7 @@ class PromoDecisionVerifier:
         self,
         envelope: Mapping[str, Any],
         *,
-        now: int | float | None = None,
+        now: float | None = None,
     ) -> PromoGrantDecision:
         if not isinstance(envelope, Mapping) or set(envelope) != _REQUIRED_FIELDS:
             raise PromoGrantDecisionError("promo decision has unknown or missing fields")
@@ -272,7 +273,7 @@ class SignedPromoGrantApplier:
         self,
         envelope: Mapping[str, Any],
         *,
-        now: int | float | None = None,
+        now: float | None = None,
     ) -> PromoGrantApplyResult:
         decision = self.verifier.verify(envelope, now=now)
         if self.owner_store.get_owner(decision.owner_id) is None:

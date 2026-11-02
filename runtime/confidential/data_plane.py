@@ -114,8 +114,7 @@ class PinnedHttpsConfidentialDataPlane:
         if not 1024 <= max_response_bytes <= 16 * 1024 * 1024:
             raise ValueError("invalid confidential data-plane response limit")
         context = ssl_context or ssl.create_default_context()
-        if context.minimum_version < ssl.TLSVersion.TLSv1_3:
-            context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.minimum_version = max(context.minimum_version, ssl.TLSVersion.TLSv1_3)
         self.ssl_context = context
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes

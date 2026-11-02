@@ -30,9 +30,8 @@ from runtime.confidential.replay_store import (
 )
 from services.compliance.mesh_policy import ExecutionPrivacyClass
 from services.gateway.cancellable_inference import CancellableInferenceEngine
-from services.gateway.server import GatewayHandler
-
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
+from services.gateway.server import GatewayHandler
 
 ProtectedEvidenceResolver = Callable[
     [ExecutionPrivacyClass, dict[str, Any]],

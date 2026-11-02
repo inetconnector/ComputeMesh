@@ -35,10 +35,9 @@ from services.gateway.owner_promo_routes import (
 from services.gateway.owner_provider_routes import UnifiedOwnerProviderRoutesHandler
 from services.gateway.promo_control_plane import build_promo_control_plane_client_from_env
 from services.gateway.routes_billing import BillingRoutesHandler
+from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 from services.gateway.server import DEFAULT_PORT, GatewayHandler, _build_stripe_service
 from services.gateway.teaser import TeaserQuotaManager
-
-from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
 
 def _env_truthy(name: str) -> bool:

@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from protocol.control import CURRENT_PROTOCOL_MINOR, SUPPORTED_PROTOCOL_MAJOR, ControlEnvelope
 from protocol.node_identity import AUTH_METHOD, create_node_auth_proof
 from protocol.node_session import NodeHelloInfo, NodeSessionState, SessionSnapshot

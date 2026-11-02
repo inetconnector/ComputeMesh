@@ -82,9 +82,9 @@ class MeshCircuitBreaker:
             result = func()
             self.record_success()
             return result
-        except Exception as e:
+        except Exception:
             self.record_failure()
-            raise e
+            raise
 
 
 class IdempotencyEnforcer:
@@ -129,12 +129,12 @@ class IdempotencyEnforcer:
         # We are the first to execute this
         try:
             result = func()
-        except Exception as e:
+        except Exception:
             with self._lock:
                 del self._seen_keys[idempotency_key]
                 event = self._in_progress_events.pop(idempotency_key)
                 event.set()
-            raise e
+            raise
 
         with self._lock:
             self._seen_keys[idempotency_key] = (time.time(), result)

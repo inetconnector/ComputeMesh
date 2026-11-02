@@ -84,7 +84,7 @@ def _canonical_digest(value: Any) -> str:
 
 def _parse_time(value: str, label: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except (TypeError, ValueError, AttributeError) as exc:
         raise SharedRunEvidenceError(f"{label} has invalid date-time") from exc
     if parsed.tzinfo is None:

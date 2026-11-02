@@ -140,12 +140,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     supplied_token = value.strip()
                     break
 
-        if supplied_token and (
-            hmac.compare_digest(supplied_token.strip(), _tunnel_relay.NODE_AUTH_TOKEN.strip())
-            or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())
-        ):
-            return True
-        return False
+        return bool(supplied_token and (hmac.compare_digest(supplied_token.strip(), _tunnel_relay.NODE_AUTH_TOKEN.strip()) or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())))
 
     def _send_cors_headers(self) -> None:
         """Allow only the known portal origins to call authenticated APIs."""
@@ -373,7 +368,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
                 return
 
-        if req_path.startswith("/_app/") or req_path.startswith("/workbox-") or req_path in ("/sw.js", "/build.json", "/manifest.webmanifest"):
+        if req_path.startswith(("/_app/", "/workbox-")) or req_path in ("/sw.js", "/build.json", "/manifest.webmanifest"):
             sub_rel = req_path.lstrip("/")
             target_f = _safe_resolve_portal_file(f"webui/{sub_rel}")
             if target_f and target_f.exists():

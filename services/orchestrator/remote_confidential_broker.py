@@ -24,6 +24,7 @@ from urllib import request as urlrequest
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 from runtime.confidential.protected_worker import CONFIDENTIAL_PROVISION_CAPABILITY
 from runtime.confidential.provider_control import CONFIDENTIAL_PROVISION_MESSAGE
@@ -236,8 +237,8 @@ class RemoteConfidentialSessionBroker:
         except InvalidSignature as exc:
             raise RemoteConfidentialBrokerError("private confidential decision signature verification failed") from exc
         try:
-            issued = datetime.fromisoformat(str(value["issued_at"]).replace("Z", "+00:00")).astimezone(UTC)
-            expires = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00")).astimezone(UTC)
+            issued = datetime.fromisoformat(str(value["issued_at"])).astimezone(UTC)
+            expires = datetime.fromisoformat(str(value["expires_at"])).astimezone(UTC)
         except (ValueError, TypeError) as exc:
             raise RemoteConfidentialBrokerError("private confidential decision timestamps are invalid") from exc
         now = datetime.now(UTC)

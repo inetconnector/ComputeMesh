@@ -136,7 +136,7 @@ class RecoveryStateStore(SQLiteStateStore):
             state = JobState(row["state"]) if kind == "job" else ReservationState(row["state"])
             lease = None
             if row["lease_expires_at"] is not None:
-                lease = datetime.fromisoformat(row["lease_expires_at"].replace("Z", "+00:00")).astimezone(UTC)
+                lease = datetime.fromisoformat(row["lease_expires_at"]).astimezone(UTC)
             result.append(StateRecord(row["entity_id"], kind, state, row["revision"], lease))
         return tuple(result)
 
@@ -152,7 +152,7 @@ class RecoveryStateStore(SQLiteStateStore):
         for row in rows:
             lease = None
             if row["lease_expires_at"] is not None:
-                lease = datetime.fromisoformat(row["lease_expires_at"].replace("Z", "+00:00")).astimezone(UTC)
+                lease = datetime.fromisoformat(row["lease_expires_at"]).astimezone(UTC)
             result.append(StateRecord(
                 row["entity_id"], "reservation", ReservationState(row["state"]), row["revision"], lease
             ))

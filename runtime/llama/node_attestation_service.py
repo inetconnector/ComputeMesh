@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
-from protocol.node_identity import key_id_from_public_key
-from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
 
+from protocol.node_identity import key_id_from_public_key
 from runtime.llama.job_attestation import JobAttestationError, _canonical_sha256, _load_private_key
+from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
 
 
 class NodeAttestationServiceError(RuntimeError):

@@ -1,6 +1,6 @@
 """Unit tests for Windows Standalone Executable & Installer Packaging Engine."""
-import tempfile
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 

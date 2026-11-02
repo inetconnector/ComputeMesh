@@ -7,14 +7,13 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from services.portal.server import _safe_resolve_portal_file
-
 from services.gateway.security import (
     SECURITY_HEADERS,
     RateLimiter,
     sanitize_error_message,
     zero_memory_bytes,
 )
+from services.portal.server import _safe_resolve_portal_file
 
 
 class TestGatewaySecurity(unittest.TestCase):

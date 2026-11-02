@@ -4,6 +4,7 @@ from argparse import Namespace
 from pathlib import Path
 
 import pytest
+
 from apps.node.provider_agent_any_gpu import _gpu_promo_runner_from_args
 
 

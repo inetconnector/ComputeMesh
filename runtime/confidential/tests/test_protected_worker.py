@@ -13,13 +13,12 @@ from protocol.confidential_envelope import (
 from protocol.confidential_metering import verify_confidential_usage_receipt
 from protocol.confidential_request_contract import verify_committed_session_attestation_nonce
 from protocol.confidential_stream import decrypt_stream_event
-from services.common.secure_memory import secure_zero_memory
-
 from runtime.confidential.protected_worker import (
     ProtectedWorkerError,
     ProtectedWorkerSessionManager,
 )
 from runtime.confidential.replay_store import SQLiteConfidentialReplayStore
+from services.common.secure_memory import secure_zero_memory
 
 
 class _Issuer:

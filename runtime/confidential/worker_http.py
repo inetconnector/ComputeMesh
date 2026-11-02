@@ -22,7 +22,6 @@ from protocol.confidential_envelope import (
     ConfidentialEnvelope,
     ConfidentialEnvelopeError,
 )
-
 from runtime.confidential.protected_worker import (
     ProtectedWorkerError,
     ProtectedWorkerSessionManager,

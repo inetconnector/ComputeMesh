@@ -136,7 +136,7 @@ def sync_with_coordinator(coordinator_tokens: int, coordinator_earnings_usd: flo
             changed = True
         if c_earn > st.total_earnings_usd:
             st.total_earnings_usd = c_earn
-            st.earnings_cm = int(round(c_earn * 1_000_000))
+            st.earnings_cm = round(c_earn * 1_000_000)
             st.earnings_confirmed = True
             changed = True
     if changed:

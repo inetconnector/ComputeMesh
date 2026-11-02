@@ -12,7 +12,7 @@ from services.appliance_dashboard.model_manager import ModelManagerError, get_mo
 class ModelManagerHandler:
     @staticmethod
     def handles(req_path: str) -> bool:
-        return req_path == "/api/models/manage" or req_path.startswith("/api/models/hf/") or req_path.startswith("/api/models/action/")
+        return req_path == "/api/models/manage" or req_path.startswith(("/api/models/hf/", "/api/models/action/"))
 
     @staticmethod
     def handle_get(handler: Any, req_path: str, query: str = "") -> bool:

@@ -287,12 +287,28 @@ def _worker(raw_code: str, connection: Any) -> None:
             connection.send({"ok": False, "error": error or "Validierung fehlgeschlagen"})
             return
         local_scope: dict[str, Any] = {}
+        safe_globals = {"__builtins__": {}, **SAFE_GLOBALS}
+        expression_value: Any = None
+        for statement in parsed.body:
+            # The validated language has only simple assignments and
+            # expression statements. Never compile a full Python module.
+            if isinstance(statement, ast.Assign):
+                if len(statement.targets) != 1 or not isinstance(statement.targets[0], ast.Name):
+                    raise ValueError("Nur einfache Variablenzuweisungen sind erlaubt")
+                expression = statement.value
+            elif isinstance(statement, ast.Expr):
+                expression = statement.value
+            else:
+                raise ValueError(f"Unzulässige Anweisung: {type(statement).__name__}")
+            expression_ast = ast.fix_missing_locations(ast.Expression(body=expression))
+            compiled = compile(expression_ast, "<calculator>", "eval")
+            expression_value = eval(compiled, safe_globals, local_scope)
+            if isinstance(statement, ast.Assign):
+                local_scope[statement.targets[0].id] = expression_value
+
         if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.Expr):
-            compiled = compile(ast.Expression(body=parsed.body[0].value), "<calculator>", "eval")
-            value = eval(compiled, {"__builtins__": {}, **SAFE_GLOBALS}, local_scope)
+            value = expression_value
         else:
-            compiled = compile(parsed, "<calculator>", "exec")
-            exec(compiled, {"__builtins__": {}, **SAFE_GLOBALS}, local_scope)
             value = local_scope.get("result", local_scope)
         connection.send({"ok": True, "result": _serialize_result(value)})
     except BaseException as exc:

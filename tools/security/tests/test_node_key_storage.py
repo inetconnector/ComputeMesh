@@ -4,9 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import tools.security.node_key_storage as node_key_storage
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from tools.security import node_key_storage
 from tools.security.node_key_storage import (
     _HAS_DPAPI,
     DPAPI_ENVELOPE_PREFIX,

@@ -116,7 +116,7 @@ class InferenceRouter:
         appliance_version: str,
     ) -> bool:
         raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
-        ollama_url = raw_ollama if (raw_ollama.startswith("http://") or raw_ollama.startswith("https://")) else f"http://{raw_ollama}"
+        ollama_url = raw_ollama if (raw_ollama.startswith(("http://", "https://"))) else f"http://{raw_ollama}"
         clean_path = req_path.rstrip("/")
         managed = _managed_runtime_status()
 
@@ -235,7 +235,7 @@ class InferenceRouter:
     ) -> bool:
         clean_path = req_path.rstrip("/")
         raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
-        ollama_url = raw_ollama if (raw_ollama.startswith("http://") or raw_ollama.startswith("https://")) else f"http://{raw_ollama}"
+        ollama_url = raw_ollama if (raw_ollama.startswith(("http://", "https://"))) else f"http://{raw_ollama}"
         managed = _managed_runtime_status()
 
         # 1. Chat completions & Generation with autonomous MCP Tool Execution Loop

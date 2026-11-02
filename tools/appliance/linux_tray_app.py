@@ -690,7 +690,7 @@ class LinuxComputeMeshProviderApp:
                     "inventory": self.inventory.to_dict(),
                     "telemetry": {
                         "tokens_processed": self.total_tokens_served,
-                        "earnings_cm": int(round(self.total_earnings_usd * 1_000_000)),
+                        "earnings_cm": round(self.total_earnings_usd * 1_000_000),
                         "local_compute_tflops": self._calculate_local_tflops(),
                     },
                 }

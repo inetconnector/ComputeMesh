@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from services.compliance.mesh_policy import ExecutionPrivacyClass
-
 from runtime.confidential.execution_gate import (
     ProtectedExecutionEvidence,
     ProtectedExecutionUnavailable,
     evaluate_protected_execution,
     require_protected_execution,
 )
+from services.compliance.mesh_policy import ExecutionPrivacyClass
 
 
 class ProtectedExecutionGateTests(unittest.TestCase):

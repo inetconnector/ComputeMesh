@@ -72,7 +72,7 @@ def fresh_node_telemetry_entries(max_age_seconds: int = 45, *, include_peer_rela
         if not updated_at:
             continue
         try:
-            timestamp = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+            timestamp = datetime.fromisoformat(updated_at)
         except Exception:
             continue
         if (now - timestamp).total_seconds() <= max_age_seconds:

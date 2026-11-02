@@ -31,7 +31,7 @@ def _apply_posix_limits(*, memory_bytes: int, max_runtime_seconds: int, max_proc
     try:
         import resource
 
-        cpu_seconds = max(1, int(math.ceil(float(max_runtime_seconds))))
+        cpu_seconds = max(1, math.ceil(float(max_runtime_seconds)))
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 1))
         resource.setrlimit(resource.RLIMIT_AS, (int(memory_bytes), int(memory_bytes)))
         if hasattr(resource, "RLIMIT_FSIZE"):

@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
 from deploy.appliance.build_real_iso import (
     _copy_matched_boot_files,
     _set_download_permissions,

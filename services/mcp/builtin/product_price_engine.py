@@ -160,7 +160,7 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> list[dict[st
             if "uddg=" in raw_url:
                 parsed = urllib.parse.urlparse(raw_url)
                 qs = urllib.parse.parse_qs(parsed.query)
-                if "uddg" in qs and qs["uddg"]:
+                if qs.get("uddg"):
                     target_url = qs["uddg"][0]
 
             title = clean_html_text(raw_title)

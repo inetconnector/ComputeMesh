@@ -1,6 +1,5 @@
 """Unexpected crypto and network faults must not be silently disguised."""
 
-import socket
 from unittest.mock import patch
 
 import pytest
@@ -25,7 +24,7 @@ def test_crypto_implementation_bug_is_visible() -> None:
 
 def test_ssl_transport_error_stays_failed() -> None:
     with patch.object(
-        network_tools, "resolve_public_host", side_effect=socket.timeout("TLS timeout"),
+        network_tools, "resolve_public_host", side_effect=TimeoutError("TLS timeout"),
     ):
         result = network_tools._check_ssl("example.com")
     assert result["valid"] is False

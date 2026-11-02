@@ -211,8 +211,7 @@ def _runtime_models_from_env() -> list[ModelSpec] | None:
             if not re.fullmatch(r"[0-9a-f]{64}", digest):
                 digest = ""
             size = int(raw.get("size", 0) or 0)
-            if size < 0:
-                size = 0
+            size = max(size, 0)
             lower_id = model_id.lower()
             modalities = ("text", "vision") if any(part in lower_id for part in ("-vl", "vision", "llava")) else ("text",)
             discovered.append(ModelSpec(

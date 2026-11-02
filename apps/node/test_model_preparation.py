@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+
 from apps.node.model_preparation import (
     AllowlistedModelPreparationExecutor,
     ModelPreparationManifestError,

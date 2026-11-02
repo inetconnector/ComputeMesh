@@ -136,9 +136,7 @@ def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
     if (v == "amd" or "1002:" in m) and any(marker in m for marker in ("radeon", "polaris", "navi", "instinct", "mi25", "mi50", "mi100", "mi200", "mi300", "vega 56", "vega 64", "vega 10", "vega 20", "rx 4", "rx 5", "rx 6", "rx 7", "rx 570", "rx 580", "rx 590", "w6800", "w7900")):
         return False
 
-    if "integrated" in m and "graphics" in m:
-        return True
-    return False
+    return bool("integrated" in m and "graphics" in m)
 
 
 def read_pci_resource_vram_bytes(slot: str) -> int:
@@ -161,8 +159,7 @@ def read_pci_resource_vram_bytes(slot: str) -> int:
                 if end > start:
                     size = end - start + 1
                     if (flags & 0x20000 or flags & 0x200) and size >= MIN_PROVIDER_VRAM_BYTES:
-                        if size > max_size:
-                            max_size = size
+                        max_size = max(max_size, size)
         return max_size
     except Exception:
         return 0

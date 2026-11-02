@@ -261,7 +261,7 @@ start "" "%DST%"
         updater_bat.write_text(bat_content, encoding="utf-8")
         clean_env = os.environ.copy()
         for k in list(clean_env.keys()):
-            if k.startswith("_MEI") or k.startswith("_PYI") or k.startswith("PYINSTALLER"):
+            if k.startswith(("_MEI", "_PYI", "PYINSTALLER")):
                 clean_env.pop(k, None)
         subprocess.Popen(["cmd.exe", "/c", str(updater_bat)], creationflags=0x08000000, env=clean_env)
         # sys.exit() only unwinds the calling thread: apply_windows_update()

@@ -152,7 +152,7 @@ class PersistentSkillRegistry:
     ) -> None:
         self.db_path = str(db_path)
         self.allowed_roots = tuple(Path(root).resolve() for root in allowed_roots)
-        self.available_tools = set(str(x) for x in available_tools) if available_tools is not None else None
+        self.available_tools = {str(x) for x in available_tools} if available_tools is not None else None
         self.max_skill_bytes = max(1, int(max_skill_bytes))
         self.signature_verifier = signature_verifier
         if self.db_path != ":memory:":
@@ -378,11 +378,11 @@ class PersistentSkillRegistry:
         data["status"] = SkillStatus(str(row["status"]))
         data["risk_level"] = RiskLevel(str(data.get("risk_level", "LOW")))
         data["side_effect_level"] = SideEffectLevel(str(data.get("side_effect_level", "NONE")))
-        for field_name in {
+        for field_name in (
             "domains", "intents", "triggers", "negative_triggers", "examples", "anti_examples",
             "required_inputs", "optional_inputs", "required_tools", "optional_tools", "forbidden_tools",
             "dependencies", "conflicts_with", "fallback_skills", "validation_rules",
-        }:
+        ):
             data[field_name] = tuple(data.get(field_name) or ())
         return SkillManifest(**data)
 
@@ -410,7 +410,7 @@ class PersistentSkillRegistry:
         manifests = [self._row_to_manifest(row) for row in rows]
         if not include_inactive:
             manifests = [m for m in manifests if m.status in {SkillStatus.ACTIVE, SkillStatus.EXPERIMENTAL}]
-        return sorted(manifests, key=lambda m: self._version_key(m.version), reverse=True)[0] if manifests else None
+        return max(manifests, key=lambda m: self._version_key(m.version)) if manifests else None
 
     def list(self, *, statuses: Sequence[SkillStatus | str] | None = None) -> list[SkillManifest]:
         with self._lock:

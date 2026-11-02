@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
+
 from services.scheduler.architecture_hardening_part6 import (
     ComponentBoundaryEnforcer,
     ExecutionPathOptimizer,
@@ -78,7 +79,7 @@ def _validate(value: dict[str, Any], schema_path: Path, label: str) -> None:
 
 def _timestamp(value: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise PlacementInputError("invalid RFC3339 timestamp") from exc
     if parsed.tzinfo is None:
@@ -104,10 +105,7 @@ def _selected_memory(profile: dict[str, Any], policy: PlannerPolicy) -> dict[str
         if device["kind"] in {"gpu", "accelerator"} and int(device["memory_total_bytes"]) > 0
     ]
     if accelerators:
-        selected = sorted(
-            accelerators,
-            key=lambda device: (-int(device["memory_total_bytes"]), device["device_id"]),
-        )[0]
+        selected = min(accelerators, key=lambda device: (-int(device["memory_total_bytes"]), device["device_id"]))
         device_id = selected["device_id"]
         kind = selected["kind"]
         name = selected["name"]
@@ -378,9 +376,11 @@ def build_placement_decision(
     network_peer_node_id: str | None = None,
     layer_count: int | None = None,
     artifact_digest: str | None = None,
-    policy: PlannerPolicy = PlannerPolicy(),
+    policy: PlannerPolicy | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    if policy is None:
+        policy = PlannerPolicy()
     # -- Architecture Hardening Part 6 Invariants --
     os_neutral_enforcer = OSNeutralProtocolEnforcer()
     os_neutral_enforcer.validate_contract(model_manifest)

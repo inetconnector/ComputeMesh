@@ -269,7 +269,7 @@ def get_market_quote(
         clean_sym = COMPANY_TICKER_MAPPINGS[raw_sym.strip().upper()]
 
     # Check if query is a crypto symbol
-    if clean_sym in CRYPTO_MAPPINGS or clean_sym.endswith("-USD") or clean_sym.endswith("USDT"):
+    if clean_sym in CRYPTO_MAPPINGS or clean_sym.endswith(("-USD", "USDT")):
         crypto_id = CRYPTO_MAPPINGS.get(clean_sym) or clean_sym.lower().split("-")[0]
         crypto_res = fetch_coingecko_quote(crypto_id, timeout=timeout)
         if crypto_res:
