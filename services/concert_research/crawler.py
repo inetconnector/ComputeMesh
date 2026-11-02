@@ -76,8 +76,15 @@ class SafeFetcher:
                 validate_public_http_url(resp.geturl())
                 raw = resp.read(512*1024).decode("utf-8","replace")
             rp.parse(raw.splitlines())
-        except Exception:
-            rp.parse([])
+        except error.HTTPError as exc:
+            # A 404/410 confirms no robots.txt exists. HTTP 401/403,
+            # throttling, or server errors must not authorize a crawl.
+            if exc.code in (404, 410):
+                rp.parse([])
+            else:
+                raise PermissionError("cannot verify robots.txt crawl permission") from exc
+        except (error.URLError, OSError, ValueError, UnicodeError) as exc:
+            raise PermissionError("cannot verify robots.txt crawl permission") from exc
         with self._robots_lock:
             self._robots[base] = rp
         return rp
