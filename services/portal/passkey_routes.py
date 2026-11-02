@@ -70,10 +70,19 @@ def _resolve_store_path() -> Path:
 
 
 def _build_store() -> FleetAccountStore:
+    """Never silently replace the authoritative fleet-ban database.
+
+    A fallback database would appear to have no banned accounts and allow
+    suspended providers to authenticate. Operators must repair the configured
+    persistent store rather than start a new empty registry.
+    """
+    configured = _resolve_store_path()
     try:
-        return FleetAccountStore(_resolve_store_path())
-    except (OSError, RuntimeError):
-        return FleetAccountStore(Path("/tmp/computemesh_fleet_accounts.db"))
+        return FleetAccountStore(configured)
+    except (OSError, sqlite3.Error, RuntimeError) as exc:
+        raise FleetAccountStoreError(
+            "authoritative fleet account database is unavailable"
+        ) from exc
 
 
 FLEET_ACCOUNT_STORE = _build_store()
