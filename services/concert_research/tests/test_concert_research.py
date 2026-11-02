@@ -84,7 +84,8 @@ class ConcertResearchTests(unittest.TestCase):
 
     def test_ssrf_blocks_private_targets(self):
         for target in ("http://127.0.0.1/","http://10.0.0.1/","http://169.254.169.254/latest/meta-data","file:///etc/passwd"):
-            with self.assertRaises(ValueError,msg=target): validate_public_http_url(target,resolve_dns=False)
+            with self.assertRaises(ValueError,msg=target):
+                validate_public_http_url(target,resolve_dns=False)
 
     def test_url_normalization_removes_trackers(self):
         self.assertEqual(normalize_url("https://Example.com/events/?utm_source=x&b=2&a=1#frag"),"https://example.com/events/?a=1&b=2")
@@ -93,7 +94,8 @@ class ConcertResearchTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         for path in root.glob("*.py"):
             text=path.read_text(encoding="utf-8").lower()
-            for forbidden in ("anthropic","gemini","perplexity"): self.assertNotIn(forbidden,text,f"{forbidden} found in {path.name}")
+            for forbidden in ("anthropic","gemini","perplexity"):
+                self.assertNotIn(forbidden,text,f"{forbidden} found in {path.name}")
 
     def test_query_stats_learn_from_yield(self):
         self.store.record_query_stats("Würzburg Punk Konzert","genre",results=10,new_domains=2,new_events=3)
@@ -386,6 +388,7 @@ class ConcertResearchTests(unittest.TestCase):
         self.assertNotIn("Indie Rock Night Live", party_titles)
 
 
-if __name__=="__main__": unittest.main()
+if __name__=="__main__":
+    unittest.main()
 
 
