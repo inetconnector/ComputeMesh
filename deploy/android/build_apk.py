@@ -25,6 +25,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from config import CONFIG
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ANDROID_ROOT = REPO_ROOT / "apps" / "android"
 APP_GRADLE = ANDROID_ROOT / "app" / "build.gradle.kts"
@@ -58,7 +60,15 @@ def _read_version() -> tuple[str, int]:
     code_match = re.search(r"versionCode\s*=\s*(\d+)", text)
     if not name_match or not code_match:
         raise RuntimeError("Could not read Android versionName/versionCode")
-    return name_match.group(1), int(code_match.group(1))
+    version_name, version_code = name_match.group(1), int(code_match.group(1))
+    if version_name != CONFIG.appliance_version:
+        raise RuntimeError(
+            f"Android version {version_name} does not match ComputeMesh "
+            f"release version {CONFIG.appliance_version}"
+        )
+    if version_code < 1:
+        raise RuntimeError("Android versionCode must be positive")
+    return version_name, version_code
 
 
 def _verify_signing_environment() -> None:
@@ -159,6 +169,8 @@ def verify_production_signatures(apk: Path, aab: Path) -> str:
 
 
 def build_release() -> tuple[Path, Path, Path]:
+    # Reject stale Android package versions before Gradle or publication.
+    version_name, version_code = _read_version()
     _verify_signing_environment()
     wrapper = _gradle_wrapper()
     log.info("Building Android APK and AAB with Gradle wrapper")
@@ -184,7 +196,6 @@ def build_release() -> tuple[Path, Path, Path]:
     shutil.copy2(built_apk, target_apk)
     shutil.copy2(built_aab, target_aab)
 
-    version_name, version_code = _read_version()
     metadata = {
         "app_name": "ComputeMesh",
         "package_name": "com.inetconnector.compumesh",
