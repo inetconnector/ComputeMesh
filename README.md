@@ -3,17 +3,20 @@
 ## Current release-gate status (2026-11-02)
 
 This checkout contains the public PR-139 candidate at commit
-`093cf6e6851216b9e90e286da1415222d2e5a870`. The existing v1.2.189 manifest
-signature is independently Ed25519-valid under the trusted release public key,
-and the focused release/security tests pass. The candidate is nevertheless not
-a release: the complete current artifact inventory, Android certificate and
-physical-device evidence, independent protected-runner receipt, and operator
-approval are still missing. The MCP parity tests now match the deliberately
-disabled fail-closed Python executor, and the Linux setup test harness
-translates Windows worktree paths through the installed Ubuntu WSL
-distribution. The exact full public suite is green at `2076 passed, 20
-skipped, 69 subtests`; full Ruff remains blocking with `4372` findings (`226`
-on the PR diff). **RELEASE_NO_GO** remains authoritative.
+`9fbd5246d4998889ec0573f3cf638f106a4f3b28`. The existing v1.2.189 manifest
+signature remains independently Ed25519-valid under the trusted release public
+key. The exact public suite is green at `2076 passed, 20 skipped, 69
+subtests` (latest run 287.15 s), and the candidate has passed Android debug
+JUnit (`4`), Gradle compilation and debug Lint (`0` issues). The release
+candidate is nevertheless not a release: full Ruff is now `1488` findings
+(initially `4372`, initially `226` in PR diff; the current changed-file view
+contains `1435` inherited findings), production Android signing is not
+configured, NodeOS artifacts cannot be rebuilt on this Windows host, current
+artifacts are not source-bound to this head, the DiskStation UNC is currently
+unreachable, and protected TrustedBridge/physical/operator evidence is absent.
+The production `assembleRelease` attempt failed closed because the four
+`CM_ANDROID_*` signing variables were not configured. **RELEASE_NO_GO** remains
+authoritative.
 
 ## Current local P0 integration candidate (2026-10-26)
 

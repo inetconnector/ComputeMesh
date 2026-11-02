@@ -4814,3 +4814,81 @@ but the repository is not release-ready while full Ruff, protected source-bound
 receipts, complete artifacts, Android identity/device, physical WAN/hardware
 and operator approval remain open.
 
+## 2026-11-02 — PR-139 quality and release-gate continuation
+
+The existing PR-139 branch was advanced in place through exact commit
+`9fbd5246d4998889ec0573f3cf638f106a4f3b28`; no competing PR, merge, tag or
+release was created. The candidate worktree is clean and detached at that
+commit. The private canonical repository remains dirty and was not modified.
+
+Quality batches were committed and pushed separately: `6d771d9` cleared the
+selected safe historic Ruff batch (4,146 to 2,700 findings), `eabf549` removed
+historic unused imports with public re-export contracts preserved, `9820aad`
+annotated mutable class contracts with `ClassVar`, `d9ee62f` applied safe
+control-flow/import simplifications, `817dd64` applied targeted `Self`,
+`capture_output` and compatibility-reexport fixes, `aea3afb` repaired twelve
+real `F821` undefined-name defects, and `9fbd524` applied targeted data and
+subprocess cleanups. The PR-diff Ruff inventory was initially captured as
+`4372` total / `226` PR-diff findings. The latest full machine-readable
+inventory is `C:\Users\frede\AppData\Local\Temp\computemesh-ruff-all-after-f541-c408-perf102.json`
+with `1488` findings; the current `origin/main...HEAD` changed-file view has
+`1435` findings because the historical cleanup touched many files. Dominant
+remaining rules are `BLE001=699`, `S110=293`, `RUF059=65`, `PIE790=48`,
+`SIM117=45`, `TRY004=44`, `PLW1510=36`, `F841=32`, `SIM102=30` and
+`FURB162=26`. Unsafe fixes were not applied repository-wide. Eight
+`SIM118` cases retain local, justified exceptions because `sqlite3.Row`
+membership checks values rather than column names.
+
+The latest complete public regression on the exact head passed:
+`python -m pytest -q --import-mode=prepend` = `2076 passed, 20 skipped, 69
+subtests passed` in `287.15s`; compileall over
+`services tools apps protocol deploy tests setup` and `git diff --check` also
+passed. Targeted regressions included `80 passed` for Android-adjacent
+backend/identity/concert/MCP changes, `75 passed, 10 subtests` for identity,
+URL-security and audit fixes, and `88 passed, 1 skipped, 2 subtests` for
+protocol/gateway/scheduler/placement changes.
+
+Android evidence is real but non-production: `apps/android/gradlew.bat
+:app:testDebugUnitTest :app:lintDebug --no-daemon` completed successfully;
+the JUnit XML reports `4 tests, 0 failures, 0 errors, 0 skipped`, and debug
+Lint reports `0` issues. The production `:app:assembleRelease` build reached
+CMake, R8 and LintVital but failed closed at packaging because
+`CM_ANDROID_KEYSTORE_PATH`, `CM_ANDROID_KEYSTORE_PASSWORD`,
+`CM_ANDROID_KEY_ALIAS` and `CM_ANDROID_KEY_PASSWORD` were absent. It produced
+only an unsigned intermediate APK. The current ComputeMesh APK in the old
+`portal_inetconnector` tree is debug-signed with certificate SHA-256
+`cd90e375a2c69f09e39c9f31e09e69ed1f6fd16513ca1843fd7f3caa4e81b2cc`; it is
+not a production certificate. Existing archived documentation records the
+authorized historical production certificate fingerprint
+`649a7ec870a7d18e5af0af12f0ac63b27f15db864e28feca9da5fcf94ab8ec0f`, but the
+corresponding DiskStation signing setup was not available to this run. No
+replacement signing key or certificate was generated.
+
+The current v1.2.189 manifest still lists five entries: Windows, Linux,
+NodeOS ISO, NodeOS IMG.XZ and `install.sh`. The old public `ComputeMesh`
+submodule under the private checkout contains byte-for-byte matches for all
+five manifest hashes, but those artifacts are not proven to be built from
+`9fbd524`; they were not promoted or signed. A fresh Windows PyInstaller build
+from this candidate produced an unsigned local `dist/ComputeMesh-Setup-x64.exe`
+of `110664970` bytes, SHA-256
+`6d20eb573b5a5e7b0dc8695ece6e1928f3d8972c195072aa6cc56cbf75c1243a`. The
+current Linux tarball build produced `7328841` bytes, SHA-256
+`3ac263183484702be0c18ff027045a95001be3a8fed28dc599f33854f429d88f`. The
+NodeOS ISO/IMG pair could not be rebuilt because this Windows host lacks the
+required Linux `debootstrap`/`xorriso` environment. The five-entry manifest
+also omits the verifier's mandatory NodeOS runtime and Android APK/AAB/JSON
+entries; no manifest rewrite or signature was attempted.
+
+The mapped DiskStation path is currently not reachable as
+`\\diskstation\Dani\ComputeMesh`; the only available `Y:` mount is a backup
+share whose `mifcom-s` tree contains VM backup files, not directly verifiable
+release artifacts or the release-key directory. No private key was copied,
+read into the worktree, logged or exposed. No final manifest was signed, and
+the existing signature was not reused for newly built artifacts.
+
+Release gates remain open: current full Ruff, source-bound complete artifact
+set, production Android signing/certificate verification, NodeOS build,
+independent protected TrustedBridge receipt for this immutable head, physical
+QR/device/WAN/BFT acceptance, staging/rollback and operator approval. The
+state is explicitly **RELEASE_NO_GO**.
+
