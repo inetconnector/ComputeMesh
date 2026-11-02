@@ -71,7 +71,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
         raw = res.read().decode("utf-8")
         try:
             payload = json.loads(raw)
-        except Exception:
+        except (ValueError, TypeError):
             payload = raw
         conn.close()
         return res.status, payload
@@ -87,7 +87,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
         raw = res.read().decode("utf-8")
         try:
             payload = json.loads(raw)
-        except Exception:
+        except (ValueError, TypeError):
             payload = raw
         conn.close()
         return res.status, payload

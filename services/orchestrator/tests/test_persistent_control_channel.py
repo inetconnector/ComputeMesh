@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from services.orchestrator.persistent_control_channel import (
     ChannelClosed,
+    PersistentControlChannelError,
     PersistentNodeConnection,
     PersistentNodeControlClient,
     ProviderPersistentClient,
@@ -67,7 +68,7 @@ class PersistentControlChannelTests(unittest.TestCase):
                     timeout_seconds=2,
                     request_id="req-cancel",
                 )
-            except BaseException as exc:
+            except (PersistentControlChannelError, OSError, ValueError, TypeError, RuntimeError) as exc:
                 result.append(exc)
 
         request_thread = threading.Thread(target=request)

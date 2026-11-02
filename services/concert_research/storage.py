@@ -5,7 +5,7 @@ import json
 import logging
 import sqlite3
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import UTC, datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -690,10 +690,8 @@ class ConcertStore:
                 if r["genre"]:
                     ev_genres.update(g.strip().lower() for g in r["genre"].split(","))
                 if r["genres_json"]:
-                    try:
+                    with suppress(ValueError, TypeError):
                         ev_genres.update(g.strip().lower() for g in json.loads(r["genres_json"]))
-                    except Exception:
-                        pass
                 if ev_genres & target_genres:
                     filtered.append(r)
             return filtered[:max_events]

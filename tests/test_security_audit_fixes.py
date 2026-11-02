@@ -15,6 +15,7 @@ Verifies remediation of critical and high-priority vulnerabilities:
 12. Pre-inference balance reservation preventing unpaid compute execution.
 13. Dynamic API key revocation without process restart.
 """
+import contextlib
 import http.client
 import json
 import socket
@@ -40,7 +41,7 @@ from runtime.network.mesh_transport import (
     generate_node_tls_credentials,
 )
 from services.appliance_dashboard.server import DashboardHandler
-from services.billing.ledger import InsufficientBalanceError, Ledger
+from services.billing.ledger import BillingError, InsufficientBalanceError, Ledger
 from services.common.node_access import issue_node_session, node_session_cookie
 from services.common.pricing import (
     MICRO_UNITS_PER_USD,
@@ -153,23 +154,20 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
         def echo_worker():
             try:
-                echo_sock.settimeout(4.0)
-                while True:
-                    try:
-                        conn, _ = echo_sock.accept()
-                        data = conn.recv(1024)
-                        if data:
-                            conn.sendall(b"ECHO:" + data)
-                        conn.close()
-                    except (TimeoutError, OSError):
-                        break
-            except Exception:
-                pass
+                with contextlib.suppress(OSError):
+                    echo_sock.settimeout(4.0)
+                    while True:
+                        try:
+                            conn, _ = echo_sock.accept()
+                            data = conn.recv(1024)
+                            if data:
+                                conn.sendall(b"ECHO:" + data)
+                            conn.close()
+                        except (TimeoutError, OSError):
+                            break
             finally:
-                try:
+                with contextlib.suppress(OSError):
                     echo_sock.close()
-                except Exception:
-                    pass
 
         threading.Thread(target=echo_worker, daemon=True).start()
 
@@ -657,7 +655,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
                     prompt_tokens=100,
                     completion_tokens=100,
                 )
-            except Exception as e:
+            except (BillingError, OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
                 errors.append(e)
 
         threads = [threading.Thread(target=worker, args=(i,)) for i in range(20)]

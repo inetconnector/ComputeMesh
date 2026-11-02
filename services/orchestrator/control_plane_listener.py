@@ -1,6 +1,7 @@
 """TLS listener for persistent provider control channels."""
 from __future__ import annotations
 
+import contextlib
 import socket
 import ssl
 import threading
@@ -100,20 +101,19 @@ class PersistentControlPlaneListener:
         wrapped: ssl.SSLSocket | None = None
         transferred = False
         try:
-            wrapped = self._context.wrap_socket(raw, server_side=True)
-            accepted = accept_authenticated_provider(
-                sock=wrapped,
-                verifier=self.verifier,
-                benchmark_policy=self.benchmark_policy,
-                control_client=self.client,
-                control_plane_id=self.control_plane_id,
-                control_plane_capabilities=self.capabilities,
-            )
-            transferred = True
-            if self.on_session is not None:
-                self.on_session(accepted)
-        except Exception:
-            pass
+            with contextlib.suppress(OSError, ssl.SSLError, ValueError, TypeError, KeyError, RuntimeError):
+                wrapped = self._context.wrap_socket(raw, server_side=True)
+                accepted = accept_authenticated_provider(
+                    sock=wrapped,
+                    verifier=self.verifier,
+                    benchmark_policy=self.benchmark_policy,
+                    control_client=self.client,
+                    control_plane_id=self.control_plane_id,
+                    control_plane_capabilities=self.capabilities,
+                )
+                transferred = True
+                if self.on_session is not None:
+                    self.on_session(accepted)
         finally:
             if not transferred:
                 try:

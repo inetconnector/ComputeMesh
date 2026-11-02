@@ -34,7 +34,11 @@ from apps.node.model_preparation import (
     AllowlistedModelPreparationExecutor,
     ModelPreparationManifestError,
 )
-from protocol.control import CURRENT_PROTOCOL_MINOR, SUPPORTED_PROTOCOL_MAJOR, ControlEnvelope
+from protocol.control import (
+    CURRENT_PROTOCOL_MINOR,
+    SUPPORTED_PROTOCOL_MAJOR,
+    ControlEnvelope,
+)
 from protocol.node_identity import (
     AUTH_METHOD,
     create_node_auth_proof,
@@ -243,7 +247,7 @@ def _local_model_engine_readiness() -> dict[str, Any]:
         from services.appliance_dashboard.model_manager import get_model_manager
 
         raw = get_model_manager().status().get("engine", {})
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError):
         return {
             "inference_state": "INFERENCE_NOT_READY",
             "runtime_verified": False,

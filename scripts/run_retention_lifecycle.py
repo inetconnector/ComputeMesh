@@ -16,13 +16,17 @@ import argparse
 import json
 import logging
 import os
+import sqlite3
 import sys
 from datetime import UTC, datetime
 
 # Ensure project root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from services.compliance.provider_identity_store import ProviderIdentityStore
+from services.compliance.provider_identity_store import (
+    ProviderIdentityStore,
+    ProviderIdentityStoreError,
+)
 from services.compliance.retention_policy import RetentionEngine
 
 
@@ -81,7 +85,7 @@ def run_retention_lifecycle(
         else:
             purge_stats = store.apply_retention_lifecycle(now=effective_now)
             report["results"] = purge_stats
-    except Exception as e:
+    except (ProviderIdentityStoreError, sqlite3.Error, OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
         report["status"] = "error"
         report["error"] = str(e)
 

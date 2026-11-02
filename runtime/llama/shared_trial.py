@@ -11,6 +11,7 @@ It remains trusted-private-lab tooling. It does not authenticate upstream RPC.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import math
 import queue
@@ -426,10 +427,8 @@ def _relay_reader(stream: Any, ready: queue.Queue[str], diagnostics: deque[str])
                 except queue.Full:
                     pass
     finally:
-        try:
+        with contextlib.suppress(OSError, ValueError, RuntimeError):
             stream.close()
-        except Exception:
-            pass
 
 
 def start_measurement_relay(
@@ -663,10 +662,8 @@ def run_shared_trial(
     except Exception as exc:
         if relay is not None:
             stop_relay(relay)
-        try:
+        with contextlib.suppress(OSError, ValueError, TypeError, RuntimeError):
             _write_failure(output_dir, phase, exc)
-        except Exception:
-            pass
         raise
 
 
@@ -708,7 +705,7 @@ def main(argv: list[str] | None = None) -> int:
             startup_timeout=args.startup_timeout,
             request_timeout=args.request_timeout,
         )
-    except Exception as exc:
+    except (SharedTrialError, OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError) as exc:
         print(f"shared trial failed: {type(exc).__name__}: {str(exc)[:MAX_FAILURE_MESSAGE]}", file=sys.stderr)
         return 2
     print(proof)

@@ -288,9 +288,9 @@ class WorkerHAClusterManager:
                         )
                         reassigned_count += 1
                         logger.info(f"Reassigned orphaned turn {turn.turn_id} from {e_w_id} to HA cluster primary {status.active_primary_id}")
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
                         logger.error(f"Failed to reassign turn {turn.turn_id}: {e}")
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
             logger.error(f"Error scanning orphaned turns for {e_w_id}: {exc}")
 
         return reassigned_count

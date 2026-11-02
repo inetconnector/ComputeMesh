@@ -7,6 +7,7 @@ across distributed coordinator and worker nodes.
 """
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import logging
 import socket
@@ -180,7 +181,7 @@ class WebRTCP2PPeer:
         if self._state_callback:
             try:
                 self._state_callback(new_state)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
                 logger.error(f"Error in state callback: {e}")
 
     def attach_socket(self, sock: socket.socket) -> None:
@@ -220,12 +221,10 @@ class WebRTCP2PPeer:
             self._running = False
             self._set_state(WebRTCP2PState.CLOSED)
             if self._sock:
-                try:
+                with contextlib.suppress(OSError, ValueError, struct.error, RuntimeError):
                     close_frame = pack_frame(WebRTCFrameType.CLOSE, 0, b"")
                     self._sock.sendall(close_frame)
                     self._sock.close()
-                except Exception:
-                    pass
                 self._sock = None
 
     def _rx_loop(self) -> None:
@@ -261,7 +260,7 @@ class WebRTCP2PPeer:
 
                     self._handle_frame(ftype, seq, payload)
 
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, struct.error, zlib.error, RuntimeError) as exc:
                 logger.debug(f"WebRTC rx loop error: {exc}")
                 break
 
@@ -277,7 +276,7 @@ class WebRTCP2PPeer:
             if self._data_callback:
                 try:
                     self._data_callback(payload)
-                except Exception as e:
+                except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
                     logger.error(f"Data callback error: {e}")
 
         elif ftype == WebRTCFrameType.HEARTBEAT_PING:
@@ -327,7 +326,7 @@ class WebRTCP2PPeer:
                 try:
                     with self._lock:
                         self._send_raw(ping_frame)
-                except Exception:
+                except (OSError, ValueError, TypeError, struct.error, RuntimeError):
                     with self._lock:
                         self._set_state(WebRTCP2PState.FAILED)
 
@@ -382,7 +381,7 @@ class ResilientMeshFabricManager:
         for listener in listeners:
             try:
                 listener(sender_node_id, data)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
                 logger.error(f"Error in mesh data listener: {e}")
 
     def _on_p2p_state_change(self, remote_node_id: str, state: WebRTCP2PState) -> None:

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from urllib import parse, request
+from urllib import error, parse, request
 
 logger = logging.getLogger("concert_geocoding")
 
@@ -1355,7 +1355,7 @@ def geocode_city(
                     lat = float(first_res["latitude"])
                     lon = float(first_res["longitude"])
                     return (lat, lon)
-    except Exception as exc:
+    except (error.URLError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
         logger.debug("Open-Meteo geocoding fallback failed for %r: %s", city, exc)
 
     # 2. Optional remote OSM Nominatim fallback
@@ -1370,7 +1370,7 @@ def geocode_city(
                     lat = float(data[0]["lat"])
                     lon = float(data[0]["lon"])
                     return (lat, lon)
-    except Exception as exc:
+    except (error.URLError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
         logger.debug("Nominatim geocoding failed for %r: %s", city, exc)
 
     return (None, None)

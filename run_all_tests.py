@@ -212,7 +212,7 @@ def run_test_suite() -> int:
         for mod in modules:
             try:
                 suite.addTests(loader.loadTestsFromName(mod))
-            except Exception as exc:
+            except (ImportError, AttributeError, TypeError, ValueError, OSError, SyntaxError, RuntimeError) as exc:
                 print(f"  [ERROR] Failed to load test module {mod}: {exc}")
                 all_successful = False
         cat_start = time.perf_counter()

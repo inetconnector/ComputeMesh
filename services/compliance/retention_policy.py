@@ -58,7 +58,7 @@ class RetentionRule:
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
             return (current_time - dt) > timedelta(days=self.duration_days)
-        except Exception:
+        except (ValueError, TypeError, OverflowError, AttributeError):
             return False
 
 

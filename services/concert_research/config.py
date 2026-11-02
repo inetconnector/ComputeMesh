@@ -10,7 +10,7 @@ def resolve_timezone(tz_name: str = "Europe/Berlin"):
     try:
         from zoneinfo import ZoneInfo
         return ZoneInfo(tz_name)
-    except Exception:
+    except (ImportError, KeyError, ValueError, TypeError, OSError):
         local_tz = datetime.now().astimezone().tzinfo
         return local_tz if local_tz is not None else UTC
 

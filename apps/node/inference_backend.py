@@ -1,6 +1,7 @@
 """Bounded loopback adapter from the provider agent to the local NodeOS runtime."""
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
 from collections.abc import Callable, Iterator, Mapping
@@ -66,11 +67,9 @@ class LocalOpenAIInferenceBackend:
                     except OSError:
                         pass
                 if on_cancel is not None:
-                    try:
+                    # Cancellation must still propagate when a deployment hook fails.
+                    with contextlib.suppress(OSError, ValueError, TypeError, RuntimeError):
                         on_cancel()
-                    except Exception:
-                        # Cancellation must still propagate when a deployment hook fails.
-                        pass
                 return
 
         thread = threading.Thread(target=watch, name="ComputeMesh-local-inference-cancel", daemon=True)

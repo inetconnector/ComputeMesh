@@ -1,6 +1,7 @@
 """Direct orchestrated two-node llama.cpp request with signed settlement evidence."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import secrets
@@ -216,24 +217,20 @@ class SharedRequestOrchestratedBackend:
                 )
                 acquired.append((node_id, lease_id))
             return acquired
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError):
             for node_id, lease_id in acquired:
-                try:
+                with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
                     self.capacity_transport.release_capacity(node_id=node_id, job_id=job_id, lease_id=lease_id)
-                except Exception:
-                    pass
             raise SharedRequestSettlementError("provider-side capacity reservation failed")
 
     def _release_provider_capacity(self, job_id: str, reservations: list[tuple[str, str]]) -> None:
         if self.capacity_transport is None:
             return
         for node_id, lease_id in reservations:
-            try:
+            # The private lease/evidence path still records the failure; a
+            # provider TTL prevents a lost release from lasting forever.
+            with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
                 self.capacity_transport.release_capacity(node_id=node_id, job_id=job_id, lease_id=lease_id)
-            except Exception:
-                # The private lease/evidence path still records the failure; a
-                # provider TTL prevents a lost release from lasting forever.
-                pass
 
     def _activate(self, job_id: str, ids: list[str]) -> None:
         for index, reservation_id in enumerate(ids):
@@ -264,7 +261,7 @@ class SharedRequestOrchestratedBackend:
                 )
 
     def _terminal(self, job_id: str, target: JobState, fingerprint: str) -> None:
-        try:
+        with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
             current = self.store.get_job(job_id)
             if current.state not in {JobState.FAILED, JobState.CANCELLED, JobState.COMPLETED, JobState.SETTLED}:
                 self.store.transition_job(
@@ -274,8 +271,6 @@ class SharedRequestOrchestratedBackend:
                     target=target,
                     request_fingerprint=fingerprint,
                 )
-        except Exception:
-            pass
 
     def _fail(self, job_id: str, exc: Exception) -> None:
         self._terminal(job_id, JobState.FAILED, f"shared-request-failure:{type(exc).__name__}")
@@ -406,10 +401,8 @@ class SharedRequestOrchestratedBackend:
                 self._release(job_id, reservations)
                 self._release_provider_capacity(job_id, provider_reservations)
                 if lease_id:
-                    try:
+                    with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
                         self.capacity_lease_manager.release_lease(lease_id)
-                    except Exception:
-                        pass
 
         result_dict = self.idempotent_enforcer.execute_command(command, execute_job)
         return BackendResult(

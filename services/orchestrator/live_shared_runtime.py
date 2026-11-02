@@ -172,7 +172,7 @@ class LiveSharedRuntimeRegistry:
             return False
         try:
             return bool(probe(node_id))
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError):
             return False
 
     @staticmethod

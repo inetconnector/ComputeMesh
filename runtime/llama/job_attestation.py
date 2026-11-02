@@ -19,7 +19,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from jsonschema import Draft202012Validator, FormatChecker
 
 from protocol.node_identity import key_id_from_public_key
-from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
+from services.gateway.execution_attestation import (
+    AttestationClaims,
+    create_execution_attestation,
+)
 from tools.security.node_key_storage import load_node_private_key
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -219,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
                 attestation_paths=args.attestation,
                 output_path=args.output,
             )
-    except Exception as exc:
+    except (JobAttestationError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
         print(f"job attestation failed: {type(exc).__name__}: {str(exc)[:1024]}")
         return 2
     print(result)

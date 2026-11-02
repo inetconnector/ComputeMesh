@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import gzip
 import io
 import json
@@ -141,11 +142,9 @@ class SearchDiscovery:
         if self.config.duckduckgo_enabled:
             providers.append(("ddg",f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"))
         random.shuffle(providers)
-        for name,url in providers:
-            try:
+        for _name, url in providers:
+            with contextlib.suppress(error.URLError, OSError, ValueError, TypeError, RuntimeError):
                 urls.extend(self._html_search(url))
-            except Exception:
-                continue
             if len(urls) >= max_results:
                 break
         out: list[str] = []
@@ -174,7 +173,7 @@ class SearchDiscovery:
         try:
             with request.urlopen(req,timeout=self.config.request_timeout_seconds) as resp:
                 data = json.load(resp)
-        except Exception:
+        except (error.URLError, OSError, ValueError, TypeError, KeyError):
             return []
         return [str(x.get("url")) for x in data.get("results",[]) if isinstance(x,dict) and x.get("url")][:max_results]
 
@@ -323,7 +322,7 @@ class ConcertCrawler:
                     stats['blocked'] += 1
                     self.store.mark_frontier(row['url'],'blocked')
                     continue
-                except Exception:
+                except (error.URLError, OSError, ValueError, TypeError, KeyError, ET.ParseError, RuntimeError):
                     stats['failed'] += 1
                     if row['source_id']:
                         self.store.record_source_failure(int(row['source_id']))

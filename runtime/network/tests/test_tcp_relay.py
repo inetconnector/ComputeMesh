@@ -9,7 +9,12 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from runtime.network.tcp_relay import PrivateEndpoint, RelayConfig, run_relay, run_relay_once
+from runtime.network.tcp_relay import (
+    PrivateEndpoint,
+    RelayConfig,
+    run_relay,
+    run_relay_once,
+)
 
 
 def start_multi_echo_server(stop_event: threading.Event | None = None):
@@ -44,7 +49,7 @@ def start_multi_echo_server(stop_event: threading.Event | None = None):
                                     return
 
                     threading.Thread(target=handle, args=(conn,), daemon=True).start()
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:
             errors.append(exc)
 
     thread = threading.Thread(target=serve, daemon=True)
@@ -73,7 +78,7 @@ def start_echo_server():
                             conn.sendall(data)
                         except OSError:
                             return
-        except Exception as exc:  # pragma: no cover - diagnostic path
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:  # pragma: no cover - diagnostic path
             errors.append(exc)
 
     thread = threading.Thread(target=serve, daemon=True)
@@ -102,7 +107,7 @@ def start_sink_server():
                             return
                         if not data:
                             return
-        except Exception as exc:  # pragma: no cover - diagnostic path
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:  # pragma: no cover - diagnostic path
             errors.append(exc)
 
     thread = threading.Thread(target=serve, daemon=True)
@@ -169,7 +174,7 @@ class TcpRelayTests(unittest.TestCase):
                         on_ready=lambda endpoint: ready.put(endpoint),
                         metrics_path=metrics_path,
                     )
-                except Exception as exc:  # pragma: no cover - diagnostic path
+                except (OSError, ValueError, TypeError, RuntimeError) as exc:  # pragma: no cover - diagnostic path
                     errors.append(exc)
 
             relay_thread = threading.Thread(target=run, daemon=True)
@@ -463,7 +468,7 @@ class TcpRelayTests(unittest.TestCase):
                         on_ready=lambda endpoint: ready.put(endpoint),
                         metrics_path=metrics_path,
                     )
-                except Exception as exc:
+                except (OSError, ValueError, TypeError, RuntimeError) as exc:
                     errors.append(exc)
 
             relay_thread = threading.Thread(target=run, daemon=True)
@@ -541,7 +546,7 @@ class TcpRelayTests(unittest.TestCase):
                         on_ready=lambda endpoint: ready.put(endpoint),
                         metrics_path=metrics_path,
                     )
-                except Exception as exc:
+                except (OSError, ValueError, TypeError, RuntimeError) as exc:
                     errors.append(exc)
 
             relay_thread = threading.Thread(target=run, daemon=True)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 from datetime import date, datetime, timedelta
@@ -358,17 +359,13 @@ class ConcertResearchEngine:
 
         secondary_cats = []
         if "secondary_categories_json" in row.keys() and row["secondary_categories_json"]:  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 secondary_cats = json.loads(row["secondary_categories_json"])
-            except Exception:
-                pass
 
         genres_list = []
         if "genres_json" in row.keys() and row["genres_json"]:  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 genres_list = json.loads(row["genres_json"])
-            except Exception:
-                pass
 
         return {
             **base_event,

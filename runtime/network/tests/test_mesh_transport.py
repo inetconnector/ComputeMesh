@@ -1,4 +1,5 @@
 """Unit tests for Mutual TLS (mTLS) Peer-to-Peer Encrypted Transport."""
+import contextlib
 import socket
 import sys
 import tempfile
@@ -48,22 +49,17 @@ class TestMeshTransport(unittest.TestCase):
 
         def echo_worker():
             try:
-                conn, _ = echo_sock.accept()
-                data = conn.recv(1024)
-                if data:
-                    conn.sendall(b"ECHO:" + data)
-                try:
-                    conn.recv(1024)
-                except Exception:
-                    pass
-                conn.close()
-            except Exception:
-                pass
+                with contextlib.suppress(OSError):
+                    conn, _ = echo_sock.accept()
+                    data = conn.recv(1024)
+                    if data:
+                        conn.sendall(b"ECHO:" + data)
+                    with contextlib.suppress(OSError):
+                        conn.recv(1024)
+                    conn.close()
             finally:
-                try:
+                with contextlib.suppress(OSError):
                     echo_sock.close()
-                except Exception:
-                    pass
 
         threading.Thread(target=echo_worker, daemon=True).start()
 

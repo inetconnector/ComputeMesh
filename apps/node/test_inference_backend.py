@@ -215,7 +215,7 @@ def test_backend_invokes_deployment_cancel_hook_once() -> None:
 def _capture_error(result: list[BaseException], backend: LocalOpenAIInferenceBackend, cancel_event: threading.Event) -> None:
     try:
         backend(_session(), _request(), cancel_event)
-    except BaseException as exc:
+    except (LocalInferenceError, OSError, ValueError, TypeError, RuntimeError) as exc:
         result.append(exc)
 
 

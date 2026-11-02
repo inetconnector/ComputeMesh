@@ -195,7 +195,7 @@ class PersistentNodeConnection:
                 else:
                     pending.error = PersistentControlChannelError(str(frame.get("error") or "provider request failed")[:512])
                 pending.event.set()
-        except Exception:
+        except (PersistentControlChannelError, OSError, ssl.SSLError, ValueError, TypeError, KeyError, struct.error, RuntimeError):
             self.close()
 
     def ping(self) -> None:
@@ -259,7 +259,7 @@ class PersistentNodeConnection:
                 {"kind": "cancel", "request_id": request_id, "reason": reason},
                 lock=self._write_lock,
             )
-        except Exception:
+        except (PersistentControlChannelError, OSError, ssl.SSLError, ValueError, TypeError, struct.error, RuntimeError):
             self.close()
         pending.error = RequestCancelled(f"request {request_id} was cancelled")
         pending.event.set()
@@ -491,7 +491,7 @@ class PersistentNodeControlClient:
                 continue
             try:
                 connection.ping()
-            except Exception:
+            except (PersistentControlChannelError, OSError, ssl.SSLError, ValueError, TypeError, struct.error, RuntimeError):
                 stale.append(node_id)
                 self.unregister(node_id, connection)
         return tuple(stale)
@@ -681,7 +681,7 @@ class ProviderPersistentClient:
             if cancel_event.is_set():
                 raise RequestCancelled(f"request {request_id} was cancelled")
             response = {"kind": "response", "correlation_id": request_id, "ok": True, "payload": result}
-        except Exception as exc:
+        except (PersistentControlChannelError, OSError, ssl.SSLError, ValueError, TypeError, KeyError, LookupError, ArithmeticError, AttributeError, RuntimeError) as exc:
             response = {
                 "kind": "response",
                 "correlation_id": request_id,
@@ -767,7 +767,7 @@ class ProviderPersistentClient:
                     )
                     workers.append(worker)
                     worker.start()
-            except Exception:
+            except (PersistentControlChannelError, OSError, ssl.SSLError, ValueError, TypeError, KeyError, struct.error, RuntimeError):
                 for cancel_event in tuple(active.values()) if 'active' in locals() else ():
                     cancel_event.set()
                 for worker in tuple(workers) if 'workers' in locals() else ():

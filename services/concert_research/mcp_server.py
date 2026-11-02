@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -181,7 +182,7 @@ class MCPApplication:
             else:
                 raise KeyError(f"Unknown method: {method}")
             return {"jsonrpc": "2.0", "id": req_id, "result": result}
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
             return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32000, "message": str(exc)}}
 
     def call_tool(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -331,7 +332,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             self._json(response)
-        except Exception as exc:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
             self._json({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": str(exc)}}, 400)
 
     def _json(self, data, status=200):

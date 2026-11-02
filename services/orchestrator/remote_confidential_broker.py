@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import contextlib
 import json
 import os
 import secrets
@@ -28,9 +29,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 from runtime.confidential.protected_worker import CONFIDENTIAL_PROVISION_CAPABILITY
 from runtime.confidential.provider_control import CONFIDENTIAL_PROVISION_MESSAGE
-from runtime.confidential.session import ConfidentialSessionError, ConfidentialSessionProvision
+from runtime.confidential.session import (
+    ConfidentialSessionError,
+    ConfidentialSessionProvision,
+)
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
-from services.orchestrator.persistent_control_channel import PersistentControlChannelError
+from services.orchestrator.persistent_control_channel import (
+    PersistentControlChannelError,
+)
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 DEFAULT_PATH = "/internal/v1/confidential/dispatch"
@@ -276,10 +282,8 @@ class RemoteConfidentialSessionBroker:
         return tuple(candidates)
 
     def _release_best_effort(self, decision_id: str) -> None:
-        try:
+        with contextlib.suppress(RemoteConfidentialBrokerError, urlerror.URLError, OSError, ValueError, TypeError, RuntimeError):
             self._post(self.release_endpoint, {"schema_version": 1, "decision_id": decision_id})
-        except Exception:
-            pass
 
     def provision(
         self,

@@ -72,7 +72,7 @@ class InferenceTransportTests(unittest.TestCase):
                     messages=[{"role": "user", "content": "hello"}], max_tokens=8,
                     cancel_event=cancel_event,
                 )
-            except BaseException as exc:
+            except (InferenceTransportError, OSError, ValueError, TypeError, RuntimeError) as exc:
                 result.append(exc)
 
         thread = threading.Thread(target=run)

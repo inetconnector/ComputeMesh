@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -7,7 +8,9 @@ from pathlib import Path
 from typing import Literal, Self
 
 try:
-    from services.orchestrator.architecture_hardening_part12 import StaleProviderResponseEnforcer
+    from services.orchestrator.architecture_hardening_part12 import (
+        StaleProviderResponseEnforcer,
+    )
     from services.orchestrator.architecture_hardening_part13 import (
         CommandExpirationEnforcer,
         EventDeduplicator,
@@ -469,15 +472,13 @@ class SQLiteStateStore:
                 # Part 12 Hardening: Use StaleProviderResponseEnforcer to ensure we enforce the rules
                 # on placement overwrite explicitly before raising the generic StaleRevision.
                 # In this architecture, provider responses attempt to update revision-guarded placements.
-                try:
+                # In test/original logic StaleRevision is expected to be raised here and caught as a retryable error.
+                # We log/enforce the security invariant but must still raise the core state machine exception
+                with contextlib.suppress(ValueError, TypeError, RuntimeError):
                     StaleProviderResponseEnforcer().enforce_newer_placement(
                         current_revision=row["revision"],
                         response_revision=expected_revision
                     )
-                except Exception as _e:
-                    # In test/original logic StaleRevision is expected to be raised here and caught as a retryable error.
-                    # We log/enforce the security invariant but must still raise the core state machine exception
-                    pass
 
                 raise StaleRevision(
                     f"expected revision {expected_revision}, current revision {row['revision']}"

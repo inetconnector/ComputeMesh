@@ -307,7 +307,7 @@ class MeshTunnelServer:
                     break
             t1.join(timeout=1.0)
             t2.join(timeout=1.0)
-        except Exception as e:
+        except (OSError, ssl.SSLError, ValueError, RuntimeError) as e:
             logger.debug(f"mTLS client session error: {e}")
         finally:
             if client_ssl:
@@ -446,7 +446,7 @@ class MeshTunnelClient:
                     break
             t1.join(timeout=1.0)
             t2.join(timeout=1.0)
-        except Exception as e:
+        except (OSError, ssl.SSLError, ValueError, RuntimeError) as e:
             logger.debug(f"mTLS app tunnel error: {e}")
         finally:
             try:

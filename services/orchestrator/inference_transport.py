@@ -1,6 +1,7 @@
 """Authenticated request/response transport for NodeOS model execution."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import inspect
 import threading
@@ -95,7 +96,7 @@ class AuthenticatedNodeInferenceClient:
             return
         try:
             self.event_sink(event_type, dict(payload))
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError):
             # Observability must never break model execution.
             return
 
@@ -150,7 +151,7 @@ class AuthenticatedNodeInferenceClient:
             return
         try:
             release(node_id=node_id, job_id=job_id, lease_id=lease_id, timeout_seconds=self.timeout_seconds)
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError):
             # Provider TTLs are the final recovery boundary; a release failure
             # must not hide the already verified model result.
             return
@@ -396,10 +397,8 @@ class AuthenticatedNodeInferenceClient:
             wait = getattr(cancel_event, "wait", None)
             triggered = bool(wait()) if callable(wait) else bool(getattr(cancel_event, "is_set", lambda: False)())
             if triggered and not stop.is_set():
-                try:
+                with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
                     self.cancel(node_id=node_id, request_id=request_id, reason="agent_turn_cancelled")
-                except Exception:
-                    pass
 
         thread = threading.Thread(target=watch, name=f"inference-cancel-{request_id}", daemon=True)
         thread.start()

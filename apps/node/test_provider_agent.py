@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -81,10 +82,8 @@ def _write_key(path: Path) -> None:
             serialization.NoEncryption(),
         )
     )
-    try:
+    with contextlib.suppress(OSError, ValueError):
         path.chmod(0o600)
-    except Exception:
-        pass
 
 
 def _agent(

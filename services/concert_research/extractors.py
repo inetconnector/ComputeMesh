@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -47,10 +48,8 @@ def html_snapshot(html: str, base_url: str) -> tuple[str,str,list[str],list[str]
     title_match = _TITLE.search(html)
     title = _WS.sub(" ", unescape(title_match.group(1))).strip() if title_match else ""
     parser = _TextLinkParser(base_url)
-    try:
+    with contextlib.suppress(AssertionError, ValueError, TypeError, RuntimeError):
         parser.feed(html)
-    except Exception:
-        pass
     text = _WS.sub(" ", " ".join(parser.text)).strip()
     jsonld = [unescape(m.group(1)).strip() for m in _JSONLD.finditer(html) if m.group(1).strip()]
     return title,text,list(dict.fromkeys(parser.links)),jsonld

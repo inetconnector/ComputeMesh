@@ -228,7 +228,7 @@ def build_release() -> tuple[Path, Path, Path]:
 def main() -> int:
     try:
         build_release()
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, RuntimeError, subprocess.SubprocessError) as exc:
         log.error("Android release build failed: %s", exc)
         return 1
     return 0

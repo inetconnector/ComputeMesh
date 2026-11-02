@@ -73,7 +73,7 @@ class FleetGatekeeper:
         if self.stripe_profile_provider is not None:
             try:
                 stripe_profile = self.stripe_profile_provider(account_id)
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError):
                 stripe_profile = None
 
         return evaluate_provider_requirements(
