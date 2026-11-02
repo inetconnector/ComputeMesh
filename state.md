@@ -4900,10 +4900,10 @@ passed, 13 skipped`. This is independent hosted automation, not the protected
 TrustedBridge receipt requested for the final source, and it does not prove
 Android production signing, physical QR/WAN/BFT behavior or operator approval.
 
-The current public candidate head is the documentation-only follow-up
-`9fedf025c68ca6643d4eecb55d0839f6288f8453`; hosted run `41426590791` passed
-on that exact SHA with `51 passed, 5 skipped, 9 subtests` and `181 passed, 13
-skipped`. No product-code changes occurred after tested code head `9fbd524`.
+The tested product-code head is `9967d0d4003aa6439d5b056f750bcc0c28663a3d`.
+The documentation head `c8e78af33ad66a8e5efe5d7417375efd637fcf93` carried that
+code unchanged; hosted run `41428140205` passed on that exact SHA with
+`51 passed, 5 skipped, 9 subtests` and `181 passed, 13 skipped`.
 
 The independent manifest check was re-run from the candidate worktree:
 `tools.security.release_signer.verify_manifest()` returned `True` for the
