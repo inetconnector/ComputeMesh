@@ -71,6 +71,30 @@ def _clean_email(value: str) -> str:
     return email
 
 
+def _add_fleet_column_idempotent(
+    conn: sqlite3.Connection, table: str, column: str, statement: str,
+) -> None:
+    """Ignore only a verified pre-existing migration column.
+
+    SQLite's ALTER TABLE ADD COLUMN has no IF NOT EXISTS. An unrelated
+    OperationalError (locked/corrupt database, missing table, etc.) must stop
+    initialization instead of marking an incomplete schema as current.
+    Callers below supply only fixed, internal table names and SQL.
+    """
+    try:
+        conn.execute(statement)
+    except sqlite3.OperationalError as exc:
+        if str(exc).strip().casefold() != f"duplicate column name: {column}".casefold():
+            raise
+        if table not in {"fleet_enrollment_tokens", "fleet_passkeys"}:
+            raise
+        existing_columns = {
+            row[1] for row in conn.execute(f"PRAGMA table_info({table})")
+        }
+        if column not in existing_columns:
+            raise
+
+
 class FleetAccountStore:
     """SQLite-backed passkey accounts, credentials, sessions, audit log and login challenges."""
 
@@ -209,19 +233,19 @@ class FleetAccountStore:
                 );
                 """
             )
-            # Safe schema migration for existing databases
-            try:
-                conn.execute("ALTER TABLE fleet_enrollment_tokens ADD COLUMN scope TEXT NOT NULL DEFAULT 'legacy_node'")
-            except sqlite3.OperationalError:
-                pass
-            try:
-                conn.execute("ALTER TABLE fleet_passkeys ADD COLUMN nickname TEXT NOT NULL DEFAULT ''")
-            except sqlite3.OperationalError:
-                pass
-            try:
-                conn.execute("ALTER TABLE fleet_passkeys ADD COLUMN last_used_at TEXT NOT NULL DEFAULT ''")
-            except sqlite3.OperationalError:
-                pass
+            # Only an already-present column is an expected migration outcome.
+            _add_fleet_column_idempotent(
+                conn, "fleet_enrollment_tokens", "scope",
+                "ALTER TABLE fleet_enrollment_tokens ADD COLUMN scope TEXT NOT NULL DEFAULT 'legacy_node'",
+            )
+            _add_fleet_column_idempotent(
+                conn, "fleet_passkeys", "nickname",
+                "ALTER TABLE fleet_passkeys ADD COLUMN nickname TEXT NOT NULL DEFAULT ''",
+            )
+            _add_fleet_column_idempotent(
+                conn, "fleet_passkeys", "last_used_at",
+                "ALTER TABLE fleet_passkeys ADD COLUMN last_used_at TEXT NOT NULL DEFAULT ''",
+            )
 
             conn.execute(
                 "INSERT OR REPLACE INTO fleet_schema_meta(key, value) VALUES('schema_version', ?)",
