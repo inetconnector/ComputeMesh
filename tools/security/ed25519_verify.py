@@ -105,11 +105,14 @@ def _pure_verify(public_key: bytes, message: bytes, signature: bytes) -> bool:
 def verify_ed25519_signature(public_key_bytes: bytes, message_bytes: bytes, signature_bytes: bytes) -> bool:
     """Verify Ed25519 signature using `cryptography` if present, falling back to pure Python."""
     try:
+        from cryptography.exceptions import InvalidSignature
         from cryptography.hazmat.primitives.asymmetric import ed25519
         pub = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
         pub.verify(signature_bytes, message_bytes)
         return True
     except ImportError:
         return _pure_verify(public_key_bytes, message_bytes, signature_bytes)
-    except Exception:
+    except (ValueError, TypeError, OverflowError):
+        return False
+    except InvalidSignature:
         return False

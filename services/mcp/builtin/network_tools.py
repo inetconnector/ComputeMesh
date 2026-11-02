@@ -124,7 +124,7 @@ def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> dict[str, An
         return {"valid": False, "error": str(exc)}
     except ssl.SSLCertVerificationError as exc:
         return {"valid": False, "error": f"Zertifikatsvalidierung fehlgeschlagen: {exc.verify_message}"}
-    except Exception as exc:
+    except (OSError, ValueError, IndexError) as exc:
         return {"valid": False, "error": f"SSL-Verbindung fehlgeschlagen: {exc}"}
 
 
@@ -164,7 +164,7 @@ def _check_http(host: str, timeout: float = 3.5) -> dict[str, Any]:
                 "latency_ms": elapsed_ms,
                 "server": exc.headers.get("Server", "Unbekannt") if exc.headers else "Unbekannt",
             }
-        except Exception as exc:
+        except (urllib.error.URLError, OSError, ValueError, TimeoutError) as exc:
             results[proto] = {"error": str(exc)}
     return results
 
