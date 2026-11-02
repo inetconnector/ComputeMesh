@@ -11,7 +11,9 @@ from __future__ import annotations
 import json
 import os
 import platform
+import stat
 import sys
+import tempfile
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -215,6 +217,34 @@ def load_appliance_config(
     )
 
 
+def _write_private_json(path: Path, data: dict[str, Any]) -> None:
+    """Write owner credentials in a private tempfile before atomic publication."""
+    if path.is_symlink():
+        raise OSError("refusing to replace symlinked private appliance config")
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", prefix=f".{path.name}.",
+            suffix=".tmp", dir=path.parent, delete=False,
+        ) as stream:
+            temp_path = Path(stream.name)
+            if platform.system().lower() != "windows":
+                os.chmod(temp_path, 0o600)
+                if stat.S_IMODE(temp_path.stat().st_mode) != 0o600:
+                    raise OSError("private config file mode is not 0600")
+            stream.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        if path.is_symlink():
+            raise OSError("private appliance config became a symlink")
+        os.replace(temp_path, path)
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
 def save_system_config(config: ApplianceConfig, path: Path = DEFAULT_SYSTEM_CONFIG) -> None:
     """Persist updated appliance configuration to disk and USB env partition.
 
@@ -226,45 +256,30 @@ def save_system_config(config: ApplianceConfig, path: Path = DEFAULT_SYSTEM_CONF
       strictly contain non-sensitive operational parameters only. Any legacy
       OWNER_KEY or AUTH_TOKEN lines on boot media are scrubbed clean.
     """
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(config.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        if platform.system().lower() != "windows":
-            try:
-                os.chmod(path, 0o600)
-            except OSError:
-                pass
-    except Exception:
-        pass
-
-    try:
-        user_cfg = Path.home() / ".computemesh" / "provider_config.json"
-        user_cfg.parent.mkdir(parents=True, exist_ok=True)
-        user_data = {}
-        if user_cfg.exists():
-            try:
-                user_data = json.loads(user_cfg.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-        user_data["payout_address"] = config.payout_address
-        user_data["rig_name"] = config.rig_name
-        user_data["coordinator_url"] = config.coordinator_url
-        user_data["power_mode"] = config.power_mode
-        user_data["vram_reserve_mb"] = config.vram_reserve_mb
-        user_data["max_temp_c"] = config.max_temp_c
-        user_data["disabled_gpus"] = config.disabled_gpus
-        user_data["owner_key"] = config.owner_key
-        user_data["fan_control_mode"] = config.fan_control_mode
-        user_data["fan_target_percent"] = config.fan_target_percent
-        user_data["updated_at"] = datetime.now(UTC).isoformat() if "datetime" in globals() else ""
-        user_cfg.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
-        if platform.system().lower() != "windows":
-            try:
-                os.chmod(user_cfg, 0o600)
-            except OSError:
-                pass
-    except Exception:
-        pass
+    # Parse user config before writing the system file. Corrupt JSON must
+    # not be silently overwritten, and private write errors must propagate.
+    user_cfg = Path.home() / ".computemesh" / "provider_config.json"
+    user_data: dict[str, Any] = {}
+    if user_cfg.exists():
+        loaded = json.loads(user_cfg.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise ValueError("existing provider configuration must be a JSON object")
+        user_data = loaded
+    user_data.update({
+        "payout_address": config.payout_address,
+        "rig_name": config.rig_name,
+        "coordinator_url": config.coordinator_url,
+        "power_mode": config.power_mode,
+        "vram_reserve_mb": config.vram_reserve_mb,
+        "max_temp_c": config.max_temp_c,
+        "disabled_gpus": config.disabled_gpus,
+        "owner_key": config.owner_key,
+        "fan_control_mode": config.fan_control_mode,
+        "fan_target_percent": config.fan_target_percent,
+        "updated_at": datetime.now(UTC).isoformat(),
+    })
+    _write_private_json(path, config.to_dict())
+    _write_private_json(user_cfg, user_data)
 
     # Update boot computemesh.env if writable -- STRICTLY NON-SENSITIVE CONFIG ONLY
     for env_target in [DEFAULT_BOOT_CONFIG, DEFAULT_LIVE_BOOT_CONFIG]:
@@ -289,5 +304,6 @@ ENABLE_KIOSK={'true' if config.enable_kiosk else 'false'}
 ALLOW_SSH={'true' if config.allow_ssh else 'false'}
 """
                 env_target.write_text(content, encoding="utf-8")
-        except Exception:
-            pass
+        except OSError:
+            # Optional removable boot media can be unavailable/read-only.
+            continue
