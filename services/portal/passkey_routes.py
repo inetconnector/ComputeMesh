@@ -54,12 +54,20 @@ EXPECTED_ORIGIN = os.environ.get(
 
 
 def _get_expected_origins(headers: Any = None) -> list[str]:
-    origins = [EXPECTED_ORIGIN, "https://mesh.inetconnector.com", "https://inetconnector.com", "http://localhost:8000", "http://127.0.0.1:8000"]
-    if headers and hasattr(headers, "get"):
-        origin = str(headers.get("Origin", "")).strip().rstrip("/")
-        if origin and origin.startswith(("https://", "http://localhost", "http://127.0.0.1")) and origin not in origins:
-            origins.append(origin)
-    return origins
+    """Return operator-configured WebAuthn origins, never request-controlled ones.
+
+    The client-provided Origin is an input to validate against the allowlist,
+    not authority to expand it. Explicit localhost entries are retained for
+    existing development deployments; arbitrary localhost ports are rejected.
+    """
+    del headers
+    return list(dict.fromkeys((
+        EXPECTED_ORIGIN,
+        "https://mesh.inetconnector.com",
+        "https://inetconnector.com",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    )))
 
 
 def _resolve_store_path() -> Path:
