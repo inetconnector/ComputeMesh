@@ -6,7 +6,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
+
 from services.updater.auto_updater import (
     AutoUpdater,
 )
@@ -43,12 +45,16 @@ class TestAutoUpdater(unittest.TestCase):
         self.assertFalse(v185 > v186)
 
     def test_nodeos_platform_detection(self) -> None:
-        with patch("platform.system", return_value="Linux"):
-            with patch.object(Path, "exists", side_effect=lambda: True):
-                self.assertEqual(self.updater._get_platform_key(), "nodeos-img")
-        with patch("platform.system", return_value="Linux"):
-            with patch.object(Path, "exists", side_effect=lambda: False):
-                self.assertEqual(self.updater._get_platform_key(), "linux-x64")
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch.object(Path, "exists", side_effect=lambda: True),
+        ):
+            self.assertEqual(self.updater._get_platform_key(), "nodeos-img")
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch.object(Path, "exists", side_effect=lambda: False),
+        ):
+            self.assertEqual(self.updater._get_platform_key(), "linux-x64")
 
     def test_signature_verification_success_and_tamper_detection(self) -> None:
         manifest_payload = {
@@ -82,7 +88,7 @@ class TestAutoUpdater(unittest.TestCase):
         tampered_manifest["platforms"]["windows-x64"]["sha256"] = "bad_attacker_sha256"
         tampered_sig = tampered_manifest.pop("signature")
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(InvalidSignature):
             pub_key.verify(
                 bytes.fromhex(tampered_sig),
                 json.dumps(tampered_manifest, sort_keys=True).encode("utf-8"),
@@ -99,9 +105,11 @@ class TestAutoUpdater(unittest.TestCase):
                 [Path("/srv/one"), Path("/srv/two")],
             )
 
-        with patch.dict(os.environ, {"COMPUTEMESH_LINUX_UPDATE_TARGETS": "relative/path"}, clear=False):
-            with self.assertRaisesRegex(ValueError, "absolute paths"):
-                AutoUpdater._linux_update_targets()
+        with (
+            patch.dict(os.environ, {"COMPUTEMESH_LINUX_UPDATE_TARGETS": "relative/path"}, clear=False),
+            self.assertRaisesRegex(ValueError, "absolute paths"),
+        ):
+            AutoUpdater._linux_update_targets()
 
     def test_linux_update_services_are_validated_and_deduplicated(self) -> None:
         with patch.dict(
@@ -114,9 +122,11 @@ class TestAutoUpdater(unittest.TestCase):
                 ["computemesh-gateway.service", "computemesh-node.service"],
             )
 
-        with patch.dict(os.environ, {"COMPUTEMESH_LINUX_UPDATE_SERVICES": "sh -c evil"}, clear=False):
-            with self.assertRaisesRegex(ValueError, "invalid systemd unit"):
-                AutoUpdater._linux_update_services()
+        with (
+            patch.dict(os.environ, {"COMPUTEMESH_LINUX_UPDATE_SERVICES": "sh -c evil"}, clear=False),
+            self.assertRaisesRegex(ValueError, "invalid systemd unit"),
+        ):
+            AutoUpdater._linux_update_services()
 
     def test_linux_update_uses_configured_targets_and_units(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -4,7 +4,10 @@ import json
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from apps.client.confidential_openai import LocalAttestationPolicy
+from apps.client.confidential_openai import (
+    ConfidentialOpenAIError,
+    LocalAttestationPolicy,
+)
 from apps.client.confidential_openai_stream import StreamingConfidentialOpenAIBridge
 from protocol.confidential_envelope import (
     ConfidentialEnvelope,
@@ -160,7 +163,7 @@ class StreamingBridgeTests(unittest.TestCase):
                 allowed_runtime_digests=frozenset({RUNTIME}),
             ),
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(ConfidentialOpenAIError):
             list(
                 bridge.stream(
                     authorization="Bearer key",

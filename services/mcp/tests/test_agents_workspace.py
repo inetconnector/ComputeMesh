@@ -16,7 +16,10 @@ from services.mcp.platform.environment import (
     EnvironmentSpec,
     ResourceLimits,
 )
-from services.mcp.platform.workspace import LocalWorkspaceTransport
+from services.mcp.platform.workspace import (
+    LocalWorkspaceError,
+    LocalWorkspaceTransport,
+)
 
 
 class TestLocalWorkspaceTransport(unittest.TestCase):
@@ -68,7 +71,7 @@ class TestLocalWorkspaceTransport(unittest.TestCase):
                 node_id="node_1",
                 resources=ResourceLimits(max_runtime_seconds=3600),
             )
-            with self.assertRaises(Exception):
+            with self.assertRaises(LocalWorkspaceError):
                 transport.prepare(spec)
 
 

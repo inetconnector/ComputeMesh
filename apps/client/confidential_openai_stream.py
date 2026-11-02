@@ -18,7 +18,10 @@ from apps.client.confidential_openai import (
     HttpProtectedTransport,
     prepare_openai_chat_request,
 )
-from protocol.confidential_envelope import ConfidentialBinding, create_confidential_request
+from protocol.confidential_envelope import (
+    ConfidentialBinding,
+    create_confidential_request,
+)
 from protocol.confidential_request_contract import (
     ConfidentialRequestContractError,
     verify_committed_attestation_nonce,
