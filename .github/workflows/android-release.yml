@@ -125,8 +125,21 @@ jobs:
           sha256sum release-android/ComputeMesh-Android.apk release-android/ComputeMesh-Android.aab
 
       - name: Publish stable Android release assets
+        # A main-branch build alone is not an authorization to replace downloads.
+        # Operator approval is granted for one immutable source commit only.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CM_ANDROID_RELEASE_APPROVED_SHA: ${{ secrets.ANDROID_RELEASE_APPROVED_SHA }}
         run: |
           set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Android production publish requires a manual run on main."
+            exit 1
+          fi
+          if [ -z "${CM_ANDROID_RELEASE_APPROVED_SHA:-}" ] || [ "$CM_ANDROID_RELEASE_APPROVED_SHA" != "$GITHUB_SHA" ]; then
+            echo "::error::Missing independent operator approval for this exact source commit."
+            exit 1
+          fi
           VERSION=$(python3 -c "import json; print(json.load(open('release-android/ComputeMesh-Android.json'))['version'])")
           if gh release view android-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit android-latest --repo "$GITHUB_REPOSITORY" --title "ComputeMesh Android ${VERSION}" --notes "Latest signed ComputeMesh Android APK/AAB. Assets are built from main and verified before publication."
