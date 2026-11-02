@@ -44,7 +44,9 @@ def test_worker_broken_pipe_does_not_mask_original_calculation_failure() -> None
     connection.send.side_effect = BrokenPipeError("parent gone")
     python_calc._worker("1 / 0", connection)
     connection.close.assert_called_once()
-    assert connection.send.call_count == 2
+    # Division fails before a result can be sent; only the error report
+    # reaches the already-closed pipe.
+    connection.send.assert_called_once()
 
 
 def test_worker_unexpected_pipe_bug_surfaces() -> None:
