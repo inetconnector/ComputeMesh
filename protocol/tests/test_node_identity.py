@@ -54,15 +54,15 @@ class NodeIdentityTests(unittest.TestCase):
         self.verifier = Ed25519ChallengeVerifier(Resolver(self.record))
 
     def proof(self, **kwargs):
-        params = dict(
-            private_key=self.private,
-            node_id="node-1",
-            key_id=self.key_id,
-            session_id="session-1",
-            challenge="challenge-0123456789abcdef",
-            hello=self.hello,
-            now=self.now,
-        )
+        params = {
+            "private_key": self.private,
+            "node_id": "node-1",
+            "key_id": self.key_id,
+            "session_id": "session-1",
+            "challenge": "challenge-0123456789abcdef",
+            "hello": self.hello,
+            "now": self.now,
+        }
         params.update(kwargs)
         return create_node_auth_proof(**params)
 

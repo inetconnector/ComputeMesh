@@ -374,7 +374,7 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                         tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
                         nodes_updated = True
                 if not nodes_updated:
-                    for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
+                    for n_data in NODE_TELEMETRY_REGISTRY.values():
                         if not n_data.get("is_peer_relay", False) and n_data.get("updated_at"):
                             tel = n_data.setdefault("telemetry", {})
                             tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks

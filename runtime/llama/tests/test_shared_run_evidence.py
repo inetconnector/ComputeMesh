@@ -329,7 +329,7 @@ class SharedRunEvidenceTests(unittest.TestCase):
     def test_write_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); paths = self.write_inputs(root); output = root / "proof.json"
-            kwargs = dict(bundle_path=paths[0], baseline_path=paths[1], shared_path=paths[2], relay_path=paths[3], output_path=output)
+            kwargs = {"bundle_path": paths[0], "baseline_path": paths[1], "shared_path": paths[2], "relay_path": paths[3], "output_path": output}
             write_shared_run_evidence(**kwargs)
             with self.assertRaises(SharedRunEvidenceError): write_shared_run_evidence(**kwargs)
 

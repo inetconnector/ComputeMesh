@@ -50,16 +50,16 @@ class ExecutionAttestationTests(unittest.TestCase):
                 active=True,
             )
         self.resolver = _Resolver(self.records)
-        self.common = dict(
-            job_id="inf-0123456789",
-            placement_decision_id="placement-0123456789abcdef",
-            model_sha256="a" * 64,
-            runtime_sha256="b" * 64,
-            evidence_sha256="c" * 64,
-            output_sha256="d" * 64,
-            issued_at=int(self.now.timestamp()),
-            expires_at=int((self.now + timedelta(minutes=2)).timestamp()),
-        )
+        self.common = {
+            "job_id": "inf-0123456789",
+            "placement_decision_id": "placement-0123456789abcdef",
+            "model_sha256": "a" * 64,
+            "runtime_sha256": "b" * 64,
+            "evidence_sha256": "c" * 64,
+            "output_sha256": "d" * 64,
+            "issued_at": int(self.now.timestamp()),
+            "expires_at": int((self.now + timedelta(minutes=2)).timestamp()),
+        }
 
     def _bundle(self):
         attestations = []

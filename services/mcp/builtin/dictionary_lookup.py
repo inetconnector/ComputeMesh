@@ -49,7 +49,7 @@ def _fetch_wiktionary_fallback(word_clean: str, timeout: float = 4.0) -> dict[st
             sections = data.get(lang, [])
             if not sections:
                 # Try other language keys in data
-                for k, v in data.items():
+                for v in data.values():
                     if isinstance(v, list) and v:
                         sections = v
                         break

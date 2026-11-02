@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Building ComputeMesh NodeOS appliance artifacts in {args.output_dir}...")
     manifest = build_appliance_package(args.output_dir, args.image_name)
-    print(f"Appliance package generated successfully:")
+    print("Appliance package generated successfully:")
     print(json.dumps(manifest, indent=2))
     return 0
 

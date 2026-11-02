@@ -66,7 +66,7 @@ class OSNeutralProtocolEnforcer:
                          raise OSNeutralContractError(f"Protocol contracts MUST remain OS-neutral. Found OS-specific key: {item}")
 
     def _check_paths(self, d: dict[str, Any]) -> None:
-        for key, value in d.items():
+        for value in d.values():
             if isinstance(value, str) and "\\" in value:
                  raise OSNeutralContractError(f"Protocol contracts MUST remain OS-neutral. Found OS-specific path format: {value}")
             if isinstance(value, dict):

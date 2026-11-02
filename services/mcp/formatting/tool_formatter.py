@@ -379,7 +379,7 @@ def format_tool_content_if_json(content: str) -> str:
             return res.strip()
 
         if "profile" in data and "updated" in data:
-            return f"✅ **Benutzerprofil aktualisiert:** Präferenzen und Fakten wurden dauerhaft im Langzeitgedächtnis gespeichert."
+            return "✅ **Benutzerprofil aktualisiert:** Präferenzen und Fakten wurden dauerhaft im Langzeitgedächtnis gespeichert."
 
         if "profile" in data and isinstance(data.get("profile"), dict):
             prof = data["profile"]
@@ -782,7 +782,7 @@ def format_tool_content_if_json(content: str) -> str:
             res = f"### 🛡️ Quarantäne-Staging aktiv (`{txn}`, {cnt} Dateien isoliert)\n\n"
             for fn, d_text in diffs.items():
                 res += f"#### 📄 `{fn}`\n```diff\n{d_text.strip()[:3000]}\n```\n\n"
-            res += f"*Verwende `quarantine_commit` zur Bestätigung oder `quarantine_rollback` zum Verwerfen.*"
+            res += "*Verwende `quarantine_commit` zur Bestätigung oder `quarantine_rollback` zum Verwerfen.*"
             return res.strip()
 
         if "total_committed" in data and "committed_files" in data:
@@ -924,7 +924,7 @@ def format_tool_content_if_json(content: str) -> str:
             res = f"### 🚀 WebApp Bereitgestellt: **{title}**\n\n"
             res += f"- **📱 Interaktive WebApp / Spiel:** [🎮 **Jetzt Live Starten: {title}**]({full_u})\n"
             res += f"- **🌐 Lokaler Pfad:** `{url_p}` *({sz:,} Bytes)*\n\n"
-            res += f"> 💡 **Tipp:** Du kannst die Anwendung direkt im Browser oder auf deinem Smartphone (Samsung Galaxy S25) / Mobilgerät öffnen. Volle Touch-, On-Screen D-Pad und Tastatur-Steuerung ist aktiv!"
+            res += "> 💡 **Tipp:** Du kannst die Anwendung direkt im Browser oder auf deinem Smartphone (Samsung Galaxy S25) / Mobilgerät öffnen. Volle Touch-, On-Screen D-Pad und Tastatur-Steuerung ist aktiv!"
             return res.strip()
 
         if "total_apps" in data and "apps" in data and isinstance(data.get("apps"), list):

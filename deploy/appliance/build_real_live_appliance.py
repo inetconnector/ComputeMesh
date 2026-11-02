@@ -1004,7 +1004,7 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     )
 
     print("\n====================================================================")
-    print(f"SUCCESS: True Debian Live NodeOS Image Generated!")
+    print("SUCCESS: True Debian Live NodeOS Image Generated!")
     print(f"ISO File: {out_iso} ({out_iso.stat().st_size:,} bytes)")
     print(f"XZ File:  {out_xz} ({out_xz.stat().st_size:,} bytes)")
     print(f"Provenance: {provenance_report}")

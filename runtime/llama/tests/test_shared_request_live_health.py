@@ -23,15 +23,15 @@ class _Plan:
 
 class SharedRequestLiveHealthTests(unittest.TestCase):
     def _kwargs(self, root: Path):
-        return dict(
-            job_id="job-1",
-            plan=_Plan(),
-            llama_server=root / "llama-server",
-            model_path=root / "model.gguf",
-            worker_rpc=RpcEndpoint("127.0.0.1", 50052),
-            output_dir=root / "out",
-            prompt="hello",
-        )
+        return {
+            "job_id": "job-1",
+            "plan": _Plan(),
+            "llama_server": root / "llama-server",
+            "model_path": root / "model.gguf",
+            "worker_rpc": RpcEndpoint("127.0.0.1", 50052),
+            "output_dir": root / "out",
+            "prompt": "hello",
+        }
 
     def test_preexisting_health_abort_fails_before_runtime_or_filesystem_work(self):
         with tempfile.TemporaryDirectory() as tmp:

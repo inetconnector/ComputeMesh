@@ -125,19 +125,19 @@ def bench(
 
 
 def inputs():
-    return dict(
-        coordinator_profile=profile("node-a", gpu_memory=10_000_000_000),
-        worker_profile=profile("node-b", gpu_memory=6_000_000_000),
-        model_manifest=manifest(),
-        coordinator_prefill=bench("llama_cpp_prefill", "cp", 3, tps=300.0),
-        coordinator_decode=bench("llama_cpp_decode", "cd", 3, tps=80.0),
-        worker_prefill=bench("llama_cpp_prefill", "wp", 3, tps=120.0),
-        worker_decode=bench("llama_cpp_decode", "wd", 3, tps=35.0),
-        network_result=bench("tcp_network_path", "net", 3),
-        network_peer_node_id="node-b",
-        layer_count=32,
-        now=NOW,
-    )
+    return {
+        "coordinator_profile": profile("node-a", gpu_memory=10_000_000_000),
+        "worker_profile": profile("node-b", gpu_memory=6_000_000_000),
+        "model_manifest": manifest(),
+        "coordinator_prefill": bench("llama_cpp_prefill", "cp", 3, tps=300.0),
+        "coordinator_decode": bench("llama_cpp_decode", "cd", 3, tps=80.0),
+        "worker_prefill": bench("llama_cpp_prefill", "wp", 3, tps=120.0),
+        "worker_decode": bench("llama_cpp_decode", "wd", 3, tps=35.0),
+        "network_result": bench("tcp_network_path", "net", 3),
+        "network_peer_node_id": "node-b",
+        "layer_count": 32,
+        "now": NOW,
+    }
 
 
 def bound_inputs():

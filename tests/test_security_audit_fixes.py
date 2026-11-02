@@ -717,7 +717,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
         data = json.loads(manifest_file.read_text(encoding="utf-8"))
         self.assertEqual(data.get("version"), CONFIG.appliance_version)
 
-        for platform, info in data.get("platforms", {}).items():
+        for info in data.get("platforms", {}).values():
             fn = info.get("filename")
             expected_sha = info.get("sha256")
             expected_size = info.get("size_bytes")

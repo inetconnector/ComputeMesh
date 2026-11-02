@@ -14,7 +14,7 @@ from services.compliance.mesh_policy import (
 
 class GlobalMeshPolicyTests(unittest.TestCase):
     def provider(self, **updates):
-        data = dict(node_id="node-global", trust_tier=ProviderTrustTier.OPEN, region="US", production_eligible=True, technically_compatible=True)
+        data = {"node_id": "node-global", "trust_tier": ProviderTrustTier.OPEN, "region": "US", "production_eligible": True, "technically_compatible": True}
         data.update(updates)
         return ProviderRoutingCapabilities(**data)
 

@@ -42,7 +42,7 @@ def json_schema_to_gbnf(schema: dict[str, Any]) -> str:
     elif schema_type == "array":
         items_spec = schema.get("items", {})
         item_rule = _compile_type_to_gbnf(items_spec, "item")
-        rules.append(f'root ::= "[" ws (item ("," ws item)*)? ws "]"')
+        rules.append('root ::= "[" ws (item ("," ws item)*)? ws "]"')
         rules.append(f"item ::= {item_rule}")
     else:
         rules.append(f"root ::= {_compile_type_to_gbnf(schema, 'root')}")

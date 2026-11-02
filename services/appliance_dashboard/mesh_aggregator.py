@@ -181,7 +181,7 @@ class MeshRegistryAggregator:
 
             # 3. Update peer status without silently purging offline nodes
             with self._lock:
-                for k, v in self._peer_nodes.items():
+                for v in self._peer_nodes.values():
                     # For direct polled nodes, update status based on last seen age
                     last_seen_val = float(v.get("last_seen", 0) or 0)
                     if last_seen_val > 0:

@@ -498,7 +498,7 @@ class TcpRelayTests(unittest.TestCase):
                     self.assertEqual(received, payload)
 
             workers = [threading.Thread(target=concurrent_worker, args=(j,)) for j in range(3)]
-            total_sent += 3 * len(f"conc-msg-0-".encode() * 100)
+            total_sent += 3 * len("conc-msg-0-".encode() * 100)
             for w in workers:
                 w.start()
             for w in workers:
