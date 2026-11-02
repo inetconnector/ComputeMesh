@@ -157,12 +157,7 @@ def sign_manifest(
     a readable binary, with SHA-256 and byte sizes computed directly from real bytes.
     Hardcoded hash fallbacks and unverified historical carryover are strictly prohibited.
     """
-    priv_key, pub_key = get_or_create_keypair(allow_generate=allow_generate)
-    pub_raw = pub_key.public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    )
-
+    # Inventory all mandatory bytes before touching a production signing key.
     artifacts: dict[str, dict[str, Any]] = {}
     targets = {
         "windows-x64": "ComputeMesh-Setup-x64.exe",
@@ -182,14 +177,19 @@ def sign_manifest(
     missing_targets: list[str] = []
 
     for platform_id, filename in targets.items():
-        # Check downloads_dir first, then staging_dir if provided
+        # Neither the primary nor the staged release slot may be a symlink.
+        # A linked artifact could silently change after digesting and signing.
         file_path = downloads_dir / filename
+        if file_path.is_symlink():
+            raise ValueError(f"release artifact must not be a symlink: {filename}")
         if not file_path.exists() and staging_dir is not None:
             staged = staging_dir / filename
+            if staged.is_symlink():
+                raise ValueError(f"staged release artifact must not be a symlink: {filename}")
             if staged.exists():
                 file_path = staged
 
-        if file_path.exists() and file_path.stat().st_size > 0:
+        if file_path.is_file() and file_path.stat().st_size > 0:
             sha = compute_sha256(file_path)
             size = file_path.stat().st_size
             artifacts[platform_id] = {
@@ -208,6 +208,13 @@ def sign_manifest(
             f"{', '.join(missing_targets)}. "
             f"All release artifacts must be physically present and verified before signing."
         )
+
+    # No key access until every required physical artifact passed preflight.
+    priv_key, pub_key = get_or_create_keypair(allow_generate=allow_generate)
+    pub_raw = pub_key.public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
 
     manifest_data = {
         "version": version,
