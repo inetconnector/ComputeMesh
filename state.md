@@ -4799,3 +4799,18 @@ use the installed Ubuntu WSL distribution with `/mnt/<drive>/...` paths while
 leaving native Unix execution unchanged. The exact setup test file now passes
 with `10 passed` on this Windows host.
 
+Final exact-head public verification after the harness and config-sync fixes:
+
+- `python -m pytest -q --import-mode=prepend`: `2076 passed, 20 skipped, 69
+  subtests`, exit 0, in 307.34 seconds.
+- `python -m compileall -q services tools apps protocol deploy tests setup`:
+  exit 0.
+- `git diff --check`: exit 0.
+- Full `ruff check .`: exit 1 with `4372` findings; the PR diff alone has `226`
+  findings. No Ruff suppression or partial-rule waiver was introduced.
+
+The complete automated Python suite is therefore green on this Windows host,
+but the repository is not release-ready while full Ruff, protected source-bound
+receipts, complete artifacts, Android identity/device, physical WAN/hardware
+and operator approval remain open.
+

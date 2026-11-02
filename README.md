@@ -3,7 +3,7 @@
 ## Current release-gate status (2026-11-02)
 
 This checkout contains the public PR-139 candidate at commit
-`32eef045b6158020aa4733e4ef9f95f0fe98be7f`. The existing v1.2.189 manifest
+`093cf6e6851216b9e90e286da1415222d2e5a870`. The existing v1.2.189 manifest
 signature is independently Ed25519-valid under the trusted release public key,
 and the focused release/security tests pass. The candidate is nevertheless not
 a release: the complete current artifact inventory, Android certificate and
@@ -11,7 +11,9 @@ physical-device evidence, independent protected-runner receipt, and operator
 approval are still missing. The MCP parity tests now match the deliberately
 disabled fail-closed Python executor, and the Linux setup test harness
 translates Windows worktree paths through the installed Ubuntu WSL
-distribution. **RELEASE_NO_GO** remains authoritative.
+distribution. The exact full public suite is green at `2076 passed, 20
+skipped, 69 subtests`; full Ruff remains blocking with `4372` findings (`226`
+on the PR diff). **RELEASE_NO_GO** remains authoritative.
 
 ## Current local P0 integration candidate (2026-10-26)
 
