@@ -26,6 +26,19 @@ class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
         NODE_TELEMETRY_REGISTRY.clear()
+        # These tests exercise heartbeat ordering, not host hardware identity.
+        # Production must still fail closed when no durable machine ID exists.
+        identity = MagicMock()
+        identity.to_public_dict.return_value = {
+            "fingerprint": "fixture-stable-machine-id",
+            "version": 1,
+        }
+        identity_patch = patch(
+            "services.identity.machine_identity.collect_machine_identity",
+            return_value=identity,
+        )
+        identity_patch.start()
+        self.addCleanup(identity_patch.stop)
 
     def test_portal_fleet_button_label_in_html_and_js(self) -> None:
         """Verify that fleet.html and portal-core.js render 'Server Info' instead of 'Open Server'."""
