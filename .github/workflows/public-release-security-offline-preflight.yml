@@ -42,6 +42,8 @@ jobs:
             --tmpfs /work:rw,nosuid,nodev,mode=1777,size=1024m \
             --user 10001:10001 --env HOME=/tmp \
             --env COMPUTEMESH_NODE_AUTH_TOKEN_PATH=/tmp/ci-node-token.txt \
+            --env COMPUTEMESH_ACCOUNTING_DB_PATH=/tmp/cm-accounting.db \
+            --env COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH=/tmp/cm-fleet.db \
             --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
             --workdir /work cm-release-preflight:ci \
             sh -ec 'cp -R /src/. /work/; python -m pytest -q -p no:cacheprovider services/mcp/tests/test_python_sandbox_disabled.py tests/test_exhaustive_functional_audit.py tests/test_portal_pages_browser.py tests/test_immediate_config_sync.py'
