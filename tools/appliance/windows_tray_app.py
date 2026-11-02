@@ -164,7 +164,6 @@ def _acquire_single_instance_lock() -> bool:
 
 def _cleanup_previous_instances() -> None:
     """Safe single-instance check stub for backward compatibility."""
-    pass
 
 
 def is_windows_autostart_enabled() -> bool:

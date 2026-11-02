@@ -13,7 +13,6 @@ from typing import ClassVar
 
 class SecurityASTViolation(Exception):
     """Raised when dynamically generated code violates security policies."""
-    pass
 
 
 class SecurityASTVisitor(ast.NodeVisitor):

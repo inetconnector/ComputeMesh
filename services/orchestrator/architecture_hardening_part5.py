@@ -17,7 +17,6 @@ from typing import Any
 
 class HardeningPart5Error(RuntimeError):
     """Base exception for architecture hardening Part 5 violations."""
-    pass
 
 
 class CapacityLeaseError(HardeningPart5Error):

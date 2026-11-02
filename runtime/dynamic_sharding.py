@@ -302,7 +302,6 @@ class DecentralizedShardFailover:
                 # No valid replicas alive, free the chunk to preserve quota
                 self._active_primary.pop(chunk_id, None)
                 self._shard_replicas.pop(chunk_id, None)
-                pass
             else:
                 # Select the best replica (e.g., lowest latency or highest VRAM)
                 alive_replicas.sort(key=lambda x: x[1].network_latency_ms)

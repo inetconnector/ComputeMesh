@@ -17,19 +17,15 @@ T = TypeVar('T')
 
 class HardeningError(RuntimeError):
     """Base exception for architecture hardening violations."""
-    pass
 
 class CircuitBreakerOpenError(HardeningError):
     """Raised when an operation is rejected because the circuit breaker is open."""
-    pass
 
 class IdempotencyViolationError(HardeningError):
     """Raised when an idempotency key is reused inappropriately."""
-    pass
 
 class WorkloadAdmissionError(HardeningError):
     """Raised when workload admission invariants are violated."""
-    pass
 
 
 class MeshCircuitBreaker:

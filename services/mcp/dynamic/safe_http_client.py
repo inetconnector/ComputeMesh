@@ -21,7 +21,6 @@ DEFAULT_TIMEOUT_SECONDS = 5.0
 
 class SSRFBlockedException(Exception):
     """Raised when an HTTP request targets a blocked or internal IP/subnet."""
-    pass
 
 
 class SafeHttpClient:

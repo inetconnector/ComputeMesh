@@ -16,19 +16,15 @@ from typing import Any
 
 class HardeningPart3Error(RuntimeError):
     """Base exception for architecture hardening Part 3 violations."""
-    pass
 
 class ArbitraryCodeExecutionError(HardeningPart3Error):
     """Raised when arbitrary code execution is attempted on a provider host."""
-    pass
 
 class HardConstraintViolationError(HardeningPart3Error):
     """Raised when hard constraints are violated before or during scheduling."""
-    pass
 
 class BillingAuditError(HardeningPart3Error):
     """Raised when billing derivation fails due to lack of auditable events."""
-    pass
 
 
 class RuntimeSandbox:

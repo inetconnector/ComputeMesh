@@ -12,11 +12,9 @@ from typing import Any
 
 class HardeningPart4Error(RuntimeError):
     """Base exception for architecture hardening Part 4 violations."""
-    pass
 
 class SplitPhaseModelingError(HardeningPart4Error):
     """Raised when the scheduler fails to model prefill and decode separately."""
-    pass
 
 
 class SplitPhasePerformanceModel:

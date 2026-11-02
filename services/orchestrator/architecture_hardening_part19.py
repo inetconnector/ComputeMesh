@@ -12,27 +12,22 @@ import threading
 
 class HardeningPart19Error(RuntimeError):
     """Base exception for Part 19 invariant violations."""
-    pass
 
 
 class AmbiguousCompletionError(HardeningPart19Error):
     """Raised when settlement is attempted on an ambiguous completion."""
-    pass
 
 
 class DuplicateMeteringError(HardeningPart19Error):
     """Raised when duplicate metering occurs."""
-    pass
 
 
 class ConflictingDuplicateError(HardeningPart19Error):
     """Raised when a conflicting duplicate attempts to settle."""
-    pass
 
 
 class PlatformRetryBillingError(HardeningPart19Error):
     """Raised when platform retry incurs unassigned cost."""
-    pass
 
 
 class AmbiguousCompletionReconciler:

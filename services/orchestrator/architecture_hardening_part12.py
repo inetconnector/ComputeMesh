@@ -12,27 +12,22 @@ from typing import Any
 
 class HardeningPart12Error(RuntimeError):
     """Base exception for Part 12 invariant violations."""
-    pass
 
 
 class StaleResponseError(HardeningPart12Error):
     """Raised when a stale provider response attempts to overwrite a newer placement."""
-    pass
 
 
 class CancellationPropagationError(HardeningPart12Error):
     """Raised when cancellation is not successfully propagated to all active workers."""
-    pass
 
 
 class MissingEvidenceError(HardeningPart12Error):
     """Raised when billable work lacks accepted execution evidence."""
-    pass
 
 
 class InvalidRecoveryStateError(HardeningPart12Error):
     """Raised when recovery assumes a failed node retained state."""
-    pass
 
 
 class StaleProviderResponseEnforcer:

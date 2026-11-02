@@ -13,19 +13,15 @@ from typing import Any
 
 class HardeningPart11Error(RuntimeError):
     """Base exception for Part 11 invariant violations."""
-    pass
 
 class MonetaryUnitError(HardeningPart11Error):
     """Raised when monetary data is not an integer."""
-    pass
 
 class AppendOnlyLedgerError(HardeningPart11Error):
     """Raised when an append-only ledger invariant is violated."""
-    pass
 
 class OptimisticConcurrencyError(HardeningPart11Error):
     """Raised when an optimistic concurrency check fails."""
-    pass
 
 
 class StrictLedgerManager:

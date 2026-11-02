@@ -10,17 +10,14 @@ from typing import Any, ClassVar
 
 class HardeningPart8Error(RuntimeError):
     """Base exception for Part 8 invariant violations."""
-    pass
 
 
 class ModelManifestError(HardeningPart8Error):
     """Raised when a model manifest violates declaration invariants."""
-    pass
 
 
 class ShardManifestError(HardeningPart8Error):
     """Raised when a shard manifest violates declaration invariants."""
-    pass
 
 
 class ModelManifestEnforcer:

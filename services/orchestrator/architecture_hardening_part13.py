@@ -12,22 +12,18 @@ from typing import Any
 
 class HardeningPart13Error(RuntimeError):
     """Base exception for Part 13 invariant violations."""
-    pass
 
 
 class ImplicitRetryError(HardeningPart13Error):
     """Raised when a retry is attempted implicitly without being an explicit attempt."""
-    pass
 
 
 class CommandExpiredError(HardeningPart13Error):
     """Raised when an expired command is executed."""
-    pass
 
 
 class DuplicateEventError(HardeningPart13Error):
     """Raised when a duplicate event is not deduped."""
-    pass
 
 
 class ExplicitRetryEnforcer:

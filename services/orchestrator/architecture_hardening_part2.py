@@ -19,23 +19,18 @@ T = TypeVar('T')
 
 class HardeningPart2Error(RuntimeError):
     """Base exception for architecture hardening Part 2 violations."""
-    pass
 
 class NodeDrainingError(HardeningPart2Error):
     """Raised when a node that is draining attempts to accept new work."""
-    pass
 
 class StateRecoveryError(HardeningPart2Error):
     """Raised when recovery encounters unverified or ambiguous state."""
-    pass
 
 class PrivacyConstraintError(HardeningPart2Error):
     """Raised when a privacy policy placement constraint is violated."""
-    pass
 
 class ImmutableArtifactError(HardeningPart2Error):
     """Raised when model artifact immutability or content-addressing is violated."""
-    pass
 
 
 class NodeLifecycleManager:

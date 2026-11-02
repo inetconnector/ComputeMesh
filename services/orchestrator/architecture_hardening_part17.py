@@ -11,19 +11,15 @@ import sqlite3
 
 class HardeningPart17Error(RuntimeError):
     """Base exception for Part 17 invariant violations."""
-    pass
 
 class PlacementRevisionError(HardeningPart17Error):
     """Raised when placement revision checks fail."""
-    pass
 
 class RateBudgetLimitError(HardeningPart17Error):
     """Raised when a user exceeds their rate or budget limits."""
-    pass
 
 class WorkloadBoundaryError(HardeningPart17Error):
     """Raised when a node violates its allowed workload boundaries."""
-    pass
 
 class PlacementRevisionEnforcer:
     """Enforces: placement has revision."""

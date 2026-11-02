@@ -20,12 +20,10 @@ MAX_MEMORY_BYTES = 256 * 1024 * 1024  # 256 MB
 
 class SandboxExecutionError(Exception):
     """Raised when sandbox execution crashes or returns an error."""
-    pass
 
 
 class SandboxTimeoutError(Exception):
     """Raised when sandbox execution exceeds wall-clock or CPU quotas."""
-    pass
 
 
 # Micro-runner script executed inside the isolated child process
