@@ -1340,10 +1340,10 @@ class ComputeMeshProviderApp:
                     vram_pool = m_stats.get("total_vram_gb", 0.0)
                     tf_pool = m_stats.get("total_compute_tflops", 0.0)
                     node_lbl = "Cluster-Node" if nodes_cnt == 1 else "Cluster-Nodes"
-                    def _update_cluster(n=nodes_cnt, v=vram_pool, t=tf_pool, l=node_lbl):
+                    def _update_cluster(n=nodes_cnt, v=vram_pool, t=tf_pool, label_text=node_lbl):
                         try:
                             self.lbl_mesh_stats.config(
-                                text=f"🟢 {n} {l} Verbunden  |  {v:.1f} GB VRAM Pool  |  {t:.1f} TFLOPS",
+                                text=f"🟢 {n} {label_text} Verbunden  |  {v:.1f} GB VRAM Pool  |  {t:.1f} TFLOPS",
                                 foreground="#10b981"
                             )
                         except Exception:

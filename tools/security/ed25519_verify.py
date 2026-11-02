@@ -12,7 +12,7 @@ import hashlib
 # ---------------------------------------------------------------------------
 p = 2**255 - 19
 d = -121665 * pow(121666, p - 2, p) % p
-I = pow(2, (p - 1) // 4, p)
+SQRT_MINUS_ONE = pow(2, (p - 1) // 4, p)
 By = 4 * pow(5, p - 2, p) % p
 Bx = 0
 
@@ -27,7 +27,7 @@ def _recover_x(y: int, sign: int) -> int:
         return 0
     x = pow(x2, (p + 3) // 8, p)
     if (x * x - x2) % p != 0:
-        x = (x * I) % p
+        x = (x * SQRT_MINUS_ONE) % p
     if (x * x - x2) % p != 0:
         return -1
     if (x & 1) != sign:
@@ -90,11 +90,11 @@ def _pure_verify(public_key: bytes, message: bytes, signature: bytes) -> bool:
     if A is None:
         return False
     S = _decodeint(signature[32:])
-    l = 2**252 + 27742317777372353535851937790883648493
-    if S >= l:
+    group_order = 2**252 + 27742317777372353535851937790883648493
+    if S >= group_order:
         return False
     h = hashlib.sha512(signature[:32] + public_key + message).digest()
-    k = _decodeint(h) % l
+    k = _decodeint(h) % group_order
     SB = _scalarmult(B, S)
     RAk = _edwards_add(R, _scalarmult(A, k))
     (x1, y1, z1, _) = SB
