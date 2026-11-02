@@ -9,6 +9,7 @@ Supports:
 from __future__ import annotations
 
 import base64
+import binascii
 import ctypes
 import json
 import os
@@ -267,14 +268,18 @@ def load_node_private_key(path: Path) -> Ed25519PrivateKey:
         except Exception as exc:
             raise KeyStorageError("failed to parse Ed25519 private key PEM data") from exc
 
-    # Try base64-decoded raw 32 bytes
+    # Only malformed base64 is an expected format fallthrough to PEM.
+    # A broken decoder or private-key constructor must not be hidden.
     stripped = key_bytes.strip()
     try:
         decoded = base64.b64decode(stripped, validate=True)
-        if len(decoded) == 32:
+    except (binascii.Error, ValueError):
+        decoded = None
+    if decoded is not None and len(decoded) == 32:
+        try:
             return Ed25519PrivateKey.from_private_bytes(decoded)
-    except Exception:
-        pass
+        except (TypeError, ValueError) as exc:
+            raise KeyStorageError("invalid base64-encoded Ed25519 private key") from exc
 
     try:
         key = serialization.load_pem_private_key(stripped, password=None)
@@ -413,8 +418,10 @@ def get_or_create_node_private_key(
                 if os.access(p.parent, os.W_OK):
                     chosen_path = p
                     break
-            except Exception:
-                pass
+            except OSError:
+                # An unavailable preferred directory may use the home fallback.
+                # Unexpected programming errors must not silently rotate identity.
+                continue
 
     if chosen_path is None:
         chosen_path = Path.home() / ".computemesh" / "node_identity.key"
