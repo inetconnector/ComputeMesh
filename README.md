@@ -1,5 +1,17 @@
 # ComputeMesh
 
+## Current release-gate status (2026-11-02)
+
+This checkout contains the public PR-139 candidate at commit
+`32eef045b6158020aa4733e4ef9f95f0fe98be7f`. The existing v1.2.189 manifest
+signature is independently Ed25519-valid under the trusted release public key,
+and the focused release/security tests pass. The candidate is nevertheless not
+a release: the complete current artifact inventory, Android certificate and
+physical-device evidence, independent protected-runner receipt, and operator
+approval are still missing. The full local suite also has three stale parity
+expectations for the deliberately disabled Python executor and three Windows
+`bash.exe` path-translation failures. **RELEASE_NO_GO** remains authoritative.
+
 ## Current local P0 integration candidate (2026-10-26)
 
 This checkout is a local development candidate, not a published release. It

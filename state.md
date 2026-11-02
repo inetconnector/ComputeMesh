@@ -4757,3 +4757,31 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
   was added; the explicit targeted suites and `run_all_tests.py` are the
   supported local evidence paths.
 ## 2026-10-26 P0 abschließende Integrationshärtung: Auth, Placement, NodeOS und Enrollment
+## 2026-11-02 — PR-139 release-gate follow-up
+
+The public PR-139 candidate is at exact commit
+`32eef045b6158020aa4733e4ef9f95f0fe98be7f` on the existing draft branch
+`release/portal-platform-sync-20261028`. This commit restores the already
+reviewed v1.2.189 Ed25519 signature and adds explicit isolated Android APK/AAB
+fixture bytes to `tools/release/tests/test_signed_portal_bundle.py`. No private
+release key was copied, committed or exposed.
+
+Verification performed against this exact candidate:
+
+- Independent Ed25519 verification of `portal/updates/version.json`: passed;
+  trusted public-key membership: passed.
+- Focused release/security tests with global Python and
+  `--import-mode=prepend`: `8 passed`.
+- Full local PR checkout run with the same import mode: `2069 passed, 20
+  skipped, 69 subtests, 7 failed`. The remaining failures are three stale
+  OpenAI parity expectations against the intentionally disabled fail-closed
+  Python executor and three Windows `bash.exe` path-translation failures in
+  Linux setup tests. The seventh failure was the invalid manifest signature and
+  is fixed by this commit; the focused post-fix rerun passed.
+- `compileall` and `git diff --check` passed before commit.
+
+This is not an independent TrustedBridge receipt and does not prove Android
+Gradle/lint, APK certificate identity, physical QR pairing, WAN/hardware
+behavior, complete release artifacts, staging/rollback, or production approval.
+The PR remains draft and the release decision is **RELEASE_NO_GO**.
+
