@@ -28,6 +28,9 @@ The subsequent FURB167 charge replaced 56 regex flag aliases with descriptive
 names in nine reviewed files. The affected Concert Research/MCP tests passed
 `55 passed, 10 subtests`; full Ruff, compileall and diff-check passed, and the
 complete public suite passed `2076 passed, 20 skipped, 69 subtests` in 302.27 s.
+Hosted run `41441718994` also passed on exact code head `b8ebd47`: isolated
+security/portal `51 passed, 5 skipped, 9 subtests`, critical syntax/selected
+Ruff passed, and offline public `tests/` snapshot `181 passed, 13 skipped`.
 
 ## Current local P0 integration candidate (2026-10-26)
 

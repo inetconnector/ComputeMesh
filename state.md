@@ -4982,6 +4982,8 @@ The complete public suite was rerun on exact code head `b8ebd47` and passed
 post-charge inventory is at
 `C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-furb167.json`.
 The code commit is pushed to the existing PR-139 branch; the next docs-only
-commit will record the hosted result. Release status remains
-**RELEASE_NO_GO**.
+commit records hosted run `41441718994` on exact code head `b8ebd47`: isolated
+security/portal `51 passed, 5 skipped, 9 subtests`, critical syntax/selected
+Ruff passed, and offline public `tests/` snapshot `181 passed, 13 skipped`.
+Release status remains **RELEASE_NO_GO**.
 
