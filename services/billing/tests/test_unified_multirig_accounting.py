@@ -15,16 +15,9 @@ from pathlib import Path
 
 from services.billing.ledger import (
     MICRO_UNIT_SCALE,
-    AccountType,
-    BillingError,
     InsufficientBalanceError,
 )
 from services.billing.owner_accounts import OwnerAccountStore
-from services.billing.owner_credits import (
-    OWNER_EARNED,
-    OWNER_PURCHASED,
-    OwnerCreditLedger,
-)
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
 from services.billing.owner_job_accounting import (
     ProviderOwnerShare,

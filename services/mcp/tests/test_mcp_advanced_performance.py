@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import time
 import unittest
-from unittest.mock import MagicMock, patch
 
 from services.mcp.agent_loop import (
     AgentLoop,

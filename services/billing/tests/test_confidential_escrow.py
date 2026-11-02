@@ -12,9 +12,6 @@ from services.billing.confidential_escrow import (
 )
 from services.billing.ledger import BillingError, InsufficientBalanceError
 from services.billing.owner_credits import (
-    OWNER_EARNED,
-    OWNER_PROMO,
-    OWNER_PURCHASED,
     CreditDestination,
     owner_bucket_account,
 )

@@ -9,8 +9,8 @@ and deletion/anonymization actions in strict compliance with:
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 

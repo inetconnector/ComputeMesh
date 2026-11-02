@@ -13,12 +13,11 @@ import json
 import queue
 import random
 import socket
-import sys
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 RFC1918 = tuple(

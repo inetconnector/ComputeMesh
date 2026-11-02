@@ -7,8 +7,6 @@ automatic FAT32 configuration auto-mounting, and the autonomous provider inferen
 """
 from __future__ import annotations
 
-import shutil
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Optional
 
 from .reasoning_formatter import format_reasoning_and_thinking_blocks
 

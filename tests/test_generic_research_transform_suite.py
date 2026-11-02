@@ -1,26 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 """End-to-End Test Suite for Generic Deep Research, Document/Media Transformation, and Resilient Checkpointing."""
 
-import json
 import os
 import shutil
 import tempfile
 import unittest
-from pathlib import Path
 
 from PIL import Image, ImageDraw
 from services.mcp.builtin.archive_and_data_transform import (
-    convert_structured_data,
     create_archive,
-    unpack_archive,
-)
-from services.mcp.builtin.image_enhancer_tools import create_contact_sheet, enhance_and_crop_image
-from services.mcp.builtin.mission_journal import (
-    checkpoint_list,
-    checkpoint_resume,
-    checkpoint_save,
-    mission_log_step,
-    mission_start,
 )
 from services.mcp.tool_registry import ToolRegistry
 

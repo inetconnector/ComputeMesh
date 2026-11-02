@@ -5,15 +5,13 @@ from __future__ import annotations
 
 import json
 import logging
-import math
-import os
 import re
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from .chunker import DocumentChunk, chunk_text
+from .chunker import chunk_text
 from .embeddings import cosine_similarity, get_text_embedding
 
 log = logging.getLogger("computemesh.rag.vector_store")

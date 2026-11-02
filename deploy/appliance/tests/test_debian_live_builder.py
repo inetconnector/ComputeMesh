@@ -5,7 +5,6 @@ from pathlib import Path
 
 from deploy.appliance.debian_live_builder import (
     REQUIRED_PACKAGES,
-    ApplianceBuildConfig,
     DebianLiveBuilder,
 )
 

@@ -9,7 +9,6 @@ Runs outside the unprivileged AI agent payload:
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 import secrets
@@ -17,7 +16,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +24,6 @@ from .dead_mans_switch import (
     DeadMansLeaseGuard,
     ExecutionLease,
     utc_now,
-    utc_now_iso,
 )
 from .hardware_relay import HardwareKillRelay, NullHardwareRelay
 from .tripline_monitor import TriplineMonitor

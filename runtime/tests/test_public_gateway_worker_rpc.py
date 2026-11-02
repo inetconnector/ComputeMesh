@@ -3,7 +3,6 @@ import multiprocessing
 import socket
 import time
 import unittest
-from typing import Optional
 
 from runtime.zero_trust_worker import ZeroTrustWorkerCommunicator
 

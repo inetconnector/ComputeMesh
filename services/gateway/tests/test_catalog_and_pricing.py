@@ -10,7 +10,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.gateway.catalog import (
     AVAILABLE_MODELS,
-    DEFAULT_PRICE_TIERS,
     CatalogInvariantValidationError,
     ModelSpec,
     PriceTier,

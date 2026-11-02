@@ -17,7 +17,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 try:
@@ -59,9 +59,8 @@ except ImportError:
     HAS_PYSTRAY = False
 
 from config import CONFIG
-from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
 from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
-from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN, CloudTunnelRelay
+from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
 from services.updater.auto_updater import AutoUpdater
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware, scan_rig_hardware_stable

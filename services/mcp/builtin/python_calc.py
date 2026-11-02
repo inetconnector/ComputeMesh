@@ -12,7 +12,7 @@ import ast
 import math
 import multiprocessing
 import time
-from typing import Any, Dict
+from typing import Any
 
 MAX_SOURCE_CHARS = 2000
 MAX_AST_NODES = 400

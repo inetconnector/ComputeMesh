@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from services.orchestrator.handlers import handle_control_message

@@ -1,5 +1,4 @@
 """Unit tests for ComputeMesh Central Configuration System."""
-import os
 import sys
 import unittest
 from pathlib import Path

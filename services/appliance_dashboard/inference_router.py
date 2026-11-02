@@ -9,10 +9,9 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.appliance.inference")
 

@@ -6,7 +6,7 @@ import argparse
 import hashlib
 import json
 import math
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 

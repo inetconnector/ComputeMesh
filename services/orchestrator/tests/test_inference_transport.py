@@ -3,7 +3,7 @@ from __future__ import annotations
 import socket
 import threading
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from services.orchestrator.inference_transport import (

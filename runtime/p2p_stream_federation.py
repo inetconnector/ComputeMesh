@@ -5,7 +5,6 @@ live latency metrics, and client stream synchronization.
 """
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time

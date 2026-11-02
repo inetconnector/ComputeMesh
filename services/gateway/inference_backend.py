@@ -12,12 +12,11 @@ import os
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
-from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
 from services.gateway.execution_attestation import (
     ExecutionAttestationError,
     VerificationKeyResolver,

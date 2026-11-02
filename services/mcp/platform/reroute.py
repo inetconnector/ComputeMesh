@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any
 
 from .contracts import RequestEnvelope, RoutingDecision
 from .skill_registry import PersistentSkillRegistry

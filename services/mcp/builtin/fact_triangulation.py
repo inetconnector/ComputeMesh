@@ -7,7 +7,7 @@ Cross-verifies claims and facts across independent sources (Wikipedia DE/EN, New
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .multilingual_wiki import fetch_multilingual_wikipedia
 from .news_feed import execute_get_news

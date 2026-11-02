@@ -11,7 +11,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -24,7 +24,6 @@ import services.gateway.server as gateway_server_module
 from runtime.safety.dead_mans_switch import (
     DeadMansLeaseGuard,
     ExecutionLease,
-    get_lease_guard,
     set_global_lease_guard,
     utc_now,
 )

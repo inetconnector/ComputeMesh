@@ -18,7 +18,6 @@ import stat
 import time
 from ctypes import wintypes
 from pathlib import Path
-from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization

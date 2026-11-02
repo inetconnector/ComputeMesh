@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 import sys
-from http import HTTPStatus
 from pathlib import Path
 from typing import Any
 
@@ -18,11 +17,9 @@ if str(REPO_ROOT) not in sys.path:
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS, Ledger
 from services.billing.owner_credits import owner_bucket_account
-from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
-from services.billing.owner_settlement import OwnerPayoutProfile, OwnerPayoutProfileStore
+from services.billing.owner_settlement import OwnerPayoutProfileStore
 from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecutor
 from services.billing.stripe_connect import StripeConnectService
-from services.billing.stripe_integration import StripeIntegrationError
 
 
 def _resolve_accounting_store() -> AccountingStore:

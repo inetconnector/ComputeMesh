@@ -3,14 +3,12 @@
 
 from __future__ import annotations
 
-import io
 import json
 import os
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from services.mcp.agent_loop import (
-    AgentLoop,
     detect_direct_tool_intent,
     format_tool_content_if_json,
 )

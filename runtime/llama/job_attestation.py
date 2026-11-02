@@ -8,10 +8,9 @@ private keys never need to leave the node that owns them.
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 

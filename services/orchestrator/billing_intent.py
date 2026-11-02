@@ -7,7 +7,7 @@ import sqlite3
 import threading
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from services.billing.ledger import (
     AccountType,

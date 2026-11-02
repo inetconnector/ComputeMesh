@@ -22,7 +22,6 @@ from services.billing.ledger import (
     InsufficientBalanceError,
 )
 from services.billing.owner_settlement import (
-    CENT_MICRO_UNITS,
     OwnerSettlementExecutor,
     _event_tx_id,
 )

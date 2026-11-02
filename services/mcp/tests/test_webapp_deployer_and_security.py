@@ -2,10 +2,8 @@
 """Comprehensive Test Suite for Sandboxed WebApp Deployer, Security Scanner & Static Handler."""
 
 import json
-import os
 import unittest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from services.appliance_dashboard.webapp_handler import CSP_HEADER, WebAppsHandler
 from services.mcp.agent_loop import (

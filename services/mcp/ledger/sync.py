@@ -10,7 +10,7 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .block import LedgerBlock, ProofOfExecutionReceipt
 from .compact_chain import GENESIS_PREV_HASH, CompactLedger, get_compact_ledger

@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-from .legal_registry import LegalRuleRegistry
 
 
 class PlatformEnterpriseSize(str, Enum):

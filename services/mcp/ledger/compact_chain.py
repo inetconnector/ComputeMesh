@@ -12,9 +12,8 @@ import logging
 import os
 import sqlite3
 import threading
-import time
 from collections.abc import Generator
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .block import LedgerBlock, ProofOfExecutionReceipt
 from .merkle_tree import MerkleTree, sha256_hash

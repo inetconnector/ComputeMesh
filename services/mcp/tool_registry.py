@@ -15,9 +15,9 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from services.memory.user_memory import delete_user_memory, get_user_memory, update_user_memory
+from services.memory.user_memory import get_user_memory, update_user_memory
 
 from .builtin.adb_bridge_tools import (
     adb_capture_screenshot,
@@ -100,7 +100,7 @@ from .builtin.mission_journal import (
 )
 from .builtin.multilingual_wiki import fetch_multilingual_wikipedia
 from .builtin.network_tools import lookup_network_host
-from .builtin.news_feed import execute_get_news, get_live_news
+from .builtin.news_feed import execute_get_news
 from .builtin.office_suite import (
     convert_data_to_markdown_table,
     generate_office_document,
@@ -114,7 +114,6 @@ from .builtin.rag_tool import index_document_text, list_indexed_documents, searc
 from .builtin.sports_data import get_sports_data
 from .builtin.system_tools import (
     execute_gpu_telemetry,
-    execute_process_summary,
     execute_system_info,
 )
 from .builtin.terminal_runner import run_terminal_command

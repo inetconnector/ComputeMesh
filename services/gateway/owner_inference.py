@@ -28,7 +28,6 @@ from services.billing.owner_job_accounting import (
     capture_owner_job_hold,
     quote_owner_job,
 )
-from services.common.config import CONFIG
 from services.common.secure_memory import SecureMemoryBuffer
 from services.gateway.catalog import (
     calculate_max_charge_micro,

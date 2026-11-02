@@ -8,7 +8,6 @@ injected so private ranking logic remains outside the public repository.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Protocol
 
 from protocol.confidential_metering import (

@@ -7,11 +7,9 @@ import csv
 import io
 import json
 import os
-import shutil
 import tarfile
 import zipfile
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def unpack_archive(

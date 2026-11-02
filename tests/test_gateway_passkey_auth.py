@@ -7,7 +7,7 @@ import tempfile
 import threading
 import time
 import unittest
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from http.client import HTTPConnection
 from pathlib import Path

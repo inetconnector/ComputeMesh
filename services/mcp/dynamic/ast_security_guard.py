@@ -8,7 +8,6 @@ banning code-execution/introspections builtins, and blocking dunder escapes.
 from __future__ import annotations
 
 import ast
-from typing import Set
 
 
 class SecurityASTViolation(Exception):

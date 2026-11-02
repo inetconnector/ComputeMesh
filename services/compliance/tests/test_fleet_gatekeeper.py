@@ -11,12 +11,9 @@ from services.compliance.fleet_gatekeeper import (
 )
 from services.compliance.provider_identity import (
     DSA_TRADER_DECLARATION_VERSION,
-    BusinessRegistryInfo,
     EntityType,
     IdentityVerificationState,
-    MarketplaceMode,
     StructuredAddress,
-    VerificationState,
 )
 from services.compliance.provider_identity_store import ProviderIdentityStore
 

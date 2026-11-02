@@ -1,14 +1,10 @@
 """Unit tests for portal contact form endpoint and mail dispatcher integration."""
 from __future__ import annotations
 
-import json
 import unittest
-import urllib.error
-import urllib.request
 from unittest.mock import patch
 
 from services.portal import mail_dispatcher
-from services.portal.server import PortalHandler
 
 
 class TestPortalContactRoutes(unittest.TestCase):

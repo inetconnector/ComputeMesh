@@ -13,7 +13,6 @@ from urllib import error as urlerror
 from urllib import request as urlrequest
 
 from apps.client.confidential_openai import (
-    MAX_OPENAI_BODY_BYTES,
     ConfidentialOpenAIBridge,
     ConfidentialOpenAIError,
     HttpProtectedTransport,

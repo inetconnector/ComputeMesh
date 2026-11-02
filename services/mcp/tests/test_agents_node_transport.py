@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from services.mcp.platform.node_registry import NodeLifecycle, NodeRegistry, NodeStateConflict

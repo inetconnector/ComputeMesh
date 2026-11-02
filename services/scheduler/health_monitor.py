@@ -7,12 +7,10 @@ mining rigs experience hardware degradation or unexpected disconnects.
 """
 from __future__ import annotations
 
-import math
 import sys
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:

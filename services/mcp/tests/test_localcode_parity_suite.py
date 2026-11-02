@@ -10,9 +10,7 @@ from unittest.mock import MagicMock, patch
 
 from services.mcp.agent_loop import detect_direct_tool_intent, format_tool_content_if_json
 from services.mcp.builtin.adb_bridge_tools import (
-    adb_capture_screenshot,
     adb_get_system_log,
-    adb_install_app,
     adb_list_devices,
 )
 from services.mcp.builtin.mission_journal import (

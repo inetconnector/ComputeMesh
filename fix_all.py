@@ -1,4 +1,3 @@
-import re
 
 with open("services/orchestrator/persistence.py", "r") as f:
     content = f.read()

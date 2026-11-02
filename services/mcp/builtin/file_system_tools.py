@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 MAX_READ_BYTES = 500_000
 MAX_LIST_ENTRIES = 200

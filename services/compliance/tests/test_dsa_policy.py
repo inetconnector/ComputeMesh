@@ -4,7 +4,6 @@ from __future__ import annotations
 import unittest
 
 from services.compliance.dsa_policy import (
-    ApplicabilityDecision,
     DSAApplicabilityPolicy,
     PlatformEnterpriseSize,
     PlatformOperatorLegalProfile,

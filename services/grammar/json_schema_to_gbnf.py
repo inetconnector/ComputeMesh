@@ -7,8 +7,7 @@ mathematically guaranteeing 100% syntactically valid JSON responses.
 
 from __future__ import annotations
 
-import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def json_schema_to_gbnf(schema: dict[str, Any]) -> str:

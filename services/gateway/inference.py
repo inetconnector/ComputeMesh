@@ -12,7 +12,7 @@ import sys
 import time
 from collections.abc import Generator
 from contextvars import ContextVar
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,12 +22,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.billing.ledger import InsufficientBalanceError, Ledger
 from services.common.config import CONFIG
-from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
+from services.common.secure_memory import SecureMemoryBuffer
 from services.common.vision_preprocessor import get_vision_preprocessor
 from services.gateway.blind_inference import BlindedPipelineEngine
 from services.gateway.catalog import (
-    AVAILABLE_MODELS,
-    DEFAULT_PRICE_TIERS,
     calculate_max_charge_micro,
     calculate_token_charge_micro,
     provider_shares_from_env,

@@ -2,8 +2,8 @@ import hashlib
 import json
 import sqlite3
 import time
-from datetime import UTC, datetime, timezone
-from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
+from datetime import UTC, datetime
+from typing import Any, Protocol
 
 
 class HardeningPart7Error(RuntimeError):

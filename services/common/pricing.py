@@ -13,7 +13,6 @@ Units:
 """
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 
 MICRO_UNITS_PER_USD: int = 1_000_000

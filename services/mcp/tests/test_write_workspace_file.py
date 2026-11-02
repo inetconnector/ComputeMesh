@@ -1,10 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Unit and regression tests for write_workspace_file MCP tool."""
 
-import os
-import tempfile
 import unittest
-from pathlib import Path
 
 from services.mcp.builtin.file_system_tools import (
     _get_safe_workspace_root,

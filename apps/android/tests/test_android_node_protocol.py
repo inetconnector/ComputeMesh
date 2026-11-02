@@ -1,5 +1,4 @@
 """Unit tests for ComputeMesh Android Node Protocol & Battery Guard."""
-import json
 import sys
 import unittest
 from pathlib import Path

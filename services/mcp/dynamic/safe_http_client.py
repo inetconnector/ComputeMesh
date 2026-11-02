@@ -12,7 +12,7 @@ import json
 import socket
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional, Union
+from typing import Any, Union
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh-DynamicRunner/1.0"
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB

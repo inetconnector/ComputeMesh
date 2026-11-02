@@ -7,7 +7,7 @@ import urllib.request
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from services.appliance_dashboard.server import DashboardHandler, run_dashboard_server
+from services.appliance_dashboard.server import DashboardHandler
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import GpuDevice, RigInventory

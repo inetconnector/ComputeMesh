@@ -6,7 +6,7 @@ import hashlib
 import json
 import struct
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from cryptography.exceptions import InvalidSignature

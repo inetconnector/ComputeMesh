@@ -6,7 +6,6 @@ portal-core.js route required by the compliance UI wrapper.
 """
 from __future__ import annotations
 
-import sys
 from http import HTTPStatus
 
 from services.portal import server_core as _core

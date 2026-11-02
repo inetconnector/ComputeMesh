@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError
+from services.portal.fleet_accounts import FleetAccountStore
 
 
 class TestFleetAccountsExtended(unittest.TestCase):

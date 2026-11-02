@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import re
-from typing import Any
-from urllib import error, parse, request
+from urllib import parse, request
 
 logger = logging.getLogger("concert_geocoding")
 

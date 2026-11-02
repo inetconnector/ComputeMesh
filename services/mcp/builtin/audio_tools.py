@@ -3,10 +3,8 @@
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.audio_tools")
 

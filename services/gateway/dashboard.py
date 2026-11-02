@@ -9,9 +9,8 @@ import ipaddress
 import json
 import os
 import sys
-import tempfile
 import threading
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 

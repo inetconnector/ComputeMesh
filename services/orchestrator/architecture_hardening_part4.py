@@ -7,7 +7,7 @@ enforcement of the core invariants defined in ARCHITECTURE.md:
 from __future__ import annotations
 
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class HardeningPart4Error(RuntimeError):

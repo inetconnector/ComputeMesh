@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import sys
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 # Ensure project root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))

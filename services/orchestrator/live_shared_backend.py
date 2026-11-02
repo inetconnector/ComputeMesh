@@ -10,9 +10,6 @@ from runtime.llama.shared_request_live import run_live_shared_request
 from services.gateway.execution_attestation import VerificationKeyResolver
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.orchestrator.architecture_hardening_part12 import (
-    ExecutionEvidenceEnforcer,
-    RecoveryStateEnforcer,
-    StaleProviderResponseEnforcer,
     UserCancellationPropagator,
 )
 from services.orchestrator.authenticated_attestation_transport import (

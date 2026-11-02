@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 import urllib.parse
 from datetime import date as date_type
-from typing import Any, Dict
+from typing import Any
 
 from .http_json import ProviderError, fetch_json
 

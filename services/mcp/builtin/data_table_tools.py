@@ -6,9 +6,8 @@ from __future__ import annotations
 import csv
 import io
 import json
-import math
 import statistics
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def analyze_data_table(

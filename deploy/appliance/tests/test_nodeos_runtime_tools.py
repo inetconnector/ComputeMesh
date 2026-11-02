@@ -5,7 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 from services.appliance_dashboard import tunnel_relay
 from tools.appliance.boot_preflight import PreflightError, run_preflight

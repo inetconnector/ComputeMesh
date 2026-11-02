@@ -24,7 +24,7 @@ from services.billing.stripe_connect import (
 )
 from services.billing.stripe_integration import StripeIntegrationError
 from services.common.config import CONFIG
-from services.gateway.auth import GatewayAuthManager, extract_bearer_token
+from services.gateway.auth import GatewayAuthManager
 
 
 class ProviderRoutesHandler:

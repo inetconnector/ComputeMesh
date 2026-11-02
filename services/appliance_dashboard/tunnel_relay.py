@@ -16,7 +16,7 @@ from typing import Any
 from config import CONFIG
 from tools.appliance.node_identity import (
     NodeIdentityError,
-    dashboard_must_not_start_relay,
+    dashboard_must_not_start_relay as dashboard_must_not_start_relay,
     is_nodeos_mode,
     migrate_enrolled_node_id,
     read_enrolled_node_id,
@@ -44,9 +44,6 @@ from tools.security.node_auth_token_storage import (
 )
 from tools.security.node_auth_token_storage import (
     atomic_secure_text_write as _atomic_secure_text_write,
-)
-from tools.security.node_auth_token_storage import (
-    default_node_auth_paths as _default_node_auth_paths,
 )
 from tools.security.node_auth_token_storage import (
     read_existing_node_auth_token as _read_existing_node_auth_token,

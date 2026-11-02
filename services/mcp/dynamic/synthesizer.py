@@ -14,7 +14,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .ast_security_guard import SecurityASTViolation, validate_python_code_ast
 from .sandbox_runner import SandboxExecutionError, SandboxTimeoutError, run_code_in_sandbox

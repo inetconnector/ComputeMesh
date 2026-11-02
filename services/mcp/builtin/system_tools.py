@@ -7,7 +7,7 @@ import os
 import platform
 import subprocess
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def execute_system_info() -> dict[str, Any]:

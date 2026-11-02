@@ -3,11 +3,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from services.rag.document_parser import extract_text_from_file, parse_document_content
 from services.rag.vector_store import get_default_vector_store
 
 log = logging.getLogger("computemesh.mcp.rag_tool")

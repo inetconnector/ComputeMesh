@@ -5,10 +5,9 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import subprocess
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.doctor")
 

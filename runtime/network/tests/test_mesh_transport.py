@@ -1,6 +1,5 @@
 """Unit tests for Mutual TLS (mTLS) Peer-to-Peer Encrypted Transport."""
 import socket
-import ssl
 import sys
 import tempfile
 import threading

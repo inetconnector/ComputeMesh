@@ -14,7 +14,6 @@ import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 import services.gateway.server as gateway_server
 from services.appliance_dashboard.mesh_aggregator import MeshRegistryAggregator

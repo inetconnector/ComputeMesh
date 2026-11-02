@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from services.concert_research.engine import ConcertResearchEngine
 from services.concert_research.models import ResearchRequest

@@ -1,5 +1,4 @@
 """Unit tests for ComputeMesh mining rig hardware detection."""
-import json
 import tempfile
 import unittest
 from pathlib import Path

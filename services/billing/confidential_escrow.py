@@ -14,15 +14,11 @@ import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from services.billing.ledger import BillingError, DuplicateEventError, Posting, Transaction
+from services.billing.ledger import BillingError, Posting, Transaction
 from services.billing.owner_credits import (
     _BUCKET_TYPES,
-    OWNER_EARNED,
-    OWNER_PROMO,
-    OWNER_PURCHASED,
     SPEND_ORDER,
     CreditDestination,
-    OwnerSpendResult,
     _clean_owner,
     _tx_id,
     _utc_now,

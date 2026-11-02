@@ -7,13 +7,12 @@ fleet bindings, operator legal profiles, and statutory retention lifecycle execu
 from __future__ import annotations
 
 import hashlib
-import json
 import secrets
 import sqlite3
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -29,11 +28,10 @@ from .provider_identity import (
     MarketplaceMode,
     ProviderIdentity,
     StructuredAddress,
-    TraderDeclaration,
     VerificationState,
     utc_now,
 )
-from .retention_policy import RetentionAction, RetentionCategory, RetentionEngine
+from .retention_policy import RetentionCategory, RetentionEngine
 
 SCHEMA_VERSION = 2
 

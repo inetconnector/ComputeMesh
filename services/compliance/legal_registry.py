@@ -7,7 +7,6 @@ data protection, and platform-to-business relations.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 

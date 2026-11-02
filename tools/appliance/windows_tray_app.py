@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 import urllib.request
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Ensure PyInstaller Windows child process bootloader compatibility
@@ -56,7 +56,7 @@ if str(REPO_ROOT) not in sys.path:
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from PIL import IcoImagePlugin, Image, ImageDraw, ImageTk
+from PIL import Image, ImageDraw, ImageTk
 
 try:
     import pystray
@@ -72,8 +72,8 @@ except ImportError:
     HAS_WINREG = False
 
 from config import CONFIG
-from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
-from services.updater.auto_updater import AutoUpdater, UpdateInfo
+from services.appliance_dashboard.server import create_dashboard_server
+from services.updater.auto_updater import AutoUpdater
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
 from tools.appliance.windows_cline_integration import (

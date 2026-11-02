@@ -10,7 +10,6 @@ import os
 import re
 import threading
 import urllib.request
-from typing import Dict, List, Optional, Tuple
 
 EMBEDDING_DIM = 384
 _EMBEDDING_CACHE: dict[str, list[float]] = {}

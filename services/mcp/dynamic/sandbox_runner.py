@@ -8,11 +8,10 @@ and clean JSON IPC over standard streams.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 MAX_OUTPUT_PAYLOAD_BYTES = 64 * 1024  # 64 KB
 DEFAULT_TIMEOUT_SECONDS = 3.0

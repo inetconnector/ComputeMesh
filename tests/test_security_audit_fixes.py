@@ -15,20 +15,15 @@ Verifies remediation of critical and high-priority vulnerabilities:
 12. Pre-inference balance reservation preventing unpaid compute execution.
 13. Dynamic API key revocation without process restart.
 """
-import html
 import http.client
-import io
 import json
-import os
 import socket
-import ssl
 import sys
 import tempfile
 import threading
 import time
 import unittest
 from dataclasses import replace
-from datetime import datetime, timezone
 from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -48,11 +43,8 @@ from services.appliance_dashboard.server import DashboardHandler
 from services.billing.ledger import InsufficientBalanceError, Ledger
 from services.common.node_access import issue_node_session, node_session_cookie
 from services.common.pricing import (
-    DEFAULT_PRICE_TIERS,
     MICRO_UNITS_PER_USD,
-    calculate_max_charge_micro,
     calculate_token_charge_micro,
-    get_price_tier,
 )
 from services.gateway.auth import (
     GatewayAuthManager,
@@ -73,7 +65,6 @@ from services.portal.server import PortalHandler
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import RigInventory
 
-from services.gateway.security import RateLimiter
 
 
 class TestSecurityAuditFixes(unittest.TestCase):
@@ -753,7 +744,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
     # 18. Strict capture_hold Invariants & Hold Overrun Protection
     def test_capture_hold_strict_invariants(self) -> None:
-        from services.billing.ledger import BillingError, InsufficientBalanceError
+        from services.billing.ledger import BillingError
         self.ledger.deposit_customer_credits(
             customer_account_id="cust_strict",
             amount_micro_units=500_000,

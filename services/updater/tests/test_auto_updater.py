@@ -9,9 +9,6 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from services.updater.auto_updater import (
     AutoUpdater,
-    ChecksumMismatchError,
-    SignatureVerificationError,
-    UpdateInfo,
 )
 
 

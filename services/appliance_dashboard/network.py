@@ -4,10 +4,8 @@ from __future__ import annotations
 import platform
 import socket
 import subprocess
-from typing import Any
 
 from config import CONFIG
-from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 
 
 def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = "", port: int = 8080) -> list[dict[str, str]]:

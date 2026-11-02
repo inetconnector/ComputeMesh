@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import urllib.parse
-from typing import Any, Dict
+from typing import Any
 
 from .http_json import ProviderError, fetch_json
 from .weather import WMO_WEATHER_CODES, _extract_candidates

@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError

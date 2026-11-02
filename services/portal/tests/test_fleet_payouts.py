@@ -6,19 +6,16 @@ import time
 import unittest
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import services.gateway.server as gateway_server_module
-from services.billing.accounting import AccountingStore, SettlementRecord
-from services.billing.ledger import MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS, Ledger
+from services.billing.accounting import AccountingStore
+from services.billing.ledger import MICRO_UNIT_SCALE
 from services.billing.owner_credits import owner_bucket_account
 from services.billing.owner_settlement import (
-    OwnerPayoutProfile,
-    OwnerPayoutProfileStore,
     PayoutCapableOwnerLedger,
 )
 from services.billing.stripe_connect import (

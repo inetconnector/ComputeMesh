@@ -12,7 +12,7 @@ import json
 import os
 import secrets
 import sys
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any

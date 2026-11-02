@@ -8,14 +8,12 @@ thermal throttle limits, and power management profiles.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import platform
-import re
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 

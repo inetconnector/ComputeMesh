@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from datetime import UTC, datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 

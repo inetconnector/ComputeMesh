@@ -13,9 +13,8 @@ import argparse
 import json
 import os
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 # Ensure project root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -28,7 +27,6 @@ LOCAL_SAFETY_DIR = REPO_ROOT / "config" / "safety"
 
 def generate_master_keys(target_dir: Path = DEFAULT_DISKSTATION_DIR) -> tuple[bytes, str]:
     """Generates Ed25519 Master Signing Keypair for the Kill Switch subsystem."""
-    from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import ed25519
 
     priv = ed25519.Ed25519PrivateKey.generate()

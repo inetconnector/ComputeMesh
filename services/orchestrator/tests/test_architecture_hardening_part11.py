@@ -1,4 +1,3 @@
-import sqlite3
 import unittest
 
 from services.orchestrator.architecture_hardening_part11 import (

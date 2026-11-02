@@ -7,8 +7,7 @@ Enforces invariants:
 """
 
 import sqlite3
-import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class HardeningPart13Error(RuntimeError):

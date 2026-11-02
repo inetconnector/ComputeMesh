@@ -1,8 +1,7 @@
-import copy
 import json
 import tempfile
 import unittest
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker

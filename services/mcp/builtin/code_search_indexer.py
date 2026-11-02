@@ -7,8 +7,7 @@ import ast
 import fnmatch
 import os
 import re
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 EXCLUDED_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", ".idea", ".vscode", "dist", "build", "target"}
 MAX_FILE_SEARCH_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB

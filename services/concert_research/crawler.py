@@ -8,7 +8,7 @@ import threading
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from html import unescape
 from urllib import error, request, robotparser
 from urllib.parse import quote_plus, unquote, urljoin, urlsplit

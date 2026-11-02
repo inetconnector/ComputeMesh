@@ -8,7 +8,7 @@ into canonical, grounded entities from the preceding conversation dialogue.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 DEICTIC_PATTERNS = [
     r"\b(?:da|dort|hier|das|es|dies|dieses|jenes|darin|daraus|darüber|darueber|damit)\b",

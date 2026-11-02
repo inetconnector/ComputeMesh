@@ -16,16 +16,12 @@ import urllib.request
 from dataclasses import dataclass, replace
 
 from services.common.pricing import (
-    DEFAULT_NETWORK_FEE_BPS,
     DEFAULT_PRICE_TIERS,
-    DEFAULT_PROVIDER_PERCENTAGE,
     ModelPriceTier,
-    calculate_max_charge_micro,
-    calculate_token_charge_micro,
-    get_price_tier,
+    calculate_max_charge_micro as calculate_max_charge_micro,
+    calculate_token_charge_micro as calculate_token_charge_micro,
 )
 from services.gateway.registry_client import (
-    ModelRegistryClient,
     RegistryClientError,
     RegistryModel,
     build_registry_client_from_env,

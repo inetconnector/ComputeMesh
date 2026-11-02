@@ -7,9 +7,8 @@ and Live Deep Web Search into a unified, high-fidelity knowledge package.
 
 from __future__ import annotations
 
-import json
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .context_resolver import resolve_contextual_query
 from .multilingual_wiki import fetch_multilingual_wikipedia

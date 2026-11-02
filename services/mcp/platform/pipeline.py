@@ -1,7 +1,7 @@
 """Composable orchestration pipeline joining request analysis, routing and DAG execution."""
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from typing import Any
 

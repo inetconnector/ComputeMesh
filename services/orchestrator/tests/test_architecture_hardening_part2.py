@@ -1,5 +1,4 @@
 """Tests for Architecture Hardening Part 2."""
-import time
 import unittest
 
 from services.orchestrator.architecture_hardening_part2 import (

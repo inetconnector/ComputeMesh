@@ -5,7 +5,7 @@ Enforces invariants:
 - "A shard must declare: immutable digest; model version; byte size; tensor/layer/expert range; quantization; runtime compatibility; expected device memory; artifact signature metadata."
 """
 
-from typing import Any, Dict
+from typing import Any
 
 
 class HardeningPart8Error(RuntimeError):

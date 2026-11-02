@@ -6,7 +6,7 @@ import threading
 import time
 import unittest
 import urllib.request
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer
 from pathlib import Path

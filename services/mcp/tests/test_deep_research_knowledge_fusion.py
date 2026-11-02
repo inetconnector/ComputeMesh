@@ -6,16 +6,14 @@ Conversational Context Resolution, and Fact Verification.
 
 from __future__ import annotations
 
-import json
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from services.mcp.agent_loop import (
     AgentLoop,
     detect_direct_tool_intent,
-    format_tool_content_if_json,
 )
-from services.mcp.builtin.context_resolver import extract_dominant_topic, resolve_contextual_query
+from services.mcp.builtin.context_resolver import resolve_contextual_query
 from services.mcp.builtin.fact_triangulation import verify_fact_multi_source
 from services.mcp.builtin.knowledge_fusion import cross_source_knowledge_search
 from services.mcp.builtin.multilingual_wiki import fetch_multilingual_wikipedia

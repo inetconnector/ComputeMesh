@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import logging
 import mimetypes
-import os
-import urllib.parse
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any

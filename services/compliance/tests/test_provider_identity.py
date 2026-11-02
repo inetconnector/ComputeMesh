@@ -5,32 +5,23 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from services.compliance.provider_identity import (
     DSA_TRADER_DECLARATION_VERSION,
     BusinessRegistryInfo,
-    ContractCounterpartyModel,
     CustomerAudience,
-    DSAArticle30PublicDisclosure,
     EntityType,
     EvidenceConfidence,
     EvidenceSource,
-    IdentityEvidence,
     IdentityVerificationState,
-    LegalDeclaration,
     MarketplaceEligibilityState,
     MarketplaceMode,
-    MinimalProviderPublicProfile,
     PaymentVerificationState,
     ProviderIdentity,
     StructuredAddress,
-    TraderDeclaration,
-    VerificationState,
     evaluate_provider_requirements,
 )
 from services.compliance.provider_identity_store import (
     ProviderIdentityStore,
-    ProviderIdentityStoreError,
 )
 
 

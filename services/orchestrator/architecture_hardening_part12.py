@@ -7,7 +7,7 @@ Enforces invariants:
 - "recovery never assumes a failed node retained state."
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class HardeningPart12Error(RuntimeError):

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-import time
 import unittest
 from pathlib import Path
 

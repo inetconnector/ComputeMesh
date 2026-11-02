@@ -4,13 +4,11 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from scripts.run_retention_lifecycle import run_retention_lifecycle
 from services.compliance.provider_identity import (
     EntityType,
-    IdentityVerificationState,
-    ProviderIdentity,
     StructuredAddress,
 )
 from services.compliance.provider_identity_store import ProviderIdentityStore

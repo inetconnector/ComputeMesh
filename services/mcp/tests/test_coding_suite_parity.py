@@ -5,7 +5,6 @@ import os
 import shutil
 import tempfile
 import unittest
-from typing import Any, Dict
 
 from services.mcp.agent_loop import detect_direct_tool_intent, format_tool_content_if_json
 from services.mcp.builtin.code_lint_and_syntax import check_code_quality, validate_code_syntax

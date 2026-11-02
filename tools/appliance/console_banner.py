@@ -11,7 +11,6 @@ import os
 import platform
 import socket
 import subprocess
-import sys
 from pathlib import Path
 
 

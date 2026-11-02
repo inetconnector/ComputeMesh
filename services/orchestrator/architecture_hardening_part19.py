@@ -8,7 +8,6 @@ Enforces invariants from FAILURE_SEMANTICS.md:
 """
 
 import threading
-from typing import Any, Dict, Optional, Set
 
 
 class HardeningPart19Error(RuntimeError):

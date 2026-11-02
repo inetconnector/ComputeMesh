@@ -7,9 +7,7 @@ import hmac
 import json
 import multiprocessing
 import socket
-import time
 import unittest
-from typing import Optional
 
 from runtime.autonomous_failover_mesh import (
     AutonomousFailoverMeshFabric,

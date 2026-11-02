@@ -13,7 +13,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.billing.ledger import Ledger
 from services.gateway.auth import (
-    AuthResult,
     GatewayAuthManager,
     extract_bearer_token,
     resolve_client_ip,

@@ -9,7 +9,7 @@ import queue
 import subprocess
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
 DEFAULT_RPC_TIMEOUT_SECONDS = 15.0

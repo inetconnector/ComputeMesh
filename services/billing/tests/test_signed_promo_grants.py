@@ -2,7 +2,6 @@
 import base64
 import tempfile
 import unittest
-from dataclasses import replace
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey

@@ -2,14 +2,12 @@
 """Unit and regression tests for android_play_store_tools MCP module."""
 
 import json
-import os
 import unittest
 from pathlib import Path
 
 from services.mcp.builtin.android_play_store_tools import (
     inspect_android_manifest_or_bundle,
     sync_play_console_metadata,
-    validate_store_graphics,
     validate_store_listing,
 )
 from services.mcp.tool_registry import ToolRegistry

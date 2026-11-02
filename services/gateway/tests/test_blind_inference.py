@@ -11,7 +11,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.gateway.blind_inference import (
     BlindedPipelineEngine,
-    BlindedSessionKey,
     BlindedTensorProjector,
 )
 

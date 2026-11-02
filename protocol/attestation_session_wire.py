@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .control import ControlEnvelope

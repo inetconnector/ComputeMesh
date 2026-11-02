@@ -104,7 +104,7 @@ class TestHardwareDeduplication(unittest.TestCase):
 
     def test_gateway_fleet_payload_deduplicates_hardware_and_tokens(self) -> None:
         """Verify _build_fleet_payload treats multiple alias entries with same token/GPU as 1 node."""
-        from datetime import datetime, timezone
+        from datetime import datetime
         now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
         owner_k = "inet-test-owner-dedup-01"

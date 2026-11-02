@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import socket
 import threading
-from typing import Any, Optional
 
 logger = logging.getLogger("LAN-Discovery-Responder")
 DISCOVERY_PORT = 13379

@@ -1,6 +1,5 @@
 """Unit tests for ComputeMesh Hardened Security, Rate Limiting & Data Sanitization."""
 import sys
-import time
 import unittest
 from pathlib import Path
 
@@ -11,7 +10,6 @@ if str(REPO_ROOT) not in sys.path:
 from services.portal.server import _safe_resolve_portal_file
 
 from services.gateway.security import (
-    MAX_REQUEST_PAYLOAD_BYTES,
     SECURITY_HEADERS,
     RateLimiter,
     sanitize_error_message,

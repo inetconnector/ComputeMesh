@@ -9,7 +9,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.http_api_client")
 DEFAULT_USER_AGENT = "ComputeMesh-REST-Client/1.2"

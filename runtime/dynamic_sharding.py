@@ -8,9 +8,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any
 
 from runtime.distributed_model_cache import OffHeapCacheManager
 

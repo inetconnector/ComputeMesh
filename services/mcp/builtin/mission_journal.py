@@ -8,7 +8,7 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.mission_journal")
 MISSIONS_DIR_NAME = os.path.join(".computemesh", "missions")

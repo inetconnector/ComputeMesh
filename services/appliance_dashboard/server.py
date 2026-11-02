@@ -32,19 +32,12 @@ from services.appliance_dashboard.inference_router import InferenceRouter
 from services.appliance_dashboard.killswitch_actions import KillswitchHandler
 from services.appliance_dashboard.mesh_aggregator import (
     GLOBAL_MESH_AGGREGATOR,
-    MeshRegistryAggregator,
 )
 from services.appliance_dashboard.mesh_sharding_handler import MeshShardingHandler
 from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
 from services.appliance_dashboard.system_actions import SystemActionsHandler
 from services.appliance_dashboard.telemetry_handler import TelemetryHandler
 from services.appliance_dashboard.template_loader import get_dashboard_html
-from services.appliance_dashboard.tunnel_relay import (
-    CLOUD_TUNNEL_RELAY,
-    CloudTunnelRelay,
-    get_or_create_node_auth_token,
-    rotate_node_auth_token,
-)
 from services.appliance_dashboard.webapp_handler import WebAppsHandler
 from tools.appliance.appliance_config import (
     ApplianceConfig,

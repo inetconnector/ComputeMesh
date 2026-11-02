@@ -5,12 +5,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import struct
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.android_play_store")
 

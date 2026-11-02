@@ -11,7 +11,7 @@ import re
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 TAG_RE = re.compile(r"(?is)<[^>]+>")
 SPACE_RE = re.compile(r"\s+")

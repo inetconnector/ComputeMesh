@@ -2,14 +2,10 @@
 """Comprehensive test suite for the ComputeMesh Kill Switch & Safety Subsystem."""
 from __future__ import annotations
 
-import datetime
-import json
-import os
 import sys
 import tempfile
-import time
 import unittest
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 # Ensure project root is on sys.path
@@ -23,21 +19,16 @@ from runtime.safety.dead_mans_switch import (
     EmergencyKillTrippedError,
     ExecutionLease,
     InvalidLeaseSignatureError,
-    KillSwitchError,
-    get_lease_guard,
     set_global_lease_guard,
     utc_now,
-    utc_now_iso,
 )
 from runtime.safety.hardware_relay import (
     GPIOApplianceRelay,
-    HardwareKillRelay,
     NullHardwareRelay,
     SmartPDUWebhookRelay,
 )
 from runtime.safety.supervisor import SafetySupervisor
 from runtime.safety.tripline_monitor import TriplineMonitor
-from tools.security.ed25519_verify import verify_ed25519_signature
 
 
 class TestDeadMansSwitchAndLease(unittest.TestCase):

@@ -1,5 +1,4 @@
 """Unit tests for automatic fleet owner key pulling and client synchronization."""
-import json
 import tempfile
 import unittest
 from http import HTTPStatus

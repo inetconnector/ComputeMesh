@@ -8,7 +8,7 @@ Enforces invariants:
 
 import sqlite3
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 
 class HardeningPart11Error(RuntimeError):

@@ -3,14 +3,11 @@
 
 from __future__ import annotations
 
-import io
-import json
 import logging
 import math
 import struct
-import time
 from collections.abc import Callable, Generator
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.voice.realtime")
 

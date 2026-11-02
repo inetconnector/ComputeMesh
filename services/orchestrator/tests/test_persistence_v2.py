@@ -1,7 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from services.orchestrator.persistence import SQLiteStateStore

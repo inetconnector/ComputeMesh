@@ -1,5 +1,5 @@
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from protocol.node_session import (
     AuthenticationAttempt,

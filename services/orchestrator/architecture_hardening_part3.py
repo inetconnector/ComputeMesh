@@ -9,10 +9,9 @@ enforcement of the core invariants defined in ARCHITECTURE.md:
 from __future__ import annotations
 
 import hashlib
-import json
 import threading
 import time
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 
 class HardeningPart3Error(RuntimeError):

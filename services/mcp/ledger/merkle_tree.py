@@ -7,7 +7,6 @@ Enables mathematical verification of execution receipts with O(log N) proof size
 from __future__ import annotations
 
 import hashlib
-from typing import List, Optional, Tuple
 
 
 def sha256_hash(data: str | bytes) -> str:

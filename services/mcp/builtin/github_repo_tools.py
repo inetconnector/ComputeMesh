@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .github_client import execute_github_request
 

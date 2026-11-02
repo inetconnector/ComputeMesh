@@ -4,7 +4,7 @@ import stat
 import tempfile
 import unittest
 import zipfile
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from setup import evidence_transfer as transfer

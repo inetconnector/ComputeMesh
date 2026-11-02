@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import secrets
 from collections.abc import Iterable
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from protocol.control import ControlEnvelope

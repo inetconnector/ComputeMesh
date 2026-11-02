@@ -7,9 +7,8 @@ conflict, organization, or person from live news feeds and web records.
 
 from __future__ import annotations
 
-import re
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .news_feed import execute_get_news
 from .web_search import duckduckgo_search

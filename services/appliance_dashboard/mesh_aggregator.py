@@ -7,7 +7,7 @@ import socket
 import threading
 import time
 import urllib.request
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from tools.appliance.hardware_detector import is_integrated_display_adapter

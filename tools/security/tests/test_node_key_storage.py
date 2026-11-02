@@ -1,6 +1,5 @@
 import os
 import platform
-import stat
 import tempfile
 import unittest
 from pathlib import Path

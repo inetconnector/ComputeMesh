@@ -11,7 +11,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer
 from pathlib import Path

@@ -22,7 +22,6 @@ from runtime.confidential.replay_store import (
     ConfidentialReplayStore,
 )
 from runtime.confidential.session import ConfidentialSessionStateError
-from services.compliance.mesh_policy import ExecutionPrivacyClass
 from services.gateway.confidential_coordinator import (
     ConfidentialCoordinatorError,
     ConfidentialInferenceCoordinator,

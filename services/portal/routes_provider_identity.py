@@ -9,25 +9,17 @@ Exposes REST APIs for:
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
-from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from services.compliance.fleet_gatekeeper import FleetGatekeeper
 from services.compliance.provider_identity import (
     DSA_TRADER_DECLARATION_VERSION,
-    ContractCounterpartyModel,
-    CustomerAudience,
     EntityType,
-    EvidenceSource,
     IdentityVerificationState,
-    LegalDeclaration,
-    MarketplaceMode,
-    ProviderIdentity,
     StructuredAddress,
     evaluate_provider_requirements,
 )

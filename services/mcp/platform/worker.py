@@ -17,7 +17,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Deque
+from typing import Any
 
 from .harness import HarnessRun, MeshAgentHarness
 from .session import (

@@ -5,7 +5,7 @@ import hashlib
 import inspect
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from protocol.inference_wire import (

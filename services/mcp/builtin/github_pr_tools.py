@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .github_client import execute_github_request
 from .github_repo_tools import _resolve_owner_repo

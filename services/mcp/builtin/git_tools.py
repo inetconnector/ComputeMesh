@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.git_tools")
 

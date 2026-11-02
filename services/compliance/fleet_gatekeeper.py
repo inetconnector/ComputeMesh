@@ -15,7 +15,6 @@ from .provider_identity import (
     CustomerAudience,
     IdentityVerificationState,
     MarketplaceMode,
-    ProviderIdentity,
     evaluate_provider_requirements,
 )
 from .provider_identity_store import ProviderIdentityStore

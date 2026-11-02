@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse

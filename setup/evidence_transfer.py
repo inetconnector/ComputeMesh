@@ -20,7 +20,7 @@ import stat
 import tempfile
 import zipfile
 from dataclasses import dataclass
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 

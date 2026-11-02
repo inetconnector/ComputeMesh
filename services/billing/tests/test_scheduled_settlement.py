@@ -1,6 +1,5 @@
 """Unit Tests for Scheduled Batch Settlement Engine."""
 import tempfile
-import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock

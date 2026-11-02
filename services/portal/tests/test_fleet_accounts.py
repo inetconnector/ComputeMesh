@@ -1,7 +1,7 @@
 """Unit tests for the passkey fleet-account SQLite store."""
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError

@@ -9,13 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import math
-import os
 import secrets
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
 
-from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
+from services.common.secure_memory import SecureMemoryBuffer
 
 
 @dataclass(frozen=True)

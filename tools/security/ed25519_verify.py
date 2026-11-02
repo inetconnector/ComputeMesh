@@ -6,7 +6,6 @@ Python 3.8+ environment (including minimal embedded NodeOS appliances without pi
 from __future__ import annotations
 
 import hashlib
-import sys
 
 # ---------------------------------------------------------------------------
 # Pure-Python Ed25519 Implementation (RFC 8032)

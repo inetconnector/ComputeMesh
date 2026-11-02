@@ -8,7 +8,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict
+from typing import Any
 
 from .url_security import UnsafeTargetError, build_safe_public_opener, validate_public_url
 
