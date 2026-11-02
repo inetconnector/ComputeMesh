@@ -88,9 +88,9 @@ class SecretScanner:
 
     _PATTERNS: tuple[tuple[SecretKind, re.Pattern[str]], ...] = (
         (SecretKind.PRIVATE_KEY, re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
-        (SecretKind.BEARER_TOKEN, re.compile(r"\bBearer\s+[A-Za-z0-9._~+/-]{16,}=*", re.I)),
-        (SecretKind.API_KEY, re.compile(r"\b(?:api[_-]?key|token|secret)[\s:=]+[A-Za-z0-9._~+/-]{16,}", re.I)),
-        (SecretKind.PASSWORD_ASSIGNMENT, re.compile(r"\b(?:password|passwd|pwd)[\s:=]+[^\s,;]{8,}", re.I)),
+        (SecretKind.BEARER_TOKEN, re.compile(r"\bBearer\s+[A-Za-z0-9._~+/-]{16,}=*", re.IGNORECASE)),
+        (SecretKind.API_KEY, re.compile(r"\b(?:api[_-]?key|token|secret)[\s:=]+[A-Za-z0-9._~+/-]{16,}", re.IGNORECASE)),
+        (SecretKind.PASSWORD_ASSIGNMENT, re.compile(r"\b(?:password|passwd|pwd)[\s:=]+[^\s,;]{8,}", re.IGNORECASE)),
     )
 
     def scan(self, value: Any, *, path: str = "$", max_depth: int = 8) -> list[SecretFinding]:
@@ -103,7 +103,7 @@ class SecretScanner:
                 for key, nested in item.items():
                     key_text = str(key)
                     nested_location = f"{location}.{key_text}"
-                    if re.search(r"(?:password|secret|token|api[_-]?key|private[_-]?key|authorization)", key_text, re.I):
+                    if re.search(r"(?:password|secret|token|api[_-]?key|private[_-]?key|authorization)", key_text, re.IGNORECASE):
                         if nested not in (None, "", False):
                             findings.append(self._finding(SecretKind.API_KEY, nested_location, str(nested)))
                     walk(nested, nested_location, depth + 1)

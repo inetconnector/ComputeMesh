@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Self
 
-_SENSITIVE = re.compile(r"(token|secret|password|credential|authorization|api[_-]?key|private[_-]?key)", re.I)
+_SENSITIVE = re.compile(r"(token|secret|password|credential|authorization|api[_-]?key|private[_-]?key)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)

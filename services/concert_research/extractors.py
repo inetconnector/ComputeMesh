@@ -12,8 +12,8 @@ from urllib.parse import urljoin
 from .models import EventObservation
 
 _WS = re.compile(r"\s+")
-_JSONLD = re.compile(r"<script[^>]+type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>", re.I | re.S)
-_TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
+_JSONLD = re.compile(r"<script[^>]+type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>", re.IGNORECASE | re.DOTALL)
+_TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _ICS_LINE = re.compile(r"^([A-Z-]+)(?:;[^:]*)?:(.*)$")
 
 

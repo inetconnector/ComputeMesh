@@ -90,7 +90,7 @@ class SafeFetcher:
 
 class SearchDiscovery:
     """Search engines produce discovery hints, never event truth by themselves."""
-    LINK = re.compile(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>',re.I|re.S)
+    LINK = re.compile(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>',re.IGNORECASE|re.DOTALL)
 
     def __init__(self, config: ConcertResearchConfig, fetcher: SafeFetcher):
         self.config,self.fetcher = config,fetcher

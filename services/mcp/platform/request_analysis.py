@@ -77,17 +77,17 @@ _INTENT_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...
 )
 
 _OUTPUT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("pdf", re.compile(r"\bpdf\b", re.I)),
-    ("spreadsheet", re.compile(r"\b(xlsx|excel|spreadsheet|tabelle)\b", re.I)),
-    ("document", re.compile(r"\b(docx|word|document|dokument)\b", re.I)),
-    ("presentation", re.compile(r"\b(pptx|powerpoint|slides?|präsentation)\b", re.I)),
-    ("image", re.compile(r"\b(image|bild|grafik|photo|foto)\b", re.I)),
-    ("code", re.compile(r"\b(code|python|javascript|typescript|patch|commit)\b", re.I)),
+    ("pdf", re.compile(r"\bpdf\b", re.IGNORECASE)),
+    ("spreadsheet", re.compile(r"\b(xlsx|excel|spreadsheet|tabelle)\b", re.IGNORECASE)),
+    ("document", re.compile(r"\b(docx|word|document|dokument)\b", re.IGNORECASE)),
+    ("presentation", re.compile(r"\b(pptx|powerpoint|slides?|präsentation)\b", re.IGNORECASE)),
+    ("image", re.compile(r"\b(image|bild|grafik|photo|foto)\b", re.IGNORECASE)),
+    ("code", re.compile(r"\b(code|python|javascript|typescript|patch|commit)\b", re.IGNORECASE)),
 )
 
-_FILE_RE = re.compile(r"(?<![\w/])([\w .-]+\.(?:pdf|docx|xlsx|csv|pptx|json|ya?ml|md|py|js|ts|html|css))\b", re.I)
-_URL_RE = re.compile(r"https?://[^\s<>\]\[()]+", re.I)
-_MONEY_RE = re.compile(r"(?:€|\$|£)\s?\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s?(?:EUR|USD|GBP)\b", re.I)
+_FILE_RE = re.compile(r"(?<![\w/])([\w .-]+\.(?:pdf|docx|xlsx|csv|pptx|json|ya?ml|md|py|js|ts|html|css))\b", re.IGNORECASE)
+_URL_RE = re.compile(r"https?://[^\s<>\]\[()]+", re.IGNORECASE)
+_MONEY_RE = re.compile(r"(?:€|\$|£)\s?\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s?(?:EUR|USD|GBP)\b", re.IGNORECASE)
 _DATE_RE = re.compile(r"\b(?:20\d{2}-\d{2}-\d{2}|\d{1,2}[./-]\d{1,2}[./-]20\d{2})\b")
 
 
@@ -132,7 +132,7 @@ class RequestAnalyzer:
         explicit = tuple(envelope.explicit_constraints)
         for constraint in explicit:
             constraints.append(ConstraintSignal("explicit", constraint, RequirementStrength.MUST, constraint))
-        negative_matches = re.findall(r"\b(?:nicht|never|do not|don't|ohne|kein(?:e|en)?)\b[^,.!?;]{0,100}", text, flags=re.I)
+        negative_matches = re.findall(r"\b(?:nicht|never|do not|don't|ohne|kein(?:e|en)?)\b[^,.!?;]{0,100}", text, flags=re.IGNORECASE)
         for value in negative_matches:
             constraints.append(ConstraintSignal("negative", value.strip(), RequirementStrength.MUST, value.strip()))
         if envelope.time_budget_ms is not None:
@@ -149,7 +149,7 @@ class RequestAnalyzer:
                 output_set.add(output_name)
 
         side_effect, risk = self._classify_risk(normalized, envelope.side_effect_intent)
-        freshness = bool(re.search(r"\b(today|heute|latest|aktuell|current|jetzt|neueste|recent)\b", normalized, re.I))
+        freshness = bool(re.search(r"\b(today|heute|latest|aktuell|current|jetzt|neueste|recent)\b", normalized, re.IGNORECASE))
         external = bool({"SEARCH", "FETCH", "WEB_FETCH", "EXTERNAL_ACTION"} & capability_set or entities)
         ambiguity: list[str] = []
         action_intents = {intent.name for intent in intents if intent.name in {"modify", "execute", "delete", "send"}}
@@ -176,11 +176,11 @@ class RequestAnalyzer:
     @staticmethod
     def _classify_risk(normalized: str, declared: SideEffectLevel) -> tuple[SideEffectLevel, RiskLevel]:
         side_effect = declared
-        if re.search(r"\b(delete|lösche|remove|entferne|publish|veröffentliche|send|sende|buy|kaufe|pay|bezahle|kündige|cancel account)\b", normalized, re.I):
+        if re.search(r"\b(delete|lösche|remove|entferne|publish|veröffentliche|send|sende|buy|kaufe|pay|bezahle|kündige|cancel account)\b", normalized, re.IGNORECASE):
             side_effect = max((side_effect, SideEffectLevel.WRITE_IRREVERSIBLE), key=lambda item: item.rank)
-        elif re.search(r"\b(edit|modify|update|patch|create file|erstelle datei|ändere|schreibe in)\b", normalized, re.I):
+        elif re.search(r"\b(edit|modify|update|patch|create file|erstelle datei|ändere|schreibe in)\b", normalized, re.IGNORECASE):
             side_effect = max((side_effect, SideEffectLevel.WRITE_REVERSIBLE), key=lambda item: item.rank)
-        if re.search(r"\b(run|execute|shell|terminal|deploy|install|führe aus|starte)\b", normalized, re.I):
+        if re.search(r"\b(run|execute|shell|terminal|deploy|install|führe aus|starte)\b", normalized, re.IGNORECASE):
             side_effect = max((side_effect, SideEffectLevel.EXECUTE), key=lambda item: item.rank)
         if side_effect in {SideEffectLevel.EXECUTE, SideEffectLevel.WRITE_IRREVERSIBLE}:
             risk = RiskLevel.HIGH
@@ -190,7 +190,7 @@ class RequestAnalyzer:
             risk = RiskLevel.LOW
         else:
             risk = RiskLevel.LOW
-        if re.search(r"\b(secret|password|passwort|token|private key|credential|medizin|medical|bank|payment|zahlung)\b", normalized, re.I):
+        if re.search(r"\b(secret|password|passwort|token|private key|credential|medizin|medical|bank|payment|zahlung)\b", normalized, re.IGNORECASE):
             risk = RiskLevel.CRITICAL if side_effect.rank >= SideEffectLevel.WRITE_IRREVERSIBLE.rank else RiskLevel.HIGH
         return side_effect, risk
 

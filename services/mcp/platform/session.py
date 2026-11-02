@@ -135,7 +135,7 @@ _TURN_TRANSITIONS: dict[TurnStatus, set[TurnStatus]] = {
     TurnStatus.CANCELLED: set(),
 }
 
-_SECRET_KEY = re.compile(r"(token|secret|password|api[_-]?key|authorization|cookie|private[_-]?key)", re.I)
+_SECRET_KEY = re.compile(r"(token|secret|password|api[_-]?key|authorization|cookie|private[_-]?key)", re.IGNORECASE)
 _MAX_TURN_CHECKPOINT_BYTES = 4 * 1024 * 1024
 
 

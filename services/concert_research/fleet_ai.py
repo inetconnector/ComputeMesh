@@ -39,7 +39,7 @@ class FleetInferenceClient:
             text = str(body["choices"][0]["message"].get("content") or "").strip()
         except (error.URLError,error.HTTPError,TimeoutError,OSError,KeyError,IndexError,TypeError,json.JSONDecodeError):
             return None
-        match = re.search(r"[\[{].*[\]}]",text,re.S)
+        match = re.search(r"[\[{].*[\]}]",text,re.DOTALL)
         if not match: return None
         try: return json.loads(match.group(0))
         except json.JSONDecodeError: return None
