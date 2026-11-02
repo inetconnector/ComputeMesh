@@ -202,10 +202,10 @@ class ArtifactStore:
         path = self._storage_path(artifact_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
-            temporary = tempfile.NamedTemporaryFile(prefix=".artifact-", dir=path.parent, delete=False)
-            temporary_path = Path(temporary.name)
+            temporary_path: Path
             try:
-                with temporary:
+                with tempfile.NamedTemporaryFile(prefix=".artifact-", dir=path.parent, delete=False) as temporary:
+                    temporary_path = Path(temporary.name)
                     temporary.write(raw)
                     temporary.flush()
                     os.fsync(temporary.fileno())

@@ -124,10 +124,11 @@ def global_excepthook(exc_type, exc_value, exc_traceback):
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
 _SINGLE_INSTANCE_MUTEX = None
+_SINGLE_INSTANCE_LOCK_FD: int | None = None
 
 def _acquire_single_instance_lock() -> bool:
     """Enforce strict single-instance execution using a robust OS-level Windows Named Mutex."""
-    global _SINGLE_INSTANCE_MUTEX
+    global _SINGLE_INSTANCE_LOCK_FD, _SINGLE_INSTANCE_MUTEX
     if sys.platform == "win32":
         try:
             import ctypes
@@ -156,8 +157,14 @@ def _acquire_single_instance_lock() -> bool:
             import fcntl
             lock_path = Path.home() / ".computemesh" / "app.lock"
             lock_path.parent.mkdir(parents=True, exist_ok=True)
-            _lock_file = open(lock_path, "w")
-            fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0)
+            lock_fd = os.open(lock_path, lock_flags, 0o600)
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except Exception:
+                os.close(lock_fd)
+                raise
+            _SINGLE_INSTANCE_LOCK_FD = lock_fd
             return True
         except Exception:
             return False

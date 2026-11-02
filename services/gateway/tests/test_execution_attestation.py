@@ -75,9 +75,9 @@ class ExecutionAttestationTests(unittest.TestCase):
         return {"schema_version": 1, "attestations": attestations}
 
     def _write(self, document):
-        tmp = tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False)
-        json.dump(document, tmp)
-        tmp.close()
+        with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as tmp:
+            json.dump(document, tmp)
+            tmp.flush()
         self.addCleanup(lambda: __import__("pathlib").Path(tmp.name).unlink(missing_ok=True))
         return tmp.name
 

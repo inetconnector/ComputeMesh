@@ -100,9 +100,9 @@ def _decision(*, mode="shared_experiment", shared_feasible=True, hard_pass=True)
 
 class PlacementSelectionTests(unittest.TestCase):
     def _write(self, value):
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8")
-        json.dump(value, tmp)
-        tmp.close()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
+            json.dump(value, tmp)
+            tmp.flush()
         self.addCleanup(lambda: __import__("os").unlink(tmp.name))
         return tmp.name
 
