@@ -181,21 +181,21 @@ def session_account_from_headers(headers: Any):
         cookie: SimpleCookie = SimpleCookie()
         try:
             cookie.load(raw)
+        except (CookieError, ValueError) as exc:
+            # Invalid client syntax is distinct from a backend outage.
+            logger.debug("invalid owner-cookie syntax: %s", exc)
+        else:
             morsel = cookie.get(SESSION_COOKIE_NAME)
             if morsel is not None:
+                # Never hide fleet storage outages as an anonymous session.
                 acct = FLEET_ACCOUNT_STORE.get_session_account(morsel.value)
                 if acct is not None:
                     return acct
-                # Direct Owner-Key login stores the key in this same cookie for
-                # the fleet UI. Resolve it here so token-free node navigation
-                # can still establish a short-lived node session.
                 owner_cookie = str(morsel.value).strip()
                 if owner_cookie.startswith(("ok_", "owner_", "cm_owner_", "inet-", "owk_")):
                     acct = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_cookie)
                     if acct is not None:
                         return acct
-        except (FleetAccountStoreError, OSError, RuntimeError, ValueError) as exc:
-            logger.debug("owner-cookie account lookup failed: %s", exc, exc_info=True)
 
     # 2. Check X-Owner-Key or Authorization Bearer header
     owner_key = ""
@@ -223,7 +223,7 @@ def session_account_from_headers(headers: Any):
                 )
             return FLEET_ACCOUNT_STORE.get_account(acct_id)
         except (sqlite3.Error, OSError, RuntimeError, ValueError) as exc:
-            logger.debug("owner-key account provisioning failed: %s", exc, exc_info=True)
+            raise FleetAccountStoreError("owner-key account provisioning unavailable") from exc
 
     return None
 
