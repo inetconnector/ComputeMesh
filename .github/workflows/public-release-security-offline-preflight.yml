@@ -23,7 +23,7 @@ jobs:
           set -euo pipefail
           cat > "$RUNNER_TEMP/Dockerfile.cm" <<'EOF'
           FROM python:3.11.18-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
-          RUN python -m pip install --no-cache-dir pytest==9.0.2 cryptography==46.0.4 requests==2.32.5 beautifulsoup4==4.14.2 Pillow==12.0.0 pydantic==2.12.4 jsonschema==4.25.1 numpy==2.3.4 ruff==0.14.4
+          RUN python -m pip install --no-cache-dir pytest==9.0.2 cryptography==46.0.4 requests==2.32.5 beautifulsoup4==4.14.2 Pillow==12.0.0 pydantic==2.12.4 jsonschema==4.25.1 numpy==2.3.4 ruff==0.14.4 webauthn==2.5.0
           ENV PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
           USER 10001:10001
           EOF
@@ -54,7 +54,7 @@ jobs:
             --security-opt no-new-privileges \
             --pids-limit 128 --memory 3g --cpus 2 \
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=128m \
-            --user 10001:10001 --env HOME=/tmp \
+            --user 10001:10001 --env HOME=/tmp --env PYTHONPYCACHEPREFIX=/tmp/pycache \
             --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
             --workdir /src cm-release-preflight:ci \
-            sh -ec 'python -B -m py_compile services/mcp/builtin/python_sandbox.py tests/test_exhaustive_functional_audit.py tests/test_portal_pages_browser.py services/mcp/tests/test_python_sandbox_disabled.py'
+            sh -ec 'python -m py_compile services/mcp/builtin/python_sandbox.py tests/test_exhaustive_functional_audit.py tests/test_portal_pages_browser.py services/mcp/tests/test_python_sandbox_disabled.py'
