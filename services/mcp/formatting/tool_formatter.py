@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import quote, urlsplit
 
 from .reasoning_formatter import format_reasoning_and_thinking_blocks
@@ -210,7 +210,6 @@ def format_tool_content_if_json(content: str) -> str:
             best_p = data.get("best_price", 0.0)
             best_m = safe_cell(data.get("best_merchant") or (data.get("best_deal", {}).get("merchant") if isinstance(data.get("best_deal"), dict) else "Online-Händler"))
             avg_p = data.get("average_price", 0.0)
-            max_p = data.get("max_price", 0.0)
             curr = data.get("currency", "EUR")
             curr_sym = safe_cell("€" if curr == "EUR" else ("$" if curr == "USD" else curr))
             sav_val = data.get("max_savings_val") if data.get("max_savings_val") is not None else data.get("savings_max", 0.0)
@@ -488,7 +487,7 @@ def format_tool_content_if_json(content: str) -> str:
             return res.strip()
 
         if "profile" in data and "updated" in data:
-            return f"✅ **Benutzerprofil aktualisiert:** Präferenzen und Fakten wurden dauerhaft im Langzeitgedächtnis gespeichert."
+            return "✅ **Benutzerprofil aktualisiert:** Präferenzen und Fakten wurden dauerhaft im Langzeitgedächtnis gespeichert."
 
         if "profile" in data and isinstance(data.get("profile"), dict):
             prof = data["profile"]
@@ -775,7 +774,7 @@ def format_tool_content_if_json(content: str) -> str:
                 auth = iss.get("author", "")
                 comments = iss.get("comments_count", 0)
                 labels = iss.get("labels", [])
-                label_str = " " + " ".join(f"`{l}`" for l in labels) if labels else ""
+                label_str = " " + " ".join(f"`{label}`" for label in labels) if labels else ""
                 res += f"- {st_icon} [#{num} {title}]({i_url}){label_str} *(von @{auth}, 💬 {comments})*\n"
             return res.strip()
 
@@ -891,7 +890,7 @@ def format_tool_content_if_json(content: str) -> str:
             res = f"### 🛡️ Quarantäne-Staging aktiv (`{txn}`, {cnt} Dateien isoliert)\n\n"
             for fn, d_text in diffs.items():
                 res += f"#### 📄 `{fn}`\n```diff\n{d_text.strip()[:3000]}\n```\n\n"
-            res += f"*Verwende `quarantine_commit` zur Bestätigung oder `quarantine_rollback` zum Verwerfen.*"
+            res += "*Verwende `quarantine_commit` zur Bestätigung oder `quarantine_rollback` zum Verwerfen.*"
             return res.strip()
 
         if "total_committed" in data and "committed_files" in data:
@@ -1033,7 +1032,7 @@ def format_tool_content_if_json(content: str) -> str:
             res = f"### 🚀 WebApp Bereitgestellt: **{title}**\n\n"
             res += f"- **📱 Interaktive WebApp / Spiel:** [🎮 **Jetzt Live Starten: {title}**]({full_u})\n"
             res += f"- **🌐 Lokaler Pfad:** `{url_p}` *({sz:,} Bytes)*\n\n"
-            res += f"> 💡 **Tipp:** Du kannst die Anwendung direkt im Browser oder auf deinem Smartphone (Samsung Galaxy S25) / Mobilgerät öffnen. Volle Touch-, On-Screen D-Pad und Tastatur-Steuerung ist aktiv!"
+            res += "> 💡 **Tipp:** Du kannst die Anwendung direkt im Browser oder auf deinem Smartphone (Samsung Galaxy S25) / Mobilgerät öffnen. Volle Touch-, On-Screen D-Pad und Tastatur-Steuerung ist aktiv!"
             return res.strip()
 
         if "total_apps" in data and "apps" in data and isinstance(data.get("apps"), list):
