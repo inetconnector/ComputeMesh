@@ -4987,6 +4987,19 @@ security/portal `51 passed, 5 skipped, 9 subtests`, critical syntax/selected
 Ruff passed, and offline public `tests/` snapshot `181 passed, 13 skipped`.
 Release status remains **RELEASE_NO_GO**.
 
+Runtime resource batch `33f3da4` removed all four `SIM115` findings without
+suppression: test temporary files now use context managers, ArtifactStore
+closes its temporary file before atomic replacement, and the Unix tray
+single-instance lock retains a controlled descriptor returned by `os.open`.
+Affected tests passed `12 passed`; SIM115 Ruff, compileall and diff-check
+passed. The exact-head full suite passed `2090 passed, 20 skipped, 69
+subtests passed` in `307.00s`; full Ruff is now `1270` findings. Inventory:
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-sim115.json`.
+Hosted run `41448235651` passed on exact code head with isolated
+security/portal `59 passed, 5 skipped, 9 subtests`, critical syntax/selected
+Ruff passed, and offline public `tests/` snapshot `194 passed, 13 skipped`.
+Release status remains **RELEASE_NO_GO**.
+
 Remote release-hardening commits integrated without taking over dirty worktrees:
 `2590bf2` rejects missing/empty/mismatched NodeOS kernel/initramfs files and
 requires checked download permission commands; `faef738` requires an approved
