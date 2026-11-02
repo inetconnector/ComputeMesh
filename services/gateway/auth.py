@@ -92,13 +92,22 @@ def _load_api_key_store(path: Path | None) -> dict[str, str]:
         elif isinstance(parsed, list):
             records = [r for r in parsed if isinstance(r, dict)]
     except json.JSONDecodeError:
-        for line in raw.splitlines():
+        # A JSONL credential file with an invalid record must not be
+        # interpreted as an incomplete but authoritative key registry.
+        for line_number, line in enumerate(raw.splitlines(), start=1):
+            if not line.strip():
+                continue
             try:
                 item = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(item, dict):
-                records.append(item)
+            except json.JSONDecodeError as exc:
+                raise GatewayCredentialStoreError(
+                    f"invalid gateway key registry JSONL record at line {line_number}"
+                ) from exc
+            if not isinstance(item, dict):
+                raise GatewayCredentialStoreError(
+                    f"gateway key registry JSONL entry {line_number} is not an object"
+                )
+            records.append(item)
 
     result: dict[str, str] = {}
     for record in records:
