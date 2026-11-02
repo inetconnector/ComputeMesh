@@ -1,8 +1,7 @@
 """Unexpected crypto and network faults must not be silently disguised."""
 
 import socket
-import ssl
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
