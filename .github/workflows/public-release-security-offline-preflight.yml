@@ -23,6 +23,9 @@ jobs:
           set -euo pipefail
           cat > "$RUNNER_TEMP/Dockerfile.cm" <<'EOF'
           FROM python:3.11.18-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+          # Release fixture tests create real ephemeral Git tags and commits.
+          # Runtime remains read-only, non-root and networkless; Git is image-only.
+          RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
           RUN python -m pip install --no-cache-dir pytest==9.0.2 cryptography==46.0.4 requests==2.32.5 beautifulsoup4==4.14.2 Pillow==12.0.0 pydantic==2.12.4 jsonschema==4.25.1 numpy==2.3.4 ruff==0.14.4 webauthn==2.5.0
           ENV PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
           USER 10001:10001
