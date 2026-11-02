@@ -9,10 +9,13 @@ numeric operation cannot wedge the MCP server process.
 from __future__ import annotations
 
 import ast
+import logging
 import math
 import multiprocessing
 import time
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 MAX_SOURCE_CHARS = 2000
 MAX_AST_NODES = 400
@@ -293,15 +296,17 @@ def _worker(raw_code: str, connection: Any) -> None:
             value = local_scope.get("result", local_scope)
         connection.send({"ok": True, "result": _serialize_result(value)})
     except BaseException as exc:
+        # User expressions and IPC errors must be reported without relying on
+        # the worker process surviving after its parent has timed out.
         try:
             connection.send({"ok": False, "error": f"{type(exc).__name__}: {exc}"})
-        except Exception:
-            pass
+        except (OSError, ValueError) as pipe_error:
+            logger.debug("calculator worker pipe unavailable: %s", pipe_error)
     finally:
         try:
             connection.close()
-        except Exception:
-            pass
+        except (OSError, ValueError) as close_error:
+            logger.debug("calculator worker pipe close failed: %s", close_error)
 
 
 def run_python_calc(
@@ -330,8 +335,10 @@ def run_python_calc(
     context = multiprocessing.get_context("spawn")
     parent_connection, child_connection = context.Pipe(duplex=False)
     process = context.Process(target=_worker, args=(raw_code, child_connection), daemon=True)
+    started = False
     try:
         process.start()
+        started = True
         child_connection.close()
         process.join(timeout_value)
         if process.is_alive():
@@ -344,16 +351,20 @@ def run_python_calc(
         if not parent_connection.poll(0.5):
             return {"error": "Berechnungsprozess lieferte kein Ergebnis.", "expression": raw_code}
         payload = parent_connection.recv()
-    except Exception as exc:
-        if process.is_alive():
+    except (OSError, EOFError, ValueError, RuntimeError) as exc:
+        # A failed spawn is not a live child: is_alive() on an unstarted
+        # multiprocessing.Process raises AssertionError and masks the cause.
+        if started and process.is_alive():
             process.terminate()
             process.join(1.0)
         return {"error": f"Berechnungsprozess fehlgeschlagen: {type(exc).__name__}: {exc}", "expression": raw_code}
     finally:
-        try:
-            parent_connection.close()
-        except Exception:
-            pass
+        # Process.start() may fail before the child pipe is closed above.
+        for connection in (child_connection, parent_connection):
+            try:
+                connection.close()
+            except (OSError, ValueError) as close_error:
+                logger.debug("calculator parent pipe close failed: %s", close_error)
 
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
     if not isinstance(payload, dict) or not payload.get("ok"):
