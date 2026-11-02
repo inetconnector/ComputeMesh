@@ -552,6 +552,33 @@ class TestProductPriceEngine(unittest.TestCase):
         self.assertIn("1,149.00 €", formatted)
         self.assertIn("150.00 € (11.5%)", formatted)
 
+    def test_legacy_product_price_formatter_does_not_emit_unsafe_markdown(self):
+        # Legacy responses may lack data_quality. They must not bypass the
+        # URL and text output safety rules used for unverified results.
+        for url in ("javascript:alert(1)", "https://127.0.0.1/private",
+                    "https://user:pass@shop.example.org/item",
+                    "https://shop.example.org/item\nmore"):
+            with self.subTest(url=url):
+                data = {
+                    "price_comparison": True, "product_name": "Item [click](https://evil.example.org)",
+                    "best_price": 219.0, "best_merchant": "Seller [click](https://evil.example.org)",
+                    "average_price": 220.0, "savings_max": 0.0, "savings_percent": 0.0,
+                    "offers": [{
+                        "merchant": "Bad | [click](https://evil.example.org)",
+                        "price": 219.0, "shipping": "Unknown | [click](https://evil.example.org)",
+                        "availability": "Unknown | [click](https://evil.example.org)",
+                        "url": url,
+                    }],
+                }
+                rendered = format_tool_content_if_json(json.dumps(data))
+                self.assertIn("Keine Quelle", rendered)
+                self.assertNotIn("[👉 Zum Angebot](", rendered)
+                self.assertNotIn("[click](https://evil.example.org)", rendered)
+                self.assertIn(r"Bad \| \[click\]", rendered)
+        data["offers"][0]["url"] = "https://shop.example.org/ok)path"
+        rendered = format_tool_content_if_json(json.dumps(data))
+        self.assertIn("[👉 Zum Angebot](https://shop.example.org/ok%29path)", rendered)
+
     def test_intent_router_product_price_detection(self):
         queries = [
             "Führe einen Preisvergleich für das iPhone 16 Pro 256GB durch und zeige die besten Händler-Angebote in einer Tabelle",
