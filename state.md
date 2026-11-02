@@ -4900,7 +4900,7 @@ passed, 13 skipped`. This is independent hosted automation, not the protected
 TrustedBridge receipt requested for the final source, and it does not prove
 Android production signing, physical QR/WAN/BFT behavior or operator approval.
 
-The tested product-code head is `dc6031a2cb136068232395897d6535393a707169`.
+The tested product-code head is `d115978dec2d82cbaf766fec2c131e55a4a94324`.
 The documentation head `c8e78af33ad66a8e5efe5d7417375efd637fcf93` carried that
 code unchanged; hosted run `41428140205` passed on that exact SHA with
 `51 passed, 5 skipped, 9 subtests` and `181 passed, 13 skipped`.
@@ -4932,4 +4932,13 @@ Ruff fix option was used. The affected MCP/orchestrator regression set passed
 `219 passed` in `18.27s`, compileall and diff-check passed, and the repeated
 full public suite passed `2076 passed, 20 skipped, 69 subtests passed` in
 `315.01s`. The full inventory is now `1431` findings with `RUF059=56`.
+
+Quality/test batch `d115978dec2d82cbaf766fec2c131e55a4a94324` removed the
+remaining `56` RUF059 findings from reviewed regression tests. The benchmark
+fixture now explicitly opts into the synthetic backend and static model
+catalog; its previous `500`/zero-success failures were a missing test
+precondition, not a production fallback. RUF059 is now `0`; compileall and
+diff-check passed, the affected tests passed including the benchmark's
+`2 passed`, and the repeated full public suite passed `2076 passed, 20
+skipped, 69 subtests passed` in `303.00s`. Full Ruff is now `1375` findings.
 
