@@ -16,7 +16,7 @@ import json
 import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Self
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes, serialization
@@ -264,7 +264,7 @@ class ConfidentialClientContext:
             secure_zero_memory(self._response_key)
             self._closed = True
 
-    def __enter__(self) -> ConfidentialClientContext:
+    def __enter__(self) -> Self:
         if self._closed:
             raise ConfidentialEnvelopeError("confidential client context is closed")
         return self

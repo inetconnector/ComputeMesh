@@ -13,7 +13,7 @@ import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from typing import Any, Protocol, Self
 from urllib import error, request
 from urllib.parse import urlparse
 
@@ -552,7 +552,7 @@ class OrchestratedInferenceBackend:
         if self.evidence_store is not None:
             self.evidence_store.close()
 
-    def __enter__(self) -> OrchestratedInferenceBackend:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

@@ -75,7 +75,7 @@ def _convert_to_table_rows(data: Any) -> tuple[list[str], list[dict[str, Any]]]:
             # Collect all unique keys preserving insertion order
             cols = []
             for item in data:
-                for k in item.keys():
+                for k in item:
                     if k not in cols and not str(k).startswith("_"):
                         cols.append(k)
             return cols, [dict(item) for item in data]

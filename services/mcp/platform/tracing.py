@@ -11,7 +11,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 _SENSITIVE = re.compile(r"(token|secret|password|credential|authorization|api[_-]?key|private[_-]?key)", re.I)
 
@@ -147,7 +147,7 @@ class TraceStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> TraceStore:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: Any) -> None:

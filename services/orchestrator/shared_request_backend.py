@@ -7,7 +7,7 @@ import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_request import SharedRequestResult, run_shared_request
@@ -155,7 +155,7 @@ class SharedRequestOrchestratedBackend:
     def close(self) -> None:
         self.evidence_store.close()
 
-    def __enter__(self) -> SharedRequestOrchestratedBackend:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

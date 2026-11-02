@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 
 class ArtifactError(RuntimeError):
@@ -343,7 +343,7 @@ class ArtifactStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> ArtifactStore:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: Any) -> None:

@@ -47,16 +47,16 @@ class AccountType(enum.Enum):
 
 
 from services.common.pricing import (
-    DEFAULT_PRICE_TIERS as DEFAULT_PRICE_TIERS,
+    DEFAULT_PRICE_TIERS as DEFAULT_PRICE_TIERS,  # noqa: PLC0414 - public compatibility re-export
 )
 from services.common.pricing import (
-    ModelPriceTier as ModelPriceTier,
+    ModelPriceTier as ModelPriceTier,  # noqa: PLC0414 - public compatibility re-export
 )
 from services.common.pricing import (
     calculate_token_charge_micro,
 )
 from services.common.pricing import (
-    get_price_tier as get_price_tier,
+    get_price_tier as get_price_tier,  # noqa: PLC0414 - public compatibility re-export
 )
 
 

@@ -45,8 +45,7 @@ def run_project_tests(
         proc = subprocess.run(
             cmd,
             cwd=work_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             timeout=timeout_seconds,
             encoding="utf-8",

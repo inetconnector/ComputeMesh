@@ -6,6 +6,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Self
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from protocol.node_identity import VerificationKey, key_id_from_public_key
@@ -112,7 +113,7 @@ class SQLiteIdentityStore:
     def close(self) -> None:
         self._db.close()
 
-    def __enter__(self) -> SQLiteIdentityStore:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

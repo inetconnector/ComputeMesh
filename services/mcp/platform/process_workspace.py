@@ -19,7 +19,7 @@ import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 from .environment import (
     EnvironmentLease,
@@ -404,7 +404,7 @@ class ProcessIsolatedWorkspaceTransport:
             self._closed = True
             self._terminate()
 
-    def __enter__(self) -> ProcessIsolatedWorkspaceTransport:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_: Any) -> None:

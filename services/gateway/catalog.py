@@ -18,8 +18,12 @@ from dataclasses import dataclass, replace
 from services.common.pricing import (
     DEFAULT_PRICE_TIERS,
     ModelPriceTier,
-    calculate_max_charge_micro as calculate_max_charge_micro,
-    calculate_token_charge_micro as calculate_token_charge_micro,
+)
+from services.common.pricing import (
+    calculate_max_charge_micro as calculate_max_charge_micro,  # noqa: PLC0414 - public compatibility re-export
+)
+from services.common.pricing import (
+    calculate_token_charge_micro as calculate_token_charge_micro,  # noqa: PLC0414 - public compatibility re-export
 )
 from services.gateway.registry_client import (
     RegistryClientError,

@@ -11,7 +11,7 @@ import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 from services.memory.structured_memory import MemoryScope, StructuredMemoryStore
 
@@ -1739,7 +1739,7 @@ class AgentsPlatformRuntime:
             self.node_registry.close()
         self.openai_agents = None
 
-    def __enter__(self) -> AgentsPlatformRuntime:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: Any) -> None:

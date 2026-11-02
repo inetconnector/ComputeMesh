@@ -13,6 +13,7 @@ import platform
 import secrets
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Self
 
 try:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -265,7 +266,7 @@ class SecureMemoryBuffer:
             unlock_memory_buffer(self._key)
         self._is_zeroized = True
 
-    def __enter__(self) -> SecureMemoryBuffer:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

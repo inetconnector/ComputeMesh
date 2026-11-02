@@ -16,12 +16,14 @@ from typing import Any
 from config import CONFIG
 from tools.appliance.node_identity import (
     NodeIdentityError,
-    dashboard_must_not_start_relay as dashboard_must_not_start_relay,
     is_nodeos_mode,
     migrate_enrolled_node_id,
     read_enrolled_node_id,
     resolve_enrolled_private_key_path,
     resolve_node_id,
+)
+from tools.appliance.node_identity import (
+    dashboard_must_not_start_relay as dashboard_must_not_start_relay,  # noqa: PLC0414 - public compatibility re-export
 )
 
 logger = logging.getLogger("CloudTunnelRelay")

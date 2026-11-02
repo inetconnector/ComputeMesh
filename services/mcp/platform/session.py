@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 
 class SessionStateConflict(RuntimeError):
@@ -2022,7 +2022,7 @@ class AgentSessionStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> AgentSessionStore:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: Any) -> None:

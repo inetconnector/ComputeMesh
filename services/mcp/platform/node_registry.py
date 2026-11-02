@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 
 class NodeRegistryError(RuntimeError):
@@ -454,7 +454,7 @@ class NodeRegistry:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> NodeRegistry:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: Any) -> None:

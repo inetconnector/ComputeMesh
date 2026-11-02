@@ -13,30 +13,30 @@ from typing import Any
 from .config import MCPConfig, get_mcp_config
 
 # Subsystem Imports & Re-exports for 100% Backward Compatibility
-from .formatting.reasoning_formatter import THINKING_RE as THINKING_RE
+from .formatting.reasoning_formatter import THINKING_RE as THINKING_RE  # noqa: PLC0414 - public compatibility re-export
 from .formatting.reasoning_formatter import (
-    format_reasoning_and_thinking_blocks as format_reasoning_and_thinking_blocks,
+    format_reasoning_and_thinking_blocks as format_reasoning_and_thinking_blocks,  # noqa: PLC0414 - public compatibility re-export
 )
 from .formatting.tool_formatter import format_tool_content_if_json
-from .intent.entity_tokenizer import clean_entity_token as clean_entity_token
-from .intent.entity_tokenizer import split_multi_entities as split_multi_entities
+from .intent.entity_tokenizer import clean_entity_token as clean_entity_token  # noqa: PLC0414 - public compatibility re-export
+from .intent.entity_tokenizer import split_multi_entities as split_multi_entities  # noqa: PLC0414 - public compatibility re-export
 from .intent.intent_router import (
     REFUSAL_KEYWORDS,
     detect_compound_tool_intents,
     detect_direct_tool_intent,
 )
-from .parser.tool_call_parser import JSON_CODE_BLOCK_RE as JSON_CODE_BLOCK_RE
+from .parser.tool_call_parser import JSON_CODE_BLOCK_RE as JSON_CODE_BLOCK_RE  # noqa: PLC0414 - public compatibility re-export
 from .parser.tool_call_parser import (
     MAX_TOOL_CALLS_PER_ITERATION,
     _canonical_name,
     _fallback_tool_calls,
 )
-from .parser.tool_call_parser import RAW_JSON_TOOL_RE as RAW_JSON_TOOL_RE
-from .parser.tool_call_parser import XML_TOOL_CALL_RE as XML_TOOL_CALL_RE
-from .parser.tool_call_parser import _decode_arguments as _decode_arguments
-from .parser.tool_call_parser import canonical_name as canonical_name
-from .parser.tool_call_parser import decode_tool_arguments as decode_tool_arguments
-from .parser.tool_call_parser import parse_fallback_tool_calls as parse_fallback_tool_calls
+from .parser.tool_call_parser import RAW_JSON_TOOL_RE as RAW_JSON_TOOL_RE  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import XML_TOOL_CALL_RE as XML_TOOL_CALL_RE  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import _decode_arguments as _decode_arguments  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import canonical_name as canonical_name  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import decode_tool_arguments as decode_tool_arguments  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import parse_fallback_tool_calls as parse_fallback_tool_calls  # noqa: PLC0414 - public compatibility re-export
 from .tool_registry import ToolRegistry
 
 MAX_AGENT_ITERATIONS = 20

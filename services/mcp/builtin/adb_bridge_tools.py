@@ -42,8 +42,7 @@ def adb_list_devices() -> dict[str, Any]:
         adb_bin = _find_adb_binary()
         proc = subprocess.run(
             [adb_bin, "devices", "-l"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             timeout=8.0,
             shell=True,
@@ -87,7 +86,7 @@ def adb_capture_screenshot(
     args = [adb_bin] + _resolve_device_arg(device_id) + ["exec-out", "screencap", "-p"]
     t0 = time.time()
     try:
-        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12.0, shell=True)
+        proc = subprocess.run(args, capture_output=True, timeout=12.0, shell=True)
         if proc.returncode != 0 or not proc.stdout:
             return {"error": "Screenshot-Aufnahme fehlgeschlagen.", "success": False}
 
@@ -118,7 +117,7 @@ def adb_install_app(apk_path: str, device_id: str | None = None) -> dict[str, An
     adb_bin = _find_adb_binary()
     args = [adb_bin] + _resolve_device_arg(device_id) + ["install", "-r", apk_path]
     try:
-        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60.0, shell=True)
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=60.0, shell=True)
         out = (proc.stdout or "") + (proc.stderr or "")
         success = "Success" in out
         return {
@@ -140,7 +139,7 @@ def adb_get_system_log(
     adb_bin = _find_adb_binary()
     args = [adb_bin] + _resolve_device_arg(device_id) + ["logcat", "-d", "-t", str(min(200, lines))]
     try:
-        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10.0, shell=True)
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=10.0, shell=True)
         raw_log = proc.stdout or ""
         log_lines = raw_log.splitlines()
         if filter_tag:
