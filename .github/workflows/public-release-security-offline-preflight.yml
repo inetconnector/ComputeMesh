@@ -46,7 +46,7 @@ jobs:
             --env COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH=/tmp/cm-fleet.db \
             --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
             --workdir /work cm-release-preflight:ci \
-            sh -ec 'cp -R /src/. /work/; python -m pytest -q -p no:cacheprovider services/mcp/tests/test_python_sandbox_disabled.py tests/test_exhaustive_functional_audit.py tests/test_portal_pages_browser.py tests/test_immediate_config_sync.py'
+            sh -ec 'cp -R /src/. /work/; python -m pytest -q -p no:cacheprovider services/mcp/tests/test_python_sandbox_disabled.py tests/test_exhaustive_functional_audit.py tests/test_portal_pages_browser.py tests/test_immediate_config_sync.py tools/release/tests/test_signed_portal_bundle.py tools/security/tests/test_release_signer.py'
       - name: Python syntax and critical Ruff checks on changed security files
         shell: bash
         run: |

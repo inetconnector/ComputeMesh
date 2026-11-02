@@ -162,6 +162,18 @@ class TestSignedPortalBundle(unittest.TestCase):
         ):
             self._verify()
 
+    def test_validly_signed_stale_android_version_is_rejected(self) -> None:
+        # Even a correctly Ed25519-signed inventory must be version-consistent.
+        self.metadata["version_name"] = "1.2.168"
+        self.metadata["version"] = "1.2.168"
+        self._write_metadata()
+        self._sign_manifest()
+        self._commit_and_retag()
+        with self.assertRaisesRegex(
+            ReleaseGateError, "Android version does not match signed release manifest"
+        ):
+            self._verify()
+
     def test_signed_manifest_without_android_entry_is_rejected(self) -> None:
         manifest_path = self.portal / "updates" / "version.json"
         data = json.loads(manifest_path.read_text(encoding="utf-8"))

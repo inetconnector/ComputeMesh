@@ -120,6 +120,8 @@ def verify_release(root: Path, tag: str, *, artifacts_dir: Path | None = None) -
     android_version = android.get("version_name", android.get("version"))
     if not isinstance(android_version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", android_version):
         raise ReleaseGateError("Android version is missing/invalid")
+    if android_version != manifest["version"]:
+        raise ReleaseGateError("Android version does not match signed release manifest")
     # The signed top-level Ed25519 manifest is authoritative. The separate
     # Android JSON is useful for clients but must agree byte-for-byte with
     # the signed APK/AAB inventory; otherwise it could redirect a download.
