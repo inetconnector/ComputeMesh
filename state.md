@@ -4900,7 +4900,7 @@ passed, 13 skipped`. This is independent hosted automation, not the protected
 TrustedBridge receipt requested for the final source, and it does not prove
 Android production signing, physical QR/WAN/BFT behavior or operator approval.
 
-The tested product-code head is `d115978dec2d82cbaf766fec2c131e55a4a94324`.
+The tested product-code head is `dc387b29a51e7879118f0d81df52749fe5e8f895`.
 The documentation head `c8e78af33ad66a8e5efe5d7417375efd637fcf93` carried that
 code unchanged; hosted run `41428140205` passed on that exact SHA with
 `51 passed, 5 skipped, 9 subtests` and `181 passed, 13 skipped`.
@@ -4941,4 +4941,10 @@ precondition, not a production fallback. RUF059 is now `0`; compileall and
 diff-check passed, the affected tests passed including the benchmark's
 `2 passed`, and the repeated full public suite passed `2076 passed, 20
 skipped, 69 subtests passed` in `303.00s`. Full Ruff is now `1375` findings.
+
+Quality/test batch `dc387b29a51e7879118f0d81df52749fe5e8f895` removed six
+clearly unused test assignments identified by `F841`; the affected tests
+passed `57 passed` and Ruff/compileall/diff-check passed. The repeated full
+public suite passed `2076 passed, 20 skipped, 69 subtests passed` in
+`300.46s`. Full Ruff is now `1369` findings with `F841=26` remaining.
 
