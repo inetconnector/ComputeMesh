@@ -118,17 +118,19 @@ class TestPillar1CodeInterpreter(unittest.TestCase):
     """Tests for Python Sandbox execution and plot generation."""
 
     def test_basic_math_execution(self):
+        # Until an OS-isolated executor exists, even innocent expressions
+        # must not execute inside the MCP server process.
         res = execute_python_code("a = 10\nb = 20\nresult = a + b\nprint('Computed:', result)")
-        self.assertTrue(res["success"])
-        self.assertEqual(res["status"], "success")
-        self.assertIn("Computed: 30", res["stdout"])
-        self.assertEqual(res["result"], "30")
-        self.assertIn("Rückgabewert:", res["markdown"])
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "disabled")
+        self.assertEqual(res["stdout"], "")
+        self.assertIsNone(res["result"])
 
     def test_expression_evaluation(self):
         res = execute_python_code("2 ** 10")
-        self.assertTrue(res["success"])
-        self.assertEqual(res["result"], "1024")
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "disabled")
+        self.assertIsNone(res["result"])
 
     def test_empty_code_handling(self):
         res = execute_python_code("")
@@ -144,8 +146,8 @@ class TestPillar1CodeInterpreter(unittest.TestCase):
         for snip in dangerous_snippets:
             res = execute_python_code(snip)
             self.assertFalse(res["success"])
-            self.assertEqual(res["status"], "security_violation")
-            self.assertIn("Sicherheitsverletzung", res["markdown"])
+            self.assertEqual(res["status"], "disabled")
+            self.assertIn("deaktiviert", res["markdown"])
 
     def test_matplotlib_figure_capture(self):
         code = (
@@ -155,13 +157,14 @@ class TestPillar1CodeInterpreter(unittest.TestCase):
             "plt.title('Test Plot')\n"
         )
         res = execute_python_code(code)
-        self.assertTrue(res["success"])
-        self.assertGreaterEqual(len(res["images"]), 1)
-        self.assertTrue(res["images"][0].startswith("data:image/png;base64,"))
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "disabled")
+        self.assertEqual(res["images"], [])
 
     def test_alias_run_code_interpreter(self):
         res = run_code_interpreter("1 + 1")
-        self.assertEqual(res["result"], "2")
+        self.assertEqual(res["status"], "disabled")
+        self.assertIsNone(res["result"])
 
 
 class TestPillar2VectorRAGAndEmbeddings(unittest.TestCase):
@@ -477,7 +480,9 @@ class TestPillar8CompleteBuiltinTools(unittest.TestCase):
 
     def test_tool_url_security(self):
         # Safe URL
-        safe_res = check_url_safety("https://example.com")
+        # Offline CI cannot assume external DNS. Use a real globally
+        # routable IP literal to test the policy without network resolution.
+        safe_res = check_url_safety("https://1.1.1.1")
         self.assertTrue(safe_res.get("safe"))
         self.assertEqual(safe_res.get("status"), "CLEAN")
 
