@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gzip
+import io
 import json
 import random
 import re
@@ -29,6 +30,22 @@ class FetchResult:
     body: bytes
     etag: str | None
     last_modified: str | None
+
+
+def _decompress_gzip_with_limit(payload: bytes, max_output_bytes: int) -> bytes:
+    """Cap decompression itself, not just the final response length.
+
+    A small malicious gzip body may expand into gigabytes. Reading at most
+    limit+1 decompressed bytes makes oversized responses fail before allocation
+    of an unbounded decompressed body.
+    """
+    if max_output_bytes < 0:
+        raise ValueError("negative maximum response size")
+    with gzip.GzipFile(fileobj=io.BytesIO(payload), mode="rb") as decoder:
+        result = decoder.read(max_output_bytes + 1)
+    if len(result) > max_output_bytes:
+        raise ValueError("decompressed response exceeds configured size limit")
+    return result
 
 
 class SafeFetcher:
@@ -88,9 +105,9 @@ class SafeFetcher:
                     if len(body) > self.config.max_response_bytes:
                         raise ValueError("response exceeds configured size limit")
                     if (resp.headers.get("Content-Encoding") or "").lower() == "gzip":
-                        body = gzip.decompress(body)
-                        if len(body) > self.config.max_response_bytes:
-                            raise ValueError("decompressed response exceeds configured size limit")
+                        body = _decompress_gzip_with_limit(
+                            body, self.config.max_response_bytes,
+                        )
                     return FetchResult(final_url,int(resp.status),resp.headers.get("Content-Type",""),body,resp.headers.get("ETag"),resp.headers.get("Last-Modified"))
             except error.HTTPError as exc:
                 if exc.code == 304:
