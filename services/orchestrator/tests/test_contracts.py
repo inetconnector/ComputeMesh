@@ -1,11 +1,7 @@
-import sys
 import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-
-REPO = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(REPO))
 
 from services.orchestrator import (
     ContractAdmission,
@@ -15,6 +11,8 @@ from services.orchestrator import (
     SQLiteStateStore,
 )
 
+
+REPO = Path(__file__).resolve().parents[3]
 
 class ContractTests(unittest.TestCase):
     def setUp(self):

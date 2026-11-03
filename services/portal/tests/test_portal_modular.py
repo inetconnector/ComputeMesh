@@ -1,15 +1,10 @@
 """Unit tests for modular portal registration and quotes handlers."""
 import json
 import os
-import sys
 import tempfile
 import unittest
 from http import HTTPStatus
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.identity.vault import DEFAULT_VAULT
 from services.portal.routes_quotes import PortalQuotesHandler
@@ -18,6 +13,8 @@ from services.portal.routes_registration import (
     PortalRegistrationHandler,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def accepted_registration(**overrides):
     body = {

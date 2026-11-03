@@ -6,11 +6,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
-
 from setup import lab
 
+
+REPO = Path(__file__).resolve().parents[2]
 
 class FakeRunner:
     def __init__(self, fail=False):

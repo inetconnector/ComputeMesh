@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import tempfile
 import threading
 import time
@@ -15,10 +14,6 @@ from datetime import datetime
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 import services.gateway.server as gateway_server_module
 from runtime.safety.dead_mans_switch import (
@@ -31,6 +26,8 @@ from services.billing.owner_accounts import OwnerAccountStore
 from services.portal import passkey_routes
 from services.portal.fleet_accounts import FleetAccountStore
 from services.portal.server import PortalHandler
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 PORT = 13038
 BASE = f"http://127.0.0.1:{PORT}"
