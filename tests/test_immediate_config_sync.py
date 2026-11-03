@@ -22,7 +22,6 @@ from services.gateway.server import (
 )
 from services.portal.server_core import PortalHandler
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):

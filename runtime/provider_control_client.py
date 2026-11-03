@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.control import (
     CURRENT_PROTOCOL_MINOR,
     SUPPORTED_PROTOCOL_MAJOR,

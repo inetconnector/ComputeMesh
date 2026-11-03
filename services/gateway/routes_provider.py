@@ -26,7 +26,6 @@ from services.billing.stripe_integration import StripeIntegrationError
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class ProviderRoutesHandler:

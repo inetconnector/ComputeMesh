@@ -14,7 +14,6 @@ from runtime.network.mesh_transport import (
     generate_node_tls_credentials,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestMeshTransport(unittest.TestCase):

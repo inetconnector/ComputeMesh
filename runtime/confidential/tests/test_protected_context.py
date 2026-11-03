@@ -3,13 +3,14 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
+from services.compliance.mesh_policy import ExecutionPrivacyClass
+
 from runtime.confidential.key_release import KeyReleaseBinding
 from runtime.confidential.protected_context import (
     ProtectedContextError,
     ProtectedRequestContext,
     build_protected_execution_evidence,
 )
-from services.compliance.mesh_policy import ExecutionPrivacyClass
 
 
 class ProtectedContextTests(unittest.TestCase):

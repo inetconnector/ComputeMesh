@@ -24,7 +24,6 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from cm_project_bootstrap import REPO_ROOT
-
 from config import CONFIG
 
 BUILD_DIR = Path("/var/tmp/nodeos_live_build")

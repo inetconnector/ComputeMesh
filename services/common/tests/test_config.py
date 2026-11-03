@@ -10,7 +10,6 @@ from services.common.config import (
     TeaserConfig,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestConfig(unittest.TestCase):

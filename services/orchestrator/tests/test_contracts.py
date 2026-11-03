@@ -11,7 +11,6 @@ from services.orchestrator import (
     SQLiteStateStore,
 )
 
-
 REPO = Path(__file__).resolve().parents[3]
 
 class ContractTests(unittest.TestCase):

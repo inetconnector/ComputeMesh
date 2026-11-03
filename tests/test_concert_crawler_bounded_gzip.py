@@ -3,7 +3,6 @@
 import gzip
 
 import pytest
-
 from services.concert_research.crawler import _decompress_gzip_with_limit
 
 

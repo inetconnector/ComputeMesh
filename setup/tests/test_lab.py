@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 from setup import lab
 
-
 REPO = Path(__file__).resolve().parents[2]
 
 class FakeRunner:

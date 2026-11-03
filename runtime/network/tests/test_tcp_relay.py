@@ -8,7 +8,6 @@ import unittest
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from runtime.network.tcp_relay import (
     PrivateEndpoint,
     RelayConfig,

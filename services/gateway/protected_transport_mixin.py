@@ -41,6 +41,7 @@ from services.gateway.confidential_coordinator import (
     ConfidentialInferenceCoordinator,
 )
 from services.gateway.live_handler import MAX_CONFIDENTIAL_HTTP_BYTES
+
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
 INTERNAL_CONFIDENTIAL_SESSION_PATH = "/internal/v1/confidential/sessions"

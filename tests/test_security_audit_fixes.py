@@ -61,7 +61,6 @@ from services.portal.server import PortalHandler
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import RigInventory
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 

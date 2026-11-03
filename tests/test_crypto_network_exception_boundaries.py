@@ -3,7 +3,6 @@
 from unittest.mock import patch
 
 import pytest
-
 from services.mcp.builtin import network_tools
 from tools.security.ed25519_verify import verify_ed25519_signature
 

@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from cm_project_bootstrap import REPO_ROOT
-
 from config import CONFIG
 from services.appliance_dashboard import tunnel_relay as _tunnel_relay
 from services.appliance_dashboard.fan_control_handler import FanControlHandler

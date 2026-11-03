@@ -17,7 +17,6 @@ from services.gateway.catalog import (
 )
 from services.gateway.registry_client import RegistryModel
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestCatalogAndPricing(unittest.TestCase):

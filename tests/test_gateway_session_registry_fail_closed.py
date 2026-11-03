@@ -4,7 +4,6 @@ from http import HTTPStatus
 from unittest.mock import Mock, patch
 
 import pytest
-
 from services.gateway.auth import GatewayAuthManager
 
 

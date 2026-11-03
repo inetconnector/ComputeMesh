@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from services.mcp.platform.artifacts import ArtifactAccessDenied, ArtifactStore
 from services.mcp.platform.environment import (
     BoundedEnvironmentExecutor,

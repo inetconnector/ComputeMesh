@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.scheduler.placement import (
     PlacementInputError,
     PlannerPolicy,

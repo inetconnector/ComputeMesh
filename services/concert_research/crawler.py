@@ -14,10 +14,10 @@ from html import unescape
 from urllib import error, request
 from urllib.parse import quote_plus, unquote, urljoin, urlsplit
 
-from .http_client import HardenedSafeFetcher as SafeFetcher
 from .config import ConcertResearchConfig
 from .extractors import extract_feed, extract_ics, extract_jsonld, html_snapshot
 from .fleet_ai import FleetInferenceClient
+from .http_client import HardenedSafeFetcher as SafeFetcher
 from .models import SourceRecord
 from .security import normalize_url, validate_public_http_url
 from .storage import ConcertStore

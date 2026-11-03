@@ -17,7 +17,6 @@ from services.appliance_dashboard.server import create_dashboard_server
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(os.environ.get("COMPUTEMESH_BROWSER_E2E") == "1", "browser E2E opt-in")

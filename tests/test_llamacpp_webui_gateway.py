@@ -11,7 +11,6 @@ from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
 from services.gateway.server import GatewayHandler, create_gateway_server
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestLlamaCppWebUIGateway(unittest.TestCase):

@@ -4,11 +4,11 @@ No dashboard or gateway imports, no external network, no persisted secrets.
 """
 from __future__ import annotations
 
-from dataclasses import replace
 import socket
 import tempfile
 import threading
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from runtime.network.mesh_transport import (
@@ -46,7 +46,7 @@ class TestMtlsCredentialBoundary(unittest.TestCase):
                 while not stop.is_set():
                     try:
                         conn, _ = echo_sock.accept()
-                    except socket.timeout:
+                    except TimeoutError:
                         continue
                     except OSError:
                         break

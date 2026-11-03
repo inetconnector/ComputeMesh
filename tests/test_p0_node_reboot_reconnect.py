@@ -24,10 +24,9 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
+import services.gateway.server as gateway_server
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-import services.gateway.server as gateway_server
 from services.appliance_dashboard.tunnel_relay import (
     NodeAuthTokenStorageError,
     get_or_create_node_auth_token,

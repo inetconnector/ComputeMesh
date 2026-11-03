@@ -12,7 +12,6 @@ from services.appliance_dashboard.inference_router import (
     _ollama_message,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class _Response:

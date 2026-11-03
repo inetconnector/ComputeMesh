@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
 from services.gateway.inference_backend import InferenceBackendError
 from services.gateway.live_bootstrap import build_live_shared_backend_from_env
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry

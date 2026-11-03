@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from runtime.llama.network_matrix import MatrixPoint, build_points
 
 

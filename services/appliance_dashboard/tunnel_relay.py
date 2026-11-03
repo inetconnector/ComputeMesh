@@ -25,7 +25,6 @@ from tools.appliance.node_identity import (
 from tools.appliance.node_identity import (
     dashboard_must_not_start_relay as dashboard_must_not_start_relay,  # noqa: PLC0414 - public compatibility re-export
 )
-
 from tools.security import node_auth_token_storage as _node_auth_storage
 from tools.security.node_auth_token_storage import (
     NodeAuthTokenStorageError,
@@ -167,7 +166,6 @@ class CloudTunnelRelay:
         self._sync_lock = threading.RLock()
         self._wake_event = threading.Event()
         from cryptography.hazmat.primitives import serialization
-
         from tools.security.node_key_storage import get_or_create_node_private_key
         try:
             if _nodeos_mode():

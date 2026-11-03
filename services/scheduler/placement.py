@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.scheduler.architecture_hardening_part6 import (
     ComponentBoundaryEnforcer,
     ExecutionPathOptimizer,

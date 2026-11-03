@@ -14,14 +14,12 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 from PIL import Image
-
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
 from services.gateway.server import GatewayHandler
 from services.gateway.teaser import TeaserQuotaManager
-
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from protocol.inference_wire import InferenceContractError, assemble_inference_stream
 
 

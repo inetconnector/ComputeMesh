@@ -4,7 +4,6 @@ from pathlib import Path
 
 from protocol import ProtocolFault, parse_control_envelope
 
-
 REPO = Path(__file__).resolve().parents[2]
 
 class ControlEnvelopeTests(unittest.TestCase):

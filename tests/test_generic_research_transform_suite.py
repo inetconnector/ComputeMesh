@@ -7,7 +7,6 @@ import tempfile
 import unittest
 
 from PIL import Image, ImageDraw
-
 from services.mcp.builtin.archive_and_data_transform import (
     create_archive,
 )

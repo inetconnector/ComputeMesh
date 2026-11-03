@@ -7,14 +7,12 @@ import unittest
 from pathlib import Path
 
 from PIL import Image
-
 from services.common.vision_preprocessor import (
     ProcessedImage,
     VisionPreprocessingError,
     VisionPreprocessor,
     get_vision_preprocessor,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

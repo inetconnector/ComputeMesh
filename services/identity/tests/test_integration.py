@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.control import ControlEnvelope
 from protocol.node_identity import (
     AUTH_METHOD,

@@ -12,6 +12,7 @@ from protocol.confidential_envelope import (
     encrypt_for_attested_recipient,
     generate_attested_recipient_keypair,
 )
+
 from runtime.confidential.replay_store import (
     ConfidentialReplayBindingError,
     ConfidentialReplayDetected,

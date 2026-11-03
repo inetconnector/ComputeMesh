@@ -27,7 +27,6 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (
 )
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-
 from services.common.secure_memory import secure_zero_memory
 
 SCHEMA_VERSION = 2

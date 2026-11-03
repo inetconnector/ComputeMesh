@@ -9,7 +9,6 @@ from services.gateway.inference_backend import BackendResult
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 

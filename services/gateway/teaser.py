@@ -13,7 +13,6 @@ from pathlib import Path
 
 from services.common.config import CONFIG
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass

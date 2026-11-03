@@ -11,9 +11,8 @@ Rate limiting: Token-bucket sliding window to prevent brute-force and email spam
 from __future__ import annotations
 
 import hashlib
-import json
-
 import ipaddress
+import json
 import logging
 import os
 import sqlite3
@@ -26,6 +25,13 @@ from pathlib import Path
 from typing import Any
 
 import webauthn
+from config import CONFIG
+from services.portal.fleet_accounts import (
+    FleetAccountStore,
+    FleetAccountStoreError,
+    utc_now,
+)
+from services.portal.mail_dispatcher import send_magic_link, send_security_alert
 from webauthn.helpers import bytes_to_base64url
 from webauthn.helpers.exceptions import (
     InvalidAuthenticationResponse,
@@ -37,14 +43,6 @@ from webauthn.helpers.structs import (
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
-
-from config import CONFIG
-from services.portal.fleet_accounts import (
-    FleetAccountStore,
-    FleetAccountStoreError,
-    utc_now,
-)
-from services.portal.mail_dispatcher import send_magic_link, send_security_alert
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

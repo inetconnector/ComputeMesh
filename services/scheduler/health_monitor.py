@@ -17,7 +17,6 @@ from services.scheduler.multi_gpu_planner import (
     plan_multi_gpu_rig,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class HealthMonitorError(RuntimeError):

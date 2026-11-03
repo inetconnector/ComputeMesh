@@ -2,7 +2,6 @@ import json
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
-
 from tools.security import release_signer
 
 

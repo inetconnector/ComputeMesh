@@ -9,7 +9,6 @@ from tools.appliance.lan_discovery_responder import (
     LanDiscoveryResponder,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestLanDiscoveryResponder(unittest.TestCase):

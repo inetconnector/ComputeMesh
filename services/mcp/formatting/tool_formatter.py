@@ -168,9 +168,11 @@ def format_tool_content_if_json(content: str) -> str:
             name = safe_cell(data.get("product_name") or data.get("query", "Produkt"))
             lines = [
                 f"### 🛍️ Suchtreffer mit Preis-Hinweisen: {name}\n",
+                (
                 "**Nicht verifiziert:** Die Angaben stammen aus Suchtreffern, "
                 "nicht aus bestätigten Händlerangeboten. Versand und Verfügbarkeit "
-                "können abweichen. **Keine Kaufempfehlung oder bestätigter Bestpreis.**\n",
+                "können abweichen. **Keine Kaufempfehlung oder bestätigter Bestpreis.**\n"
+                ),
                 "| Händler laut Suchtreffer | Preis-Hinweis (ohne unbekannten Versand) | Versand | Verfügbarkeit | Quelle |",
                 "| :--- | ---: | :--- | :--- | :--- |",
             ]

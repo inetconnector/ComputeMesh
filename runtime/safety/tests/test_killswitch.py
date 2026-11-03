@@ -24,7 +24,6 @@ from runtime.safety.hardware_relay import (
 from runtime.safety.supervisor import SafetySupervisor
 from runtime.safety.tripline_monitor import TriplineMonitor
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestDeadMansSwitchAndLease(unittest.TestCase):

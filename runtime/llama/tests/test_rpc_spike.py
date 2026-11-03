@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from runtime.llama.rpc_spike import (
     RpcEndpoint,
     RpcSpikeError,
