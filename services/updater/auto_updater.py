@@ -24,7 +24,7 @@ from datetime import UTC
 
 from pathlib import Path
 
-from cm_project_bootstrap import REPO_ROOT
+from cm_project_bootstrap import REPO_ROOT as REPO_ROOT
 
 from config import CONFIG
 from tools.security.ed25519_verify import verify_ed25519_signature

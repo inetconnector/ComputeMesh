@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from cm_project_bootstrap import REPO_ROOT
+from cm_project_bootstrap import REPO_ROOT as REPO_ROOT
 
 from tools.appliance.hardware_detector import (
     GpuDevice,

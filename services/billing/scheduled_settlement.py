@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from cm_project_bootstrap import REPO_ROOT
+from cm_project_bootstrap import REPO_ROOT as REPO_ROOT
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS, Ledger
