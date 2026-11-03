@@ -1,15 +1,10 @@
 """Unit tests for ComputeMesh Gateway Authentication & Entitlement Manager."""
 import json
 import os
-import sys
 import tempfile
 import unittest
 from http import HTTPStatus
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.ledger import Ledger
 from services.gateway.auth import (
@@ -19,6 +14,8 @@ from services.gateway.auth import (
 )
 from services.gateway.teaser import TeaserQuotaManager
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestGatewayAuth(unittest.TestCase):
     def setUp(self) -> None:

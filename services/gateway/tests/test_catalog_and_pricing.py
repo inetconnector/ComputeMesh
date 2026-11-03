@@ -1,12 +1,7 @@
 """Unit tests for ComputeMesh Gateway Catalog & Pricing Specifications."""
 import os
-import sys
 import unittest
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.gateway.catalog import (
     AVAILABLE_MODELS,
@@ -22,6 +17,8 @@ from services.gateway.catalog import (
 )
 from services.gateway.registry_client import RegistryModel
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestCatalogAndPricing(unittest.TestCase):
     def setUp(self) -> None:

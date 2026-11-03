@@ -2,13 +2,8 @@
 from __future__ import annotations
 
 import ctypes
-import sys
 import unittest
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.common.secure_memory import (
     SecureMemoryBuffer,
@@ -17,6 +12,8 @@ from services.common.secure_memory import (
     unlock_memory_buffer,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestSecureMemory(unittest.TestCase):
     def test_secure_memory_buffer_lifecycle(self) -> None:

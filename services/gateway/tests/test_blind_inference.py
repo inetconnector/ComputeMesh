@@ -2,18 +2,15 @@
 from __future__ import annotations
 
 import math
-import sys
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.gateway.blind_inference import (
     BlindedPipelineEngine,
     BlindedTensorProjector,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def test_blinded_projector_orthogonality() -> None:
     projector = BlindedTensorProjector(dimension=16)
