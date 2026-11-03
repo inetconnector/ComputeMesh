@@ -30,7 +30,9 @@ from protocol.confidential_metering import (
     generate_attested_metering_keypair,
     sign_confidential_usage,
 )
-from protocol.confidential_request_contract import create_committed_session_attestation_nonce
+from protocol.confidential_request_contract import (
+    create_committed_session_attestation_nonce,
+)
 from protocol.confidential_stream import encrypt_stream_event_in_attested_recipient
 from runtime.confidential.replay_store import ConfidentialReplayStore
 from services.common.secure_memory import secure_zero_memory

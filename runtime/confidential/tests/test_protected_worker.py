@@ -11,7 +11,9 @@ from protocol.confidential_envelope import (
     decrypt_confidential_response,
 )
 from protocol.confidential_metering import verify_confidential_usage_receipt
-from protocol.confidential_request_contract import verify_committed_session_attestation_nonce
+from protocol.confidential_request_contract import (
+    verify_committed_session_attestation_nonce,
+)
 from protocol.confidential_stream import decrypt_stream_event
 from runtime.confidential.protected_worker import (
     ProtectedWorkerError,

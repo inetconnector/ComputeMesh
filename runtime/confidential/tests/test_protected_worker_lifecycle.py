@@ -5,7 +5,10 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from protocol.confidential_envelope import ConfidentialBinding, create_confidential_request
+from protocol.confidential_envelope import (
+    ConfidentialBinding,
+    create_confidential_request,
+)
 from runtime.confidential.protected_worker import (
     ProtectedWorkerError,
     ProtectedWorkerSessionManager,

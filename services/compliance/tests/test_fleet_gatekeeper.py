@@ -4,7 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
+from services.compliance.dsa_policy import (
+    PlatformEnterpriseSize,
+    PlatformOperatorLegalProfile,
+)
 from services.compliance.fleet_gatekeeper import (
     FleetGatekeeper,
     FleetGatekeeperError,

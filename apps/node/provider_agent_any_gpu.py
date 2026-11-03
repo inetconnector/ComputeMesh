@@ -10,7 +10,10 @@ from __future__ import annotations
 import os
 
 from apps.node import provider_agent as _base
-from runtime.llama.gpu_promo_challenge import GpuPromoChallengeConfig, GpuPromoChallengeRunner
+from runtime.llama.gpu_promo_challenge import (
+    GpuPromoChallengeConfig,
+    GpuPromoChallengeRunner,
+)
 
 
 def _gpu_promo_runner_from_args(args):

@@ -488,7 +488,9 @@ class PortalHandler(BaseHTTPRequestHandler):
                     "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 }
             else:
-                from tools.appliance.hardware_detector import is_integrated_display_adapter
+                from tools.appliance.hardware_detector import (
+                    is_integrated_display_adapter,
+                )
                 total_vram_bytes = 0
                 total_gpus = 0
                 for n in live_nodes:
@@ -1199,7 +1201,9 @@ class PortalHandler(BaseHTTPRequestHandler):
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             try:
-                from services.gateway.registry_inventory_sync import sync_model_inventory
+                from services.gateway.registry_inventory_sync import (
+                    sync_model_inventory,
+                )
                 sync_model_inventory(
                     node_id=node_id,
                     models=NODE_TELEMETRY_REGISTRY[node_id]["models"],

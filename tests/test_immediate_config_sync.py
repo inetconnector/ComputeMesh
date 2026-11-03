@@ -15,9 +15,16 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.appliance_dashboard.server import ApplianceConfig
-from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay, trigger_immediate_mesh_sync
+from services.appliance_dashboard.tunnel_relay import (
+    CloudTunnelRelay,
+    trigger_immediate_mesh_sync,
+)
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
-from services.gateway.server import OWNER_ACCOUNT_STORE, _build_fleet_payload, owner_id_for_key
+from services.gateway.server import (
+    OWNER_ACCOUNT_STORE,
+    _build_fleet_payload,
+    owner_id_for_key,
+)
 from services.portal.server_core import PortalHandler
 
 

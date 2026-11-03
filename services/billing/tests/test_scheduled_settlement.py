@@ -7,7 +7,10 @@ from unittest.mock import MagicMock
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import MICRO_UNIT_SCALE
 from services.billing.owner_credits import owner_bucket_account
-from services.billing.owner_settlement import OwnerPayoutProfileStore, PayoutCapableOwnerLedger
+from services.billing.owner_settlement import (
+    OwnerPayoutProfileStore,
+    PayoutCapableOwnerLedger,
+)
 from services.billing.scheduled_settlement import run_batch_settlement_cycle
 from services.billing.stripe_connect import ConnectedAccountResult, StripeConnectService
 

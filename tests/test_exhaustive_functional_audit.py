@@ -64,7 +64,10 @@ from services.mcp.builtin.news_feed import execute_get_news, get_live_news
 from services.mcp.builtin.package_registry import lookup_software_package
 from services.mcp.builtin.places import search_places
 from services.mcp.builtin.python_calc import run_python_calc
-from services.mcp.builtin.python_sandbox import execute_python_code, run_code_interpreter
+from services.mcp.builtin.python_sandbox import (
+    execute_python_code,
+    run_code_interpreter,
+)
 from services.mcp.builtin.rag_tool import (
     index_document_text,
     list_indexed_documents,
@@ -113,7 +116,11 @@ from services.rag.embeddings import (
     cosine_similarity,
     get_text_embedding,
 )
-from services.rag.vector_store import SearchResult, VectorStore, get_default_vector_store
+from services.rag.vector_store import (
+    SearchResult,
+    VectorStore,
+    get_default_vector_store,
+)
 
 # --- Pillar 6: Streaming Voice VAD ---
 from services.voice.voice_realtime import (

@@ -50,8 +50,15 @@ def mobile_heartbeat(
         return {"error": "legacy fleet secrets and aliases are forbidden"}, HTTPStatus.BAD_REQUEST
 
     from services.billing.owner_accounts import OwnerAccountStoreError
-    from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, save_node_telemetry_registry
-    from services.gateway.server import _NODE_HEARTBEAT_LOCK, OWNER_ACCOUNT_STORE, owner_id_for_key
+    from services.gateway.dashboard import (
+        NODE_TELEMETRY_REGISTRY,
+        save_node_telemetry_registry,
+    )
+    from services.gateway.server import (
+        _NODE_HEARTBEAT_LOCK,
+        OWNER_ACCOUNT_STORE,
+        owner_id_for_key,
+    )
 
     with _NODE_HEARTBEAT_LOCK:
         existing = NODE_TELEMETRY_REGISTRY.get(node_id)
@@ -115,7 +122,10 @@ def revoke_mobile_device(
     if not isinstance(node_id, str) or not node_id.startswith("android-"):
         return {"error": "invalid mobile device"}, HTTPStatus.BAD_REQUEST
 
-    from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, save_node_telemetry_registry
+    from services.gateway.dashboard import (
+        NODE_TELEMETRY_REGISTRY,
+        save_node_telemetry_registry,
+    )
     from services.gateway.server import (
         _NODE_HEARTBEAT_LOCK,
         OWNER_ACCOUNT_STORE,

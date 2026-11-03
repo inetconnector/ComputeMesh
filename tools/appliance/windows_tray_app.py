@@ -62,7 +62,7 @@ try:
     import pystray
     import pystray._win32
     HAS_PYSTRAY = True
-except Exception:
+except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
     HAS_PYSTRAY = False
 
 try:
@@ -115,8 +115,8 @@ def _log_crash(msg: str) -> None:
         crash_log.parent.mkdir(parents=True, exist_ok=True)
         with open(crash_log, "a", encoding="utf-8") as f:
             f.write(f"[{datetime.now(UTC).isoformat()}] {msg}\n")
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
 
 def global_excepthook(exc_type, exc_value, exc_traceback):
     err = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
@@ -145,11 +145,11 @@ def _acquire_single_instance_lock() -> bool:
                     if hwnd:
                         user32.ShowWindow(hwnd, 9)  # SW_RESTORE
                         user32.SetForegroundWindow(hwnd)
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
                 return False
             return True
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             _log_crash(f"Single instance mutex exception: {e}")
             return True
     else:
@@ -161,12 +161,12 @@ def _acquire_single_instance_lock() -> bool:
             lock_fd = os.open(lock_path, lock_flags, 0o600)
             try:
                 fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except Exception:
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 os.close(lock_fd)
                 raise
             _SINGLE_INSTANCE_LOCK_FD = lock_fd
             return True
-        except Exception:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return False
 
 def _cleanup_previous_instances() -> None:
@@ -181,7 +181,7 @@ def is_windows_autostart_enabled() -> bool:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_PATH, 0, winreg.KEY_READ) as key:
             winreg.QueryValueEx(key, REG_APP_NAME)
             return True
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return False
 
 
@@ -202,10 +202,10 @@ def set_windows_autostart(enable: bool) -> bool:
             else:
                 try:
                     winreg.DeleteValue(key, REG_APP_NAME)
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
             return True
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return False
 
 
@@ -220,7 +220,7 @@ class ComputeMeshProviderApp:
         if self.icon_path and self.icon_path.exists():
             try:
                 self.icon_image = Image.open(self.icon_path)
-            except Exception:
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self.icon_image = _create_computemesh_icon_image()
         else:
             self.icon_image = _create_computemesh_icon_image()
@@ -237,7 +237,7 @@ class ComputeMeshProviderApp:
         try:
             self._tk_icon = ImageTk.PhotoImage(self.icon_image)
             self.root.iconphoto(True, self._tk_icon)
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             print(f"[icon] iconphoto failed: {e}")
 
         # Start large and centered (not maximized) so the full dashboard is
@@ -291,14 +291,14 @@ class ComputeMeshProviderApp:
                 gpu_summary=f"{gpu_desc} ({self._calculate_local_tflops()} TFLOPS)"
             )
             _log_crash(f"LAN Discovery Responder active on UDP 13379 (Node: {nid}, Port: {self.dashboard_port})")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             _log_crash(f"Error starting LAN discovery responder: {e}")
 
         # Background cloud tunnel relay to stream live node telemetry & hardware to gateway
         try:
             from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
             self.relay = CloudTunnelRelay()
-        except Exception:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self.relay = None
 
         # Background telemetry polling thread
@@ -348,8 +348,8 @@ class ComputeMeshProviderApp:
                     return
                 try:
                     self.tray_icon.stop()
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             tray_image = _create_computemesh_icon_image(size=(32, 32))
 
@@ -377,7 +377,7 @@ class ComputeMeshProviderApp:
             )
             self.tray_icon.run_detached()
             _log_crash("System Tray Icon successfully started and visible.")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             _log_crash(f"Error setup tray: {e}\n{traceback.format_exc()}")
 
     def _tray_watchdog(self) -> None:
@@ -387,19 +387,19 @@ class ComputeMeshProviderApp:
                 t_thread = getattr(self.tray_icon, "_thread", None)
                 if self.tray_icon is None or (t_thread is not None and not t_thread.is_alive()):
                     self._setup_tray_icon()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         try:
             self.root.after(5000, self._tray_watchdog)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _hide_to_tray(self) -> None:
         """Minimize application window to system tray without closing daemon."""
         try:
             self.root.withdraw()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _on_window_unmap(self, event=None) -> None:
         """When user clicks minimize (-) on title bar, hide to tray instead of taskbar."""
@@ -407,15 +407,15 @@ class ComputeMeshProviderApp:
             try:
                 if self.root.state() == "iconic":
                     self.root.after(10, self.root.withdraw)
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
     def _show_from_tray(self, icon=None, item=None) -> None:
         """Restore window from system tray (thread-safe on main Tk loop)."""
         try:
             self.root.after(0, self._do_show_window)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _do_show_window(self) -> None:
         """Execute window restoration synchronously inside Tk main thread."""
@@ -427,7 +427,7 @@ class ComputeMeshProviderApp:
             self.root.lift()
             self.root.focus_force()
             self.root.attributes("-topmost", False)
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             _log_crash(f"Error showing window from tray: {e}")
 
     def _quit_app(self, icon=None, item=None) -> None:
@@ -437,17 +437,17 @@ class ComputeMeshProviderApp:
                 stop_lan_discovery_responder,
             )
             stop_lan_discovery_responder()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         if self.tray_icon:
             try:
                 self.tray_icon.stop()
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
         try:
             self.root.quit()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         sys.exit(0)
 
     def _load_autoupdate_setting(self) -> bool:
@@ -455,8 +455,8 @@ class ComputeMeshProviderApp:
             cfg = self._get_config_path()
             if cfg.exists():
                 return json.loads(cfg.read_text(encoding="utf-8")).get("auto_update", True)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         return True
 
     def _check_first_launch_prompts(self) -> None:
@@ -466,8 +466,8 @@ class ComputeMeshProviderApp:
         if cfg_file.exists():
             try:
                 cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
         if not cfg_data.get("first_launch_prompted", False):
             cfg_data["first_launch_prompted"] = True
@@ -480,8 +480,8 @@ class ComputeMeshProviderApp:
                 self.autoupdate_var.set(True)
             try:
                 cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
     def _on_autoupdate_toggle(self) -> None:
         enable = self.autoupdate_var.get()
@@ -490,8 +490,8 @@ class ComputeMeshProviderApp:
             cfg_data = json.loads(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
             cfg_data["auto_update"] = enable
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _auto_updater_loop(self) -> None:
         """Continuous background thread checking periodically for signed updates."""
@@ -504,7 +504,7 @@ class ComputeMeshProviderApp:
                         _log_crash(f"[AutoUpdater] Newer version {update_info.version} found! Downloading and applying...")
                         downloaded = self.updater.download_and_verify(update_info)
                         self.updater.apply_windows_update(downloaded)
-            except Exception as e:
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
                 _log_crash(f"[AutoUpdater] Background check error: {e}")
             time.sleep(600)  # Check every 10 minutes
 
@@ -528,7 +528,7 @@ class ComputeMeshProviderApp:
                     f"✓ Du verwendest bereits die aktuellste, sicher signierte Version (v{self.version}).",
                     parent=self.root,
                 )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             messagebox.showerror("Update Error", f"Update-Prüfung fehlgeschlagen: {e}", parent=self.root)
 
     def _on_autostart_toggle(self) -> None:
@@ -540,16 +540,16 @@ class ComputeMeshProviderApp:
                 cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
                 cfg_data["autostart"] = enable
                 cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
     def _load_localcode_setting(self) -> bool:
         try:
             cfg = self._get_config_path()
             if cfg.exists():
                 return json.loads(cfg.read_text(encoding="utf-8")).get("localcode_tray", False)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         return False
 
     def _on_localcode_toggle(self) -> None:
@@ -559,8 +559,8 @@ class ComputeMeshProviderApp:
             cfg_data = json.loads(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
             cfg_data["localcode_tray"] = enable
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         if enable:
             threading.Thread(target=self._ensure_and_launch_localcode, kwargs={"tray_mode": True}, daemon=True).start()
 
@@ -569,8 +569,8 @@ class ComputeMeshProviderApp:
             cfg = self._get_config_path()
             if cfg.exists():
                 return json.loads(cfg.read_text(encoding="utf-8")).get("cline_vscode", False)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         return False
 
     def _save_cline_setting(self, enable: bool) -> None:
@@ -579,7 +579,7 @@ class ComputeMeshProviderApp:
             cfg_data = json.loads(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
             cfg_data["cline_vscode"] = enable
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             _log_crash(f"[Cline] Could not persist integration setting: {exc}")
 
     def _request_cline_enable(self) -> None:
@@ -676,7 +676,7 @@ class ComputeMeshProviderApp:
                         parent=self.root,
                     ),
                 )
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             _log_crash(f"[Cline] Unexpected integration error: {exc}\n{traceback.format_exc()}")
             self.root.after(0, lambda: self.cline_var.set(False))
             self._save_cline_setting(False)
@@ -718,8 +718,8 @@ class ComputeMeshProviderApp:
                     if "LocalCode.exe" in check.stdout:
                         _log_crash("[LocalCode] LocalCode.exe is already running in background.")
                         return
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
                 cmd = [str(exe_path)]
                 if tray_mode:
@@ -734,7 +734,7 @@ class ComputeMeshProviderApp:
                     close_fds=True
                 )
                 _log_crash("[LocalCode] LocalCode successfully started in system tray.")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             _log_crash(f"[LocalCode] Error launching LocalCode: {e}\n{traceback.format_exc()}")
 
     def _apply_styles(self) -> None:
@@ -1084,8 +1084,8 @@ class ComputeMeshProviderApp:
             s.connect(("8.8.8.8", 80))
             primary_ip = s.getsockname()[0]
             s.close()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
         footer_frame = ttk.Frame(self.root)
         footer_frame.pack(fill="x", padx=20, pady=(0, 10))
@@ -1114,8 +1114,8 @@ class ComputeMeshProviderApp:
             app_cfg = load_appliance_config()
             if app_cfg.payout_address and app_cfg.payout_address != "0x0000000000000000000000000000000000000000":
                 return app_cfg.payout_address
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         return ""
 
     def _paste_wallet(self) -> None:
@@ -1125,7 +1125,7 @@ class ComputeMeshProviderApp:
                 self.ent_wallet.delete(0, tk.END)
                 self.ent_wallet.insert(0, clip)
                 self.lbl_wallet_status.config(text=f"✓ Adresse aus Zwischenablage eingefügt: {clip[:6]}...{clip[-4:]} (Klicke 'Save')", foreground="#00f2fe")
-        except Exception:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             messagebox.showinfo("Zwischenablage", "Zwischenablage ist leer oder enthält keinen Text.")
 
     def _clear_wallet(self) -> None:
@@ -1143,13 +1143,13 @@ class ComputeMeshProviderApp:
             if cfg_file.exists():
                 try:
                     cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
             cfg_data["payout_address"] = wallet
             cfg_data["updated_at"] = datetime.now(UTC).isoformat()
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             self.lbl_wallet_status.config(text="✓ Provider payout address saved. Customer payments run through Stripe.", foreground="#10b981")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             messagebox.showerror("Error", f"Failed to save wallet: {e}")
 
     def _run_embedded_server(self) -> None:
@@ -1170,12 +1170,12 @@ class ComputeMeshProviderApp:
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"[{datetime.now(UTC).isoformat()}] Dashboard server listening on 0.0.0.0:{actual_port}\n")
             server.serve_forever()
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             try:
                 with open(log_file, "a", encoding="utf-8") as f:
                     f.write(f"[{datetime.now(UTC).isoformat()}] Error in embedded server: {e}\n")
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
     def _connect_metamask(self) -> None:
         import webbrowser
@@ -1225,7 +1225,7 @@ class ComputeMeshProviderApp:
                     "• Ungenutzte GPU-Kapazität wird automatisch im Mesh monetarisiert.",
                     parent=self.root,
                 )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             messagebox.showerror("Ollama Fehler", f"Fehler beim Starten von Ollama: {e}", parent=self.root)
 
     def _calculate_local_tflops(self) -> float:
@@ -1262,8 +1262,8 @@ class ComputeMeshProviderApp:
                     port=self.dashboard_port,
                     gpu_summary=f"{gpu_desc} ({self._calculate_local_tflops()} TFLOPS)"
                 )
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
         else:
             self.lbl_status.config(text="IDLE", foreground="#f59e0b")
             self.btn_toggle.config(text="▶ Start Providing Compute", bg="#10b981", activebackground="#059669")
@@ -1279,8 +1279,8 @@ class ComputeMeshProviderApp:
             service_script = REPO_ROOT / "runtime" / "sd_cpp" / "image_engine_service.py"
             if service_script.exists():
                 subprocess.Popen([sys.executable, str(service_script)], cwd=str(REPO_ROOT))
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _telemetry_loop(self) -> None:
         last_synced_wallet = ""
@@ -1300,12 +1300,12 @@ class ComputeMeshProviderApp:
                                 text=f"✓ Wallet synchronisiert: {w[:6]}...{w[-4:]}",
                                 foreground="#10b981"
                             )
-                    except Exception:
-                        pass
+                    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
                 try:
                     self.root.after(0, _update_wallet)
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             if self.is_running:
                 # Sync live token and earnings accounting from local store & coordinator
@@ -1314,19 +1314,19 @@ class ComputeMeshProviderApp:
                     t_stats = get_token_stats()
                     self.total_tokens_served = t_stats.get("tokens_processed", 0)
                     self.total_earnings_usd = t_stats.get("earnings_usd", 0.0)
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
                 def _update_stats(toks=self.total_tokens_served, earn=self.total_earnings_usd):
                     try:
                         self.lbl_tokens.config(text=f"{toks:,}")
                         self.lbl_earnings.config(text=f"{toks:,} CM (${earn:.4f})")
-                    except Exception:
-                        pass
+                    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
                 try:
                     self.root.after(0, _update_stats)
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             # Update mesh cluster stats label
             try:
@@ -1354,14 +1354,14 @@ class ComputeMeshProviderApp:
                                 text=f"🟢 {n} {label_text} Verbunden  |  {v:.1f} GB VRAM Pool  |  {t:.1f} TFLOPS",
                                 foreground="#10b981"
                             )
-                        except Exception:
-                            pass
+                        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                            _ = exc
                     try:
                         self.root.after(0, _update_cluster)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
 
 def main() -> int:
@@ -1380,7 +1380,7 @@ def main() -> int:
             root.lift()
             root.focus_force()
         root.mainloop()
-    except Exception as exc:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         _log_crash(f"Fatal error in main GUI loop: {exc}\n{traceback.format_exc()}")
         return 1
     return 0

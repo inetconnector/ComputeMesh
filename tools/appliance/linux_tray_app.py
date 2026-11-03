@@ -111,7 +111,7 @@ X-GNOME-Autostart-enabled=true
             if AUTOSTART_DESKTOP_FILE.exists():
                 AUTOSTART_DESKTOP_FILE.unlink()
         return True
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return False
 
 
@@ -134,7 +134,7 @@ class LinuxComputeMeshProviderApp:
         if self.icon_path and self.icon_path.exists():
             try:
                 self.icon_image = Image.open(self.icon_path)
-            except Exception:
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self.icon_image = _create_computemesh_icon_image()
         else:
             self.icon_image = _create_computemesh_icon_image()
@@ -142,8 +142,8 @@ class LinuxComputeMeshProviderApp:
         try:
             self._tk_icon = ImageTk.PhotoImage(self.icon_image)
             self.root.iconphoto(True, self._tk_icon)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
         # Center window on screen
         width = 680
@@ -216,8 +216,8 @@ class LinuxComputeMeshProviderApp:
             if self.tray_icon is not None:
                 try:
                     self.tray_icon.stop()
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             raw_img = self.icon_image if hasattr(self, "icon_image") else _create_computemesh_icon_image()
             if hasattr(raw_img, "resize"):
@@ -241,27 +241,27 @@ class LinuxComputeMeshProviderApp:
             self.tray_icon = pystray.Icon("ComputeMesh", tray_image, "ComputeMesh AI Provider Node (Linux)", menu=menu)
             tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
             tray_thread.start()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _tray_watchdog(self) -> None:
         """Periodic watchdog to ensure System Tray Icon stays active continuously on Linux."""
         try:
             if HAS_PYSTRAY and (self.tray_icon is None or not getattr(self.tray_icon, "visible", False)):
                 self._setup_tray_icon()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         try:
             self.root.after(3000, self._tray_watchdog)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _hide_to_tray(self) -> None:
         """Minimize application window to system tray without closing daemon."""
         try:
             self.root.withdraw()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _on_window_unmap(self, event=None) -> None:
         """When user clicks minimize (-) on title bar, hide to tray instead of taskbar."""
@@ -269,15 +269,15 @@ class LinuxComputeMeshProviderApp:
             try:
                 if self.root.state() == "iconic":
                     self.root.after(10, self.root.withdraw)
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
     def _show_from_tray(self, icon=None, item=None) -> None:
         """Restore window from system tray (thread-safe on main Tk loop)."""
         try:
             self.root.after(0, self._do_show_window)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _do_show_window(self) -> None:
         """Execute window restoration synchronously inside Tk main thread."""
@@ -289,20 +289,20 @@ class LinuxComputeMeshProviderApp:
             self.root.lift()
             self.root.focus_force()
             self.root.attributes("-topmost", False)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _quit_app(self, icon=None, item=None) -> None:
         """Completely exit application and stop daemon."""
         if self.tray_icon:
             try:
                 self.tray_icon.stop()
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
         try:
             self.root.quit()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         sys.exit(0)
 
     def _get_config_path(self) -> Path:
@@ -315,8 +315,8 @@ class LinuxComputeMeshProviderApp:
             cfg = self._get_config_path()
             if cfg.exists():
                 return json.loads(cfg.read_text(encoding="utf-8")).get("auto_update", True)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         return True
 
     def _load_saved_wallet(self) -> str:
@@ -326,8 +326,8 @@ class LinuxComputeMeshProviderApp:
                 addr = json.loads(cfg.read_text(encoding="utf-8")).get("payout_address", "").strip()
                 if addr != "0x0000000000000000000000000000000000000000":
                     return addr
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         return ""
 
     def _check_first_launch_prompts(self) -> None:
@@ -336,8 +336,8 @@ class LinuxComputeMeshProviderApp:
         if cfg_file.exists():
             try:
                 cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
         if not cfg_data.get("first_launch_prompted", False):
             cfg_data["first_launch_prompted"] = True
@@ -350,8 +350,8 @@ class LinuxComputeMeshProviderApp:
                 self.autoupdate_var.set(True)
             try:
                 cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
     def _apply_styles(self) -> None:
         self.style = ttk.Style()
@@ -514,8 +514,8 @@ class LinuxComputeMeshProviderApp:
             s.connect(("8.8.8.8", 80))
             primary_ip = s.getsockname()[0]
             s.close()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
         footer_frame = ttk.Frame(self.root)
         footer_frame.pack(fill="x", padx=20, pady=(0, 10))
@@ -536,8 +536,8 @@ class LinuxComputeMeshProviderApp:
             cfg_data = json.loads(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
             cfg_data["auto_update"] = self.autoupdate_var.get()
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _calculate_local_tflops(self) -> float:
         return 0.0
@@ -567,7 +567,7 @@ class LinuxComputeMeshProviderApp:
                 self.ent_wallet.delete(0, tk.END)
                 self.ent_wallet.insert(0, clip)
                 self.lbl_wallet_status.config(text=f"✓ Adresse aus Zwischenablage eingefügt: {clip[:6]}...{clip[-4:]} (Klicke 'Save')", foreground="#00f2fe")
-        except Exception:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             messagebox.showinfo("Zwischenablage", "Zwischenablage ist leer oder enthält keinen Text.")
 
     def _clear_wallet(self) -> None:
@@ -591,8 +591,8 @@ class LinuxComputeMeshProviderApp:
             service_script = REPO_ROOT / "runtime" / "sd_cpp" / "image_engine_service.py"
             if service_script.exists():
                 subprocess.Popen([sys.executable, str(service_script)], cwd=str(REPO_ROOT))
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _save_payout_wallet(self) -> None:
         wallet = self.ent_wallet.get().strip()
@@ -606,7 +606,7 @@ class LinuxComputeMeshProviderApp:
             cfg_data["updated_at"] = datetime.now(UTC).isoformat()
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             self.lbl_wallet_status.config(text="✓ Provider payout address saved. Customer payments run through Stripe.", foreground="#10b981")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
             messagebox.showerror("Error", f"Failed to save wallet: {e}")
 
     def _run_embedded_server(self) -> None:
@@ -621,8 +621,8 @@ class LinuxComputeMeshProviderApp:
             )
             self.dashboard_port = actual_port
             server.serve_forever()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     def _auto_updater_loop(self) -> None:
         """Continuous background thread checking periodically for signed updates."""
@@ -635,7 +635,7 @@ class LinuxComputeMeshProviderApp:
                         print(f"[AutoUpdater] Newer version {update_info.version} found! Downloading and applying...")
                         pkg = self.updater.download_and_verify(update_info)
                         self.updater.apply_linux_update(pkg)
-            except Exception as e:
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
                 print(f"[AutoUpdater] Background check error: {e}")
             time.sleep(600)  # Check every 10 minutes
 
@@ -667,8 +667,8 @@ class LinuxComputeMeshProviderApp:
                         self.ent_wallet.delete(0, tk.END)
                         self.ent_wallet.insert(0, current_w)
                         self.lbl_wallet_status.config(text=f"✓ Wallet synchronisiert: {current_w[:6]}...{current_w[-4:]}", foreground="#10b981")
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             if self.is_running:
                 # Sync live token and earnings accounting from local store & coordinator
@@ -677,14 +677,14 @@ class LinuxComputeMeshProviderApp:
                     t_stats = get_token_stats()
                     self.total_tokens_served = t_stats.get("tokens_processed", 0)
                     self.total_earnings_usd = t_stats.get("earnings_usd", 0.0)
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
                 try:
                     self.lbl_tokens.config(text=f"{self.total_tokens_served:,}")
                     self.lbl_earnings.config(text=f"{self.total_tokens_served:,} CM (${self.total_earnings_usd:.4f})")
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             # Update mesh cluster stats label
             try:
@@ -709,8 +709,8 @@ class LinuxComputeMeshProviderApp:
                         text=f"🟢 {nodes_cnt} {node_lbl} Verbunden  |  {vram_pool:.1f} GB VRAM Pool  |  {tf_pool:.1f} TFLOPS",
                         foreground="#10b981"
                     )
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
 
 def main() -> int:
@@ -731,7 +731,7 @@ def main() -> int:
         if "--tray" not in sys.argv:
             root.after(50, root.deiconify)
         root.mainloop()
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         print(f"[ComputeMesh] GUI initialization skipped ({e}), falling back to headless server daemon...")
         cfg = load_appliance_config()
         inv = scan_rig_hardware()

@@ -8,7 +8,10 @@ from services.billing.ledger import MINIMUM_PAYOUT_MICRO_UNITS, Ledger
 from services.billing.stripe_connect import (
     StripeConnectService,
 )
-from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
+from services.compliance.dsa_policy import (
+    PlatformEnterpriseSize,
+    PlatformOperatorLegalProfile,
+)
 from services.compliance.fleet_gatekeeper import FleetGatekeeper
 from services.compliance.provider_identity import (
     EntityType,

@@ -23,7 +23,11 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-from .dsa_policy import ApplicabilityDecision, DSAApplicabilityPolicy, PlatformOperatorLegalProfile
+from .dsa_policy import (
+    ApplicabilityDecision,
+    DSAApplicabilityPolicy,
+    PlatformOperatorLegalProfile,
+)
 
 DSA_TRADER_DECLARATION_VERSION = "dsa_art30_v1.0"
 ISO_COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")

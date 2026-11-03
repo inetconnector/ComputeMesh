@@ -3,7 +3,9 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from protocol.confidential_request_contract import create_committed_session_attestation_nonce
+from protocol.confidential_request_contract import (
+    create_committed_session_attestation_nonce,
+)
 from services.attestation.confidential_verifier import (
     ConfidentialAttestationError,
     verify_confidential_attestation,

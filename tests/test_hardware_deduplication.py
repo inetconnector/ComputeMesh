@@ -6,7 +6,11 @@ from datetime import UTC
 
 from services.appliance_dashboard.mesh_aggregator import MeshRegistryAggregator
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
-from services.gateway.server import OWNER_ACCOUNT_STORE, _build_fleet_payload, owner_id_for_key
+from services.gateway.server import (
+    OWNER_ACCOUNT_STORE,
+    _build_fleet_payload,
+    owner_id_for_key,
+)
 
 
 class TestHardwareDeduplication(unittest.TestCase):

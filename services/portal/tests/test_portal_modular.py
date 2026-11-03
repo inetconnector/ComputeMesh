@@ -13,7 +13,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.identity.vault import DEFAULT_VAULT
 from services.portal.routes_quotes import PortalQuotesHandler
-from services.portal.routes_registration import CURRENT_TERMS_VERSION, PortalRegistrationHandler
+from services.portal.routes_registration import (
+    CURRENT_TERMS_VERSION,
+    PortalRegistrationHandler,
+)
 
 
 def accepted_registration(**overrides):
