@@ -358,6 +358,10 @@ class MeshTunnelServer:
             logger.debug("mTLS transport pipe interrupted: %s", exc)
             stop_event.set()  # Fail closed on forwarding errors.
         finally:
+            # Abort peer forwarding when an unexpected exception is propagating.
+            # A clean EOF has no active exception and still permits reverse drain.
+            if sys.exc_info()[0] is not None:
+                stop_event.set()
             # On graceful EOF, half-close plain TCP; keep TLS reverse traffic alive.
             try:
                 if not isinstance(dst, ssl.SSLSocket):
@@ -501,6 +505,10 @@ class MeshTunnelClient:
             logger.debug("mTLS transport pipe interrupted: %s", exc)
             stop_event.set()  # Fail closed on forwarding errors.
         finally:
+            # Abort peer forwarding when an unexpected exception is propagating.
+            # A clean EOF has no active exception and still permits reverse drain.
+            if sys.exc_info()[0] is not None:
+                stop_event.set()
             # On graceful EOF, half-close plain TCP; keep TLS reverse traffic alive.
             try:
                 if not isinstance(dst, ssl.SSLSocket):
