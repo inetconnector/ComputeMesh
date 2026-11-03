@@ -24,7 +24,7 @@ from tools.security import release_signer
 
 
 class TestSignedPortalBundle(unittest.TestCase):
-    TAG = "v1.2.189"
+    TAG = "v1.2.190"
 
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -54,7 +54,7 @@ class TestSignedPortalBundle(unittest.TestCase):
         self.metadata = {
             "production_signed": True,
             "package_name": "com.inetconnector.compumesh",
-            "version_name": "1.2.189",
+            "version_name": "1.2.190",
             "apk_sha256": hashlib.sha256(apk).hexdigest(),
             "apk_size": len(apk),
             "url": "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk",
@@ -99,7 +99,7 @@ class TestSignedPortalBundle(unittest.TestCase):
             return_value=(self.key, self.key.public_key()),
         ):
             release_signer.sign_manifest(
-                "1.2.189", self.downloads,
+                "1.2.190", self.downloads,
                 self.portal / "updates" / "version.json",
                 base_url="https://mesh.inetconnector.com/downloads",
             )

@@ -551,37 +551,81 @@ def _matches_type(value: Any, expected: Any) -> bool:
     return False
 
 
+def _validate_schema_node(schema: dict[str, Any], value: Any, path: str = "") -> str | None:
+    if not isinstance(schema, dict):
+        return None
+    expected = schema.get("type")
+    if expected is not None and not _matches_type(value, expected):
+        label = f"Parameter '{path}'" if path else "Wert"
+        return f"{label} hat einen ungültigen Typ."
+    if "enum" in schema and value not in schema["enum"]:
+        label = f"Parameter '{path}'" if path else "Wert"
+        return f"{label} hat einen ungültigen Wert."
+    if isinstance(value, str):
+        if "minLength" in schema and len(value) < schema["minLength"]:
+            label = f"Parameter '{path}'" if path else "Wert"
+            return f"{label} unterschreitet die Mindestlänge {schema['minLength']}."
+        if "maxLength" in schema and len(value) > schema["maxLength"]:
+            label = f"Parameter '{path}'" if path else "Wert"
+            return f"{label} überschreitet die Maximallänge {schema['maxLength']}."
+        if "pattern" in schema:
+            import re
+            if not re.search(schema["pattern"], value):
+                label = f"Parameter '{path}'" if path else "Wert"
+                return f"{label} entspricht nicht dem erwarteten Format."
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            label = f"Parameter '{path}'" if path else "Wert"
+            return f"{label} liegt unter dem Minimum {schema['minimum']}."
+        if "maximum" in schema and value > schema["maximum"]:
+            label = f"Parameter '{path}'" if path else "Wert"
+            return f"{label} liegt über dem Maximum {schema['maximum']}."
+    elif isinstance(value, list):
+        items_spec = schema.get("items")
+        if isinstance(items_spec, dict):
+            for i, item in enumerate(value):
+                sub_err = _validate_schema_node(items_spec, item, f"{path}[{i}]" if path else f"[{i}]")
+                if sub_err:
+                    return sub_err
+    elif isinstance(value, dict):
+        properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+        if schema.get("additionalProperties") is False:
+            unknown = sorted(set(value) - set(properties))
+            if unknown:
+                prefix = f"In '{path}': " if path else ""
+                return f"{prefix}Unbekannte Parameter: {', '.join(unknown)}"
+        missing = [name for name in schema.get("required", []) if name not in value]
+        if missing:
+            prefix = f"In '{path}': " if path else ""
+            return f"{prefix}Fehlende Pflichtparameter: {', '.join(missing)}"
+        for name, sub_val in value.items():
+            if name in properties and isinstance(properties[name], dict):
+                sub_path = f"{path}.{name}" if path else name
+                sub_err = _validate_schema_node(properties[name], sub_val, sub_path)
+                if sub_err:
+                    return sub_err
+    return None
+
+
 def _validate_strict_arguments(schema: dict[str, Any], arguments: Any) -> str | None:
-    """Validate the subset needed by strict built-in schemas without a dependency."""
+    """Validate JSON arguments strictly and recursively against JSON-schema."""
     if not isinstance(arguments, dict):
         return "Tool-Parameter müssen ein JSON-Objekt sein."
     if schema.get("additionalProperties") is not False:
+        # Standard schema without strict additionalProperties=False check:
+        # validate required and declared property types/bounds
+        properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+        missing = [name for name in schema.get("required", []) if name not in arguments]
+        if missing:
+            return f"Fehlende Pflichtparameter: {', '.join(missing)}"
+        for name, value in arguments.items():
+            spec = properties.get(name)
+            if isinstance(spec, dict):
+                err = _validate_schema_node(spec, value, name)
+                if err:
+                    return err
         return None
-
-    properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
-    unknown = sorted(set(arguments) - set(properties))
-    if unknown:
-        return f"Unbekannte Tool-Parameter: {', '.join(unknown)}"
-
-    missing = [name for name in schema.get("required", []) if name not in arguments]
-    if missing:
-        return f"Fehlende Pflichtparameter: {', '.join(missing)}"
-
-    for name, value in arguments.items():
-        spec = properties.get(name)
-        if not isinstance(spec, dict):
-            continue
-        expected = spec.get("type")
-        if expected is not None and not _matches_type(value, expected):
-            return f"Parameter '{name}' hat einen ungültigen Typ."
-        if "enum" in spec and value not in spec["enum"]:
-            return f"Parameter '{name}' hat einen ungültigen Wert."
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            if "minimum" in spec and value < spec["minimum"]:
-                return f"Parameter '{name}' liegt unter dem Minimum {spec['minimum']}."
-            if "maximum" in spec and value > spec["maximum"]:
-                return f"Parameter '{name}' liegt über dem Maximum {spec['maximum']}."
-    return None
+    return _validate_schema_node(schema, arguments)
 
 
 PUBLIC_INFORMATION_TOOLS = frozenset({

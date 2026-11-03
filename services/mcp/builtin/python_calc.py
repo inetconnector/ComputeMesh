@@ -350,7 +350,7 @@ def run_python_calc(
     code: str = "",
     formula: str = "",
     query: str = "",
-    timeout: float = 5.0,
+    timeout: float = 8.0,
 ) -> dict[str, Any]:
     """Evaluate bounded mathematical expressions with a real process timeout."""
     raw_code = str(expression or code or formula or query or "").strip()
@@ -359,7 +359,7 @@ def run_python_calc(
     if len(raw_code) > MAX_SOURCE_CHARS:
         return {"error": f"Ausdruck ist zu lang (maximal {MAX_SOURCE_CHARS} Zeichen)."}
     try:
-        timeout_value = max(0.1, min(10.0, float(timeout)))
+        timeout_value = max(0.1, min(15.0, float(timeout)))
     except (TypeError, ValueError):
         return {"error": "timeout muss numerisch sein."}
 

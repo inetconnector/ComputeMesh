@@ -10,13 +10,13 @@ from deploy.android import build_apk
 def test_android_release_source_version_is_aligned() -> None:
     name, code = build_apk._read_version()
     assert name == build_apk.CONFIG.appliance_version
-    assert name == "1.2.189"
-    assert code == 189
+    assert name == "1.2.190"
+    assert code == 190
 
 
 @pytest.mark.parametrize(
     "version_code,version_name",
-    [(188, "1.2.188"), (190, "1.2.190"), (0, "1.2.189")],
+    [(189, "1.2.189"), (191, "1.2.191"), (0, "1.2.190")],
 )
 def test_stale_or_invalid_android_version_fails_before_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
