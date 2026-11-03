@@ -279,7 +279,9 @@ class ComputeMeshProviderApp:
         # Explicitly start LAN P2P UDP Discovery Responder on port 13379 for Android & LAN pairing
         try:
             from services.appliance_dashboard.tunnel_relay import get_default_node_id
-            from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+            from tools.appliance.lan_discovery_responder import (
+                start_lan_discovery_responder,
+            )
             cfg = load_appliance_config()
             nid = getattr(cfg, "rig_name", "") or getattr(cfg, "node_id", "") or get_default_node_id()
             gpu_desc = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"
@@ -431,7 +433,9 @@ class ComputeMeshProviderApp:
     def _quit_app(self, icon=None, item=None) -> None:
         """Completely exit application and stop daemon."""
         try:
-            from tools.appliance.lan_discovery_responder import stop_lan_discovery_responder
+            from tools.appliance.lan_discovery_responder import (
+                stop_lan_discovery_responder,
+            )
             stop_lan_discovery_responder()
         except Exception:
             pass
@@ -1244,8 +1248,12 @@ class ComputeMeshProviderApp:
             if self.tray_icon:
                 self.tray_icon.title = "ComputeMesh AI Provider Node (Serving)"
             try:
-                from services.appliance_dashboard.tunnel_relay import get_default_node_id
-                from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+                from services.appliance_dashboard.tunnel_relay import (
+                    get_default_node_id,
+                )
+                from tools.appliance.lan_discovery_responder import (
+                    start_lan_discovery_responder,
+                )
                 cfg = load_appliance_config()
                 nid = getattr(cfg, "rig_name", "") or getattr(cfg, "node_id", "") or get_default_node_id()
                 gpu_desc = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"

@@ -68,10 +68,10 @@ def _git(args: list[str]) -> str | None:
 def snapshot() -> dict[str, Any]:
     server_document = json.loads(MCP_SERVERS.read_text(encoding="utf-8"))
     if not isinstance(server_document, dict):
-        raise ValueError("invalid MCP config document")
+        raise TypeError("invalid MCP config document")
     configured = server_document.get("mcpServers", {})
     if not isinstance(configured, dict):
-        raise ValueError("mcpServers must be object")
+        raise TypeError("mcpServers must be object")
     config_text = CONFIG.read_text(encoding="utf-8")
     flags = sorted(set(re.findall(r"COMPUTEMESH_[A-Z0-9_]+", config_text)))
     return {

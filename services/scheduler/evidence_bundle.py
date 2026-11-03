@@ -75,7 +75,7 @@ def _canonical_json(value: dict[str, Any]) -> bytes:
 def _json_schema(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise RuntimeError(f"schema root must be an object: {path}")
+        raise TypeError(f"schema root must be an object: {path}")
     return value
 
 

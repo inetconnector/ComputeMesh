@@ -188,9 +188,9 @@ def signing_message(
     expires_at: int,
 ) -> bytes:
     if isinstance(issued_at, bool) or not isinstance(issued_at, int):
-        raise ValueError("issued_at must be integer epoch seconds")
+        raise TypeError("issued_at must be integer epoch seconds")
     if isinstance(expires_at, bool) or not isinstance(expires_at, int):
-        raise ValueError("expires_at must be integer epoch seconds")
+        raise TypeError("expires_at must be integer epoch seconds")
     return b"".join(
         (
             _DOMAIN,

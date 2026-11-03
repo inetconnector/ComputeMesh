@@ -191,18 +191,18 @@ def _validate_nodeos_provenance_report(
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("NodeOS provenance digest report is invalid") from exc
     if not isinstance(report, dict):
-        raise ValueError("NodeOS provenance digest report is not an object")
+        raise TypeError("NodeOS provenance digest report is not an object")
     for key, expected_value in expected.items():
         if report.get(key) != expected_value:
             raise ValueError(f"NodeOS provenance report mismatch: {key}")
 
     artifacts = report.get("artifacts")
     if not isinstance(artifacts, dict):
-        raise ValueError("NodeOS provenance report lacks artifact digests")
+        raise TypeError("NodeOS provenance report lacks artifact digests")
     for name, artifact in (("iso", iso), ("img_xz", image)):
         entry = artifacts.get(name)
         if not isinstance(entry, dict):
-            raise ValueError(f"NodeOS provenance report lacks {name} digest")
+            raise TypeError(f"NodeOS provenance report lacks {name} digest")
         if entry.get("filename") != artifact.name:
             raise ValueError(f"NodeOS provenance report filename mismatch for {name}")
         if entry.get("size_bytes") != artifact.stat().st_size:

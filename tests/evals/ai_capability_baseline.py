@@ -37,7 +37,7 @@ def read_suite(path: Path = SUITE_PATH) -> dict[str, Any]:
     locales: set[str] = set()
     for task in tasks:
         if not isinstance(task, dict):
-            raise ValueError("task must be a mapping")
+            raise TypeError("task must be a mapping")
         identifier = task.get("id")
         if not isinstance(identifier, str) or not identifier or identifier in ids:
             raise ValueError("invalid or duplicate task id")
@@ -72,7 +72,7 @@ def read_observations(path: Path | None, suite: dict[str, Any]) -> dict[str, dic
             continue
         observation = json.loads(line)
         if not isinstance(observation, dict):
-            raise ValueError(f"line {line_number}: observation must be object")
+            raise TypeError(f"line {line_number}: observation must be object")
         task_id = observation.get("task_id")
         status = observation.get("status")
         if task_id not in allowed or task_id in observations or status not in STATUSES:

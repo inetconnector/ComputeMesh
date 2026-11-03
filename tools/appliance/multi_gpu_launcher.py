@@ -211,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
         plan = compute_multi_gpu_allocation(inventory, total_model_layers=args.model_layers)
         print(json.dumps(plan.to_dict(), indent=2, sort_keys=True))
         return 0
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         print(f"Error computing allocation: {exc}", file=sys.stderr)
         return 1
 

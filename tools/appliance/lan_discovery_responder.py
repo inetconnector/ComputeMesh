@@ -44,8 +44,8 @@ class LanDiscoveryResponder:
             try:
                 # Allow broadcast reception
                 self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
             self._sock.bind((self.bind_host, DISCOVERY_PORT))
             self._sock.settimeout(1.0)
             self._running = True
@@ -53,7 +53,7 @@ class LanDiscoveryResponder:
             self._thread.start()
             logger.info("LAN Discovery Responder active on UDP port %d (node: %s)", DISCOVERY_PORT, self.node_id)
             return True
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             logger.warning("Could not bind UDP discovery port %d: %s", DISCOVERY_PORT, exc)
             self.stop()
             return False
@@ -70,7 +70,7 @@ class LanDiscoveryResponder:
                     logger.debug("Sent discovery pong to %s for node %s", addr, self.node_id)
             except TimeoutError:
                 continue
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 if self._running:
                     logger.debug("Discovery socket read issue: %s", exc)
 
@@ -86,8 +86,8 @@ class LanDiscoveryResponder:
         if self._sock:
             try:
                 self._sock.close()
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
             self._sock = None
 
 
@@ -132,7 +132,7 @@ if __name__ == "__main__":
         inv = scan_rig_hardware_stable()
         nid = get_default_node_id()
         gpu_name = inv.gpus[0].model_name if getattr(inv, "gpus", None) else "Windows AI Node"
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         nid = "windows-pc"
         gpu_name = "ComputeMesh GPU Node"
 

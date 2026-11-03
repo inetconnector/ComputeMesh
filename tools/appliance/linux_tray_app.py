@@ -59,11 +59,17 @@ except ImportError:
     HAS_PYSTRAY = False
 
 from config import CONFIG
-from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
+from services.appliance_dashboard.server import (
+    create_dashboard_server,
+    run_dashboard_server,
+)
 from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
 from services.updater.auto_updater import AutoUpdater
 from tools.appliance.appliance_config import load_appliance_config
-from tools.appliance.hardware_detector import scan_rig_hardware, scan_rig_hardware_stable
+from tools.appliance.hardware_detector import (
+    scan_rig_hardware,
+    scan_rig_hardware_stable,
+)
 
 AUTOSTART_DESKTOP_FILE = Path.home() / ".config" / "autostart" / "computemesh.desktop"
 

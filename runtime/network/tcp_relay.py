@@ -90,7 +90,7 @@ class RelayConfig:
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= float(value) <= maximum:
                 raise ValueError(f"{name} must be between 0 and {maximum:g}")
         if isinstance(self.seed, bool) or not isinstance(self.seed, int):
-            raise ValueError("seed must be an integer")
+            raise TypeError("seed must be an integer")
         if isinstance(self.chunk_bytes, bool) or not isinstance(self.chunk_bytes, int) or not 1024 <= self.chunk_bytes <= 1024 * 1024:
             raise ValueError("chunk_bytes must be 1 KiB..1 MiB")
         if (
@@ -661,7 +661,7 @@ def main(argv: list[str] | None = None) -> int:
         metrics = run_relay(config, on_ready=announce, metrics_path=args.metrics)
     except KeyboardInterrupt:
         return 130
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         print(f"relay failed: {type(exc).__name__}", flush=True)
         return 2
     print(json.dumps(metrics.to_dict(), sort_keys=True))

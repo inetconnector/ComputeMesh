@@ -86,8 +86,8 @@ def _probe(ip: str, port: int) -> LanNode | None:
             data = json.loads(payload)
             current_version = str(data.get("current_version") or "") or None
             update_available = bool(data.get("update_available"))
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     return LanNode(
         ip=ip,
         port=port,

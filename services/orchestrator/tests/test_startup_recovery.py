@@ -3,7 +3,10 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from services.orchestrator.startup_recovery import RecoveryStateStore, reconcile_startup_state
+from services.orchestrator.startup_recovery import (
+    RecoveryStateStore,
+    reconcile_startup_state,
+)
 from services.orchestrator.state_machine import JobState, ReservationState
 
 

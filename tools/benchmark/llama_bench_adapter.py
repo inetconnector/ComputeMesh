@@ -40,7 +40,7 @@ def parse_llama_bench_output(text: str) -> list[dict[str, Any]]:
             except json.JSONDecodeError as exc:
                 raise ValueError(f"invalid llama-bench JSONL at line {lineno}") from exc
             if not isinstance(item, dict):
-                raise ValueError("llama-bench JSONL rows must be objects")
+                raise TypeError("llama-bench JSONL rows must be objects")
             rows.append(item)
         if not rows:
             raise ValueError("llama-bench output contains no rows")

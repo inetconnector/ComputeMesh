@@ -56,7 +56,7 @@ def replay_billing_outbox(
     """
     processed = getattr(ledger, "_processed_events", None)
     if not isinstance(processed, set):
-        raise RuntimeError("ledger does not expose its loaded processed-event index")
+        raise TypeError("ledger does not expose its loaded processed-event index")
 
     intents = BillingIntentStore(store)
     replayed: list[str] = []
@@ -96,7 +96,7 @@ def reconcile_completed_settlements(
     """
     processed = getattr(ledger, "_processed_events", None)
     if not isinstance(processed, set):
-        raise RuntimeError("ledger does not expose its loaded processed-event index")
+        raise TypeError("ledger does not expose its loaded processed-event index")
     settled: list[str] = []
     pending: list[str] = []
     for record in store.records(kind="job", states=(JobState.COMPLETED.value,)):

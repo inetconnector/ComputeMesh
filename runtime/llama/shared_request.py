@@ -85,7 +85,7 @@ def build_shared_request_evidence(
     if not isinstance(job_id, str) or not (1 <= len(job_id) <= 256):
         raise ValueError("job_id must be 1..256 characters")
     if not isinstance(content, str):
-        raise ValueError("content must be text")
+        raise TypeError("content must be text")
     required_timings = {
         "prompt_n",
         "predicted_n",

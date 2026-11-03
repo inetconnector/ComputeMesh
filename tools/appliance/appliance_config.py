@@ -90,15 +90,15 @@ def load_appliance_config(
     if system_path.exists():
         try:
             system_data = json.loads(system_path.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     user_cfg = Path.home() / ".computemesh" / "provider_config.json"
     if user_cfg.exists():
         try:
             system_data.update(json.loads(user_cfg.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     raw_rig = (
         env_vars.get("NODE_NAME")
@@ -111,7 +111,7 @@ def load_appliance_config(
         import socket
         try:
             raw_host = socket.gethostname().lower().replace("_", "-").strip()
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             raw_host = "node"
         if sys.platform == "win32":
             raw_rig = f"cm-win-{raw_host}"
@@ -156,8 +156,8 @@ def load_appliance_config(
     if "DISABLED_GPUS" in env_vars:
         try:
             disabled_gpus = [int(x.strip()) for x in env_vars["DISABLED_GPUS"].split(",") if x.strip().isdigit()]
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
     elif "disabled_gpus" in system_data and isinstance(system_data["disabled_gpus"], list):
         disabled_gpus = [int(x) for x in system_data["disabled_gpus"] if isinstance(x, (int, str)) and str(x).isdigit()]
 

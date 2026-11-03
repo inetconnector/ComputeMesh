@@ -59,7 +59,7 @@ _status_lock = threading.Lock()
 def _read_int(path: Path) -> int | None:
     try:
         return int(path.read_text().strip())
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
 
@@ -98,8 +98,8 @@ def _disk_model(disk_name: str) -> str:
         if p.exists():
             try:
                 return p.read_text().strip()
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
     return "Unknown"
 
 
@@ -111,15 +111,15 @@ def _is_removable(disk_name: str) -> bool:
         resolved = Path(f"/sys/block/{disk_name}").resolve()
         if any(part.startswith("usb") or "usb" in part.lower() for part in resolved.parts):
             return True
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     # Check udev properties if available
     try:
         out = subprocess.check_output(["udevadm", "info", "--query=property", f"--name=/dev/{disk_name}"], text=True, timeout=2)
         if "ID_BUS=usb" in out or "ID_USB_DRIVER=" in out or "ID_DRIVE_FLASH" in out:
             return True
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError) as exc:
+        _ = exc
     return False
 
 
@@ -132,7 +132,8 @@ def _resolve_source_disk() -> str | None:
             res = subprocess.run(probe.split(), check=False, capture_output=True, text=True, timeout=5)
             if res.returncode == 0 and res.stdout.strip():
                 candidates.append(res.stdout.strip())
-        except Exception:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as exc:
+            _ = exc
             continue
 
     resolved_disks: list[str] = []
@@ -143,8 +144,8 @@ def _resolve_source_disk() -> str | None:
             pkname = res.stdout.strip()
             if pkname and pkname not in resolved_disks:
                 resolved_disks.append(pkname)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as exc:
+            _ = exc
         stripped = re.sub(r"p?\d+$", "", dev_name) if re.search(r"\d+$", dev_name) else dev_name
         if Path(f"/sys/block/{stripped}").exists() and stripped not in resolved_disks:
             resolved_disks.append(stripped)
@@ -265,19 +266,19 @@ def _post_clone_fixup(target_dev: str) -> None:
     # 1. GPT Repair (sgdisk -e or parted or sfdisk)
     try:
         subprocess.run(["sgdisk", "-e", target_dev], check=False, capture_output=True, timeout=10)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError) as exc:
+        _ = exc
     try:
         subprocess.run(["parted", "-s", target_dev, "print"], check=False, capture_output=True, timeout=10)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError) as exc:
+        _ = exc
 
     # 2. Partprobe to reread partition table
     try:
         subprocess.run(["partprobe", target_dev], check=False, capture_output=True, timeout=10)
         subprocess.run(["udevadm", "settle", "--timeout=5"], check=False, capture_output=True, timeout=10)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError) as exc:
+        _ = exc
 
     # 3. Ensure EFI System Partition boot files
     efi_part = f"{target_dev}2" if not target_dev[-1].isdigit() else f"{target_dev}p2"
@@ -302,8 +303,8 @@ def _post_clone_fixup(target_dev: str) -> None:
                                 break
                 finally:
                     subprocess.run(["umount", str(mount_dir)], check=False, capture_output=True, timeout=5)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as exc:
+            _ = exc
 
     # 4. If efibootmgr is present and system is booted via UEFI, register boot entry
     if Path("/sys/firmware/efi").exists():
@@ -316,14 +317,14 @@ def _post_clone_fixup(target_dev: str) -> None:
                 "-L", "ComputeMesh NodeOS",
                 "-l", "\\EFI\\BOOT\\BOOTX64.EFI"
             ], check=False, capture_output=True, timeout=10)
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError) as exc:
+            _ = exc
 
     # 5. MBR / Legacy BIOS active flag
     try:
         subprocess.run(["sfdisk", "-A", target_dev, "1"], check=False, capture_output=True, timeout=10)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError) as exc:
+        _ = exc
 
 
 def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb: int) -> None:
@@ -366,10 +367,10 @@ def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb
         if proc.returncode == 0:
             try:
                 _post_clone_fixup(target_dev)
-            except Exception as _fixup_err:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as _fixup_err:
                 # Post-clone fixup warning should not fail the clone if dd succeeded
-                pass
-    except Exception as exc:
+                _ = _fixup_err
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, RuntimeError) as exc:
         with _status_lock:
             _status.error = str(exc)
     finally:

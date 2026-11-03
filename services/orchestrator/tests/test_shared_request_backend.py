@@ -11,11 +11,19 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 from runtime.llama.rpc_spike import RpcEndpoint
-from runtime.llama.shared_request import SharedRequestResult, build_shared_request_evidence
-from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
+from runtime.llama.shared_request import (
+    SharedRequestResult,
+    build_shared_request_evidence,
+)
+from services.gateway.execution_attestation import (
+    AttestationClaims,
+    create_execution_attestation,
+)
 from services.gateway.placement_selection import PlacementSelection
 from services.orchestrator.persistence import SQLiteStateStore
-from services.orchestrator.shared_request_backend import SharedRequestOrchestratedBackend
+from services.orchestrator.shared_request_backend import (
+    SharedRequestOrchestratedBackend,
+)
 from services.orchestrator.state_machine import JobState, ReservationState
 
 MODEL_SHA = "a" * 64

@@ -32,8 +32,8 @@ def install():
     # Terminate any running ComputeMesh instance before replacing
     try:
         subprocess.run(["taskkill", "/F", "/IM", "ComputeMesh.exe"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError) as exc:
+        _ = exc
     
     import time
     time.sleep(1.0)
@@ -61,7 +61,7 @@ def install():
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key_path, 0, winreg.KEY_SET_VALUE) as key:
             winreg.SetValueEx(key, "ComputeMesh", 0, winreg.REG_SZ, f'"{target_exe}" --tray')
         print("Registry HKCU Run configured.")
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         print(f"Warning setting Run registry: {e}")
 
     # Windows Registry - Uninstall entry
@@ -74,7 +74,7 @@ def install():
             winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, str(target_ico))
             winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, str(install_dir))
         print("Registry HKCU Uninstall entry created.")
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         print(f"Warning setting Uninstall registry: {e}")
 
     # Shortcuts
@@ -99,14 +99,14 @@ $s2.Save()
 """
         subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], check=True)
         print("Created Desktop and Start Menu shortcuts.")
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
         print(f"Warning creating shortcuts: {e}")
 
     # Launch interactive desktop app immediately after install
     try:
         subprocess.Popen(["explorer.exe", str(target_exe)])
         print("Launched ComputeMesh in user interactive desktop session.")
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError) as e:
         print(f"Warning auto-launching app: {e}")
 
     print(f"\n[OK] ComputeMesh v{CONFIG.appliance_version} successfully installed on this PC!")

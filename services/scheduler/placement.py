@@ -64,7 +64,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _schema(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise RuntimeError(f"invalid schema {path}")
+        raise TypeError(f"invalid schema {path}")
     return value
 
 
@@ -388,7 +388,9 @@ def build_placement_decision(
     boundary_enforcer = ComponentBoundaryEnforcer()
 
     # Enforce architecture invariant: model prefill and decode separately
-    from services.orchestrator.architecture_hardening_part4 import SplitPhasePerformanceModel
+    from services.orchestrator.architecture_hardening_part4 import (
+        SplitPhasePerformanceModel,
+    )
     from services.orchestrator.architecture_hardening_part5 import MoEWANCostMeasurer
     perf_model = SplitPhasePerformanceModel()
     moe_measurer = MoEWANCostMeasurer()

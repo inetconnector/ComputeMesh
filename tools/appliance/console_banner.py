@@ -30,8 +30,8 @@ def get_all_ips() -> list[tuple[str, str]]:
                     if not ip.startswith("127.") and ip not in seen:
                         seen.add(ip)
                         results.append((iface, ip))
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -41,8 +41,8 @@ def get_all_ips() -> list[tuple[str, str]]:
         if primary and not primary.startswith("127.") and primary not in seen:
             seen.add(primary)
             results.insert(0, ("primary", primary))
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
 
     return results
 
@@ -93,8 +93,8 @@ def write_to_system_banners() -> None:
         if issue_path.exists() or os.access("/etc", os.W_OK):
             clean_banner = banner.replace("\033[1;36m", "").replace("\033[0m", "").replace("\033[1;32m", "").replace("\033[1;33m", "").replace("\033[1;37m", "").replace("\033[1;31m", "")
             issue_path.write_text(clean_banner + "\n\nDebian GNU/Linux NodeOS \\n \\l\n\n", encoding="utf-8")
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
 
 
 if __name__ == "__main__":

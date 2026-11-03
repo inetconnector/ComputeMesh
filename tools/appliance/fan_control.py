@@ -196,7 +196,7 @@ def apply_fan_policy(inventory: RigInventory, mode: str, target_percent: int) ->
         try:
             from tools.appliance.hardware_detector import read_all_thermals
             temperatures = {item.gpu_index: item.temperature_celsius for item in read_all_thermals(inventory)}
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             temperatures = {}
     results: list[dict[str, Any]] = []
     for gpu in inventory.gpus:
@@ -244,6 +244,6 @@ class FanSafetyController:
                 mode = str(getattr(self.config, "fan_control_mode", "safe_auto") or "safe_auto")
                 if mode == "safe_auto":
                     apply_fan_policy(self.inventory, "safe_auto", 25)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
             self._stop.wait(self.interval_seconds)

@@ -13,7 +13,10 @@ from services.orchestrator.architecture_hardening_part8 import (
     ModelManifestEnforcer,
     ShardManifestEnforcer,
 )
-from services.orchestrator.live_shared_runtime import LiveModelState, LiveSharedRuntimeError
+from services.orchestrator.live_shared_runtime import (
+    LiveModelState,
+    LiveSharedRuntimeError,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_SCHEMA = ROOT / "protocol" / "schemas" / "model_manifest.schema.json"

@@ -1,6 +1,11 @@
 """ComputeMesh protocol reference types."""
 
-from .control import ControlEnvelope, ProtocolFault, StructuredError, parse_control_envelope
+from .control import (
+    ControlEnvelope,
+    ProtocolFault,
+    StructuredError,
+    parse_control_envelope,
+)
 from .message_contracts import MessageContractError, MessageContractValidator
 from .node_identity import (
     AUTH_METHOD,

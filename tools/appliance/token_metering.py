@@ -69,8 +69,8 @@ def load_token_stats() -> TokenStats:
                 )
                 _CACHED_STATS = st
                 return st
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
         st = TokenStats()
         _CACHED_STATS = st
         return st
@@ -94,8 +94,8 @@ def flush_token_stats_to_disk(force: bool = False) -> None:
             tmp.replace(p)
             _DIRTY = False
             _LAST_FLUSH_TS = now
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
 
 def save_token_stats(stats: TokenStats) -> None:
