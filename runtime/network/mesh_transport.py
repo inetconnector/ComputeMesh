@@ -13,6 +13,7 @@ import socket
 import ssl
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -299,12 +300,20 @@ class MeshTunnelServer:
             t2 = threading.Thread(target=self._pipe, args=(target_sock, client_ssl, "t2c", stop_event), daemon=True)
             t1.start()
             t2.start()
+            # A clean half-close must not discard the reverse response.
+            # Bound draining to two seconds; terminate promptly on transport error.
+            drain_deadline = None
             while self._running and not stop_event.is_set():
-                t1.join(timeout=0.2)
-                t2.join(timeout=0.2)
-                if not t1.is_alive() or not t2.is_alive():
-                    stop_event.set()
+                t1.join(timeout=0.05)
+                t2.join(timeout=0.05)
+                if not t1.is_alive() and not t2.is_alive():
                     break
+                if not t1.is_alive() or not t2.is_alive():
+                    if drain_deadline is None:
+                        drain_deadline = time.monotonic() + 2.0
+                    elif time.monotonic() >= drain_deadline:
+                        break
+            stop_event.set()
             t1.join(timeout=1.0)
             t2.join(timeout=1.0)
         except (OSError, ssl.SSLError, ValueError, RuntimeError) as e:
@@ -336,6 +345,7 @@ class MeshTunnelServer:
                 except TimeoutError:
                     continue
                 except OSError:
+                    stop_event.set()  # A transport failure terminates both directions.
                     break
                 if n == 0:
                     break
@@ -346,8 +356,9 @@ class MeshTunnelServer:
                     self.total_bytes_sent += n
         except OSError as exc:
             logger.debug("mTLS transport pipe interrupted: %s", exc)
+            stop_event.set()  # Fail closed on forwarding errors.
         finally:
-            stop_event.set()
+            # On graceful EOF, half-close plain TCP; keep TLS reverse traffic alive.
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
@@ -438,12 +449,20 @@ class MeshTunnelClient:
             t2 = threading.Thread(target=self._pipe, args=(ssl_sock, app_sock, "s2a", stop_event), daemon=True)
             t1.start()
             t2.start()
+            # A clean half-close must not discard the reverse response.
+            # Bound draining to two seconds; terminate promptly on transport error.
+            drain_deadline = None
             while self._running and not stop_event.is_set():
-                t1.join(timeout=0.2)
-                t2.join(timeout=0.2)
-                if not t1.is_alive() or not t2.is_alive():
-                    stop_event.set()
+                t1.join(timeout=0.05)
+                t2.join(timeout=0.05)
+                if not t1.is_alive() and not t2.is_alive():
                     break
+                if not t1.is_alive() or not t2.is_alive():
+                    if drain_deadline is None:
+                        drain_deadline = time.monotonic() + 2.0
+                    elif time.monotonic() >= drain_deadline:
+                        break
+            stop_event.set()
             t1.join(timeout=1.0)
             t2.join(timeout=1.0)
         except (OSError, ssl.SSLError, ValueError, RuntimeError) as e:
@@ -469,6 +488,7 @@ class MeshTunnelClient:
                 except TimeoutError:
                     continue
                 except OSError:
+                    stop_event.set()  # A transport failure terminates both directions.
                     break
                 if n == 0:
                     break
@@ -479,8 +499,9 @@ class MeshTunnelClient:
                     self.total_bytes_received += n
         except OSError as exc:
             logger.debug("mTLS transport pipe interrupted: %s", exc)
+            stop_event.set()  # Fail closed on forwarding errors.
         finally:
-            stop_event.set()
+            # On graceful EOF, half-close plain TCP; keep TLS reverse traffic alive.
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
