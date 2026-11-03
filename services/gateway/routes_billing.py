@@ -6,15 +6,10 @@ from __future__ import annotations
 
 import math
 import secrets
-import sys
 from dataclasses import asdict
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.ledger import MICRO_UNIT_SCALE, Ledger
 from services.billing.owner_credits import OwnerCreditLedger
@@ -24,6 +19,8 @@ from services.billing.stripe_integration import (
 )
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 MAX_CREDIT_AMOUNT_USD = 10_000.0
 

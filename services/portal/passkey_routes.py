@@ -17,7 +17,6 @@ import ipaddress
 import logging
 import os
 import sqlite3
-import sys
 import threading
 import time
 from collections import defaultdict
@@ -25,10 +24,6 @@ from http import HTTPStatus
 from http.cookies import CookieError, SimpleCookie
 from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 import webauthn
 from webauthn.helpers import bytes_to_base64url
@@ -50,6 +45,8 @@ from services.portal.fleet_accounts import (
     utc_now,
 )
 from services.portal.mail_dispatcher import send_magic_link, send_security_alert
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 logger = logging.getLogger("computemesh.passkey_routes")
 

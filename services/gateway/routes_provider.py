@@ -6,14 +6,9 @@ Handles /v1/providers/register, /v1/providers/stripe/onboard,
 from __future__ import annotations
 
 import os
-import sys
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.accounting import AccountingStore, AccountingStoreError
 from services.billing.ledger import (
@@ -31,6 +26,8 @@ from services.billing.stripe_integration import StripeIntegrationError
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class ProviderRoutesHandler:
     """Dispatches provider registration, Stripe Connect onboarding, and settlements."""

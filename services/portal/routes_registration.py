@@ -11,18 +11,15 @@ import hmac
 import json
 import os
 import secrets
-import sys
 from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.compliance.policy import EEA_COUNTRY_CODES
 from services.identity.vault import DEFAULT_VAULT
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 CURRENT_TERMS_VERSION = "2.1"
 REGISTERED_ACCOUNTS: dict[str, dict[str, Any]] = {}

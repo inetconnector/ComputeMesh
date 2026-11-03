@@ -9,22 +9,19 @@ import os
 import re
 import secrets
 import sqlite3
-import sys
 import threading
 from dataclasses import dataclass
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.billing.ledger import Ledger
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_credits import OwnerCreditLedger
 from services.common.config import CONFIG
 from services.gateway.teaser import TeaserQuotaManager
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 PROVIDER_NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
 API_KEY_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{8,128}$")

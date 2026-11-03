@@ -11,10 +11,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS, Ledger
 from services.billing.owner_credits import owner_bucket_account
@@ -23,6 +19,8 @@ from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecu
 from services.billing.stripe_connect import StripeConnectService
 from services.billing.stripe_integration import StripeIntegrationError
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _resolve_accounting_store() -> AccountingStore:
     path_env = os.environ.get("COMPUTEMESH_ACCOUNTING_DB_PATH") or os.environ.get("COMPUTEMESH_ACCOUNT_STORE_PATH")
