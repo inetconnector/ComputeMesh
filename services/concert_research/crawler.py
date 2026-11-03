@@ -15,6 +15,7 @@ from html import unescape
 from urllib import error, request, robotparser
 from urllib.parse import quote_plus, unquote, urljoin, urlsplit
 
+from .http_client import HardenedSafeFetcher as SafeFetcher
 from .config import ConcertResearchConfig
 from .extractors import extract_feed, extract_ics, extract_jsonld, html_snapshot
 from .fleet_ai import FleetInferenceClient
@@ -47,80 +48,6 @@ def _decompress_gzip_with_limit(payload: bytes, max_output_bytes: int) -> bytes:
     if len(result) > max_output_bytes:
         raise ValueError("decompressed response exceeds configured size limit")
     return result
-
-
-class SafeFetcher:
-    """Fetch untrusted crawl URLs with robots, SSRF, size and per-host controls."""
-    def __init__(self, config: ConcertResearchConfig):
-        self.config = config
-        self._robots: dict[str,robotparser.RobotFileParser] = {}
-        self._robots_lock = threading.Lock()
-        self._host_locks: dict[str,threading.Semaphore] = {}
-        self._host_locks_lock = threading.Lock()
-
-    def _host_sem(self, host: str) -> threading.Semaphore:
-        with self._host_locks_lock:
-            return self._host_locks.setdefault(host,threading.Semaphore(self.config.per_host_concurrency))
-
-    def _robot(self, url: str) -> robotparser.RobotFileParser:
-        parts = urlsplit(url)
-        base = f"{parts.scheme}://{parts.netloc}"
-        with self._robots_lock:
-            if base in self._robots:
-                return self._robots[base]
-        rp = robotparser.RobotFileParser()
-        rp.set_url(base+"/robots.txt")
-        try:
-            robots_url = validate_public_http_url(base+"/robots.txt")
-            req = request.Request(robots_url,headers={"User-Agent":self.config.user_agent})
-            with request.urlopen(req,timeout=min(8.0,self.config.request_timeout_seconds)) as resp:
-                validate_public_http_url(resp.geturl())
-                raw = resp.read(512*1024).decode("utf-8","replace")
-            rp.parse(raw.splitlines())
-        except error.HTTPError as exc:
-            # A 404/410 confirms no robots.txt exists. HTTP 401/403,
-            # throttling, or server errors must not authorize a crawl.
-            if exc.code in (404, 410):
-                rp.parse([])
-            else:
-                raise PermissionError("cannot verify robots.txt crawl permission") from exc
-        except (error.URLError, OSError, ValueError, UnicodeError) as exc:
-            raise PermissionError("cannot verify robots.txt crawl permission") from exc
-        with self._robots_lock:
-            self._robots[base] = rp
-        return rp
-
-    def allowed(self, url: str) -> bool:
-        safe = validate_public_http_url(url)
-        return self._robot(safe).can_fetch(self.config.user_agent,safe)
-
-    def fetch(self, url: str, *, etag: str | None = None, last_modified: str | None = None) -> FetchResult:
-        safe = validate_public_http_url(url)
-        if not self.allowed(safe):
-            raise PermissionError("robots.txt disallows crawl")
-        parts = urlsplit(safe)
-        headers = {"User-Agent":self.config.user_agent,"Accept":"text/html,application/xhtml+xml,application/ld+json,application/xml,text/xml,text/calendar,application/rss+xml,application/atom+xml,text/plain;q=0.8,*/*;q=0.1","Accept-Encoding":"gzip"}
-        if etag:
-            headers["If-None-Match"] = etag
-        if last_modified:
-            headers["If-Modified-Since"] = last_modified
-        req = request.Request(safe,headers=headers)
-        with self._host_sem(parts.hostname or ""):
-            try:
-                with request.urlopen(req,timeout=self.config.request_timeout_seconds) as resp:
-                    final_url = validate_public_http_url(resp.geturl())
-                    body = resp.read(self.config.max_response_bytes+1)
-                    if len(body) > self.config.max_response_bytes:
-                        raise ValueError("response exceeds configured size limit")
-                    if (resp.headers.get("Content-Encoding") or "").lower() == "gzip":
-                        body = _decompress_gzip_with_limit(
-                            body, self.config.max_response_bytes,
-                        )
-                    return FetchResult(final_url,int(resp.status),resp.headers.get("Content-Type",""),body,resp.headers.get("ETag"),resp.headers.get("Last-Modified"))
-            except error.HTTPError as exc:
-                if exc.code == 304:
-                    return FetchResult(safe,304,"",b"",etag,last_modified)
-                raise
 
 
 class SearchDiscovery:
