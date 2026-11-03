@@ -1,6 +1,5 @@
 """Unit and Integration Tests for llama.cpp WebUI and OpenAI endpoints in ComputeMesh Gateway."""
 import json
-import sys
 import tempfile
 import threading
 import time
@@ -8,14 +7,12 @@ import unittest
 from http.client import HTTPConnection
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
 from services.gateway.server import GatewayHandler, create_gateway_server
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestLlamaCppWebUIGateway(unittest.TestCase):
     @classmethod

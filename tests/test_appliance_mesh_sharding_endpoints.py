@@ -4,22 +4,19 @@ from __future__ import annotations
 
 import http.client
 import json
-import sys
 import threading
 import time
 import unittest
 from http import HTTPStatus
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.appliance_dashboard.server import create_dashboard_server
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestApplianceMeshShardingEndpoints(unittest.TestCase):
     @classmethod

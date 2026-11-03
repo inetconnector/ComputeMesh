@@ -5,21 +5,18 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
-import sys
 import threading
 import time
 import unittest
 from http import HTTPStatus
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.appliance_dashboard.server import create_dashboard_server
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestWebUIStaticAssets(unittest.TestCase):
     def test_portal_and_android_model_selector_are_identical(self) -> None:
