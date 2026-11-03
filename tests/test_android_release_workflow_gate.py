@@ -1,15 +1,16 @@
-"""Regression guard against accidental Android production publication on push."""
+"""Guard the retired Android publisher and independently reviewable signing proposal."""
 
 from pathlib import Path
 
-WORKFLOW = (
-    Path(__file__).resolve().parents[1]
-    / ".github" / "workflows" / "android-release.yml"
-)
+ROOT = Path(__file__).resolve().parents[1]
+ACTIVE = ROOT / ".github" / "workflows" / "android-release.yml"
+ARCHIVE = ROOT / "docs" / "archive" / "retired-github-actions-2026-10-28"
+SIGNING_PROPOSAL = ARCHIVE / "android-release-proposed-signature-hardening-2026-11-03.yml"
 
 
-def test_android_publishing_is_manual_and_commit_approved() -> None:
-    source = WORKFLOW.read_text(encoding="utf-8")
+def test_android_signing_proposal_is_operator_gated() -> None:
+    source = SIGNING_PROPOSAL.read_text(encoding="utf-8")
+    assert "INACTIVE REFERENCE ONLY" in source
     assert "if: github.event_name == 'workflow_dispatch'" in source
     assert "secrets.ANDROID_RELEASE_APPROVED_SHA" in source
     assert '"$CM_ANDROID_RELEASE_APPROVED_SHA" != "$GITHUB_SHA"' in source
@@ -19,9 +20,11 @@ def test_android_publishing_is_manual_and_commit_approved() -> None:
     )
 
 
-def test_build_and_signature_checks_remain_available_on_main() -> None:
-    source = WORKFLOW.read_text(encoding="utf-8")
-    assert "branches: [main]" in source
+def test_android_signing_checks_remain_archived_not_executable() -> None:
+    source = SIGNING_PROPOSAL.read_text(encoding="utf-8")
     assert ":app:assembleRelease :app:bundleRelease" in source
     assert "verify_production_signatures(" in source
     assert "secrets.ANDROID_SIGNING_CERT_SHA256" in source
+    # main archives the legacy workflow; the PR merge snapshot must not revive it.
+    if (ARCHIVE / "android-release.yml").is_file():
+        assert not ACTIVE.exists()
