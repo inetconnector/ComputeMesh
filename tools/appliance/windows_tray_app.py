@@ -11,7 +11,6 @@ Features:
 """
 from __future__ import annotations
 
-import io
 import json
 import multiprocessing
 import os
@@ -25,40 +24,24 @@ import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
-# Ensure PyInstaller Windows child process bootloader compatibility
-multiprocessing.freeze_support()
-
-# Sanitize PyInstaller child process environment variables to prevent bootloader security check errors
-for _pyi_env in list(os.environ.keys()):
-    if _pyi_env.startswith(("_MEI", "_PYI", "PYINSTALLER")):
-        os.environ.pop(_pyi_env, None)
-
-if sys.stdout is None:
-    sys.stdout = io.StringIO()
-if sys.stderr is None:
-    sys.stderr = io.StringIO()
-
-if getattr(sys, "frozen", False):
-    REPO_ROOT = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
-    # Ensure Tcl/Tk data directories are found in frozen environments
-    for _tcl_cand in [REPO_ROOT / "_tcl_data", REPO_ROOT / "tcl" / "tcl8.6", REPO_ROOT / "tcl"]:
-        if _tcl_cand.exists() and (_tcl_cand / "init.tcl").exists():
-            os.environ["TCL_LIBRARY"] = str(_tcl_cand)
-            break
-    for _tk_cand in [REPO_ROOT / "_tk_data", REPO_ROOT / "tcl" / "tk8.6", REPO_ROOT / "tk"]:
-        if _tk_cand.exists() and (_tk_cand / "tk.tcl").exists():
-            os.environ["TK_LIBRARY"] = str(_tk_cand)
-            break
-else:
-    REPO_ROOT = Path(__file__).resolve().parents[2]
-
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from cm_tray_bootstrap import REPO_ROOT
 
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 from PIL import Image, ImageDraw, ImageTk
+
+from config import CONFIG
+from services.appliance_dashboard.server import create_dashboard_server
+from services.updater.auto_updater import AutoUpdater
+from tools.appliance.appliance_config import load_appliance_config
+from tools.appliance.hardware_detector import scan_rig_hardware_stable
+from tools.appliance.windows_cline_integration import (
+    ClineIntegrationError,
+    ensure_cline_integration,
+    find_vscode_executable,
+    launch_cline_in_vscode,
+)
 
 try:
     import pystray
@@ -72,18 +55,6 @@ try:
     HAS_WINREG = True
 except ImportError:
     HAS_WINREG = False
-
-from config import CONFIG
-from services.appliance_dashboard.server import create_dashboard_server
-from services.updater.auto_updater import AutoUpdater
-from tools.appliance.appliance_config import load_appliance_config
-from tools.appliance.hardware_detector import scan_rig_hardware_stable
-from tools.appliance.windows_cline_integration import (
-    ClineIntegrationError,
-    ensure_cline_integration,
-    find_vscode_executable,
-    launch_cline_in_vscode,
-)
 
 REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 REG_APP_NAME = "ComputeMesh"
