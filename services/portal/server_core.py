@@ -18,6 +18,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from cm_project_bootstrap import REPO_ROOT
 
 from config import CONFIG
 from services.billing.stripe_connect import is_stripe_connect_platform_activation_error
@@ -46,7 +47,6 @@ from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.routes_registration import PortalRegistrationHandler
 
 logger = logging.getLogger(__name__)
-REPO_ROOT = Path(__file__).resolve().parents[2]
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
 NODE_AUTH_TOKEN_REGEX = re.compile(r"^cm_tunnel_[a-fA-F0-9]{32,128}$")
