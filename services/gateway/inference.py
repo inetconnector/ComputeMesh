@@ -8,17 +8,12 @@ from __future__ import annotations
 import json
 import re
 import secrets
-import sys
 import time
 from collections.abc import Generator
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.ledger import BillingError, InsufficientBalanceError, Ledger
 from services.common.config import CONFIG
@@ -43,6 +38,8 @@ from services.mcp.agent_loop import AgentLoop
 from services.mcp.config import get_mcp_config
 from services.mcp.tool_registry import ToolRegistry
 from services.portal.fleet_accounts import FleetAccountStoreError
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 _EXECUTION_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(

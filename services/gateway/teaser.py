@@ -5,19 +5,16 @@ and delivers a high-conversion onboarding guide when the free quota is exhausted
 """
 from __future__ import annotations
 
-import sys
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.common.config import CONFIG
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass
 class TeaserSession:

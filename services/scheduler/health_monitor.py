@@ -7,14 +7,9 @@ mining rigs experience hardware degradation or unexpected disconnects.
 """
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.scheduler.multi_gpu_planner import (
     GpuDeviceSpec,
@@ -22,6 +17,8 @@ from services.scheduler.multi_gpu_planner import (
     plan_multi_gpu_rig,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class HealthMonitorError(RuntimeError):
     """Raised on unrecoverable cluster-wide health failures."""

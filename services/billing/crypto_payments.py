@@ -9,17 +9,14 @@ from __future__ import annotations
 
 import hashlib
 import os
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.billing.ledger import MICRO_UNIT_SCALE, DuplicateEventError, Ledger
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 SUPPORTED_NETWORKS = ("ethereum", "arbitrum", "polygon", "base", "bsc")
 SUPPORTED_TOKENS = ("USDT", "USDC")
