@@ -18,7 +18,7 @@ def test_missing_required_assets_fail_before_private_key_lookup(tmp_path: Path) 
         side_effect=AssertionError("private signing key was accessed"),
     ) as lookup, pytest.raises(FileNotFoundError, match="missing mandatory physical"):
         release_signer.sign_manifest(
-            "1.2.189", downloads, tmp_path / "manifest.json",
+            "1.2.190", downloads, tmp_path / "manifest.json",
             base_url="https://mesh.inetconnector.com/downloads",
         )
     lookup.assert_not_called()
@@ -40,7 +40,7 @@ def test_symlinked_download_is_rejected_even_in_partial_mode(tmp_path: Path) -> 
         side_effect=AssertionError("private signing key was accessed"),
     ) as lookup, pytest.raises(ValueError, match="must not be a symlink"):
         release_signer.sign_manifest(
-            "1.2.189", downloads, tmp_path / "manifest.json",
+            "1.2.190", downloads, tmp_path / "manifest.json",
             allow_partial=True, base_url="https://mesh.inetconnector.com/downloads",
         )
     lookup.assert_not_called()
@@ -63,7 +63,7 @@ def test_symlinked_staged_artifact_is_rejected(tmp_path: Path) -> None:
         side_effect=AssertionError("private signing key was accessed"),
     ) as lookup, pytest.raises(ValueError, match="staged release artifact must not be a symlink"):
         release_signer.sign_manifest(
-            "1.2.189", downloads, tmp_path / "manifest.json",
+            "1.2.190", downloads, tmp_path / "manifest.json",
             staging_dir=staging, allow_partial=True,
             base_url="https://mesh.inetconnector.com/downloads",
         )
@@ -88,7 +88,7 @@ def test_complete_physical_inventory_signed_using_ephemeral_test_key(
         release_signer, "get_or_create_keypair", return_value=(private, public)
     ) as lookup:
         manifest = release_signer.sign_manifest(
-            "1.2.189", downloads, output,
+            "1.2.190", downloads, output,
             base_url="https://mesh.inetconnector.com/downloads",
         )
     lookup.assert_called_once_with(allow_generate=False)

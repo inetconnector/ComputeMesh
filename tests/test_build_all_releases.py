@@ -38,11 +38,11 @@ class TestBuildAllReleases(unittest.TestCase):
             "schema_version": 1,
             "artifact_kind": "nodeos",
             "source_commit": "a" * 40,
-            "version": "1.2.189",
+            "version": "1.2.190",
         }
         marker = b"COMPUTEMESH_BUILD_PROVENANCE_V1=" + (
             '{"artifact_kind":"nodeos","schema_version":1,'
-            '"source_commit":"' + "a" * 40 + '","version":"1.2.189"}'
+            '"source_commit":"' + "a" * 40 + '","version":"1.2.190"}'
         ).encode("ascii")
         with TemporaryDirectory() as root:
             root_path = Path(root)
@@ -59,11 +59,11 @@ class TestBuildAllReleases(unittest.TestCase):
             "schema_version": 1,
             "artifact_kind": "nodeos",
             "source_commit": "b" * 40,
-            "version": "1.2.189",
+            "version": "1.2.190",
         }
         stale_marker = b"COMPUTEMESH_BUILD_PROVENANCE_V1=" + (
             '{"artifact_kind":"nodeos","schema_version":1,'
-            '"source_commit":"' + "c" * 40 + '","version":"1.2.189"}'
+            '"source_commit":"' + "c" * 40 + '","version":"1.2.190"}'
         ).encode("ascii")
         with TemporaryDirectory() as root:
             root_path = Path(root)
@@ -86,11 +86,11 @@ class TestBuildAllReleases(unittest.TestCase):
             "schema_version": 1,
             "artifact_kind": "nodeos",
             "source_commit": "d" * 40,
-            "version": "1.2.189",
+            "version": "1.2.190",
         }
         marker = b"COMPUTEMESH_BUILD_PROVENANCE_V1=" + (
             '{"artifact_kind":"nodeos","schema_version":1,'
-            '"source_commit":"' + "d" * 40 + '","version":"1.2.189"}'
+            '"source_commit":"' + "d" * 40 + '","version":"1.2.190"}'
         ).encode("ascii")
         with TemporaryDirectory() as root:
             root_path = Path(root)

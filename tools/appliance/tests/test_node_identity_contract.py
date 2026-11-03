@@ -8,13 +8,14 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from services.appliance_dashboard import tunnel_relay
-from tools.appliance import heartbeat_relay
 from tools.appliance.node_identity import (
     NodeIdentityError,
     migrate_enrolled_node_id,
     resolve_node_id,
 )
 from tools.security.node_key_storage import save_node_private_key
+
+from tools.appliance import heartbeat_relay
 
 
 def _provider_env(path: Path, node_id: str) -> None:

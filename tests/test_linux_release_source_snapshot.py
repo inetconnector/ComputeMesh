@@ -41,7 +41,7 @@ def test_linux_tarball_uses_committed_source_only(
     downloads = repo / "portal" / "downloads"
     monkeypatch.setattr(release, "REPO_ROOT", repo)
     monkeypatch.setattr(release, "DOWNLOADS_DIR", downloads)
-    monkeypatch.setattr(release, "VERSION", "1.2.189")
+    monkeypatch.setattr(release, "VERSION", "1.2.190")
 
     package = release.build_linux_tarball()
     with tarfile.open(package, "r:gz") as archive:
@@ -55,7 +55,7 @@ def test_linux_tarball_uses_committed_source_only(
         "schema_version": 1,
         "artifact_kind": "linux-x64",
         "source_commit": commit,
-        "version": "1.2.189",
+        "version": "1.2.190",
     }
 
 
