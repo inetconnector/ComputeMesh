@@ -18,14 +18,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 # --- Pillar 1: Code Interpreter ---
 # --- Pillar 7: SD.cpp Image Engine ---
@@ -133,6 +128,9 @@ from services.voice.voice_realtime import (
 # Keep the import-audit coverage explicit: these names are intentionally
 # imported so collection proves that every built-in surface resolves, even
 # where a separate behavioral test does not call the symbol directly.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
 _IMPORT_AUDIT_TARGETS = (
     _compile_type_to_gbnf,
     search_arxiv_papers,

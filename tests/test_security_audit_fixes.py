@@ -19,7 +19,6 @@ import contextlib
 import http.client
 import json
 import socket
-import sys
 import tempfile
 import threading
 import time
@@ -28,10 +27,6 @@ from dataclasses import replace
 from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import MagicMock
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 import services.gateway.catalog as catalog_module
 from runtime.network.mesh_transport import (
@@ -65,6 +60,9 @@ from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.server import PortalHandler
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import RigInventory
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestSecurityAuditFixes(unittest.TestCase):
