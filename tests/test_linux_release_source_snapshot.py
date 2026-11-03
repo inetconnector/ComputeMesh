@@ -12,6 +12,7 @@ from tools import build_all_releases as release
 
 def _commit(root: Path) -> str:
     subprocess.run(["git", "init", "-q", str(root)], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "core.autocrlf", "false"], check=True)
     subprocess.run(["git", "-C", str(root), "config", "user.email", "test@example.invalid"], check=True)
     subprocess.run(["git", "-C", str(root), "config", "user.name", "Git Snapshot Test"], check=True)
     subprocess.run(["git", "-C", str(root), "add", "."], check=True)
@@ -48,7 +49,7 @@ def test_linux_tarball_uses_committed_source_only(
         assert "services/untracked.py" not in names
         assert "portal/ignored.txt" not in names
         assert "services/app.py" in names
-        assert archive.extractfile("services/app.py").read() == b"COMMITTED = True\n"
+        assert archive.extractfile("services/app.py").read().replace(b"\r\n", b"\n") == b"COMMITTED = True\n"
         metadata = json.loads(archive.extractfile("computemesh-build-provenance.json").read())
     assert metadata == {
         "schema_version": 1,
