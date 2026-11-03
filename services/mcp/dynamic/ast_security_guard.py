@@ -45,6 +45,28 @@ class SecurityASTVisitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if node.name == "execute":
             self.has_execute_function = True
+            # Reject empty pass or docstring-only stubs
+            non_doc_body = [
+                stmt for stmt in node.body
+                if not (isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str))
+            ]
+            if not non_doc_body or (len(non_doc_body) == 1 and isinstance(non_doc_body[0], ast.Pass)):
+                raise SecurityASTViolation(
+                    "Leere Methodenrümpfe (pass/Stubs) sind im Zero-Trust Qualitätsgate strikt verboten."
+                )
+            # Reject trivial mock/echo stubs that do no calculation/transformation
+            if len(non_doc_body) == 1 and isinstance(non_doc_body[0], ast.Return):
+                ret = non_doc_body[0].value
+                if isinstance(ret, ast.Dict):
+                    constant_keys = {
+                        k.value for k in ret.keys
+                        if isinstance(k, ast.Constant) and isinstance(k.value, str)
+                    }
+                    if constant_keys and constant_keys <= {"status", "inputs", "message"}:
+                        raise SecurityASTViolation(
+                            "Triviale Echo- oder Mock-Funktionen ohne tatsächliche Berechnungs- "
+                            "oder Transformationslogik sind im Zero-Trust Qualitätsgate strikt verboten."
+                        )
         self.generic_visit(node)
 
     def visit_Import(self, node: ast.Import) -> None:

@@ -143,17 +143,18 @@ class TestBuiltinTools(unittest.TestCase):
 class TestSafePythonCalc(unittest.TestCase):
     def test_basic_arithmetic(self):
         res = run_python_calc("2 + 2 * 10")
-        self.assertEqual(res.get("result"), 22)
+        self.assertEqual(res.get("result"), 22, msg=f"Got res={res}")
         self.assertEqual(res.get("status"), "success")
 
     def test_math_module(self):
         res = run_python_calc("math.sqrt(144) + math.pi")
+        self.assertIsNotNone(res.get("result"), msg=f"Got res={res}")
         self.assertAlmostEqual(res.get("result"), 12.0 + 3.14159265, places=4)
 
     def test_statistics_and_multiline(self):
         code = "data = [10, 20, 30, 40, 50]\nresult = statistics.mean(data)"
         res = run_python_calc(code)
-        self.assertEqual(res.get("result"), 30)
+        self.assertEqual(res.get("result"), 30, msg=f"Got res={res}")
 
     def test_security_import_blocked(self):
         res = run_python_calc("import os; os.system('echo hacked')")
@@ -524,7 +525,7 @@ class TestToolRegistry(unittest.TestCase):
 
     def test_execute_tool_success(self):
         res = self.registry.execute_tool("calculate_math", {"expression": "100 * 5"})
-        self.assertEqual(res.get("result"), 500)
+        self.assertEqual(res.get("result"), 500, msg=f"Got res={res}")
 
     def test_execute_owner_only_blocked(self):
         res = self.registry.execute_tool("lookup_network_host", {"host": "example.com"}, is_owner=False)
