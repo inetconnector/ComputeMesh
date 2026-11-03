@@ -8,7 +8,10 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from services.mcp.agent_loop import detect_direct_tool_intent, format_tool_content_if_json
+from services.mcp.agent_loop import (
+    detect_direct_tool_intent,
+    format_tool_content_if_json,
+)
 from services.mcp.builtin.adb_bridge_tools import (
     adb_get_system_log,
     adb_list_devices,

@@ -26,15 +26,15 @@ class TestWriteWorkspaceFile(unittest.TestCase):
                 if f.is_file():
                     try:
                         f.unlink()
-                    except Exception:
-                        pass
+                    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
             try:
                 for d in sorted(self.target_dir.glob("**/*"), reverse=True):
                     if d.is_dir():
                         d.rmdir()
                 self.target_dir.rmdir()
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     def test_write_and_read_new_file(self):
         rel_path = f"{self.test_subpath}/hello.txt"

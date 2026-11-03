@@ -111,7 +111,7 @@ class TestBackendModelCaller(unittest.TestCase):
         def run() -> None:
             try:
                 caller([{"role": "user", "content": "hello"}], [], cancel_event=cancel_event)
-            except BaseException as exc:
+            except ModelCallerError as exc:
                 result.append(exc)
 
         thread = threading.Thread(target=run)

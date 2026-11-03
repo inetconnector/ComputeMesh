@@ -71,11 +71,11 @@ class MCPStdioClient:
                     "clientInfo": {"name": "ComputeMesh-MCP", "version": "1.2"},
                 })
                 if not isinstance(init_res, dict):
-                    raise RuntimeError("Ungültige initialize-Antwort des MCP-Servers")
+                    raise TypeError("Ungültige initialize-Antwort des MCP-Servers")
                 self._send_notification("notifications/initialized", {})
                 self._is_initialized = True
                 return True
-            except Exception:
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._terminate_process_locked()
                 return False
 
@@ -89,19 +89,19 @@ class MCPStdioClient:
             if process.poll() is None:
                 process.terminate()
                 process.wait(timeout=2.0)
-        except Exception:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             try:
                 process.kill()
                 process.wait(timeout=1.0)
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
         for stream_name in ("stdin", "stdout"):
             stream = getattr(process, stream_name, None)
             try:
                 if stream:
                     stream.close()
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     def stop(self) -> None:
         with self._lifecycle_lock:
@@ -112,7 +112,7 @@ class MCPStdioClient:
             return []
         try:
             res = self._send_rpc("tools/list", {})
-        except Exception:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self.stop()
             return []
         tools = res.get("tools") if isinstance(res, dict) else None
@@ -123,7 +123,7 @@ class MCPStdioClient:
             return {"error": f"MCP-Server '{self.name}' nicht gestartet"}
         try:
             return self._send_rpc("tools/call", {"name": name, "arguments": arguments})
-        except Exception as exc:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.stop()
             return {"error": f"MCP-Server '{self.name}' RPC fehlgeschlagen: {exc}"}
 
@@ -134,7 +134,7 @@ class MCPStdioClient:
         def reader() -> None:
             try:
                 result_queue.put((True, stream.readline()))
-            except Exception as exc:
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 result_queue.put((False, exc))
 
         thread = threading.Thread(target=reader, name="mcp-stdio-read", daemon=True)
@@ -164,7 +164,7 @@ class MCPStdioClient:
             try:
                 process.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
                 process.stdin.flush()
-            except Exception as exc:
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 raise RuntimeError(f"MCP-Request konnte nicht gesendet werden: {exc}") from exc
 
             deadline = time.monotonic() + self.rpc_timeout_seconds
@@ -202,8 +202,8 @@ class MCPStdioClient:
         try:
             process.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
             process.stdin.flush()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
 
 class MCPClient:

@@ -32,7 +32,11 @@ from .contracts import (
     ToolAuthorizationGrant,
 )
 from .dispatch import LeaseBoundModelDispatcher
-from .environment import BoundedEnvironmentExecutor, EnvironmentSpec, EnvironmentTransport
+from .environment import (
+    BoundedEnvironmentExecutor,
+    EnvironmentSpec,
+    EnvironmentTransport,
+)
 from .event_outbox import AgentEventOutboxDispatcher, EventSink
 from .harness import MeshAgentHarness
 from .leases import NodeLeaseStore
@@ -41,7 +45,11 @@ from .model_preparation import ModelPreparationCoordinator
 from .multi_agent import SubagentCoordinator
 from .node_onboarding import NodeOnboardingCoordinator
 from .node_registry import NodeRegistry
-from .node_routing import CapabilityAwareNodeRouter, NodeRouteDecision, NodeRouteRequirement
+from .node_routing import (
+    CapabilityAwareNodeRouter,
+    NodeRouteDecision,
+    NodeRouteRequirement,
+)
 from .node_transport import AuthenticatedNodeRegistrySync
 from .openai_agents import OpenAIAgentsClient, OpenAIAgentsConfig
 from .pipeline import AgentsOrchestrationPipeline, OrchestrationPlan, PlannedTask
@@ -180,20 +188,20 @@ class AgentsPlatformRuntime:
                         api_key_env=self.config.agents_platform_openai_agents_api_key_env,
                     )
                 )
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 self.initialization_errors.append(f"openai_agents:{exc}")
         try:
             self.audit = AuditLogger(
                 self._resolve_path(self.config.agents_platform_audit_log)
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"audit:{exc}")
 
         try:
             self.agent_definition_store = AgentDefinitionStore(
                 self._resolve_path("data/agents/definitions.sqlite3")
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"agent_definitions:{exc}")
 
         try:
@@ -204,7 +212,7 @@ class AgentsPlatformRuntime:
                 self.capabilities,
                 state_db=self._resolve_path("data/agents/tool_execution.sqlite3"),
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"tool_policy:{exc}")
 
         try:
@@ -242,21 +250,21 @@ class AgentsPlatformRuntime:
                 analyzer=RequestAnalyzer(),
                 workflow=self.workflow,
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"skill_registry:{exc}")
 
         try:
             self.memory = StructuredMemoryStore(
                 self._resolve_path(self.config.agents_platform_memory_db)
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"memory:{exc}")
 
         try:
             self.project_state = ProjectStateStore(
                 self._resolve_path(self.config.agents_platform_project_state)
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"project_state:{exc}")
 
         try:
@@ -270,14 +278,14 @@ class AgentsPlatformRuntime:
                     decision="paused_interrupted_turns",
                     evidence={"turn_ids": recovered},
                 )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"sessions:{exc}")
 
         try:
             self.node_registry = NodeRegistry(
                 self._resolve_path(self.config.agents_platform_node_registry_db)
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"node_registry:{exc}")
 
         try:
@@ -287,7 +295,7 @@ class AgentsPlatformRuntime:
                 self._resolve_path(self.config.agents_platform_lease_db),
                 node_registry=self.node_registry,
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"leases:{exc}")
 
         try:
@@ -306,21 +314,21 @@ class AgentsPlatformRuntime:
                 self._resolve_path(self.config.agents_platform_artifact_db),
                 event_sink=artifact_event,
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"artifacts:{exc}")
 
         try:
             self.usage_ledger = UsageLedger(
                 self._resolve_path(self.config.agents_platform_usage_db)
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"usage:{exc}")
 
         try:
             self.trace_store = TraceStore(
                 self._resolve_path(self.config.agents_platform_trace_db)
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"tracing:{exc}")
 
         try:
@@ -330,12 +338,12 @@ class AgentsPlatformRuntime:
                 self.session_store,
                 workspace_root=str(self.repo_root),
             )
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"multi_agent:{exc}")
 
         try:
             self.rule_resolver = AgentsRuleResolver(self.repo_root)
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.initialization_errors.append(f"agents_rules:{exc}")
 
         if self.audit and self.initialization_errors:
@@ -480,7 +488,7 @@ class AgentsPlatformRuntime:
                     principal_id=principal_id,
                     fleet_id=fleet_id,
                 )
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 errors.append(f"runtime_policy:{exc}")
 
         routing: Mapping[str, Any] | None = None
@@ -522,7 +530,7 @@ class AgentsPlatformRuntime:
                         block = self._skill_block(skill_id)
                         if block:
                             blocks.append(block)
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 errors.append(f"routing:{exc}")
 
         if not self.config.agents_platform_shadow_mode and self.rule_resolver is not None:
@@ -537,7 +545,7 @@ class AgentsPlatformRuntime:
                             + resolution.effective_text,
                         )
                     )
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 errors.append(f"agents_rules:{exc}")
 
         if not self.config.agents_platform_shadow_mode and self.memory is not None and text:
@@ -582,7 +590,7 @@ class AgentsPlatformRuntime:
                                 ),
                             )
                         )
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 errors.append(f"memory_retrieval:{exc}")
 
         if self.audit and errors:
@@ -1312,7 +1320,9 @@ class AgentsPlatformRuntime:
         max_attempts: int = 1,
     ) -> LeaseBoundModelDispatcher:
         """Build a dispatcher backed by the authenticated NodeOS wire channel."""
-        from services.orchestrator.inference_transport import AuthenticatedNodeModelExecutor
+        from services.orchestrator.inference_transport import (
+            AuthenticatedNodeModelExecutor,
+        )
 
         client = self.build_authenticated_inference_client(
             control_client,
@@ -1385,7 +1395,9 @@ class AgentsPlatformRuntime:
         event_sink: Callable[[str, Mapping[str, Any]], None] | None = None,
     ) -> Any:
         """Create an authenticated inference client with durable session events."""
-        from services.orchestrator.inference_transport import AuthenticatedNodeInferenceClient
+        from services.orchestrator.inference_transport import (
+            AuthenticatedNodeInferenceClient,
+        )
 
         def emit(event_type: str, payload: Mapping[str, Any]) -> None:
             session_id = payload.get("session_id")

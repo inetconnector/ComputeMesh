@@ -166,7 +166,7 @@ class LedgerSyncEngine:
             logger.info(f"Erfolgreich Remote-Block #{block.index} ({block.block_hash[:16]}) synchronisiert.")
             return True, f"Block #{block.index} erfolgreich verifiziert und synchronisiert."
 
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             logger.exception("Fehler bei Ingestion von Remote-Block")
             return False, f"Ausnahmefehler bei Block-Ingestion: {exc}"
 
@@ -225,7 +225,7 @@ class LedgerSyncEngine:
 
         except urllib.error.URLError as exc:
             return {"success": False, "error": f"Verbindungsfehler zu Peer '{peer_url}': {exc}", "peer_url": peer_url}
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"success": False, "error": f"Synchronisationsfehler: {exc}", "peer_url": peer_url}
 
     def broadcast_block(
@@ -251,7 +251,7 @@ class LedgerSyncEngine:
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     results[peer] = {"status": resp.status, "ok": resp.status == 200}
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 results[peer] = {"status": 0, "ok": False, "error": str(exc)}
 
         return {"broadcast_count": len(peer_urls), "results": results}

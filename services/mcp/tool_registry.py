@@ -110,7 +110,11 @@ from .builtin.package_registry import lookup_software_package
 from .builtin.places import search_places
 from .builtin.product_price_engine import search_product_prices
 from .builtin.python_calc import run_python_calc
-from .builtin.rag_tool import index_document_text, list_indexed_documents, search_knowledge_base
+from .builtin.rag_tool import (
+    index_document_text,
+    list_indexed_documents,
+    search_knowledge_base,
+)
 from .builtin.sports_data import get_sports_data
 from .builtin.system_tools import (
     execute_gpu_telemetry,
@@ -232,7 +236,7 @@ class ToolCache:
     def _make_key(self, tool_name: str, arguments: dict[str, Any]) -> str:
         try:
             serialized_args = json.dumps(arguments, sort_keys=True, ensure_ascii=False)
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             serialized_args = str(sorted(arguments.items()))
         return f"{tool_name}:{serialized_args}"
 
@@ -602,8 +606,8 @@ class ToolRegistry:
         try:
             from .dynamic.custom_tool_store import get_custom_tool_store
             get_custom_tool_store().load_into_registry(self)
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     def register_tool(
         self,
@@ -704,7 +708,7 @@ class ToolRegistry:
                 return {"error": f"Tool-Ausführung blockiert: Globaler Emergency Kill Switch ist aktiv ({guard.trip_reason})"}
             if owner_id and guard.is_fleet_tripped(owner_id):
                 return {"error": f"Tool-Ausführung blockiert: Flotte '{owner_id}' ist gestoppt ({guard.get_fleet_trip_reason(owner_id)})"}
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {
                 "error": (
                     "Tool-Ausführung blockiert: übergeordnete Sicherheitsprüfung "
@@ -731,7 +735,7 @@ class ToolRegistry:
             return res
         except TypeError as exc:
             return {"error": f"Ungültige Tool-Parameter für '{name}': {exc}"}
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Fehler bei Ausführung von Tool '{name}': {exc}"}
 
     def execute_tools_batch(
@@ -782,8 +786,8 @@ class ToolRegistry:
             for f in futures:
                 try:
                     f.result()
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
 
         return [r for r in results if r is not None]
 

@@ -110,7 +110,7 @@ class NodeOnboardingCoordinator:
     def _quarantine(self, node_id: str, reason: str) -> NodeOnboardingResult:
         try:
             node = self.registry.quarantine(node_id, reason=reason)
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             node = self.registry.get(node_id)
         return NodeOnboardingResult("failed", node, False, reason)
 
@@ -139,7 +139,7 @@ class NodeOnboardingCoordinator:
             )
         except NodeAuthenticationRequired as exc:
             return self._manual_pairing(node.node_id, str(exc) or "manual_pairing_required")
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return self._quarantine(node.node_id, "probe_failed")
 
         if observation.authentication_required or not all((
@@ -203,7 +203,7 @@ class NodeOnboardingCoordinator:
             if node.status in {NodeLifecycle.READY, NodeLifecycle.ACTIVE}:
                 return NodeOnboardingResult("ready", node)
             return NodeOnboardingResult("quarantined", node, False, node.reason or node.status.value)
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return self._quarantine(node.node_id, "onboarding_failed")
 
 

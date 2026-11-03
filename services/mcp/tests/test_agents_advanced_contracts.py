@@ -16,7 +16,11 @@ from services.mcp.platform.request_analysis import RequestAnalyzer
 from services.mcp.platform.reroute import RerouteManager
 from services.mcp.platform.skill_registry import PersistentSkillRegistry
 from services.mcp.platform.skill_router import SkillRouter
-from services.mcp.platform.subagents import SubagentContract, SubagentGate, SubagentResult
+from services.mcp.platform.subagents import (
+    SubagentContract,
+    SubagentGate,
+    SubagentResult,
+)
 from services.mcp.platform.validation import (
     ErrorCode,
     EvidenceLedger,

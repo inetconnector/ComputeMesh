@@ -57,7 +57,7 @@ class MCPHttpClient:
         except urllib.error.HTTPError as err:
             err_body = err.read().decode("utf-8", errors="ignore")
             raise RuntimeError(f"HTTP {err.code}: {err_body or err.reason}")
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             raise RuntimeError(f"Verbindungsfehler zu MCP-Server '{self.name}': {exc}")
 
         # If response is SSE event stream, find data line
@@ -90,7 +90,7 @@ class MCPHttpClient:
             if isinstance(res, dict):
                 self._is_initialized = True
                 return True
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             log.warning(f"MCP-Server '{self.name}' Initialisierung fehlgeschlagen: {exc}")
         return False
 
@@ -101,7 +101,7 @@ class MCPHttpClient:
             res = self._send_rpc("tools/list", {})
             if isinstance(res, dict) and isinstance(res.get("tools"), list):
                 return res["tools"]
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             log.warning(f"tools/list auf '{self.name}' fehlgeschlagen: {exc}")
         return []
 
@@ -110,5 +110,5 @@ class MCPHttpClient:
             return {"error": f"MCP-Server '{self.name}' nicht initialisiert"}
         try:
             return self._send_rpc("tools/call", {"name": name, "arguments": arguments})
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"MCP-Server '{self.name}' Aufruf fehlgeschlagen: {exc}"}

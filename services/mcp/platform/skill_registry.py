@@ -32,10 +32,10 @@ def _as_tuple(value: Any) -> tuple[str, ...]:
             try:
                 parsed = json.loads(text.replace("'", '"'))
                 return _as_tuple(parsed)
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 try:
                     return _as_tuple(ast.literal_eval(text))
-                except Exception:
+                except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     return tuple(part.strip().strip("'\"") for part in text[1:-1].split(",") if part.strip())
         return (text,) if text else ()
     return (str(value),)
@@ -53,18 +53,18 @@ def _parse_scalar(value: str) -> Any:
     if text.startswith("[") and text.endswith("]"):
         try:
             return json.loads(text.replace("'", '"'))
-        except Exception:
+        except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             try:
                 return ast.literal_eval(text)
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 return [part.strip().strip("'\"") for part in text[1:-1].split(",") if part.strip()]
     if text.startswith("{") and text.endswith("}"):
         try:
             return json.loads(text.replace("'", '"'))
-        except Exception:
+        except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             try:
                 return ast.literal_eval(text)
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 return text
     try:
         return int(text)
@@ -321,8 +321,8 @@ class PersistentSkillRegistry:
                     "UPDATE skills SET validation_error=? WHERE skill_id=? AND version=?",
                     (error[:4000], manifest.skill_id, manifest.version),
                 )
-        except Exception:
-            pass
+        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     def register_file(self, path: str | Path, *, replace_existing: bool = False) -> SkillManifest:
         raw_path = Path(path)
@@ -349,7 +349,7 @@ class PersistentSkillRegistry:
                     raise ValueError("skill signature verification failed")
             manifest = self._manifest_from_metadata(metadata, checksum=checksum, location=str(resolved))
             return self.register_manifest(manifest, body=body, replace_existing=replace_existing)
-        except Exception as exc:
+        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self._record_broken(str(raw_path), str(exc))
             raise
 
@@ -369,7 +369,7 @@ class PersistentSkillRegistry:
                 try:
                     manifest = self.register_file(document)
                     loaded.append(f"{manifest.skill_id}@{manifest.version}")
-                except Exception as exc:
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     broken.append({"path": str(document), "error": str(exc)})
         return {"loaded": loaded, "broken": broken, "dependency_errors": self.validate_graph()}
 

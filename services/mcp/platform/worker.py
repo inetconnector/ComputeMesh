@@ -73,7 +73,7 @@ class WorkerSchedulingPolicy:
 
     def __post_init__(self) -> None:
         if not isinstance(self.fair_principals, bool):
-            raise ValueError("fair_principals must be a boolean")
+            raise TypeError("fair_principals must be a boolean")
         try:
             aging = float(self.aging_interval_seconds)
             candidates = int(self.max_candidates)
@@ -292,7 +292,7 @@ class DurableWorkerConcurrencyGate:
                 self._connection.execute("BEGIN IMMEDIATE")
                 yield self._connection
                 self._connection.commit()
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._connection.rollback()
                 raise
 
@@ -645,7 +645,7 @@ class MeshAgentWorkerService:
             )
             with self._lock:
                 self._results.extend(results)
-        except Exception as exc:
+        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             with self._lock:
                 self._errors.append(f"{worker.worker_id}:{type(exc).__name__}")
 
@@ -765,7 +765,7 @@ class MeshAgentWorker:
                 try:
                     if not bool(renew(admission_key=admission_key)):
                         return
-                except Exception:
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     return
 
         thread = threading.Thread(
@@ -814,7 +814,7 @@ class MeshAgentWorker:
                 session = self.session_store.get_session(candidate.session_id)
                 try:
                     ready = bool(self.preflight(session, candidate))
-                except Exception as exc:
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     self.session_store.record_event(
                         candidate.session_id,
                         "worker.preflight_failed",
@@ -934,7 +934,7 @@ class MeshAgentWorker:
                     claimed=True,
                     execution=execution,
                 ))
-            except Exception as exc:
+            except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 if (
                     request is not None
                     and getattr(request, "billing_release", None) is not None
@@ -942,8 +942,8 @@ class MeshAgentWorker:
                 ):
                     try:
                         request.billing_release(billing_reservation, exc)
-                    except Exception:
-                        pass
+                    except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
                 results.append(self._fail_claimed_turn(claimed, exc))
             finally:
                 if heartbeat is not None:

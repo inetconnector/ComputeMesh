@@ -304,7 +304,7 @@ class DAGWorkflowEngine:
                     return None
                 self._conn.commit()
                 return lease_id, attempts
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._conn.rollback()
                 raise
 
@@ -520,7 +520,7 @@ class DAGWorkflowEngine:
                             validator = validators.get(node.node_id)
                             if validator is not None and not validator(result):
                                 raise ValueError("node result validation failed")
-                        except Exception as exc:
+                        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                             stop.set()
                             heartbeat.join(timeout=1.0)
                             if attempts < node.max_attempts:

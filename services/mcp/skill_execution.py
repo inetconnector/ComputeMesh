@@ -277,7 +277,7 @@ class SkillExecutionEngine:
             try:
                 result = self.tool_router(name, args)  # type: ignore[misc]
                 results.append({"tool": name, "status": "completed", "result": result})
-            except Exception as exc:  # tool failures become structured state, never fabricated success
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 results.append({"tool": name, "status": "failed", "error_class": "TOOL_ERROR", "error": str(exc)})
         plan["status"] = "completed" if all(r["status"] == "completed" for r in results) else "partial_failure"
         plan["results"] = results

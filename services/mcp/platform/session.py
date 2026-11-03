@@ -581,7 +581,7 @@ class AgentSessionStore:
     @staticmethod
     def _validate_turn_schedule(priority: int, deadline_at: float | None) -> tuple[int, float | None]:
         if isinstance(priority, bool):
-            raise ValueError("priority must be an integer")
+            raise TypeError("priority must be an integer")
         try:
             clean_priority = int(priority)
         except (TypeError, ValueError) as exc:
@@ -607,7 +607,7 @@ class AgentSessionStore:
         if value is None:
             return {}
         if not isinstance(value, Mapping):
-            raise ValueError("routing must be an object")
+            raise TypeError("routing must be an object")
         allowed = {
             "required_capabilities",
             "min_free_vram_bytes",
@@ -625,7 +625,7 @@ class AgentSessionStore:
         def bounded_strings(name: str, *, maximum: int, item_maximum: int) -> list[str]:
             raw = value.get(name, ())
             if isinstance(raw, str) or not isinstance(raw, (list, tuple, set, frozenset)):
-                raise ValueError(f"routing.{name} must be an array")
+                raise TypeError(f"routing.{name} must be an array")
             result: list[str] = []
             for item in raw:
                 clean = str(item).strip()
@@ -642,7 +642,7 @@ class AgentSessionStore:
             if raw is None:
                 return None
             if isinstance(raw, bool):
-                raise ValueError(f"routing.{name} must be an integer")
+                raise TypeError(f"routing.{name} must be an integer")
             try:
                 clean = int(raw)
             except (TypeError, ValueError) as exc:

@@ -14,7 +14,10 @@ from services.mcp.platform.contracts import (
     ToolMode,
 )
 from services.mcp.platform.runtime import AgentsPlatformRuntime
-from services.mcp.platform.tool_execution import SafeToolExecutor, ToolCapabilityRegistry
+from services.mcp.platform.tool_execution import (
+    SafeToolExecutor,
+    ToolCapabilityRegistry,
+)
 from services.mcp.tool_registry import ToolRegistry
 
 

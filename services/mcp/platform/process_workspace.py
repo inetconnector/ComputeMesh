@@ -332,7 +332,7 @@ class ProcessIsolatedWorkspaceTransport:
                         responses.put(ProcessSandboxError("isolated workspace process closed the protocol"))
                     else:
                         responses.put(line)
-                except BaseException as exc:  # pragma: no cover - platform pipe errors vary
+                except (OSError, ValueError, EOFError, RuntimeError, UnicodeError) as exc:  # pragma: no cover - platform pipe errors vary
                     responses.put(exc)
 
             reader = threading.Thread(target=read_response, name="ComputeMesh-workspace-reader", daemon=True)

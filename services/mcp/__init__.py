@@ -110,7 +110,11 @@ from .platform import (
     build_agents_platform_runtime,
     make_backend_model_caller,
 )
-from .platform.mcp_discovery import MCPDiscoveryPolicy, MCPOrigin, MCPToolDiscoveryBroker
+from .platform.mcp_discovery import (
+    MCPDiscoveryPolicy,
+    MCPOrigin,
+    MCPToolDiscoveryBroker,
+)
 from .platform.model_preparation import ModelArtifactSpec, ModelPreparationCoordinator
 from .platform.workspace import LocalWorkspaceTransport
 from .skill_execution import SkillExecutionEngine, SkillRegistry, SkillSpec

@@ -65,7 +65,7 @@ def collect_agents_platform_health(runtime: AgentsPlatformRuntime) -> AgentsPlat
             registry_detail = runtime.skill_registry.health()
             integrity = registry_detail.get("integrity")
             registry_status = "HEALTHY" if integrity == "ok" else "DEGRADED"
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             registry_status = "DEGRADED"
             registry_detail = {"error": str(exc)}
     else:

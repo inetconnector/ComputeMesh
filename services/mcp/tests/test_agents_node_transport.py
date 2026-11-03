@@ -6,7 +6,11 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from services.mcp.platform.node_registry import NodeLifecycle, NodeRegistry, NodeStateConflict
+from services.mcp.platform.node_registry import (
+    NodeLifecycle,
+    NodeRegistry,
+    NodeStateConflict,
+)
 from services.mcp.platform.node_transport import (
     AuthenticatedNodeRegistrySync,
     AuthenticatedNodeSyncError,

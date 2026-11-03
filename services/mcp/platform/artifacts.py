@@ -277,7 +277,7 @@ class ArtifactStore:
     ) -> ArtifactChunk:
         """Read one bounded verified slice for resumable artifact transfer."""
         if isinstance(offset, bool) or isinstance(length, bool):
-            raise ValueError("artifact chunk offset and length must be integers")
+            raise TypeError("artifact chunk offset and length must be integers")
         offset = int(offset)
         length = int(length)
         if offset < 0 or length < 1 or length > 4 * 1024 * 1024:

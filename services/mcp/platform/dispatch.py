@@ -9,7 +9,11 @@ from typing import Any
 
 from .leases import LeaseState, NodeLease, NodeLeaseStore, ReservationDenied
 from .node_registry import NodeRecord, NodeRegistry
-from .node_routing import CapabilityAwareNodeRouter, NodeRouteDecision, NodeRouteRequirement
+from .node_routing import (
+    CapabilityAwareNodeRouter,
+    NodeRouteDecision,
+    NodeRouteRequirement,
+)
 
 
 class ModelDispatchError(RuntimeError):

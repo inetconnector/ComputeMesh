@@ -17,7 +17,13 @@ from ..agent_loop import (
 from .context import ContextBuild, ContextLimitError, ContextManager
 from .contracts import RuntimePolicyEnvelope
 from .multi_agent import Runner, SubagentBatch, SubagentCoordinator
-from .session import AgentSession, AgentSessionStore, AgentTurn, ControlAction, TurnStatus
+from .session import (
+    AgentSession,
+    AgentSessionStore,
+    AgentTurn,
+    ControlAction,
+    TurnStatus,
+)
 from .subagents import SubagentContract
 from .tracing import TraceStore
 from .usage import UsageBudget, UsageDelta, UsageLedger, UsageRecord
@@ -144,7 +150,7 @@ class MeshAgentHarness:
                         principal_id=requested_principal or session_principal or None,
                         fleet_id=self.runtime_policy.fleet_id or None,
                     )
-                except Exception as exc:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     policy_error = exc
                 else:
                     policy_error = None
@@ -162,8 +168,8 @@ class MeshAgentHarness:
                             error="runtime policy rejected",
                             reason="runtime_policy_denied",
                         )
-                    except Exception:
-                        pass
+                    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
                 self.session_store.record_event(
                     session_id,
                     "runtime_policy.rejected",
@@ -207,10 +213,10 @@ class MeshAgentHarness:
                 )
                 self.session_store.transition_turn(turn_id, TurnStatus.RUNNING, reason="context_compacted")
                 context = self.context_manager.build([item.content for item in items], summary=compacted_summary)
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self.session_store.transition_turn(turn_id, TurnStatus.FAILED, error="context compaction failed", reason="context_compaction_failed")
                 raise
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.session_store.record_event(
                 session_id,
                 "turn.failed",
@@ -257,13 +263,13 @@ class MeshAgentHarness:
                         attributes={"iteration": safe.get("iteration"), "tool": safe.get("tool")},
                     )
                     self.trace_store.finish(progress_span.span_id)
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
             if on_progress:
                 try:
                     on_progress(dict(event))
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
 
         root_span = None
         if self.trace_store is not None:
@@ -275,7 +281,7 @@ class MeshAgentHarness:
                     name="agent.turn",
                     attributes={"model": model},
                 )
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 root_span = None
 
         def persist_execution_messages(execution: AgentExecutionResult) -> None:
@@ -313,10 +319,10 @@ class MeshAgentHarness:
             provenance = self._safe_provenance(execution.provenance)
             try:
                 self.session_store.apply_pending_control(session_id, turn_id, action)
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
                 # A concurrent API request or worker recovery may already have
                 # resolved the control. The durable turn remains authoritative.
-                pass
+                _ = suppressed_exc
             if self.trace_store is not None and root_span is not None:
                 try:
                     self.trace_store.finish(
@@ -329,8 +335,8 @@ class MeshAgentHarness:
                             "execution_node_ids": provenance.get("execution_node_ids", []),
                         },
                     )
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
             return HarnessRun(
                 self.session_store.get_session(session_id),
                 self.session_store.get_turn(turn_id),
@@ -462,8 +468,8 @@ class MeshAgentHarness:
                             "execution_node_count": len(provenance.get("execution_node_ids", [])),
                         },
                     )
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
             self.session_store.record_event(
                 session_id,
                 "turn.waiting_for_approval",
@@ -484,12 +490,12 @@ class MeshAgentHarness:
             )
         except AgentControlRequested as exc:
             return finish_control(exc.execution, exc.action)
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             if self.trace_store is not None and root_span is not None:
                 try:
                     self.trace_store.finish(root_span.span_id, status="failed", attributes={"error_type": type(exc).__name__})
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
             self.session_store.record_event(
                 session_id,
                 "turn.failed",
@@ -513,7 +519,7 @@ class MeshAgentHarness:
                         "execution_node_ids": provenance.get("execution_node_ids", []),
                     },
                 )
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
         return HarnessRun(self.session_store.get_session(session_id), turn, execution, context, usage_record)

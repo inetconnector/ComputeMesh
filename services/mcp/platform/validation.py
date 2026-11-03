@@ -221,7 +221,7 @@ class ValidationEngine:
                     results.append(result)
                 else:
                     results.append(ValidationResult(str(name), bool(result), "" if result else "validation failed"))
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 results.append(ValidationResult(str(name), False, f"validator raised: {exc}"))
         return ValidationReport(all(result.passed for result in results), tuple(results))
 
@@ -233,7 +233,7 @@ class ValidationEngine:
     def _non_empty(value: Any, _: Mapping[str, Any]) -> ValidationResult:
         try:
             passed = len(value) > 0  # type: ignore[arg-type]
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             passed = bool(value)
         return ValidationResult("non_empty", passed, "" if passed else "value is empty")
 

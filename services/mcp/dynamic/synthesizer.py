@@ -17,7 +17,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .ast_security_guard import SecurityASTViolation, validate_python_code_ast
-from .sandbox_runner import SandboxExecutionError, SandboxTimeoutError, run_code_in_sandbox
+from .sandbox_runner import (
+    SandboxExecutionError,
+    SandboxTimeoutError,
+    run_code_in_sandbox,
+)
 
 logger = logging.getLogger("ComputeMesh.MCP.DynamicEngine")
 
@@ -148,8 +152,8 @@ class DynamicToolEngine:
             if on_progress:
                 try:
                     on_progress({"phase": phase, "tool_name": tool_name, "task": task_description[:80], **extra})
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
 
         # Step 1: Guardrail
         _notify("guardrail_check", status="verifying")
@@ -222,7 +226,7 @@ class DynamicToolEngine:
                     )
                     receipt_id = receipt.receipt_id
                     _notify("execution_complete", receipt_id=receipt_id, elapsed_seconds=elapsed)
-                except Exception as l_exc:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as l_exc:
                     logger.debug(f"Ledger record error: {l_exc}")
 
                 result["_dynamic_meta"] = {

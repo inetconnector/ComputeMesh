@@ -164,7 +164,7 @@ class SubagentCoordinator:
                 raise TypeError("subagent runner must return SubagentResult")
             self.gate.validate_result(contract, result)
             self.gate.validate_result_paths(contract, result)
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             failure = exc
             result = SubagentResult(
                 contract.contract_id,
@@ -192,7 +192,7 @@ class SubagentCoordinator:
                         {"lease_id": lease.lease_id, "status": lease.status.value},
                         turn_id=child_turn.turn_id,
                     )
-                except Exception as exc:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     # A successful model result is not allowed to hide a
                     # resource-release failure. The child remains failed and
                     # the exact error is represented in its durable result.

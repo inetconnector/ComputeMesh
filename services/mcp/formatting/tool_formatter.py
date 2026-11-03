@@ -41,12 +41,12 @@ def _convert_data_uris_to_static_files(text: str) -> str:
                 try:
                     td.mkdir(parents=True, exist_ok=True)
                     (td / fname).write_bytes(img_bytes)
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
             url = f"/generated/{fname}"
             cache[b64_data] = url
             return f"{prefix}{url}{suffix}"
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return match.group(0)
 
     pattern = re.compile(r'(\!?\[.*?\]\(|href=["\']|src=["\'])data:image/([a-zA-Z0-9\+\-]+);base64,([a-zA-Z0-9\+/=\r\n]+)([\) "\'])')
@@ -1240,8 +1240,8 @@ def format_tool_content_if_json(content: str) -> str:
                                 res_str += f"   *{clean_snip}*\n\n"
                         res_str += "\n"
                     return res_str.strip()
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
             return f"Für **{city}** konnten im aktuellen Zeitraum keine passenden Veranstaltungen gefunden werden."
 
@@ -1570,8 +1570,8 @@ def format_tool_content_if_json(content: str) -> str:
             if q:
                 return f"ℹ️ Für **'{q}'** konnten keine direkten Daten ermittelt werden ({err_msg})."
             return f"ℹ️ {err_msg}"
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return str(content or "")
 
 

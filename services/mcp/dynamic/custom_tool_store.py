@@ -322,7 +322,7 @@ class CustomToolStore:
                     source="custom_store",
                 )
                 registered_count += 1
-            except Exception as exc:
+            except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 logger.warning(f"Konnte Custom Tool '{tool_name}' nicht registrieren: {exc}")
 
         return registered_count

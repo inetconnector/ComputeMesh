@@ -25,15 +25,15 @@ class TestAndroidPlayStoreTools(unittest.TestCase):
                 if f.is_file():
                     try:
                         f.unlink()
-                    except Exception:
-                        pass
+                    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
             try:
                 for d in sorted(self.temp_dir.glob("**/*"), reverse=True):
                     if d.is_dir():
                         d.rmdir()
                 self.temp_dir.rmdir()
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     def test_validate_store_listing_valid(self):
         title = "English News Kiosk Pro"

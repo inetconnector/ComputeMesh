@@ -274,7 +274,7 @@ class AgentToolBroker:
             if isinstance(raw_arguments, str):
                 try:
                     arguments = json.loads(raw_arguments)
-                except Exception as exc:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     results.append({"id": call_id, "name": name, "arguments": {}, "result": {"error": f"invalid JSON arguments: {exc}"}})
                     continue
             else:

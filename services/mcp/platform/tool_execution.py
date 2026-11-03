@@ -41,7 +41,7 @@ class ToolCapabilityRegistry:
     def discover_backend(self, backend: Any) -> None:
         try:
             tools = backend.list_tools(is_owner=True)
-        except Exception:
+        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return
         for tool in tools:
             name = str(getattr(tool, "name", "") or "")
@@ -158,8 +158,8 @@ class _ExecutionStore:
             if hasattr(self, "conn") and self.conn is not None:
                 try:
                     self.conn.close()
-                except Exception:
-                    pass
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
                 self.conn = None
 
 
@@ -265,7 +265,7 @@ class SafeToolExecutor:
         try:
             egress_policy = self.egress_policy_resolver(manifest)
             egress = self.egress_guard.check(arguments, egress_policy)
-        except Exception as exc:
+        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return self._error(manifest.tool_id, context.mode, f"egress policy evaluation failed: {exc}")
         if not egress.get("allowed"):
             return self._error(
@@ -326,7 +326,7 @@ class SafeToolExecutor:
                     raise RuntimeError(str(message))
                 self.store.success(manifest.tool_id)
                 break
-            except Exception as exc:
+            except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 self.store.failure(manifest.tool_id, self.breaker_threshold, self.breaker_cooldown_seconds)
                 if attempt >= attempts:
                     return ToolExecutionResult(
@@ -353,7 +353,7 @@ class SafeToolExecutor:
             else:
                 try:
                     verification = self.verifier(manifest, arguments, result)
-                except Exception as exc:
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     verification = {"verified": False, "error": str(exc)}
         return ToolExecutionResult(
             status="completed",
@@ -566,7 +566,7 @@ class PolicyToolRegistryProxy:
             if isinstance(raw_args, str):
                 try:
                     args = json.loads(raw_args)
-                except Exception as exc:
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     results.append({
                         "id": cid,
                         "name": name,

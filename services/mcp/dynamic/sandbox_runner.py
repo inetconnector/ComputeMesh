@@ -109,8 +109,8 @@ def run_code_in_sandbox(
         try:
             proc.kill()
             proc.communicate()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
         elapsed = round(time.perf_counter() - start_time, 3)
         raise SandboxTimeoutError(
             f"Ausführungszeit hat das Sicherheitslimit von {timeout_seconds}s überschritten ({elapsed}s)."
@@ -172,5 +172,5 @@ class SandboxRunner:
             return SandboxResult(success=True, output=res)
         except (SandboxExecutionError, SandboxTimeoutError) as exc:
             return SandboxResult(success=False, error=str(exc))
-        except Exception as exc:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return SandboxResult(success=False, error=f"Unerwarteter Sandbox-Fehler: {exc}")

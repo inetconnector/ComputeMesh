@@ -6,7 +6,11 @@ import time
 import unittest
 from pathlib import Path
 
-from services.mcp.platform.artifacts import ArtifactAccessDenied, ArtifactNotFound, ArtifactStore
+from services.mcp.platform.artifacts import (
+    ArtifactAccessDenied,
+    ArtifactNotFound,
+    ArtifactStore,
+)
 
 
 class TestArtifactStore(unittest.TestCase):

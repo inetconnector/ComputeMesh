@@ -172,7 +172,7 @@ class EnvironmentRequest:
             raise ValueError("invalid environment request_id")
         object.__setattr__(self, "operation", EnvironmentOperation(self.operation))
         if not isinstance(self.payload, Mapping):
-            raise ValueError("environment request payload must be an object")
+            raise TypeError("environment request payload must be an object")
         if len(str(self.payload)) > 256_000:
             raise ValueError("environment request payload is too large")
         forbidden = _FORBIDDEN_PAYLOAD_KEYS & {str(key).lower() for key in self.payload}

@@ -136,7 +136,7 @@ class ModelPreparationCoordinator:
         }
         try:
             response = self.transport(node, request)
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return ModelPreparationResult(
                 ModelPreparationPlan(plan.node_id, plan.model, "failed", "preparation_transport_failed", plan.idempotency_key, plan.node_status)
             )

@@ -213,7 +213,7 @@ class MCPToolDiscoveryBroker:
                     if len(self._tools) >= self.max_tools:
                         break
                 self._statuses[name] = MCPServerStatus(name, origin, True, added)
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 self._statuses[name] = MCPServerStatus(name, origin, False, 0, self._error_code(exc))
         return tuple(self._statuses[name] for name in names if name in self._statuses)
 
@@ -269,7 +269,7 @@ class MCPToolDiscoveryBroker:
                     "tool_id": tool.qualified_name,
                 }
             return {"status": "completed", "tool_id": tool.qualified_name, "result": result}
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return {"error": "MCP tool call failed", "status": "failed", "tool_id": tool.qualified_name}
 
 

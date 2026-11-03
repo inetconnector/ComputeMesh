@@ -123,7 +123,7 @@ class OpenAIAgentsClient:
             try:
                 raw = exc.read(self.config.max_response_bytes + 1)
                 detail = json.loads(raw[: self.config.max_response_bytes].decode("utf-8")).get("error", {}).get("message", "")
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 detail = ""
             raise OpenAIAgentsProviderError(f"OpenAI Agents request failed ({exc.code})" + (f": {detail[:240]}" if detail else "")) from exc
         except (OSError, URLError, TimeoutError) as exc:

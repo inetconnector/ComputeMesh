@@ -22,8 +22,15 @@ from services.mcp.platform.project_state import ProjectStateStore, StaleStateErr
 from services.mcp.platform.runtime import AgentsPlatformRuntime
 from services.mcp.platform.skill_registry import PersistentSkillRegistry
 from services.mcp.platform.skill_router import SkillRouter
-from services.mcp.platform.tool_execution import SafeToolExecutor, ToolCapabilityRegistry
-from services.memory.structured_memory import MemoryScope, MemoryType, StructuredMemoryStore
+from services.mcp.platform.tool_execution import (
+    SafeToolExecutor,
+    ToolCapabilityRegistry,
+)
+from services.memory.structured_memory import (
+    MemoryScope,
+    MemoryType,
+    StructuredMemoryStore,
+)
 
 
 class FakeTool:

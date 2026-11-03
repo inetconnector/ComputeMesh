@@ -20,7 +20,10 @@ from services.mcp.platform.session import (
     TurnStatus,
 )
 from services.mcp.platform.tool_broker import AgentToolBroker
-from services.mcp.platform.tool_execution import SafeToolExecutor, ToolCapabilityRegistry
+from services.mcp.platform.tool_execution import (
+    SafeToolExecutor,
+    ToolCapabilityRegistry,
+)
 from services.mcp.platform.worker import (
     AgentWorkerRequest,
     DurableWorkerConcurrencyGate,

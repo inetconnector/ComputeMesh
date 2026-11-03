@@ -36,7 +36,9 @@ from .parser.tool_call_parser import XML_TOOL_CALL_RE as XML_TOOL_CALL_RE  # noq
 from .parser.tool_call_parser import _decode_arguments as _decode_arguments  # noqa: PLC0414 - public compatibility re-export
 from .parser.tool_call_parser import canonical_name as canonical_name  # noqa: PLC0414 - public compatibility re-export
 from .parser.tool_call_parser import decode_tool_arguments as decode_tool_arguments  # noqa: PLC0414 - public compatibility re-export
-from .parser.tool_call_parser import parse_fallback_tool_calls as parse_fallback_tool_calls  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import (
+    parse_fallback_tool_calls as parse_fallback_tool_calls,  # noqa: PLC0414 - public compatibility re-export
+)
 from .tool_registry import ToolRegistry
 
 MAX_AGENT_ITERATIONS = 20
@@ -124,8 +126,8 @@ class AgentLoop:
             if on_progress:
                 try:
                     on_progress({"event": event_name, **extra})
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
 
         raw_resume = dict(resume_state) if isinstance(resume_state, Mapping) else {}
         resume_phase = str(raw_resume.get("phase") or "")
@@ -163,8 +165,8 @@ class AgentLoop:
                 mem_summary = get_user_memory_store().get_memory_summary()
                 if mem_summary and "Keine gespeicherten" not in mem_summary:
                     mem_info = f"\n\n[Persistentes Benutzer-Gedächtnis & Fakten]:\n{mem_summary}"
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
         if tools or mem_info:
             has_system = any(m.get("role") == "system" for m in curr_messages)
@@ -394,8 +396,8 @@ class AgentLoop:
                     direct_intent = detect_direct_tool_intent(resolved_q, self.registry)
                     if not direct_intent and any(w in resolved_q.lower() for w in ("recherchiere", "tiefenrecherche", "deep research", "hintergründe", "ereignisse")):
                         direct_intent = ("cross_source_knowledge_search", {"query": resolved_q})
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
         if direct_intent and not any(m.get("role") == "tool" for m in curr_messages):
             fn_name, fn_args = direct_intent
             if fn_name not in disabled_set and self.registry.get_tool(fn_name):
@@ -492,7 +494,7 @@ class AgentLoop:
                     )
                 except AgentControlRequested:
                     raise
-                except Exception as exc:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     if cancel_event is not None and bool(getattr(cancel_event, "is_set", lambda: False)()):
                         raise AgentControlRequested(
                             "cancel",
@@ -574,8 +576,8 @@ class AgentLoop:
                 if isinstance(prev_data, str):
                     try:
                         prev_data = json.loads(prev_data)
-                    except Exception:
-                        pass
+                    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
                 derived_prompt = ""
                 if isinstance(prev_data, dict):
                     articles = prev_data.get("articles", [])
