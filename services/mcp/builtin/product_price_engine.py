@@ -7,6 +7,7 @@ Never represent simulated offers or unverified snippets as live merchant quotes.
 from __future__ import annotations
 
 import html
+import logging
 import math
 import re
 import urllib.parse
@@ -269,8 +270,8 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> list[dict[st
 
             if len(offers) >= 8:
                 break
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        logging.getLogger(__name__).debug("Unverified search-snippet fetch failed: %s", exc)
 
     return offers
 
