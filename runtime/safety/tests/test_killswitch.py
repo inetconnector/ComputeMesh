@@ -2,16 +2,10 @@
 """Comprehensive test suite for the ComputeMesh Kill Switch & Safety Subsystem."""
 from __future__ import annotations
 
-import sys
 import tempfile
 import unittest
 from datetime import timedelta
 from pathlib import Path
-
-# Ensure project root is on sys.path
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from runtime.safety.dead_mans_switch import (
     AuthorizationLeaseExpiredError,
@@ -30,6 +24,8 @@ from runtime.safety.hardware_relay import (
 from runtime.safety.supervisor import SafetySupervisor
 from runtime.safety.tripline_monitor import TriplineMonitor
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestDeadMansSwitchAndLease(unittest.TestCase):
     """Test Positive Authorization Lease verification, expiration, and trip state."""

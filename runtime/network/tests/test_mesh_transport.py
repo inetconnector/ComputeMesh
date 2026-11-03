@@ -1,16 +1,11 @@
 """Unit tests for Mutual TLS (mTLS) Peer-to-Peer Encrypted Transport."""
 import contextlib
 import socket
-import sys
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from runtime.network.mesh_transport import (
     MeshTunnelClient,
@@ -19,6 +14,8 @@ from runtime.network.mesh_transport import (
     generate_node_tls_credentials,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestMeshTransport(unittest.TestCase):
     def setUp(self) -> None:

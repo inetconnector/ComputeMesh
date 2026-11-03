@@ -1,11 +1,6 @@
 """Unit tests for ComputeMesh Central Configuration System."""
-import sys
 import unittest
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.common.config import (
     CONFIG,
@@ -15,6 +10,8 @@ from services.common.config import (
     TeaserConfig,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestConfig(unittest.TestCase):
     def test_default_config_singleton(self) -> None:
