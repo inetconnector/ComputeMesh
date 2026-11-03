@@ -22,12 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, urlparse
-
-logger = logging.getLogger(__name__)
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from cm_project_bootstrap import REPO_ROOT
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import InsufficientBalanceError, Ledger
@@ -41,6 +36,69 @@ from services.portal.passkey_routes import (
 )
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
+
+from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
+from services.billing.stripe_integration import (
+    StripePaymentService,
+    StripeSessionStore,
+    stripe_session_store_path_from_env,
+)
+from services.common.config import CONFIG
+from services.gateway.auth import (
+    GatewayAuthManager,
+    extract_bearer_token,
+    resolve_client_ip,
+)
+from services.gateway.catalog import (
+    current_models,
+    model_modalities,
+    model_modality_flags,
+    resolve_model_id,
+)
+from services.gateway.dashboard import (
+    NODE_TELEMETRY_REGISTRY,
+    _extract_candidate_local_urls,
+    fresh_node_telemetry_entries,
+    render_node_remote_dashboard_html,
+    save_node_telemetry_registry,
+)
+from services.gateway.inference import InferenceEngine
+from services.gateway.metrics_exporter import MetricsRegistry
+from services.gateway.routes_billing import BillingRoutesHandler
+from services.gateway.routes_provider import ProviderRoutesHandler
+from services.gateway.security import (
+    GLOBAL_RATE_LIMITER,
+    MAX_REQUEST_PAYLOAD_BYTES,
+    SECURITY_HEADERS,
+    sanitize_error_message,
+)
+from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
+from services.mcp.platform.artifacts import (
+    ArtifactAccessDenied,
+    ArtifactNotFound,
+    ArtifactStore,
+)
+from services.mcp.platform.session import (
+    AgentSessionStore,
+    ApprovalStatus,
+    SessionStateConflict,
+    TurnStatus,
+)
+from services.mcp.platform.session_projection import (
+    SessionProjectionDenied,
+    authorize_session,
+    project_approval,
+    project_approvals,
+    project_events,
+    project_item,
+    project_items,
+    project_session,
+    project_sessions,
+    project_turn,
+    project_turns,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_owner_account_store_path() -> Path:
@@ -489,66 +547,7 @@ def _build_ledger_from_env() -> Ledger:
         from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
         return GatewayOwnerCreditLedger(storage_path=path)
     return ThreadSafeLedger(storage_path=path)
-from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
-from services.billing.stripe_integration import (
-    StripePaymentService,
-    StripeSessionStore,
-    stripe_session_store_path_from_env,
-)
-from services.common.config import CONFIG
-from services.gateway.auth import (
-    GatewayAuthManager,
-    extract_bearer_token,
-    resolve_client_ip,
-)
-from services.gateway.catalog import (
-    current_models,
-    model_modalities,
-    model_modality_flags,
-    resolve_model_id,
-)
-from services.gateway.dashboard import (
-    NODE_TELEMETRY_REGISTRY,
-    _extract_candidate_local_urls,
-    fresh_node_telemetry_entries,
-    render_node_remote_dashboard_html,
-    save_node_telemetry_registry,
-)
-from services.gateway.inference import InferenceEngine
-from services.gateway.metrics_exporter import MetricsRegistry
-from services.gateway.routes_billing import BillingRoutesHandler
-from services.gateway.routes_provider import ProviderRoutesHandler
-from services.gateway.security import (
-    GLOBAL_RATE_LIMITER,
-    MAX_REQUEST_PAYLOAD_BYTES,
-    SECURITY_HEADERS,
-    sanitize_error_message,
-)
-from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
-from services.mcp.platform.artifacts import (
-    ArtifactAccessDenied,
-    ArtifactNotFound,
-    ArtifactStore,
-)
-from services.mcp.platform.session import (
-    AgentSessionStore,
-    ApprovalStatus,
-    SessionStateConflict,
-    TurnStatus,
-)
-from services.mcp.platform.session_projection import (
-    SessionProjectionDenied,
-    authorize_session,
-    project_approval,
-    project_approvals,
-    project_events,
-    project_item,
-    project_items,
-    project_session,
-    project_sessions,
-    project_turn,
-    project_turns,
-)
+
 
 DEFAULT_PORT = CONFIG.default_gateway_port
 
