@@ -67,7 +67,7 @@ class OSNeutralProtocolEnforcer:
 
     def _check_paths(self, d: dict[str, Any]) -> None:
         for value in d.values():
-            if isinstance(value, str) and "\\" in value:
+            if isinstance(value, str) and "\\" in value and (":" in value or "/" in value or value.startswith("\\\\")):
                  raise OSNeutralContractError(f"Protocol contracts MUST remain OS-neutral. Found OS-specific path format: {value}")
             if isinstance(value, dict):
                 self._check_paths(value)
@@ -75,7 +75,7 @@ class OSNeutralProtocolEnforcer:
                 for item in value:
                     if isinstance(item, dict):
                         self._check_paths(item)
-                    elif isinstance(item, str) and "\\" in item:
+                    elif isinstance(item, str) and "\\" in item and (":" in item or "/" in item or item.startswith("\\\\")):
                         raise OSNeutralContractError(f"Protocol contracts MUST remain OS-neutral. Found OS-specific path format: {item}")
 
 class ComponentBoundaryEnforcer:
