@@ -7,7 +7,6 @@ Enforces invariants:
 """
 
 import sqlite3
-from typing import Any, Dict, Optional
 
 
 class HardeningPart14Error(RuntimeError):
