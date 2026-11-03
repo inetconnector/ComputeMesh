@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release/portal-platform-sync-20261028
+      - codex/consolidate-public-20261103
   workflow_dispatch:
 
 permissions:
