@@ -13,9 +13,27 @@ import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass
+import secrets
+import threading
+import time
+
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from services.common.pricing import (
+    DEFAULT_PRICE_TIERS as DEFAULT_PRICE_TIERS,  # noqa: PLC0414 - public compatibility re-export
+)
+from services.common.pricing import (
+    ModelPriceTier as ModelPriceTier,  # noqa: PLC0414 - public compatibility re-export
+)
+from services.common.pricing import (
+    calculate_token_charge_micro,
+)
+from services.common.pricing import (
+    get_price_tier as get_price_tier,  # noqa: PLC0414 - public compatibility re-export
+)
+
 
 SCHEMA_VERSION = 1
 MICRO_UNIT_SCALE = 1_000_000  # 1.000000 currency unit = 1,000,000 micro-units
@@ -47,18 +65,6 @@ class AccountType(enum.Enum):
     PAYOUT_SETTLEMENT = "expense:payout_settlement"
 
 
-from services.common.pricing import (
-    DEFAULT_PRICE_TIERS as DEFAULT_PRICE_TIERS,  # noqa: PLC0414 - public compatibility re-export
-)
-from services.common.pricing import (
-    ModelPriceTier as ModelPriceTier,  # noqa: PLC0414 - public compatibility re-export
-)
-from services.common.pricing import (
-    calculate_token_charge_micro,
-)
-from services.common.pricing import (
-    get_price_tier as get_price_tier,  # noqa: PLC0414 - public compatibility re-export
-)
 
 
 @dataclass(frozen=True)
@@ -113,10 +119,6 @@ class PayoutSummary:
     wallet_address: str
     created_at: str
 
-
-import secrets
-import threading
-import time
 
 
 @dataclass

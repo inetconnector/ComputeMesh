@@ -15,14 +15,14 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from config import CONFIG
 from tools.security.signing_keys import TRUSTED_RELEASE_PUBLIC_KEYS_HEX

@@ -19,6 +19,8 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
+
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
@@ -105,8 +107,6 @@ def _create_computemesh_icon_image(size: tuple[int, int] = (32, 32)) -> Image.Im
         draw.ellipse((nx - r_node, ny - r_node, nx + r_node, ny + r_node), fill=(0, 242, 254, 255))
     return img
 
-
-import traceback
 
 
 def _log_crash(msg: str) -> None:

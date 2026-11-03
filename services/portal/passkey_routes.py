@@ -10,6 +10,9 @@ Rate limiting: Token-bucket sliding window to prevent brute-force and email spam
 """
 from __future__ import annotations
 
+import hashlib
+import json
+
 import ipaddress
 import logging
 import os
@@ -26,9 +29,6 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-import hashlib
-import json
 
 import webauthn
 from webauthn.helpers import bytes_to_base64url

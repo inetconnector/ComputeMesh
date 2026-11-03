@@ -26,6 +26,20 @@ from tools.appliance.node_identity import (
     dashboard_must_not_start_relay as dashboard_must_not_start_relay,  # noqa: PLC0414 - public compatibility re-export
 )
 
+from tools.security import node_auth_token_storage as _node_auth_storage
+from tools.security.node_auth_token_storage import (
+    NodeAuthTokenStorageError,
+)
+from tools.security.node_auth_token_storage import (
+    atomic_secure_text_write as _atomic_secure_text_write,
+)
+from tools.security.node_auth_token_storage import (
+    read_existing_node_auth_token as _read_existing_node_auth_token,
+)
+from tools.security.node_auth_token_storage import (
+    rotate_node_auth_token as _rotate_node_auth_token,
+)
+
 logger = logging.getLogger("CloudTunnelRelay")
 
 
@@ -40,19 +54,7 @@ def _serialize_sync_call(method):
     return wrapped
 
 
-from tools.security import node_auth_token_storage as _node_auth_storage
-from tools.security.node_auth_token_storage import (
-    NodeAuthTokenStorageError,
-)
-from tools.security.node_auth_token_storage import (
-    atomic_secure_text_write as _atomic_secure_text_write,
-)
-from tools.security.node_auth_token_storage import (
-    read_existing_node_auth_token as _read_existing_node_auth_token,
-)
-from tools.security.node_auth_token_storage import (
-    rotate_node_auth_token as _rotate_node_auth_token,
-)
+
 
 
 def _nodeos_mode() -> bool:
