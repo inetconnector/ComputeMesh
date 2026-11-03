@@ -16,9 +16,10 @@ import queue
 import subprocess
 import sys
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Self
 
 from .environment import (
     EnvironmentLease,
@@ -76,7 +77,7 @@ if os.name == "nt":
     _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
 
 
-def _attach_windows_job(process: subprocess.Popen[str], policy: "ProcessSandboxPolicy") -> Any:
+def _attach_windows_job(process: subprocess.Popen[str], policy: ProcessSandboxPolicy) -> Any:
     """Apply hard Windows process and memory limits to the child process."""
     if os.name != "nt":
         return None
@@ -331,7 +332,7 @@ class ProcessIsolatedWorkspaceTransport:
                         responses.put(ProcessSandboxError("isolated workspace process closed the protocol"))
                     else:
                         responses.put(line)
-                except BaseException as exc:  # pragma: no cover - platform pipe errors vary
+                except (OSError, ValueError, EOFError, RuntimeError, UnicodeError) as exc:  # pragma: no cover - platform pipe errors vary
                     responses.put(exc)
 
             reader = threading.Thread(target=read_response, name="ComputeMesh-workspace-reader", daemon=True)
@@ -403,11 +404,11 @@ class ProcessIsolatedWorkspaceTransport:
             self._closed = True
             self._terminate()
 
-    def __enter__(self) -> "ProcessIsolatedWorkspaceTransport":
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *_: Any) -> None:
+    def __exit__(self, *_: object) -> None:
         self.close()
 
 
-__all__ = ["ProcessSandboxError", "ProcessSandboxPolicy", "ProcessSandboxTimeout", "ProcessIsolatedWorkspaceTransport"]
+__all__ = ["ProcessIsolatedWorkspaceTransport", "ProcessSandboxError", "ProcessSandboxPolicy", "ProcessSandboxTimeout"]

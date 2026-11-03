@@ -1,9 +1,33 @@
 #!/usr/bin/env python3
 """Builds a real, bootable hybrid ISO & .img.xz appliance for ComputeMesh NodeOS."""
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
+
+
+def _copy_matched_boot_files(source: Path, destination: Path) -> None:
+    """Refuse missing, empty, or mismatched boot files; never generate stubs."""
+    for kernel in sorted(source.glob("vmlinuz-*")):
+        release = kernel.name.removeprefix("vmlinuz-")
+        initrd = source / f"initrd.img-{release}"
+        if (kernel.is_file() and kernel.stat().st_size > 0
+                and initrd.is_file() and initrd.stat().st_size > 0):
+            shutil.copy2(kernel, destination / "vmlinuz")
+            shutil.copy2(initrd, destination / "initrd.img")
+            return
+    raise RuntimeError("NodeOS ISO requires a nonempty matching kernel and initramfs")
+
+
+def _set_download_permissions(iso: Path, compressed: Path) -> None:
+    """Fail the build if release download permissions cannot be set."""
+    subprocess.run(
+        ["chown", "-R", "inetconnector:psaserv",
+         "/var/www/vhosts/inetconnector.com/site2/downloads/"],
+        check=True,
+    )
+    subprocess.run(["chmod", "644", str(iso), str(compressed)], check=True)
+
 
 def main() -> int:
     build_root = Path("/tmp/computemesh_iso_build")
@@ -67,18 +91,8 @@ ENABLE_DASHBOARD=true
 DASHBOARD_PORT=8080
 """, encoding="utf-8")
 
-    # Copy current kernel & initrd from host system if available
-    vmlinuz_candidates = list(Path("/boot").glob("vmlinuz-*"))
-    initrd_candidates = list(Path("/boot").glob("initrd.img-*"))
-    if vmlinuz_candidates:
-        shutil.copy(vmlinuz_candidates[0], boot_dir / "vmlinuz")
-    else:
-        (boot_dir / "vmlinuz").write_bytes(b"COMPUTEMESH_VMLINUZ_STUB")
-
-    if initrd_candidates:
-        shutil.copy(initrd_candidates[0], boot_dir / "initrd.img")
-    else:
-        (boot_dir / "initrd.img").write_bytes(b"COMPUTEMESH_INITRD_STUB")
+    # The legacy ISO path must not present synthetic boot bytes as real.
+    _copy_matched_boot_files(Path("/boot"), boot_dir)
 
     out_iso = Path("/var/www/vhosts/inetconnector.com/site2/downloads/computemesh-nodeos-x86_64.iso")
     out_xz = Path("/var/www/vhosts/inetconnector.com/site2/downloads/computemesh-nodeos-x86_64.img.xz")
@@ -100,9 +114,8 @@ DASHBOARD_PORT=8080
         subprocess.run(["xz", "-c", "-1"], stdin=f_in, stdout=f_out, check=True)
     shutil.move(str(out_xz) + ".tmp", out_xz)
 
-    # Set webserver permissions
-    subprocess.run(["chown", "-R", "inetconnector:psaserv", "/var/www/vhosts/inetconnector.com/site2/downloads/"])
-    subprocess.run(["chmod", "644", str(out_iso), str(out_xz)])
+    # Both permission changes are mandatory for a successful build.
+    _set_download_permissions(out_iso, out_xz)
 
     print(f"ISO size: {out_iso.stat().st_size:,} bytes")
     print(f"XZ size:  {out_xz.stat().st_size:,} bytes")

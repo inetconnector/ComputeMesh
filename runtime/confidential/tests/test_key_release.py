@@ -1,5 +1,10 @@
 import unittest
-from runtime.confidential.key_release import KeyReleaseBinding, KeyReleaseError, reject_server_side_content_key
+
+from runtime.confidential.key_release import (
+    KeyReleaseBinding,
+    KeyReleaseError,
+    reject_server_side_content_key,
+)
 
 
 class KeyReleaseTests(unittest.TestCase):

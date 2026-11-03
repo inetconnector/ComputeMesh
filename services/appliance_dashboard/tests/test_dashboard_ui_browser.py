@@ -6,7 +6,6 @@ from urllib.parse import urlsplit
 
 import pytest
 
-
 DASHBOARD = Path(__file__).resolve().parents[1] / "static" / "index.html"
 
 

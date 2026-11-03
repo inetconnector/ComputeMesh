@@ -1,18 +1,16 @@
 """Unit tests for ComputeMesh InferenceEngine & Streaming Protocol Converters."""
 import json
-from pathlib import Path
-import sys
 import unittest
+from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from services.billing.ledger import InsufficientBalanceError, Ledger
+from services.billing.ledger import Ledger
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import BackendResult
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class _FakeBackend:

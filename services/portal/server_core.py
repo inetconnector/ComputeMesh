@@ -6,23 +6,22 @@ with clean URL routing for docs, status, benchmarks, legal pages, registration, 
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import hmac
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import logging
 import os
-from pathlib import Path
 import re
 import sys
-from typing import Any
 import urllib.parse
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from datetime import UTC, datetime
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from cm_project_bootstrap import REPO_ROOT
 
 from config import CONFIG
+from services.billing.stripe_connect import is_stripe_connect_platform_activation_error
 from services.gateway.auth import resolve_client_ip
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
@@ -34,17 +33,20 @@ from services.gateway.model_inventory import sanitize_model_inventory
 from services.gateway.security import (
     GLOBAL_RATE_LIMITER,
     SECURITY_HEADERS,
-    sanitize_error_message,
 )
-from services.portal.routes_quotes import PortalQuotesHandler
-from services.portal.routes_registration import REGISTERED_ACCOUNTS, PortalRegistrationHandler
-from services.portal.passkey_routes import FLEET_ACCOUNT_STORE, PasskeyAuthHandler, session_account_from_headers
+from services.portal.mail_dispatcher import send_contact_inquiry
+from services.portal.passkey_routes import (
+    FLEET_ACCOUNT_STORE,
+    PasskeyAuthHandler,
+    session_account_from_headers,
+)
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
 from services.portal.routes_provider_identity import PortalProviderIdentityHandler
-from services.portal.mail_dispatcher import send_contact_inquiry
-from services.billing.stripe_connect import is_stripe_connect_platform_activation_error
+from services.portal.routes_quotes import PortalQuotesHandler
+from services.portal.routes_registration import PortalRegistrationHandler
 
+logger = logging.getLogger(__name__)
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
 NODE_AUTH_TOKEN_REGEX = re.compile(r"^cm_tunnel_[a-fA-F0-9]{32,128}$")
@@ -78,7 +80,7 @@ def _safe_resolve_portal_file(filename: str) -> Path | None:
         candidate = (PORTAL_DIR / filename.lstrip("/")).resolve()
         if candidate.is_relative_to(PORTAL_DIR) and candidate.is_file():
             return candidate
-    except Exception:
+    except (OSError, RuntimeError):
         return None
     return None
 
@@ -186,7 +188,7 @@ class PortalHandler(BaseHTTPRequestHandler):
         account = session_account_from_headers(self.headers)
         session_owner_id = None
         if account is not None:
-            from services.gateway.server import owner_id_for_key, OWNER_ACCOUNT_STORE
+            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
             session_owner_id = owner_id_for_key(account.owner_key)
             bound_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
         else:
@@ -217,7 +219,6 @@ class PortalHandler(BaseHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         clean_path = parsed_url.path.rstrip("/")
         query_params = urllib.parse.parse_qs(parsed_url.query)
-        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
 
         if clean_path in ("/api/v1/pricing", "/v1/pricing", "/pricing"):
             from services.common.pricing import DEFAULT_PRICE_TIERS, MICRO_UNITS_PER_USD
@@ -245,7 +246,6 @@ class PortalHandler(BaseHTTPRequestHandler):
         if clean_path == "":
             clean_path = "/"
 
-        query_params = urllib.parse.parse_qs(parsed_url.query)
 
         if clean_path in ("/healthz", "/health", "/webui/health", "/api/health", "/v1/health"):
             self._send_json({
@@ -313,7 +313,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     }
                     for m in models
                 ]
-            except Exception:
+            except (KeyError, TypeError, ValueError):
                 models_data = []
             self._send_json({"object": "list", "data": models_data})
             return
@@ -337,7 +337,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
 
             os_target = query_params.get("os", ["windows"])[0].strip()
@@ -419,7 +419,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self._send_bytes(target_f.read_bytes(), ctype)
                 return
 
-        if clean_path.startswith("/_app/") or clean_path.startswith("/workbox-") or clean_path in ("/sw.js", "/build.json", "/manifest.webmanifest"):
+        if clean_path.startswith(("/_app/", "/workbox-")) or clean_path in ("/sw.js", "/build.json", "/manifest.webmanifest"):
             sub_rel = clean_path.lstrip("/")
             target_f = _safe_resolve_portal_file(f"webui/{sub_rel}")
             if target_f and target_f.exists():
@@ -481,10 +481,12 @@ class PortalHandler(BaseHTTPRequestHandler):
                     "average_latency_ms": None,
                     "network_uptime_percent": None,
                     "measurement_status": "not_measured",
-                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 }
             else:
-                from tools.appliance.hardware_detector import is_integrated_display_adapter
+                from tools.appliance.hardware_detector import (
+                    is_integrated_display_adapter,
+                )
                 total_vram_bytes = 0
                 total_gpus = 0
                 for n in live_nodes:
@@ -516,7 +518,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     "average_latency_ms": None,
                     "network_uptime_percent": None,
                     "measurement_status": "live",
-                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 }
             self._send_json(payload)
             return
@@ -573,7 +575,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
@@ -584,7 +586,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             facc_id = facc.account_id if facc else (account.account_id if account else None)
             derived_owner_id = owner_id_for_key(owner_key) if owner_key else None
             owner_id = facc_id or derived_owner_id
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import parse_qs, urlparse
             _parsed = urlparse(self.path)
             _qs = parse_qs(_parsed.query)
             _limit = int(_qs["limit"][0]) if "limit" in _qs and _qs["limit"][0].isdigit() else None
@@ -624,7 +626,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             derived_owner_id = owner_id_for_key(owner_key)
             owner_id = facc_id or derived_owner_id
 
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import parse_qs, urlparse
             _parsed = urlparse(self.path)
             _qs = parse_qs(_parsed.query)
             _limit = int(_qs["limit"][0]) if "limit" in _qs and _qs["limit"][0].isdigit() else None
@@ -675,7 +677,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
@@ -690,7 +692,12 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
-            account = session_account_from_headers(self.headers)
+            # Resolve session cookies without invoking the legacy auto-create
+            # path for arbitrary X-Owner-Key/Bearer header values. Raw owner
+            # keys below must already belong to an existing fleet account.
+            account = session_account_from_headers(
+                {"Cookie": self.headers.get("Cookie", "")}
+            )
             owner_key = ""
             if account is not None:
                 owner_key = account.owner_key
@@ -700,19 +707,23 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
             from services.gateway.server import owner_id_for_key
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+            # Only an actual, authenticated fleet account may enumerate
+            # owner-only tools or change MCP policy. Never hash an arbitrary
+            # claimant-supplied string into an authorization identity.
+            verified_account = account or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            if verified_account is None:
+                self._send_json({"error": "valid fleet authentication required"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
+            owner_id = owner_id_for_key(verified_account.owner_key)
             disabled = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
-            from services.mcp.tool_registry import ToolRegistry
             from services.mcp.config import get_mcp_config
+            from services.mcp.tool_registry import ToolRegistry
             reg = ToolRegistry(get_mcp_config())
             all_tools = [t.name for t in reg.list_tools(is_owner=True)]
             enabled_tools = [t for t in all_tools if t not in disabled]
@@ -735,7 +746,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             from services.gateway.server import owner_id_for_key
             owner_id = owner_id_for_key(owner_key) if owner_key else None
@@ -747,7 +758,7 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         if clean_path.startswith("/downloads/"):
             dl_name = clean_path.removeprefix("/downloads/")
-            body = f"ComputeMesh Binary Package: {dl_name}\nBuild: v1.0-release\n".encode("utf-8")
+            body = f"ComputeMesh Binary Package: {dl_name}\nBuild: v1.0-release\n".encode()
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Disposition", f'attachment; filename="{dl_name}"')
             self.send_header("Content-Type", "application/octet-stream")
@@ -766,7 +777,6 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         parsed_url = urllib.parse.urlparse(self.path)
         clean_path = parsed_url.path.rstrip("/")
-        query_params = urllib.parse.parse_qs(parsed_url.query)
         length = int(self.headers.get("Content-Length", 0))
         if length > 10 * 1024 * 1024:
             self._send_json({"error": "Payload too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
@@ -776,7 +786,7 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         try:
             body = json.loads(raw_data.decode("utf-8"))
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
             body = {}
 
         if clean_path in ("/api/portal/fleet/provider-identity", "/api/fleet/provider-identity"):
@@ -811,7 +821,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
@@ -836,7 +846,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                         refresh_url=refresh_url,
                     )
                     self._send_json(data, credentialed=True)
-                except Exception as exc:
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                     status = HTTPStatus.SERVICE_UNAVAILABLE if is_stripe_connect_platform_activation_error(exc) else HTTPStatus.BAD_REQUEST
                     self._send_json({"error": str(exc)}, status, credentialed=True)
                 return
@@ -854,7 +864,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                         self._send_json(data, HTTPStatus.BAD_REQUEST, credentialed=True)
                     else:
                         self._send_json(data, credentialed=True)
-                except Exception as exc:
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                     self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST, credentialed=True)
                 return
 
@@ -894,8 +904,8 @@ class PortalHandler(BaseHTTPRequestHandler):
                 try:
                     from services.gateway.server import OWNER_ACCOUNT_STORE
                     OWNER_ACCOUNT_STORE.ban_owner(target_owner_id, reason=reason, banned_by=banned_by)
-                except Exception:
-                    pass
+                except (ImportError, OSError, RuntimeError, ValueError) as exc:
+                    logger.debug("owner ban synchronization failed: %s", exc, exc_info=True)
                 self._send_json({
                     "status": "ok",
                     "action": "ban",
@@ -912,8 +922,8 @@ class PortalHandler(BaseHTTPRequestHandler):
                 try:
                     from services.gateway.server import OWNER_ACCOUNT_STORE
                     OWNER_ACCOUNT_STORE.unban_owner(target_owner_id, reason=reason, unbanned_by=unbanned_by)
-                except Exception:
-                    pass
+                except (ImportError, OSError, RuntimeError, ValueError) as exc:
+                    logger.debug("owner unban synchronization failed: %s", exc, exc_info=True)
                 self._send_json({
                     "status": "ok",
                     "action": "unban",
@@ -942,7 +952,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
 
             from services.gateway.server import owner_id_for_key
@@ -1055,6 +1065,11 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         if clean_path == "/api/v1/node/heartbeat":
             node_id = str(body.get("node_id", "")).strip()
+            # Android identities must use the mobile-specific credential DB,
+            # even after a restart before their telemetry registry is loaded.
+            if node_id.startswith("android-"):
+                self._send_json({"error": "Android nodes require the scoped mobile heartbeat"}, HTTPStatus.FORBIDDEN)
+                return
             auth_token = str(body.get("auth_token", "")).strip()
             if not node_id or not NODE_ID_REGEX.match(node_id):
                 self._send_json({"error": "Valid node_id is required"}, HTTPStatus.BAD_REQUEST)
@@ -1064,27 +1079,11 @@ class PortalHandler(BaseHTTPRequestHandler):
                 return
 
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
+            if existing_node and existing_node.get("mobile_device"):
+                self._send_json({"error": "mobile nodes require device-scoped heartbeat"}, HTTPStatus.FORBIDDEN)
+                return
             if existing_node:
                 expected_token = str(existing_node.get("auth_token", "")).strip()
-                updated_at_str = str(existing_node.get("updated_at", "")).strip()
-                is_stale = False
-                if updated_at_str:
-                    try:
-                        ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
-                        if (datetime.now(timezone.utc) - ts).total_seconds() > 300:
-                            is_stale = True
-                    except Exception:
-                        is_stale = True
-
-                owner_authorized = False
-                sent_owner_key_pre = str(body.get("owner_key", "")).strip()
-                if sent_owner_key_pre:
-                    from services.gateway.server import owner_id_for_key
-                    sender_owner = owner_id_for_key(sent_owner_key_pre)
-                    existing_owner = existing_node.get("owner_id")
-                    if sender_owner and (not existing_owner or existing_owner == sender_owner):
-                        owner_authorized = True
-
                 if not expected_token or not hmac.compare_digest(auth_token, expected_token):
                     self._send_json({"error": "Unauthorized node heartbeat: token mismatch"}, HTTPStatus.UNAUTHORIZED)
                     return
@@ -1094,22 +1093,26 @@ class PortalHandler(BaseHTTPRequestHandler):
             active_owner_key = resolved_owner_key or sent_owner_key
             key_rotated = bool(resolved_owner_key and resolved_owner_key != sent_owner_key)
 
-            from services.gateway.server import GatewayHandler, OWNER_ACCOUNT_STORE, owner_id_for_key, OwnerAccountStoreError
+            from services.gateway.server import (
+                OWNER_ACCOUNT_STORE,
+                GatewayHandler,
+                OwnerAccountStoreError,
+                owner_id_for_key,
+            )
             owner_binding_error: str | None = None
             owner_rebound = False
             owner_id = owner_id_for_key(active_owner_key)
-            if owner_id:
-                if not OWNER_ACCOUNT_STORE.is_node_unbound(owner_id, node_id):
+            if owner_id and not OWNER_ACCOUNT_STORE.is_node_unbound(owner_id, node_id):
+                try:
+                    OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
+                    OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
+                except OwnerAccountStoreError:
                     try:
-                        OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
-                        OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
-                    except OwnerAccountStoreError:
-                        try:
-                            previous_owner = OWNER_ACCOUNT_STORE.rebind_provider_node(owner_id, node_id)
-                            owner_rebound = previous_owner is not None and previous_owner != owner_id
-                        except OwnerAccountStoreError as rebind_exc:
-                            owner_binding_error = str(rebind_exc)
-                            owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+                        previous_owner = OWNER_ACCOUNT_STORE.rebind_provider_node(owner_id, node_id)
+                        owner_rebound = previous_owner is not None and previous_owner != owner_id
+                    except OwnerAccountStoreError as rebind_exc:
+                        owner_binding_error = str(rebind_exc)
+                        owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
             # If previous_node_id was explicitly provided (e.g. from an immediate config save rename), unbind and purge it immediately
             previous_node_id = str(body.get("previous_node_id", "")).strip()
@@ -1125,7 +1128,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     if owner_id:
                         OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, old_id)
 
-            now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             existing_tokens = int(existing_node.get("telemetry", {}).get("tokens_processed", 0) or 0) if existing_node else 0
             incoming_tokens = int(body.get("telemetry", {}).get("tokens_processed", 0) or 0)
             final_tokens = max(existing_tokens, incoming_tokens)
@@ -1194,13 +1197,15 @@ class PortalHandler(BaseHTTPRequestHandler):
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             try:
-                from services.gateway.registry_inventory_sync import sync_model_inventory
+                from services.gateway.registry_inventory_sync import (
+                    sync_model_inventory,
+                )
                 sync_model_inventory(
                     node_id=node_id,
                     models=NODE_TELEMETRY_REGISTRY[node_id]["models"],
                 )
-            except Exception:
-                pass
+            except (ImportError, KeyError, OSError, RuntimeError, TypeError) as exc:
+                logger.debug("model inventory synchronization failed: %s", exc, exc_info=True)
             self._send_json({
                 "status": "ok",
                 "message": "heartbeat registered",
@@ -1256,6 +1261,23 @@ class PortalHandler(BaseHTTPRequestHandler):
 
             account = session_account_from_headers(self.headers)
             owner_key = str(body.get("owner_key", "")).strip()
+            mobile_owner_account = FLEET_ACCOUNT_STORE.active_mobile_device_account(node_id)
+            if mobile_owner_account is not None:
+                # The telemetry registry is ephemeral; device credentials and
+                # ownership are durable. Revoke the device even if the gateway
+                # restarted and its in-memory node card disappeared.
+                if account is None and owner_key:
+                    account = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+                if account is None or account.account_id != mobile_owner_account:
+                    self._send_json({"error": "not authorized for mobile device"}, HTTPStatus.FORBIDDEN)
+                    return
+                from services.portal.mobile_device_auth import revoke_mobile_device
+                data, status = revoke_mobile_device(
+                    FLEET_ACCOUNT_STORE, mobile_owner_account, node_id,
+                )
+                self._send_json(data, status)
+                return
+
             if account is not None:
                 owner_id = owner_id_for_key(account.owner_key)
             elif owner_key:
@@ -1269,6 +1291,20 @@ class PortalHandler(BaseHTTPRequestHandler):
                 stored_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
             if not owner_id or not stored_owner_id or not hmac.compare_digest(owner_id, stored_owner_id):
                 self._send_json({"error": "Owner authorization is required for this node"}, HTTPStatus.FORBIDDEN)
+                return
+
+            # Removing a mobile node must revoke its durable device secret,
+            # not just remove its current registry row (which would re-enrol
+            # on the next authenticated heartbeat).
+            if node_data and node_data.get("mobile_device"):
+                from services.portal.mobile_device_auth import revoke_mobile_device
+                if account is None:
+                    self._send_json({"error": "authenticated fleet account required"}, HTTPStatus.FORBIDDEN)
+                    return
+                data, status = revoke_mobile_device(
+                    FLEET_ACCOUNT_STORE, account.account_id, node_id,
+                )
+                self._send_json(data, status)
                 return
 
             unbound = OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)
@@ -1319,6 +1355,39 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
+        if clean_path == "/api/portal/fleet/mobile/enrollment_token":
+            data, status, cookie = self.passkey_handler.create_enrollment_token(
+                self.headers, scope="mobile_device",
+            )
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/enrollment/consume":
+            from services.portal.mobile_device_auth import enroll_mobile_device
+            data, status = enroll_mobile_device(FLEET_ACCOUNT_STORE, body)
+            self._send_json(data, status, credentialed=True)
+            return
+
+        if clean_path == "/api/v1/mobile/heartbeat":
+            from services.portal.mobile_device_auth import mobile_heartbeat
+            data, status = mobile_heartbeat(
+                FLEET_ACCOUNT_STORE, body, self.headers.get("Authorization", ""),
+            )
+            self._send_json(data, status)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/revoke":
+            from services.portal.mobile_device_auth import revoke_mobile_device
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_json({"error": "fleet session required"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            data, status = revoke_mobile_device(
+                FLEET_ACCOUNT_STORE, account.account_id, body.get("node_id", ""),
+            )
+            self._send_json(data, status, credentialed=True)
+            return
+
         if clean_path == "/api/portal/fleet/enrollment_token":
             data, status, cookie = self.passkey_handler.create_enrollment_token(self.headers)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
@@ -1344,7 +1413,12 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
-            account = session_account_from_headers(self.headers)
+            # Resolve session cookies without invoking the legacy auto-create
+            # path for arbitrary X-Owner-Key/Bearer header values. Raw owner
+            # keys below must already belong to an existing fleet account.
+            account = session_account_from_headers(
+                {"Cookie": self.headers.get("Cookie", "")}
+            )
             owner_key = ""
             if account is not None:
                 owner_key = account.owner_key
@@ -1354,16 +1428,20 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
             from services.gateway.server import owner_id_for_key
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+            # Only an actual, authenticated fleet account may enumerate
+            # owner-only tools or change MCP policy. Never hash an arbitrary
+            # claimant-supplied string into an authorization identity.
+            verified_account = account or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            if verified_account is None:
+                self._send_json({"error": "valid fleet authentication required"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
+            owner_id = owner_id_for_key(verified_account.owner_key)
             disabled_tools = body.get("disabled_tools", [])
             if not isinstance(disabled_tools, list):
                 disabled_tools = []

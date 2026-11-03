@@ -7,12 +7,17 @@ these routes directly; the trusted local OpenAI proxy does.
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
-from typing import Any, Iterator
+import sqlite3
+from collections.abc import Iterator
+from http import HTTPStatus
+from typing import Any
 from urllib.parse import urlparse
 
-from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialEnvelopeError
+from protocol.confidential_envelope import (
+    ConfidentialEnvelope,
+    ConfidentialEnvelopeError,
+)
 from protocol.confidential_metering import ConfidentialMeteringError
 from runtime.confidential.data_plane import (
     ConfidentialDataPlane,
@@ -25,14 +30,18 @@ from runtime.confidential.replay_store import (
     ConfidentialReplayStore,
 )
 from runtime.confidential.session import ConfidentialSessionStateError
-from runtime.confidential.stream_data_plane import PinnedHttpsConfidentialStreamDataPlane
+from runtime.confidential.stream_data_plane import (
+    PinnedHttpsConfidentialStreamDataPlane,
+)
+from services.billing.accounting import AccountingStoreError
+from services.billing.ledger import BillingError
+from services.billing.owner_accounts import OwnerAccountStoreError
 from services.gateway.confidential_coordinator import (
     ConfidentialCoordinatorError,
     ConfidentialInferenceCoordinator,
 )
 from services.gateway.live_handler import MAX_CONFIDENTIAL_HTTP_BYTES
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
-
 
 INTERNAL_CONFIDENTIAL_SESSION_PATH = "/internal/v1/confidential/sessions"
 INTERNAL_CONFIDENTIAL_COMPLETION_PATH = "/internal/v1/confidential/chat/completions"
@@ -186,7 +195,7 @@ class ProtectedTransportMixin:
                 max_prompt_tokens=max_prompt,
                 max_completion_tokens=max_completion,
             )
-        except Exception:
+        except (ConfidentialCoordinatorError, BillingError, OwnerAccountStoreError, AccountingStoreError, sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response(
                 "Confidential session could not be admitted",
                 "confidential_execution_unavailable",
@@ -292,7 +301,7 @@ class ProtectedTransportMixin:
             )
             if reservation is None or reservation.state != "reserved":
                 raise ConfidentialCoordinatorError("confidential financial reservation is missing")
-        except Exception:
+        except (ConfidentialCoordinatorError, BillingError, OwnerAccountStoreError, AccountingStoreError, sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response(
                 "Confidential session binding could not be verified",
                 "invalid_confidential_envelope",
@@ -342,7 +351,7 @@ class ProtectedTransportMixin:
                 "confidential_session_state",
                 HTTPStatus.CONFLICT,
             )
-        except Exception:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response(
                 "Confidential replay protection is unavailable",
                 "confidential_execution_unavailable",
@@ -385,7 +394,7 @@ class ProtectedTransportMixin:
                 HTTPStatus.BAD_GATEWAY,
             )
             return
-        except Exception:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response(
                 "Confidential execution failed",
                 "confidential_execution_failed",
@@ -396,7 +405,7 @@ class ProtectedTransportMixin:
         billing_status = "completed"
         try:
             coordinator.settle_metered_session(job_id=session.job_id)
-        except Exception:
+        except (ConfidentialCoordinatorError, BillingError, OwnerAccountStoreError, AccountingStoreError, sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             billing_status = "recovery_pending"
         self._send_json(
             {
@@ -491,7 +500,7 @@ class ProtectedTransportMixin:
                 billing_status = "completed"
                 try:
                     coordinator.settle_metered_session(job_id=session.job_id)
-                except Exception:
+                except (ConfidentialCoordinatorError, BillingError, OwnerAccountStoreError, AccountingStoreError, sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     billing_status = "recovery_pending"
                 self.wfile.write(
                     self._ndjson(

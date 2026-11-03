@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..tool_registry import ToolRegistry
@@ -25,9 +25,9 @@ def canonical_name(registry: ToolRegistry, name: str) -> str:
 _canonical_name = canonical_name
 
 
-def parse_fallback_tool_calls(content: str, registry: ToolRegistry) -> List[Dict[str, Any]]:
+def parse_fallback_tool_calls(content: str, registry: ToolRegistry) -> list[dict[str, Any]]:
     """Parse compatibility tool-call formats emitted by older/local models (XML, Markdown JSON, raw JSON)."""
-    tool_calls: List[Dict[str, Any]] = []
+    tool_calls: list[dict[str, Any]] = []
 
     if "<tool_call>" in content:
         for match in XML_TOOL_CALL_RE.finditer(content):
@@ -101,7 +101,7 @@ def parse_fallback_tool_calls(content: str, registry: ToolRegistry) -> List[Dict
 _fallback_tool_calls = parse_fallback_tool_calls
 
 
-def decode_tool_arguments(raw_args: Any) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+def decode_tool_arguments(raw_args: Any) -> tuple[dict[str, Any] | None, str | None]:
     """Decodes JSON strings, dicts, or parameter structures into Python dictionaries."""
     if isinstance(raw_args, dict):
         return raw_args, None

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from protocol.control import ControlEnvelope
 from protocol.node_session import NodeSessionState, SessionSnapshot
@@ -13,8 +13,11 @@ from services.orchestrator.live_provider_registration import (
     LiveProviderRegistration,
 )
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
+from services.orchestrator.persistent_control_channel import (
+    PersistentControlChannelError,
+)
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 def session(state=NodeSessionState.PROFILE_SYNCED, revision=4):
@@ -151,7 +154,7 @@ class LiveProviderRegistrationTests(unittest.TestCase):
             "llama_build_number": 123,
             "rpc": {"host": "10.0.0.2", "port": 50052},
         }
-        with self.assertRaises(Exception):
+        with self.assertRaises(PersistentControlChannelError):
             registration.consume(envelope("RuntimeAdvertisement", runtime, snap), snap)
 
     def test_authenticated_model_catalogue_admits_node_to_agent_registry(self):

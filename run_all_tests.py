@@ -133,6 +133,15 @@ CATEGORIES: dict[str, list[str]] = {
         "runtime.tests.test_architecture_hardening",
         "services.orchestrator.tests.test_architecture_hardening_part2",
         "services.orchestrator.tests.test_architecture_hardening_part3",
+        "services.orchestrator.tests.test_architecture_hardening_part4",
+        "services.orchestrator.tests.test_architecture_hardening_part5",
+        "services.scheduler.tests.test_architecture_hardening_part6",
+        "services.orchestrator.tests.test_architecture_hardening_part7",
+        "services.orchestrator.tests.test_architecture_hardening_part8",
+        "services.orchestrator.tests.test_architecture_hardening_part11",
+        "services.orchestrator.tests.test_architecture_hardening_part12",
+        "services.orchestrator.tests.test_architecture_hardening_part13",
+        "services.orchestrator.tests.test_architecture_hardening_part14",
 
         "runtime.network.tests.test_tcp_relay",
         "runtime.network.tests.test_mesh_transport",
@@ -212,7 +221,7 @@ def run_test_suite() -> int:
         for mod in modules:
             try:
                 suite.addTests(loader.loadTestsFromName(mod))
-            except Exception as exc:  # noqa: BLE001 - report a bad module and continue other suites.
+            except (ImportError, AttributeError, TypeError, ValueError, OSError, SyntaxError, RuntimeError) as exc:
                 print(f"  [ERROR] Failed to load test module {mod}: {exc}")
                 all_successful = False
         cat_start = time.perf_counter()

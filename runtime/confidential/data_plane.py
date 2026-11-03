@@ -7,18 +7,22 @@ content-free usage receipt whose Ed25519 key is also attested.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import contextlib
 import hashlib
 import hmac
 import http.client
 import json
 import ssl
-from typing import Callable, Protocol
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Protocol
 from urllib.parse import urlparse
 
-from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialResponseEnvelope
+from protocol.confidential_envelope import (
+    ConfidentialEnvelope,
+    ConfidentialResponseEnvelope,
+)
 from protocol.confidential_metering import ConfidentialUsageReceipt
-
 
 MAX_DATA_PLANE_RESPONSE_BYTES = 8 * 1024 * 1024 + 512 * 1024
 
@@ -114,8 +118,7 @@ class PinnedHttpsConfidentialDataPlane:
         if not 1024 <= max_response_bytes <= 16 * 1024 * 1024:
             raise ValueError("invalid confidential data-plane response limit")
         context = ssl_context or ssl.create_default_context()
-        if context.minimum_version < ssl.TLSVersion.TLSv1_3:
-            context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.minimum_version = max(context.minimum_version, ssl.TLSVersion.TLSv1_3)
         self.ssl_context = context
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
@@ -177,10 +180,8 @@ class PinnedHttpsConfidentialDataPlane:
         except (OSError, ssl.SSLError, http.client.HTTPException, TimeoutError) as exc:
             raise ConfidentialDataPlaneError("confidential data-plane transport failed") from exc
         finally:
-            try:
+            with contextlib.suppress(OSError, http.client.HTTPException, ValueError):
                 connection.close()
-            except Exception:
-                pass
 
         try:
             value = json.loads(raw.decode("utf-8"))

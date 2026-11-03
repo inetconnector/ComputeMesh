@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import urllib.parse
-from typing import Any, Dict
+from typing import Any
 
 from .http_json import ProviderError, fetch_json
 
@@ -16,7 +16,7 @@ def search_places(
     location: str = "",
     limit: int = 5,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Find named places, POIs and businesses, optionally scoped to a location."""
     search_term = str(query or "").strip()
     scope = str(location or "").strip()

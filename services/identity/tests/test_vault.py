@@ -2,7 +2,7 @@
 """Unit tests for AES-256-GCM EncryptedVault."""
 import unittest
 
-from services.identity.vault import DEFAULT_VAULT, EncryptedVault, VaultError
+from services.identity.vault import EncryptedVault, VaultError
 
 
 class TestEncryptedVault(unittest.TestCase):

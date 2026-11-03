@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import gzip
 import threading
 from urllib import error, request, robotparser
 from urllib.parse import urlsplit
@@ -56,10 +55,15 @@ class HardenedSafeFetcher:
                     raise ValueError("robots.txt exceeds size limit")
                 text = raw.decode("utf-8", "replace")
             rp.parse(text.splitlines())
-        except Exception:
-            # Keep existing ComputeMesh crawler behavior: an unavailable robots endpoint
-            # is not treated as an implicit site-wide deny. Explicit Disallow rules are obeyed.
-            rp.parse([])
+        except error.HTTPError as exc:
+            # Missing robots.txt (404/410) has no rules. Other HTTP failures
+            # cannot be interpreted as permission to crawl.
+            if exc.code in (404, 410):
+                rp.parse([])
+            else:
+                raise PermissionError("cannot verify robots.txt crawl permission") from exc
+        except (error.URLError, OSError, ValueError, UnicodeError) as exc:
+            raise PermissionError("cannot verify robots.txt crawl permission") from exc
 
         with self._robots_lock:
             self._robots[base] = rp
@@ -71,7 +75,7 @@ class HardenedSafeFetcher:
 
     def fetch(self, url: str, *, etag: str | None = None, last_modified: str | None = None):
         # Import lazily to avoid a module cycle: crawler.FetchResult is the shared return contract.
-        from .crawler import FetchResult
+        from .crawler import FetchResult, _decompress_gzip_with_limit
 
         safe = validate_public_http_url(url)
         if not self.allowed(safe):
@@ -100,9 +104,9 @@ class HardenedSafeFetcher:
                     if len(body) > self.config.max_response_bytes:
                         raise ValueError("response exceeds configured size limit")
                     if (resp.headers.get("Content-Encoding") or "").lower() == "gzip":
-                        body = gzip.decompress(body)
-                        if len(body) > self.config.max_response_bytes:
-                            raise ValueError("decompressed response exceeds configured size limit")
+                        body = _decompress_gzip_with_limit(
+                            body, self.config.max_response_bytes,
+                        )
                     return FetchResult(
                         final_url,
                         int(resp.status),

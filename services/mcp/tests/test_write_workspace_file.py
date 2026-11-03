@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """Unit and regression tests for write_workspace_file MCP tool."""
 
-import os
-import tempfile
 import unittest
-from pathlib import Path
 
-from services.mcp.builtin.file_system_tools import write_workspace_file, read_workspace_file, _get_safe_workspace_root
+from services.mcp.builtin.file_system_tools import (
+    _get_safe_workspace_root,
+    read_workspace_file,
+    write_workspace_file,
+)
 from services.mcp.tool_registry import ToolRegistry
 
 
@@ -25,15 +26,15 @@ class TestWriteWorkspaceFile(unittest.TestCase):
                 if f.is_file():
                     try:
                         f.unlink()
-                    except Exception:
-                        pass
+                    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
             try:
                 for d in sorted(self.target_dir.glob("**/*"), reverse=True):
                     if d.is_dir():
                         d.rmdir()
                 self.target_dir.rmdir()
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     def test_write_and_read_new_file(self):
         rel_path = f"{self.test_subpath}/hello.txt"

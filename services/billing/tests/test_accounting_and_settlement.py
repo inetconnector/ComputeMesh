@@ -1,8 +1,8 @@
 """Tests for durable provider accounts, webhook inbox, and Stripe Connect settlements."""
-from pathlib import Path
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from services.billing.accounting import AccountingStore

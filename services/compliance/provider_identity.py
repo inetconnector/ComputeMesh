@@ -17,16 +17,17 @@ Key Architectural Principles:
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-import hashlib
-import json
 import re
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from enum import Enum
 from typing import Any
 
-from .dsa_policy import ApplicabilityDecision, DSAApplicabilityPolicy, PlatformOperatorLegalProfile
-from .legal_registry import LegalRuleRegistry
+from .dsa_policy import (
+    ApplicabilityDecision,
+    DSAApplicabilityPolicy,
+    PlatformOperatorLegalProfile,
+)
 
 DSA_TRADER_DECLARATION_VERSION = "dsa_art30_v1.0"
 ISO_COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
@@ -129,7 +130,7 @@ class EvidenceConfidence(str, Enum):
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 @dataclass(frozen=True)
@@ -656,11 +657,10 @@ def evaluate_provider_requirements(
     has_active_decl = False
     active_version: str | None = None
     for decl in declarations:
-        if decl.declaration_type in {"DSA_ART30_TRADER_COMMITMENT", "dsa_art30"} or decl.version == DSA_TRADER_DECLARATION_VERSION:
-            if decl.accepted_at:
-                has_active_decl = True
-                active_version = decl.version
-                break
+        if (decl.declaration_type in {"DSA_ART30_TRADER_COMMITMENT", "dsa_art30"} or decl.version == DSA_TRADER_DECLARATION_VERSION) and decl.accepted_at:
+            has_active_decl = True
+            active_version = decl.version
+            break
 
     if applicability.article_30_applicable:
         if not has_active_decl:

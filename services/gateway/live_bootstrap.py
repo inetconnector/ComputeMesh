@@ -9,10 +9,19 @@ from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import InferenceBackendError
 from services.identity.threaded_resolver import SQLiteIdentityKeyResolver
 from services.orchestrator.live_shared_backend import LiveSharedInferenceBackend
-from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveSharedRuntimeRegistry
-from services.orchestrator.placement_provider import ReferencePlacementProvider, RemotePlacementProvider
+from services.orchestrator.live_shared_runtime import (
+    LIVE_SHARED_RUNTIME,
+    LiveSharedRuntimeRegistry,
+)
+from services.orchestrator.placement_provider import (
+    ReferencePlacementProvider,
+    RemotePlacementProvider,
+)
 from services.orchestrator.private_feedback import PrivateOutcomeFeedback
-from services.orchestrator.startup_recovery import RecoveryStateStore, reconcile_startup_state
+from services.orchestrator.startup_recovery import (
+    RecoveryStateStore,
+    reconcile_startup_state,
+)
 
 
 def _int_env(name: str, default: int) -> int:

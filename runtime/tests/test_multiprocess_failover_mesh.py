@@ -1,12 +1,14 @@
-import unittest
+import json
 import multiprocessing
 import socket
 import time
-import json
+import unittest
+
 from runtime.autonomous_failover_mesh import (
-    EndToEndLatencyOptimizer,
     AutonomousFailoverMeshFabric,
+    EndToEndLatencyOptimizer,
 )
+
 
 def run_real_node_server(
     port_queue: multiprocessing.Queue,
@@ -27,7 +29,7 @@ def run_real_node_server(
     sock.settimeout(0.5)
     while not stop_event.is_set():
         try:
-            conn, addr = sock.accept()
+            conn, _addr = sock.accept()
             with conn:
                 if simulate_stall:
                     # Accept connection but do not read or send anything
@@ -44,7 +46,7 @@ def run_real_node_server(
                         data += chunk
                         if b'\n' in data:
                             break
-                    except socket.timeout:
+                    except TimeoutError:
                         break
                 if data:
                     try:
@@ -73,7 +75,7 @@ def run_real_node_server(
                                 conn.sendall(resp_bytes + b'\n')
                     except json.JSONDecodeError:
                         pass
-        except socket.timeout:
+        except TimeoutError:
             continue
         except OSError:
             break

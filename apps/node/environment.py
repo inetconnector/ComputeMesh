@@ -14,9 +14,10 @@ import inspect
 import os
 import threading
 import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from protocol.node_session import SessionSnapshot
 from services.mcp.platform.environment import (

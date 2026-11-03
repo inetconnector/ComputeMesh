@@ -1,15 +1,11 @@
 """Unit tests for ComputeMesh Android Node Protocol & Battery Guard."""
-import json
-from pathlib import Path
-import sys
 import unittest
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from pathlib import Path
 
 from apps.android.android_node_relay import AndroidBatteryPolicy, AndroidNodeRelay
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestAndroidNodeProtocol(unittest.TestCase):
     def test_battery_policy_charging_and_cool(self) -> None:

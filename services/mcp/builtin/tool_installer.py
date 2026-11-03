@@ -4,12 +4,11 @@
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.tool_installer")
 
@@ -26,7 +25,7 @@ KNOWN_TOOLS = {
 }
 
 
-def detect_missing_tools(tool_names: Optional[List[str]] = None) -> Dict[str, Any]:
+def detect_missing_tools(tool_names: list[str] | None = None) -> dict[str, Any]:
     """Scans system PATH to identify installed vs missing development tools."""
     targets = tool_names or list(KNOWN_TOOLS.keys())
     installed = []
@@ -67,7 +66,7 @@ def detect_missing_tools(tool_names: Optional[List[str]] = None) -> Dict[str, An
     }
 
 
-def install_dev_tool(tool_name: str, package_manager: Optional[str] = None) -> Dict[str, Any]:
+def install_dev_tool(tool_name: str, package_manager: str | None = None) -> dict[str, Any]:
     """Installs a requested Python or CLI developer tool safely."""
     clean_name = str(tool_name or "").strip().lower()
     rec = KNOWN_TOOLS.get(clean_name, {})
@@ -85,8 +84,7 @@ def install_dev_tool(tool_name: str, package_manager: Optional[str] = None) -> D
     try:
         proc = subprocess.run(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            check=False, capture_output=True,
             text=True,
             timeout=60.0,
             shell=True,
@@ -100,5 +98,5 @@ def install_dev_tool(tool_name: str, package_manager: Optional[str] = None) -> D
             "stdout": proc.stdout[:2000] if proc.stdout else "",
             "stderr": proc.stderr[:2000] if proc.stderr else "",
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "tool_name": clean_name, "error": f"Installationsfehler: {exc}"}

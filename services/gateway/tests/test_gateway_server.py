@@ -74,7 +74,7 @@ class FakeAccountAPI:
 
     def retrieve(self, account_id: str):
         if account_id not in self.accounts:
-            raise Exception(f"Account {account_id} not found")
+            raise KeyError(f"Account {account_id} not found")
         return self.accounts[account_id]
 
 
@@ -495,6 +495,151 @@ class TestGatewayServer(unittest.TestCase):
         self.assertEqual(payload["object"], "agent_turn")
         self.assertEqual(payload["session"]["status"], "running")
         self.assertEqual(payload["turn"]["status"], "queued")
+
+    def test_agent_session_m1_sse_stream_fork_side_chat_queue_steer_and_replay(self) -> None:
+        self.register_customer_key("cm_live_m1_owner", "cust_m1_owner")
+        self.register_customer_key("cm_live_m1_other", "cust_m1_other")
+        headers = {
+            "Authorization": "Bearer cm_live_m1_owner",
+            "Content-Type": "application/json",
+        }
+        other_headers = {
+            "Authorization": "Bearer cm_live_m1_other",
+            "Content-Type": "application/json",
+        }
+
+        # 1. Create task session
+        create_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions",
+            data=json.dumps({
+                "agent_id": "mesh.agent",
+                "model": "qwen2.5:3b",
+                "input": {"role": "user", "content": "initial task", "api_key": "secret-val"},
+                "title": "M1 Parity Thread",
+                "workspace": "ws-m1",
+            }).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(create_req) as resp:
+            created = json.loads(resp.read().decode("utf-8"))
+        session_id = created["session"]["session_id"]
+        turn_id = created["turn"]["turn_id"]
+        GatewayHandler.agent_session_store.transition_turn(turn_id, "running")
+
+        # 2. Steer with Idempotency-Key and expected_version
+        running_turn = GatewayHandler.agent_session_store.get_turn(turn_id)
+        steer_body = json.dumps({
+            "turn_id": turn_id,
+            "input": "steer focus to tests",
+            "expected_version": running_turn.version,
+        }).encode("utf-8")
+        steer_req = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/steer",
+            data=steer_body,
+            headers={**headers, "Idempotency-Key": "idem-steer-m1"},
+            method="POST",
+        )
+        with urllib.request.urlopen(steer_req) as resp:
+            steered1 = json.loads(resp.read().decode("utf-8"))
+        # Replay with same Idempotency-Key returns identical item even though version advanced
+        with urllib.request.urlopen(steer_req) as resp:
+            steered2 = json.loads(resp.read().decode("utf-8"))
+        self.assertEqual(steered1["item"]["item_id"], steered2["item"]["item_id"])
+
+        # Stale expected_version without matching idempotency key fails closed with 409 Conflict
+        stale_steer = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/steer",
+            data=steer_body,
+            headers=headers,
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(stale_steer)
+        self.assertEqual(ctx.exception.code, 409)
+
+        # 3. Queue follow-up turn while turn 1 is still running
+        queue_req = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/queue",
+            data=json.dumps({
+                "input": "queued follow-up",
+                "idempotency_key": "idem-queue-m1",
+            }).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(queue_req) as resp:
+            queued1 = json.loads(resp.read().decode("utf-8"))
+        with urllib.request.urlopen(queue_req) as resp:
+            queued2 = json.loads(resp.read().decode("utf-8"))
+        self.assertEqual(queued1["turn"]["turn_id"], queued2["turn"]["turn_id"])
+
+        # 4. Projected items redact secret keys and support v2 schema
+        items_req = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/items",
+            headers=headers,
+        )
+        with urllib.request.urlopen(items_req) as resp:
+            items_payload = json.loads(resp.read().decode("utf-8"))
+        self.assertEqual(items_payload["schema_version"], 2)
+        self.assertEqual(items_payload["items"][0]["content"]["api_key"], "[REDACTED]")
+
+        # 5. Fork and side-chat endpoints + principal isolation
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(urllib.request.Request(
+                f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/fork",
+                data=b"{}",
+                headers=other_headers,
+                method="POST",
+            ))
+        self.assertEqual(ctx.exception.code, 403)
+
+        fork_req = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/fork",
+            data=json.dumps({"up_to_sequence": 1, "title": "M1 Fork"}).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(fork_req) as resp:
+            forked = json.loads(resp.read().decode("utf-8"))
+        self.assertEqual(forked["session"]["session_kind"], "fork")
+        self.assertEqual(forked["session"]["parent_session_id"], session_id)
+
+        side_req = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/side-chat",
+            data=json.dumps({"context_turn_id": turn_id, "input": "side question"}).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(side_req) as resp:
+            side = json.loads(resp.read().decode("utf-8"))
+        self.assertEqual(side["session"]["session_kind"], "side_chat")
+        self.assertIsNotNone(side["turn"])
+
+        # 6. SSE stream with backpressure (limit=2), Last-Event-ID resume, and cursor gap detection
+        sse_req = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/events/stream?limit=2&wait_seconds=0",
+            headers={"Authorization": "Bearer cm_live_m1_owner"},
+        )
+        with urllib.request.urlopen(sse_req) as resp:
+            self.assertIn("text/event-stream", resp.headers["Content-Type"])
+            sse_body = resp.read().decode("utf-8")
+        self.assertIn("event: stream.open", sse_body)
+        self.assertIn("id: 1", sse_body)
+        self.assertIn("id: 2", sse_body)
+        self.assertIn('"backpressure":true', sse_body)
+
+        sse_gap_req = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/events/stream?wait_seconds=0",
+            headers={
+                "Authorization": "Bearer cm_live_m1_owner",
+                "Last-Event-ID": "999",
+            },
+        )
+        with urllib.request.urlopen(sse_gap_req) as resp:
+            gap_body = resp.read().decode("utf-8")
+        self.assertIn("event: cursor.gap", gap_body)
+        self.assertIn("cursor_ahead_of_head", gap_body)
 
     def register_provider_key(self, provider_node_id: str) -> str:
         token = f"cm_provider_{provider_node_id}"

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -84,12 +84,12 @@ def _canonical_digest(value: Any) -> str:
 
 def _parse_time(value: str, label: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except (TypeError, ValueError, AttributeError) as exc:
         raise SharedRunEvidenceError(f"{label} has invalid date-time") from exc
     if parsed.tzinfo is None:
         raise SharedRunEvidenceError(f"{label} must include a timezone")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _same_numbers(actual: list[Any], expected: list[Any]) -> bool:
@@ -302,7 +302,7 @@ def build_shared_run_evidence(
     evidence = {
         "schema_version": 1,
         "evidence_id": evidence_id,
-        "captured_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "scope": "m1_two_node_shared_runtime_proof",
         "experiment_bundle_id": bundle["bundle_id"],
         "placement_decision_id": bundle["placement_decision"]["decision_id"],

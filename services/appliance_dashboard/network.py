@@ -4,10 +4,8 @@ from __future__ import annotations
 import platform
 import socket
 import subprocess
-from typing import Any
 
 from config import CONFIG
-from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 
 
 def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = "", port: int = 8080) -> list[dict[str, str]]:
@@ -38,14 +36,15 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
                 "url": f"http://{primary_ip}:{port}/",
                 "config_url": f"http://{primary_ip}:{port}/#config",
             })
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        primary_ip = ""
+        _ = exc
 
     # 2. Hostname resolution (sort home LAN 192.168.* / 10.* before virtual 172.*)
     try:
         host_name = socket.gethostname()
         for ip in socket.gethostbyname_ex(host_name)[2]:
-            if ip.startswith("127.") or ip.startswith("169.254."):
+            if ip.startswith(("127.", "169.254.")):
                 continue
             # Filter out WSL / Hyper-V / Docker host-only networks if we already have a physical LAN IP
             is_virtual_subnet = any(ip.startswith(f"172.{i}.") for i in range(16, 32))
@@ -59,8 +58,8 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
                     "url": f"http://{ip}:{port}/",
                     "config_url": f"http://{ip}:{port}/#config",
                 })
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
 
     # 3. Linux ip addr command
     if platform.system().lower() == "linux":
@@ -79,7 +78,7 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
                             "url": f"http://{ip}:{port}/",
                             "config_url": f"http://{ip}:{port}/#config",
                         })
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
+            _ = exc
 
     return interfaces

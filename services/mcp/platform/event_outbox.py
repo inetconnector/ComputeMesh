@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
+from typing import Self
 
 from .session import AgentSessionStore, SessionEvent
 
@@ -100,13 +101,13 @@ class AgentEventOutboxDispatcher:
                 if self.store.ack_pending_events(self.consumer_id, [event.event_id]) != 1:
                     raise EventOutboxDispatchError("event acknowledgement lost its claim")
                 delivered += 1
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 failed += 1
                 with self._lock:
                     self._last_error = f"{type(exc).__name__}: {exc}"
                 try:
                     released += self.store.release_pending_events(self.consumer_id, [event.event_id])
-                except Exception as release_exc:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as release_exc:
                     with self._lock:
                         self._last_error = f"{type(release_exc).__name__}: {release_exc}"
         return OutboxDispatchStats(
@@ -125,7 +126,7 @@ class AgentEventOutboxDispatcher:
         while not self._stop.is_set():
             try:
                 stats = self.dispatch_once()
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 # A transient database/connection failure must not silently
                 # terminate the supervised delivery thread.
                 with self._lock:
@@ -160,7 +161,7 @@ class AgentEventOutboxDispatcher:
         self.stop()
         self.join(timeout)
 
-    def __enter__(self) -> "AgentEventOutboxDispatcher":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: object) -> None:

@@ -7,32 +7,27 @@ Enforces invariants:
 - "recovery never assumes a failed node retained state."
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class HardeningPart12Error(RuntimeError):
     """Base exception for Part 12 invariant violations."""
-    pass
 
 
 class StaleResponseError(HardeningPart12Error):
     """Raised when a stale provider response attempts to overwrite a newer placement."""
-    pass
 
 
 class CancellationPropagationError(HardeningPart12Error):
     """Raised when cancellation is not successfully propagated to all active workers."""
-    pass
 
 
 class MissingEvidenceError(HardeningPart12Error):
     """Raised when billable work lacks accepted execution evidence."""
-    pass
 
 
 class InvalidRecoveryStateError(HardeningPart12Error):
     """Raised when recovery assumes a failed node retained state."""
-    pass
 
 
 class StaleProviderResponseEnforcer:
@@ -48,7 +43,7 @@ class StaleProviderResponseEnforcer:
 class UserCancellationPropagator:
     """Enforces: user cancellation is propagated."""
 
-    def propagate_cancellation(self, job_id: str, active_workers: List[str]) -> None:
+    def propagate_cancellation(self, job_id: str, active_workers: list[str]) -> None:
         if not active_workers:
             # If there are no workers, cancellation has technically reached everyone
             return
@@ -67,7 +62,7 @@ class UserCancellationPropagator:
 class ExecutionEvidenceEnforcer:
     """Enforces: billable work maps to accepted execution evidence."""
 
-    def enforce_billable_work(self, job_id: str, evidence: Optional[Dict[str, Any]]) -> None:
+    def enforce_billable_work(self, job_id: str, evidence: dict[str, Any] | None) -> None:
         if not evidence:
             raise MissingEvidenceError(f"Billable work for job {job_id} lacks execution evidence.")
 
@@ -78,9 +73,8 @@ class ExecutionEvidenceEnforcer:
 class RecoveryStateEnforcer:
     """Enforces: recovery never assumes a failed node retained state."""
 
-    def validate_recovery(self, node_state: Dict[str, Any]) -> None:
-        if node_state.get("failed", False):
-            if node_state.get("retained_state", False):
-                raise InvalidRecoveryStateError(
-                    "Recovery invariant violated: cannot assume a failed node retained state."
-                )
+    def validate_recovery(self, node_state: dict[str, Any]) -> None:
+        if node_state.get("failed", False) and node_state.get("retained_state", False):
+            raise InvalidRecoveryStateError(
+                "Recovery invariant violated: cannot assume a failed node retained state."
+            )

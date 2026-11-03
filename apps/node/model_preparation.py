@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
-from typing import Any, Mapping
+from typing import Any
 
 from protocol.node_session import SessionSnapshot
 from services.appliance_dashboard.model_manager import ModelManager, get_model_manager
@@ -35,7 +36,7 @@ class ModelPreparationManifestEntry:
     license_id: str
 
     @classmethod
-    def from_mapping(cls, model_id: str, raw: Mapping[str, Any]) -> "ModelPreparationManifestEntry":
+    def from_mapping(cls, model_id: str, raw: Mapping[str, Any]) -> ModelPreparationManifestEntry:
         if not isinstance(raw, Mapping):
             raise ModelPreparationManifestError("model manifest entry must be an object")
         normalized_id = str(model_id or "")
@@ -106,7 +107,7 @@ class AllowlistedModelPreparationExecutor:
         document: Mapping[str, Any],
         *,
         manager: ModelManager | None = None,
-    ) -> "AllowlistedModelPreparationExecutor":
+    ) -> AllowlistedModelPreparationExecutor:
         if not isinstance(document, Mapping) or document.get("schema_version") != 1:
             raise ModelPreparationManifestError("model preparation manifest must use schema_version 1")
         raw_models = document.get("models")
@@ -119,7 +120,7 @@ class AllowlistedModelPreparationExecutor:
         return cls(entries, manager=manager)
 
     @classmethod
-    def from_path(cls, path: str | Path, *, manager: ModelManager | None = None) -> "AllowlistedModelPreparationExecutor":
+    def from_path(cls, path: str | Path, *, manager: ModelManager | None = None) -> AllowlistedModelPreparationExecutor:
         manifest_path = Path(path)
         if manifest_path.is_symlink() or not manifest_path.is_file():
             raise ModelPreparationManifestError("model preparation manifest does not exist")

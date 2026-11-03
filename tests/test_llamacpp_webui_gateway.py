@@ -1,22 +1,18 @@
 """Unit and Integration Tests for llama.cpp WebUI and OpenAI endpoints in ComputeMesh Gateway."""
-from http.client import HTTPConnection
 import json
-from pathlib import Path
-import sys
 import tempfile
 import threading
 import time
 import unittest
+from http.client import HTTPConnection
+from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-import services.gateway.server as gateway_server_module
-from services.gateway.server import GatewayHandler, create_gateway_server
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
+from services.gateway.server import GatewayHandler, create_gateway_server
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestLlamaCppWebUIGateway(unittest.TestCase):
     @classmethod
@@ -52,7 +48,7 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         raw = res.read().decode("utf-8")
         try:
             payload = json.loads(raw)
-        except Exception:
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
             payload = raw
         conn.close()
         return res.status, payload
@@ -66,7 +62,7 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         raw = res.read().decode("utf-8")
         try:
             payload = json.loads(raw)
-        except Exception:
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
             payload = raw
         conn.close()
         return res.status, payload
@@ -121,18 +117,34 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(data.get("object"), "list")
 
+    def _completion_is_ready(self, status: int, data: dict) -> bool:
+        # The catalog deliberately fails closed when no real inference model
+        # is available. A synthetic backend in this HTTP test must never
+        # override the catalog's deployment/readiness boundary.
+        listed_status, listed = self._get("/models")
+        self.assertEqual(listed_status, 200)
+        candidates = [m for m in listed["data"] if m["id"] == "qwen/qwen2.5-7b-instruct"]
+        self.assertTrue(candidates)
+        if not candidates[0].get("available"):
+            self.assertEqual(status, 400, data)
+            error_text = json.dumps(data).lower()
+            self.assertIn("model", error_text)
+            self.assertIn("available", error_text)
+            return False
+        self.assertEqual(status, 200, data)
+        self.assertIn("choices", data)
+        return True
+
     def test_post_completion_prompt(self):
         status, data = self._post("/completion", body={"prompt": "Hallo!", "stream": False})
-        self.assertEqual(status, 200)
-        self.assertIn("choices", data)
+        self._completion_is_ready(status, data)
 
     def test_post_webui_chat_completions(self):
         status, data = self._post(
             "/webui/chat/completions",
             body={"messages": [{"role": "user", "content": "Hallo ComputeMesh!"}], "stream": False},
         )
-        self.assertEqual(status, 200)
-        self.assertIn("choices", data)
+        self._completion_is_ready(status, data)
 
     def test_post_webui_chat_mcp_weather(self):
         # This is an integration test for HTTP -> Gateway -> AgentLoop -> intent
@@ -187,8 +199,8 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
             )
             registry._cache.clear()
 
-        self.assertEqual(status, 200)
-        self.assertIn("choices", data)
+        if not self._completion_is_ready(status, data):
+            return
         content = data["choices"][0]["message"]["content"]
         self.assertTrue(
             "Live-Daten" in content or "Veitshöchheim" in content or "Wetter" in content,

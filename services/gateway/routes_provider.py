@@ -5,18 +5,18 @@ Handles /v1/providers/register, /v1/providers/stripe/onboard,
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 import os
+from http import HTTPStatus
 from pathlib import Path
-import sys
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.billing.accounting import AccountingStore, AccountingStoreError
-from services.billing.ledger import InsufficientBalanceError, Ledger, MICRO_UNIT_SCALE
+from services.billing.ledger import (
+    MICRO_UNIT_SCALE,
+    BillingError,
+    InsufficientBalanceError,
+    Ledger,
+)
 from services.billing.stripe_connect import (
     SettlementExecutor,
     StripeConnectService,
@@ -24,8 +24,10 @@ from services.billing.stripe_connect import (
 )
 from services.billing.stripe_integration import StripeIntegrationError
 from services.common.config import CONFIG
-from services.gateway.auth import GatewayAuthManager, extract_bearer_token
+from services.gateway.auth import GatewayAuthManager
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class ProviderRoutesHandler:
     """Dispatches provider registration, Stripe Connect onboarding, and settlements."""
@@ -165,7 +167,7 @@ class ProviderRoutesHandler:
                 provider_node_id=str(body.get("provider_node_id", "")),
             )
             return (settlement.to_dict(), None, HTTPStatus.OK)
-        except (AccountingStoreError, InsufficientBalanceError, StripeIntegrationError, Exception) as exc:
+        except (AccountingStoreError, BillingError, InsufficientBalanceError, StripeIntegrationError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return (None, str(exc), HTTPStatus.BAD_REQUEST)
 
     def handle_admin_list_settlements(self, headers: Any, query: dict[str, list[str]]) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:

@@ -8,16 +8,15 @@ arguments for local llama.cpp multi-GPU or distributed RPC worker daemons.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import ipaddress
 import json
-from pathlib import Path
 import sys
-from typing import Any, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from cm_project_bootstrap import REPO_ROOT as REPO_ROOT
 
 from tools.appliance.hardware_detector import (
     GpuDevice,
@@ -210,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         plan = compute_multi_gpu_allocation(inventory, total_model_layers=args.model_layers)
         print(json.dumps(plan.to_dict(), indent=2, sort_keys=True))
         return 0
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         print(f"Error computing allocation: {exc}", file=sys.stderr)
         return 1
 

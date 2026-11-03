@@ -6,8 +6,7 @@ from __future__ import annotations
 import difflib
 import logging
 import os
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.code_patch_engine")
 
@@ -16,10 +15,10 @@ def replace_file_content(
     file_path: str,
     target_content: str,
     replacement_content: str,
-    start_line: Optional[int] = None,
-    end_line: Optional[int] = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
     allow_multiple: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Replaces exact code blocks in a target file with line range bounds and rollback protection."""
     clean_path = os.path.abspath(str(file_path or "").strip())
     if not os.path.isfile(clean_path):
@@ -77,14 +76,14 @@ def replace_file_content(
             "diff": "".join(diff),
             "total_lines": len(new_text.splitlines()),
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Fehler beim Patchen der Datei: {exc}", "success": False}
 
 
 def multi_replace_file_content(
     file_path: str,
-    replacement_chunks: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    replacement_chunks: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Applies multiple non-contiguous replacement chunks to a single file with atomic rollback."""
     clean_path = os.path.abspath(str(file_path or "").strip())
     if not os.path.isfile(clean_path):
@@ -95,7 +94,7 @@ def multi_replace_file_content(
             original_text = f.read()
 
         current_text = original_text
-        diff_all: List[str] = []
+        _diff_all: list[str] = []
         applied_count = 0
 
         # Sort chunks in reverse order by start_line to avoid index shift
@@ -151,5 +150,5 @@ def multi_replace_file_content(
             "diff": "".join(diff),
             "total_lines": len(current_text.splitlines()),
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Fehler bei Multi-Chunk-Ersetzung: {exc}", "success": False}

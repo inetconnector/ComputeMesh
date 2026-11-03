@@ -19,10 +19,14 @@ import secrets
 import signal
 import socket
 import threading
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
+from typing import Any
 from urllib.parse import urlparse
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from apps.node.environment import NodeEnvironmentError, NodeEnvironmentExecutor
 from apps.node.inference_backend import LocalOpenAIInferenceBackend
@@ -30,9 +34,11 @@ from apps.node.model_preparation import (
     AllowlistedModelPreparationExecutor,
     ModelPreparationManifestError,
 )
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from protocol.control import CURRENT_PROTOCOL_MINOR, SUPPORTED_PROTOCOL_MAJOR, ControlEnvelope
+from protocol.control import (
+    CURRENT_PROTOCOL_MINOR,
+    SUPPORTED_PROTOCOL_MAJOR,
+    ControlEnvelope,
+)
 from protocol.node_identity import (
     AUTH_METHOD,
     create_node_auth_proof,
@@ -241,7 +247,7 @@ def _local_model_engine_readiness() -> dict[str, Any]:
         from services.appliance_dashboard.model_manager import get_model_manager
 
         raw = get_model_manager().status().get("engine", {})
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError):
         return {
             "inference_state": "INFERENCE_NOT_READY",
             "runtime_verified": False,
@@ -425,14 +431,13 @@ class ProviderAgent:
             },
         )
         contracts.validate("RuntimeAdvertisement", self.runtime_advertisement)
-        if inference_executor is not None:
-            if (
-                self.runtime_advertisement.get("inference_state") != "INFERENCE_READY"
-                or self.runtime_advertisement.get("runtime_verified") is not True
-            ):
-                raise ProviderAgentError(
-                    "inference runtime must be advertised only after INFERENCE_READY and runtime verification"
-                )
+        if inference_executor is not None and (
+            self.runtime_advertisement.get("inference_state") != "INFERENCE_READY"
+            or self.runtime_advertisement.get("runtime_verified") is not True
+        ):
+            raise ProviderAgentError(
+                "inference runtime must be advertised only after INFERENCE_READY and runtime verification"
+            )
         contracts.validate("BenchmarkReport", self.prefill)
         contracts.validate("BenchmarkReport", self.decode)
         for report in self.network_reports:

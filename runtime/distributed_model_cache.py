@@ -5,16 +5,16 @@ prefetching, and cache eviction policies across P2P mesh nodes.
 """
 from __future__ import annotations
 
-import os
-import time
 import hashlib
 import json
 import logging
+import os
 import threading
-from dataclasses import dataclass, field, asdict
+import time
+from dataclasses import asdict, dataclass, field
+from multiprocessing import shared_memory
 from pathlib import Path
 from typing import Any
-from multiprocessing import shared_memory
 
 log = logging.getLogger("computemesh.runtime.distributed_cache")
 
@@ -91,7 +91,7 @@ class DistributedModelCache:
                         is_pinned=data.get("is_pinned", False),
                     )
                     self._manifests[model_id] = manifest
-                except Exception as exc:
+                except (OSError, ValueError, TypeError, KeyError) as exc:
                     log.warning("Failed to parse cache manifest %s: %s", manifest_file, exc)
 
     def register_model_shard(
@@ -306,7 +306,7 @@ class OffHeapCacheManager:
                 # Retain open shm handle to prevent Windows from releasing the named mapping early
                 self._chunks[chunk_id] = {"shm": shm, "shm_name": shm.name, "size": size}
             return True
-        except Exception as e:
+        except (OSError, ValueError, BufferError) as e:
             with self._lock:
                 self._used_quota -= size
             log.warning("Failed to allocate off-heap memory for %s: %s", chunk_id, e)
@@ -328,7 +328,7 @@ class OffHeapCacheManager:
             data = bytes(shm.buf[:size])
             shm.close()
             return data
-        except Exception as e:
+        except (OSError, ValueError, BufferError) as e:
             log.warning("Failed to read off-heap memory for %s: %s", chunk_id, e)
             return None
 
@@ -350,7 +350,7 @@ class OffHeapCacheManager:
                 s = shared_memory.SharedMemory(name=shm_name)
                 s.close()
                 s.unlink()
-        except Exception as e:
+        except (OSError, ValueError, BufferError) as e:
             log.warning("Failed to free off-heap memory for %s: %s", chunk_id, e)
 
     def get_used_quota(self) -> int:

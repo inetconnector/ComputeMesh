@@ -1,14 +1,18 @@
-from datetime import datetime, timedelta, timezone
-import sys
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from services.orchestrator import (
+    ContractAdmission,
+    ContractValidationError,
+    ContractValidator,
+    JobState,
+    SQLiteStateStore,
+)
+
+
 REPO = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(REPO))
-
-from services.orchestrator import ContractAdmission, ContractValidationError, ContractValidator, JobState, SQLiteStateStore
-
 
 class ContractTests(unittest.TestCase):
     def setUp(self):
@@ -28,7 +32,7 @@ class ContractTests(unittest.TestCase):
             "state": "CREATED",
             "revision": 0,
             "policy": {"privacy_tier": "public_compute", "latency_class": "interactive"},
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
         with SQLiteStateStore(Path(self.tmp.name) / "state.db") as store:
             record = ContractAdmission(store, self.validator).admit_job(job)
@@ -43,7 +47,7 @@ class ContractTests(unittest.TestCase):
             "state": "CREATED",
             "revision": 0,
             "policy": {"privacy_tier": "secret_magic", "latency_class": "interactive"},
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
         path = Path(self.tmp.name) / "state.db"
         with SQLiteStateStore(path) as store:
@@ -61,11 +65,10 @@ class ContractTests(unittest.TestCase):
             "state": "VALIDATING",
             "revision": 1,
             "policy": {"privacy_tier": "public_compute", "latency_class": "interactive"},
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
-        with SQLiteStateStore(Path(self.tmp.name) / "state.db") as store:
-            with self.assertRaisesRegex(ContractValidationError, "state=CREATED"):
-                ContractAdmission(store, self.validator).admit_job(job)
+        with SQLiteStateStore(Path(self.tmp.name) / "state.db") as store, self.assertRaisesRegex(ContractValidationError, "state=CREATED"):
+            ContractAdmission(store, self.validator).admit_job(job)
 
     def test_valid_reservation_admitted(self):
         reservation = {
@@ -75,7 +78,7 @@ class ContractTests(unittest.TestCase):
             "state": "CANDIDATE",
             "revision": 0,
             "resource_request": {"device_ids": ["gpu-0"], "memory_bytes": 1024},
-            "lease_expires_at": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+            "lease_expires_at": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
         }
         with SQLiteStateStore(Path(self.tmp.name) / "state.db") as store:
             record = ContractAdmission(store, self.validator).admit_reservation(reservation)
@@ -90,7 +93,7 @@ class ContractTests(unittest.TestCase):
             "state": "CREATED",
             "revision": 0,
             "policy": {"privacy_tier": "public_compute", "latency_class": "interactive"},
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "arbitrary_command": "rm -rf /",
         }
         with self.assertRaises(ContractValidationError):

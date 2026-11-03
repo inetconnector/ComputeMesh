@@ -8,9 +8,13 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict
+from typing import Any
 
-from .url_security import UnsafeTargetError, build_safe_public_opener, validate_public_url
+from .url_security import (
+    UnsafeTargetError,
+    build_safe_public_opener,
+    validate_public_url,
+)
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2"
 MAX_RESPONSE_BYTES = 512 * 1024
@@ -36,7 +40,7 @@ def clean_web_page_html(raw_html: str, max_chars: int = 12000) -> str:
     return cleaned
 
 
-def execute_web_fetch(url: str, max_chars: int = 12000, timeout: float = 12.0) -> Dict[str, Any]:
+def execute_web_fetch(url: str, max_chars: int = 12000, timeout: float = 12.0) -> dict[str, Any]:
     target = str(url or "").strip()
     if not target:
         return {"error": "URL darf nicht leer sein", "url": ""}

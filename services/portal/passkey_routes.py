@@ -10,25 +10,27 @@ Rate limiting: Token-bucket sliding window to prevent brute-force and email spam
 """
 from __future__ import annotations
 
-from collections import defaultdict
-from datetime import datetime, timezone
-from http import HTTPStatus
-from http.cookies import SimpleCookie
+import hashlib
+import json
+
+import ipaddress
 import logging
 import os
-from pathlib import Path
-import sys
+import sqlite3
 import threading
 import time
+from collections import defaultdict
+from http import HTTPStatus
+from http.cookies import CookieError, SimpleCookie
+from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 import webauthn
 from webauthn.helpers import bytes_to_base64url
-from webauthn.helpers.exceptions import InvalidRegistrationResponse, InvalidAuthenticationResponse
+from webauthn.helpers.exceptions import (
+    InvalidAuthenticationResponse,
+    InvalidRegistrationResponse,
+)
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     PublicKeyCredentialDescriptor,
@@ -36,11 +38,15 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-import hashlib
-import json
 from config import CONFIG
-from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError, utc_now
+from services.portal.fleet_accounts import (
+    FleetAccountStore,
+    FleetAccountStoreError,
+    utc_now,
+)
 from services.portal.mail_dispatcher import send_magic_link, send_security_alert
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 logger = logging.getLogger("computemesh.passkey_routes")
 
@@ -54,13 +60,20 @@ EXPECTED_ORIGIN = os.environ.get(
 
 
 def _get_expected_origins(headers: Any = None) -> list[str]:
-    origins = [EXPECTED_ORIGIN, "https://mesh.inetconnector.com", "https://inetconnector.com", "http://localhost:8000", "http://127.0.0.1:8000"]
-    if headers and hasattr(headers, "get"):
-        origin = str(headers.get("Origin", "")).strip().rstrip("/")
-        if origin and (origin.startswith("https://") or origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")):
-            if origin not in origins:
-                origins.append(origin)
-    return origins
+    """Return operator-configured WebAuthn origins, never request-controlled ones.
+
+    The client-provided Origin is an input to validate against the allowlist,
+    not authority to expand it. Explicit localhost entries are retained for
+    existing development deployments; arbitrary localhost ports are rejected.
+    """
+    del headers
+    return list(dict.fromkeys((
+        EXPECTED_ORIGIN,
+        "https://mesh.inetconnector.com",
+        "https://inetconnector.com",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    )))
 
 
 def _resolve_store_path() -> Path:
@@ -71,10 +84,19 @@ def _resolve_store_path() -> Path:
 
 
 def _build_store() -> FleetAccountStore:
+    """Never silently replace the authoritative fleet-ban database.
+
+    A fallback database would appear to have no banned accounts and allow
+    suspended providers to authenticate. Operators must repair the configured
+    persistent store rather than start a new empty registry.
+    """
+    configured = _resolve_store_path()
     try:
-        return FleetAccountStore(_resolve_store_path())
-    except Exception:
-        return FleetAccountStore(Path("/tmp/computemesh_fleet_accounts.db"))
+        return FleetAccountStore(configured)
+    except (OSError, sqlite3.Error, RuntimeError) as exc:
+        raise FleetAccountStoreError(
+            "authoritative fleet account database is unavailable"
+        ) from exc
 
 
 FLEET_ACCOUNT_STORE = _build_store()
@@ -107,16 +129,31 @@ MAGIC_LINK_RATE_LIMITER = SimpleRateLimiter(max_requests=3, window_seconds=300)
 
 
 def _client_ip(headers: Any, client_address: tuple[str, int] | None = None) -> str:
-    if headers:
-        forwarded = str(headers.get("X-Forwarded-For", "")).strip()
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        real_ip = str(headers.get("X-Real-IP", "")).strip()
-        if real_ip:
-            return real_ip
-    if client_address and isinstance(client_address, tuple) and len(client_address) > 0:
-        return str(client_address[0])
-    return "127.0.0.1"
+    """Trust forwarded client IP only when the immediate peer is an approved proxy.
+
+    Untrusted callers must not choose their rate-limit and audit identity.
+    Additional proxy IPs can be configured through COMPUTEMESH_TRUSTED_PROXY_IPS;
+    this must contain transport peers, not addresses supplied in a header.
+    """
+    peer = str(client_address[0]).strip() if client_address else "127.0.0.1"
+    trusted = {"127.0.0.1", "::1"}
+    trusted.update(
+        item.strip()
+        for item in os.environ.get("COMPUTEMESH_TRUSTED_PROXY_IPS", "").split(",")
+        if item.strip()
+    )
+    if client_address is None or peer not in trusted or not headers or not hasattr(headers, "get"):
+        return peer
+
+    for raw in (
+        str(headers.get("X-Forwarded-For", "")).split(",", 1)[0].strip(),
+        str(headers.get("X-Real-IP", "")).strip(),
+    ):
+        try:
+            return str(ipaddress.ip_address(raw))
+        except ValueError:
+            continue
+    return peer
 
 
 def _session_cookie_header(token: str, max_age_days: int = 30, *, clear: bool = False) -> str:
@@ -149,21 +186,21 @@ def session_account_from_headers(headers: Any):
         cookie: SimpleCookie = SimpleCookie()
         try:
             cookie.load(raw)
+        except (CookieError, ValueError) as exc:
+            # Invalid client syntax is distinct from a backend outage.
+            logger.debug("invalid owner-cookie syntax: %s", exc)
+        else:
             morsel = cookie.get(SESSION_COOKIE_NAME)
             if morsel is not None:
+                # Never hide fleet storage outages as an anonymous session.
                 acct = FLEET_ACCOUNT_STORE.get_session_account(morsel.value)
                 if acct is not None:
                     return acct
-                # Direct Owner-Key login stores the key in this same cookie for
-                # the fleet UI. Resolve it here so token-free node navigation
-                # can still establish a short-lived node session.
                 owner_cookie = str(morsel.value).strip()
                 if owner_cookie.startswith(("ok_", "owner_", "cm_owner_", "inet-", "owk_")):
                     acct = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_cookie)
                     if acct is not None:
                         return acct
-        except Exception:
-            pass
 
     # 2. Check X-Owner-Key or Authorization Bearer header
     owner_key = ""
@@ -173,7 +210,7 @@ def session_account_from_headers(headers: Any):
             auth_hdr = str(headers.get("Authorization", "")).strip()
             if auth_hdr.startswith("Bearer "):
                 candidate = auth_hdr[7:].strip()
-                if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("inet-") or candidate.startswith("owk_"):
+                if candidate.startswith(("ok_", "owner_", "cm_owner_", "inet-", "owk_")):
                     owner_key = candidate
 
     if owner_key:
@@ -190,8 +227,8 @@ def session_account_from_headers(headers: Any):
                     (acct_id, f"owner_{acct_id[5:13]}@inetconnector.local", owner_key, utc_now(), utc_now()),
                 )
             return FLEET_ACCOUNT_STORE.get_account(acct_id)
-        except Exception:
-            pass
+        except (sqlite3.Error, OSError, RuntimeError, ValueError) as exc:
+            raise FleetAccountStoreError("owner-key account provisioning unavailable") from exc
 
     return None
 
@@ -210,13 +247,12 @@ class PasskeyAuthHandler:
 
         current_auth = session_account_from_headers(headers) if headers else None
         existing = FLEET_ACCOUNT_STORE.get_account_by_email(email)
-        if existing is not None:
-            if current_auth is None or current_auth.email.lower() != email:
-                return (
-                    {"error": "an account for this email already exists -- sign in instead"},
-                    HTTPStatus.CONFLICT,
-                    None,
-                )
+        if existing is not None and (current_auth is None or current_auth.email.lower() != email):
+            return (
+                {"error": "an account for this email already exists -- sign in instead"},
+                HTTPStatus.CONFLICT,
+                None,
+            )
 
         options = webauthn.generate_registration_options(
             rp_id=RP_ID,
@@ -367,7 +403,6 @@ class PasskeyAuthHandler:
     # -- Magic Links --------------------------------------------------------
 
     def request_magic_link(self, body: dict[str, Any], headers: Any = None, client_address: tuple[str, int] | None = None) -> tuple[dict[str, Any], HTTPStatus, str | None]:
-        ip = _client_ip(headers, client_address)
         email = str(body.get("email", "")).strip().lower()
         if not email or "@" not in email:
             return {"error": "a valid email address is required"}, HTTPStatus.BAD_REQUEST, None
@@ -470,12 +505,16 @@ class PasskeyAuthHandler:
 
     # -- Enrollment Tokens & Audit Log --------------------------------------
 
-    def create_enrollment_token(self, headers: Any) -> tuple[dict[str, Any], HTTPStatus, str | None]:
+    def create_enrollment_token(
+        self, headers: Any, *, scope: str = "legacy_node",
+    ) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         account = session_account_from_headers(headers)
         if account is None:
             return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
 
-        token = FLEET_ACCOUNT_STORE.create_enrollment_token(account.account_id, ttl_minutes=30)
+        token = FLEET_ACCOUNT_STORE.create_enrollment_token(
+            account.account_id, ttl_minutes=30, scope=scope,
+        )
         return {"enrollment_token": token, "expires_in_minutes": 30}, HTTPStatus.OK, None
 
     def get_audit_log(self, headers: Any) -> tuple[dict[str, Any], HTTPStatus, str | None]:
@@ -514,20 +553,20 @@ class PasskeyAuthHandler:
         # Auto-migrate node bindings in OWNER_ACCOUNT_STORE & in-memory registry
         try:
             from services.gateway.server import (
-                OWNER_ACCOUNT_STORE,
                 NODE_TELEMETRY_REGISTRY,
-                save_node_telemetry_registry,
+                OWNER_ACCOUNT_STORE,
                 owner_id_for_key,
+                save_node_telemetry_registry,
             )
             old_owner_id = owner_id_for_key(old_key)
             new_owner_id = owner_id_for_key(new_key)
             if old_owner_id and new_owner_id and old_owner_id != new_owner_id:
                 OWNER_ACCOUNT_STORE.migrate_owner_bindings(old_owner_id, new_owner_id)
-                for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
+                for n_data in NODE_TELEMETRY_REGISTRY.values():
                     if n_data.get("owner_id") == old_owner_id:
                         n_data["owner_id"] = new_owner_id
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("Could not auto-migrate node bindings during key rotation: %s", exc)
 
         # Record audit event
@@ -550,7 +589,7 @@ class PasskeyAuthHandler:
                 ip,
                 ua,
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("Failed to dispatch security alert email for owner key rotation: %s", exc)
 
         return {
@@ -610,7 +649,7 @@ class PasskeyAuthHandler:
                 ip,
                 ua,
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("Failed to dispatch security confirmation email: %s", exc)
 
         return {
@@ -625,8 +664,8 @@ class PasskeyAuthHandler:
         cookie: SimpleCookie = SimpleCookie()
         try:
             cookie.load(raw)
-        except Exception:
-            pass
+        except (CookieError, ValueError) as exc:
+            logger.debug("invalid session cookie ignored: %s", exc, exc_info=True)
         morsel = cookie.get(SESSION_COOKIE_NAME)
         if morsel is not None:
             FLEET_ACCOUNT_STORE.delete_session(morsel.value)

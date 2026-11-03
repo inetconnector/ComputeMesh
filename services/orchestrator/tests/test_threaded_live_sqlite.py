@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -41,7 +41,7 @@ class ThreadedLiveSQLiteTests(unittest.TestCase):
                         reservation_id,
                         request_id=f"{reservation_id}:lease",
                         expected_revision=reservation.revision,
-                        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+                        expires_at=datetime.now(UTC) + timedelta(minutes=5),
                     )
                     committed = store.commit_reservation(
                         reservation_id,
@@ -78,7 +78,7 @@ class ThreadedLiveSQLiteTests(unittest.TestCase):
             with SQLiteIdentityStore(path) as store:
                 token = store.create_enrollment_token(
                     "principal-a",
-                    expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+                    expires_at=datetime.now(UTC) + timedelta(minutes=5),
                 )
                 enrolled = store.enroll(token, public_key)
 

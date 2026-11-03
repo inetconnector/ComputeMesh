@@ -8,25 +8,19 @@ from __future__ import annotations
 import json
 import re
 import secrets
-import sys
 import time
+from collections.abc import Generator
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from services.billing.ledger import InsufficientBalanceError, Ledger
+from services.billing.ledger import BillingError, InsufficientBalanceError, Ledger
 from services.common.config import CONFIG
-from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
+from services.common.secure_memory import SecureMemoryBuffer
 from services.common.vision_preprocessor import get_vision_preprocessor
 from services.gateway.blind_inference import BlindedPipelineEngine
 from services.gateway.catalog import (
-    AVAILABLE_MODELS,
-    DEFAULT_PRICE_TIERS,
     calculate_max_charge_micro,
     calculate_token_charge_micro,
     provider_shares_from_env,
@@ -43,6 +37,9 @@ from services.gateway.teaser import TeaserQuotaManager
 from services.mcp.agent_loop import AgentLoop
 from services.mcp.config import get_mcp_config
 from services.mcp.tool_registry import ToolRegistry
+from services.portal.fleet_accounts import FleetAccountStoreError
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 _EXECUTION_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
@@ -176,7 +173,10 @@ class InferenceEngine:
 
         # Positive Authorization, Emergency Kill Switch & Permanent Ban Check (Global & Fleet-Scoped)
         try:
-            from runtime.safety.dead_mans_switch import EmergencyKillTrippedError, get_lease_guard
+            from runtime.safety.dead_mans_switch import (
+                EmergencyKillTrippedError,
+                get_lease_guard,
+            )
             guard = get_lease_guard()
             if guard.is_tripped:
                 raise EmergencyKillTrippedError(
@@ -254,9 +254,9 @@ class InferenceEngine:
                     try:
                         from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
                         disabled_tools = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
-                    except Exception:
+                    except (FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                         disabled_tools = []
-                disabled_set = set(disabled_tools)
+                _disabled_set = set(disabled_tools)
 
                 def local_llm_caller(msg_list, tool_list):
                     nonlocal backend_result
@@ -312,8 +312,8 @@ class InferenceEngine:
                         mem_summary = get_user_memory_store().get_memory_summary()
                         if mem_summary:
                             tool_prompt = f"{tool_prompt}\n\n{mem_summary}"
-                    except Exception:
-                        pass
+                    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
                     enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
 
 
@@ -435,8 +435,8 @@ class InferenceEngine:
             try:
                 from tools.appliance.token_metering import record_tokens
                 record_tokens(prompt_tokens=tokens_prompt, completion_tokens=tokens_completion)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
             try:
                 from services.gateway.dashboard import (
@@ -458,14 +458,14 @@ class InferenceEngine:
                         tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
                         nodes_updated = True
                 if not nodes_updated:
-                    for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
+                    for n_data in NODE_TELEMETRY_REGISTRY.values():
                         if not n_data.get("is_peer_relay", False) and n_data.get("updated_at"):
                             tel = n_data.setdefault("telemetry", {})
                             tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
                             nodes_updated = True
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
             return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
 
@@ -473,8 +473,8 @@ class InferenceEngine:
             if hold and hasattr(self.ledger, "release_hold"):
                 try:
                     self.ledger.release_hold(hold.hold_id)
-                except Exception:
-                    pass
+                except (BillingError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as release_exc:
+                    _ = release_exc
             raise
         finally:
             secure_buf.zeroize()
@@ -549,7 +549,7 @@ class InferenceEngine:
             }
             if execution:
                 chunk["compute_mesh_execution"] = execution
-            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode()
             yield b"data: [DONE]\n\n"
             return
         words = completion_text.split(" ")
@@ -570,7 +570,7 @@ class InferenceEngine:
             }
             if execution and i == 0:
                 chunk["compute_mesh_execution"] = execution
-            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode()
             time.sleep(0.01)
 
         final_chunk = {
@@ -586,7 +586,7 @@ class InferenceEngine:
                 }
             ],
         }
-        yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+        yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n".encode()
         yield b"data: [DONE]\n\n"
 
     @staticmethod
@@ -601,7 +601,7 @@ class InferenceEngine:
         """Formats non-streaming response for Ollama /api/chat."""
         response = {
             "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "message": {
                 "role": "assistant",
                 "content": completion_text,
@@ -630,7 +630,7 @@ class InferenceEngine:
             token_str = word + (" " if i < len(words) - 1 else "")
             chunk = {
                 "model": model_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "message": {"role": "assistant", "content": token_str},
                 "done": False,
             }
@@ -641,7 +641,7 @@ class InferenceEngine:
 
         final_chunk = {
             "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "message": {"role": "assistant", "content": ""},
             "done": True,
             "done_reason": "stop",
@@ -662,7 +662,7 @@ class InferenceEngine:
         """Formats non-streaming response for Ollama /api/generate."""
         response = {
             "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "response": completion_text,
             "done": True,
             "done_reason": "stop",
@@ -688,7 +688,7 @@ class InferenceEngine:
             token_str = word + (" " if i < len(words) - 1 else "")
             chunk = {
                 "model": model_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "response": token_str,
                 "done": False,
             }
@@ -699,7 +699,7 @@ class InferenceEngine:
 
         final_chunk = {
             "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "response": "",
             "done": True,
             "done_reason": "stop",
@@ -753,7 +753,7 @@ class InferenceEngine:
             return (None, str(exc), 402)
         except InferenceBackendError as exc:
             return (None, sanitize_error_message(exc), 503)
-        except Exception as exc:
+        except (BillingError, FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return (None, sanitize_error_message(exc), 500)
 
     def stream_chat_completions(
@@ -830,7 +830,7 @@ class InferenceEngine:
             return (None, sanitize_error_message(exc), 402)
         except InferenceBackendError as exc:
             return (None, sanitize_error_message(exc), 503)
-        except Exception as exc:
+        except (BillingError, FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return (None, sanitize_error_message(exc), 500)
 
     def stream_ollama_chat(
@@ -905,7 +905,7 @@ class InferenceEngine:
             return (None, sanitize_error_message(exc), 402)
         except InferenceBackendError as exc:
             return (None, sanitize_error_message(exc), 503)
-        except Exception as exc:
+        except (BillingError, FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return (None, sanitize_error_message(exc), 500)
 
     def stream_ollama_generate(

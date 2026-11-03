@@ -4,21 +4,22 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import uuid
-from typing import Any, Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 SCHEMA_VERSION = 1
 _GPU_DEVICE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,127}$")
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def parse_llama_bench_output(text: str) -> list[dict[str, Any]]:
@@ -39,7 +40,7 @@ def parse_llama_bench_output(text: str) -> list[dict[str, Any]]:
             except json.JSONDecodeError as exc:
                 raise ValueError(f"invalid llama-bench JSONL at line {lineno}") from exc
             if not isinstance(item, dict):
-                raise ValueError("llama-bench JSONL rows must be objects")
+                raise TypeError("llama-bench JSONL rows must be objects")
             rows.append(item)
         if not rows:
             raise ValueError("llama-bench output contains no rows")

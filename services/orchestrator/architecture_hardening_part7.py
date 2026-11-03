@@ -1,9 +1,10 @@
-import time
-from typing import Any, Dict, List, Optional, Set, Tuple, Protocol
-from datetime import datetime, timezone
-import sqlite3
-import json
 import hashlib
+import json
+import sqlite3
+import time
+from datetime import UTC, datetime
+from typing import Any, Protocol
+
 
 class HardeningPart7Error(RuntimeError):
     pass
@@ -49,7 +50,7 @@ class StatefulIdempotentCommandEnforcer:
             ''')
         self._execute_with_savepoint("part7_migrate", _do_migrate)
 
-    def execute_command(self, command: Dict[str, Any], execute_fn: Any) -> Dict[str, Any]:
+    def execute_command(self, command: dict[str, Any], execute_fn: Any) -> dict[str, Any]:
         is_state_changing = command.get("is_state_changing", False)
         is_idempotent_by_design = command.get("is_idempotent_by_design", False)
         idempotency_key = command.get("idempotency_key")
@@ -80,7 +81,7 @@ class StatefulIdempotentCommandEnforcer:
             # Log successful execution
             def _record():
                 self._db.execute("INSERT INTO part7_idempotency_log(idempotency_key, command_type, result_json, executed_at) VALUES(?, ?, ?, ?)",
-                                 (idempotency_key, command.get("type", "unknown"), json.dumps(result), datetime.now(timezone.utc).isoformat()))
+                                 (idempotency_key, command.get("type", "unknown"), json.dumps(result), datetime.now(UTC).isoformat()))
             self._execute_with_savepoint(f"idempotency_record_{hashlib.md5(idempotency_key.encode()).hexdigest()}", _record)
             return result
 
@@ -136,7 +137,7 @@ class StatefulCapacityLeaseManager:
             return True
         return self._execute_with_savepoint(f"lease_{hashlib.md5(lease_id.encode()).hexdigest()}", _do_lease)
 
-    def dispatch_job(self, job_id: str, required_capacity: int, lease_id: Optional[str] = None) -> bool:
+    def dispatch_job(self, job_id: str, required_capacity: int, lease_id: str | None = None) -> bool:
         def _do_dispatch():
             self._expire_leases()
 

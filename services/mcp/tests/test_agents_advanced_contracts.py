@@ -1,17 +1,26 @@
 """Advanced contract tests for request analysis, validation, rerouting and admin/subagent gates."""
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.mcp.platform.admin import SkillRegistryAdminAPI
-from services.mcp.platform.contracts import RequestEnvelope, SideEffectLevel, SkillManifest, SkillStatus
+from services.mcp.platform.contracts import (
+    RequestEnvelope,
+    SideEffectLevel,
+    SkillManifest,
+    SkillStatus,
+)
 from services.mcp.platform.request_analysis import RequestAnalyzer
 from services.mcp.platform.reroute import RerouteManager
 from services.mcp.platform.skill_registry import PersistentSkillRegistry
 from services.mcp.platform.skill_router import SkillRouter
-from services.mcp.platform.subagents import SubagentContract, SubagentGate, SubagentResult
+from services.mcp.platform.subagents import (
+    SubagentContract,
+    SubagentGate,
+    SubagentResult,
+)
 from services.mcp.platform.validation import (
     ErrorCode,
     EvidenceLedger,

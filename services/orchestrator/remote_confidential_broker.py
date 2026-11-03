@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import base64
 import binascii
-from datetime import UTC, datetime, timedelta
+import contextlib
 import json
 import os
-from pathlib import Path
 import secrets
 import ssl
-from typing import Any, Mapping
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
 from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
@@ -27,10 +29,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 from runtime.confidential.protected_worker import CONFIDENTIAL_PROVISION_CAPABILITY
 from runtime.confidential.provider_control import CONFIDENTIAL_PROVISION_MESSAGE
-from runtime.confidential.session import ConfidentialSessionError, ConfidentialSessionProvision
+from runtime.confidential.session import (
+    ConfidentialSessionError,
+    ConfidentialSessionProvision,
+)
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
-from services.orchestrator.persistent_control_channel import PersistentControlChannelError
-
+from services.orchestrator.persistent_control_channel import (
+    PersistentControlChannelError,
+)
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 DEFAULT_PATH = "/internal/v1/confidential/dispatch"
@@ -237,8 +243,8 @@ class RemoteConfidentialSessionBroker:
         except InvalidSignature as exc:
             raise RemoteConfidentialBrokerError("private confidential decision signature verification failed") from exc
         try:
-            issued = datetime.fromisoformat(str(value["issued_at"]).replace("Z", "+00:00")).astimezone(UTC)
-            expires = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00")).astimezone(UTC)
+            issued = datetime.fromisoformat(str(value["issued_at"])).astimezone(UTC)
+            expires = datetime.fromisoformat(str(value["expires_at"])).astimezone(UTC)
         except (ValueError, TypeError) as exc:
             raise RemoteConfidentialBrokerError("private confidential decision timestamps are invalid") from exc
         now = datetime.now(UTC)
@@ -276,10 +282,8 @@ class RemoteConfidentialSessionBroker:
         return tuple(candidates)
 
     def _release_best_effort(self, decision_id: str) -> None:
-        try:
+        with contextlib.suppress(RemoteConfidentialBrokerError, urlerror.URLError, OSError, ValueError, TypeError, RuntimeError):
             self._post(self.release_endpoint, {"schema_version": 1, "decision_id": decision_id})
-        except Exception:
-            pass
 
     def provision(
         self,

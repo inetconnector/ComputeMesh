@@ -6,11 +6,10 @@ from __future__ import annotations
 import base64
 import logging
 import os
-import re
 import shutil
 import subprocess
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.adb_bridge")
 
@@ -33,18 +32,17 @@ def _find_adb_binary() -> str:
     return "adb"
 
 
-def _resolve_device_arg(device_id: Optional[str] = None) -> List[str]:
+def _resolve_device_arg(device_id: str | None = None) -> list[str]:
     return ["-s", device_id.strip()] if device_id and device_id.strip() else []
 
 
-def adb_list_devices() -> Dict[str, Any]:
+def adb_list_devices() -> dict[str, Any]:
     """Lists all connected Android physical devices and emulators with models."""
     try:
         adb_bin = _find_adb_binary()
         proc = subprocess.run(
             [adb_bin, "devices", "-l"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            check=False, capture_output=True,
             text=True,
             timeout=8.0,
             shell=True,
@@ -53,7 +51,7 @@ def adb_list_devices() -> Dict[str, Any]:
             return {"error": f"ADB-Befehl fehlgeschlagen: {proc.stderr}", "devices": []}
 
         lines = proc.stdout.strip().splitlines()
-        devices: List[Dict[str, Any]] = []
+        devices: list[dict[str, Any]] = []
 
         for line in lines[1:]:
             parts = line.strip().split()
@@ -75,20 +73,20 @@ def adb_list_devices() -> Dict[str, Any]:
             "total_devices": len(devices),
             "devices": devices,
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "error": f"ADB nicht verfügbar: {exc}", "devices": []}
 
 
 def adb_capture_screenshot(
-    device_id: Optional[str] = None,
-    output_path: Optional[str] = None,
-) -> Dict[str, Any]:
+    device_id: str | None = None,
+    output_path: str | None = None,
+) -> dict[str, Any]:
     """Captures a real-time PNG screenshot from a connected Android edge device."""
     adb_bin = _find_adb_binary()
     args = [adb_bin] + _resolve_device_arg(device_id) + ["exec-out", "screencap", "-p"]
     t0 = time.time()
     try:
-        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12.0, shell=True)
+        proc = subprocess.run(args, check=False, capture_output=True, timeout=12.0, shell=True)
         if proc.returncode != 0 or not proc.stdout:
             return {"error": "Screenshot-Aufnahme fehlgeschlagen.", "success": False}
 
@@ -107,11 +105,11 @@ def adb_capture_screenshot(
             "device_id": device_id or "default",
             "base64_preview": b64_preview,
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "error": f"Screenshot-Fehler: {exc}"}
 
 
-def adb_install_app(apk_path: str, device_id: Optional[str] = None) -> Dict[str, Any]:
+def adb_install_app(apk_path: str, device_id: str | None = None) -> dict[str, Any]:
     """Installs or updates an Android APK on a target connected device."""
     if not os.path.exists(apk_path):
         return {"error": f"APK-Datei '{apk_path}' nicht gefunden.", "success": False}
@@ -119,7 +117,7 @@ def adb_install_app(apk_path: str, device_id: Optional[str] = None) -> Dict[str,
     adb_bin = _find_adb_binary()
     args = [adb_bin] + _resolve_device_arg(device_id) + ["install", "-r", apk_path]
     try:
-        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60.0, shell=True)
+        proc = subprocess.run(args, check=False, capture_output=True, text=True, timeout=60.0, shell=True)
         out = (proc.stdout or "") + (proc.stderr or "")
         success = "Success" in out
         return {
@@ -128,24 +126,24 @@ def adb_install_app(apk_path: str, device_id: Optional[str] = None) -> Dict[str,
             "device_id": device_id or "default",
             "output": out.strip(),
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "error": f"Installationsfehler: {exc}"}
 
 
 def adb_get_system_log(
-    device_id: Optional[str] = None,
+    device_id: str | None = None,
     lines: int = 50,
-    filter_tag: Optional[str] = None,
-) -> Dict[str, Any]:
+    filter_tag: str | None = None,
+) -> dict[str, Any]:
     """Fetches recent logcat entries from the Android edge node."""
     adb_bin = _find_adb_binary()
     args = [adb_bin] + _resolve_device_arg(device_id) + ["logcat", "-d", "-t", str(min(200, lines))]
     try:
-        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10.0, shell=True)
+        proc = subprocess.run(args, check=False, capture_output=True, text=True, timeout=10.0, shell=True)
         raw_log = proc.stdout or ""
         log_lines = raw_log.splitlines()
         if filter_tag:
-            log_lines = [l for l in log_lines if filter_tag.lower() in l.lower()]
+            log_lines = [line for line in log_lines if filter_tag.lower() in line.lower()]
 
         return {
             "success": True,
@@ -153,5 +151,5 @@ def adb_get_system_log(
             "total_lines": len(log_lines),
             "log": "\n".join(log_lines[-lines:]),
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "error": f"Logcat-Fehler: {exc}"}

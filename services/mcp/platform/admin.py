@@ -1,8 +1,9 @@
 """Authorized administrative API facade for the persistent Skill Registry."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from .audit import AuditLogger
 from .contracts import SkillStatus

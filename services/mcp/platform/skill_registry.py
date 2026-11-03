@@ -1,15 +1,16 @@
 """Persistent, fail-closed skill registry for ComputeMesh Agents Platform."""
 from __future__ import annotations
 
-from dataclasses import replace
 import ast
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import threading
 import time
-from typing import Any, Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import replace
+from pathlib import Path
+from typing import Any
 
 from .contracts import RiskLevel, SideEffectLevel, SkillManifest, SkillStatus
 
@@ -31,10 +32,10 @@ def _as_tuple(value: Any) -> tuple[str, ...]:
             try:
                 parsed = json.loads(text.replace("'", '"'))
                 return _as_tuple(parsed)
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 try:
                     return _as_tuple(ast.literal_eval(text))
-                except Exception:
+                except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     return tuple(part.strip().strip("'\"") for part in text[1:-1].split(",") if part.strip())
         return (text,) if text else ()
     return (str(value),)
@@ -52,18 +53,18 @@ def _parse_scalar(value: str) -> Any:
     if text.startswith("[") and text.endswith("]"):
         try:
             return json.loads(text.replace("'", '"'))
-        except Exception:
+        except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             try:
                 return ast.literal_eval(text)
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 return [part.strip().strip("'\"") for part in text[1:-1].split(",") if part.strip()]
     if text.startswith("{") and text.endswith("}"):
         try:
             return json.loads(text.replace("'", '"'))
-        except Exception:
+        except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             try:
                 return ast.literal_eval(text)
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, SyntaxError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 return text
     try:
         return int(text)
@@ -151,7 +152,7 @@ class PersistentSkillRegistry:
     ) -> None:
         self.db_path = str(db_path)
         self.allowed_roots = tuple(Path(root).resolve() for root in allowed_roots)
-        self.available_tools = set(str(x) for x in available_tools) if available_tools is not None else None
+        self.available_tools = {str(x) for x in available_tools} if available_tools is not None else None
         self.max_skill_bytes = max(1, int(max_skill_bytes))
         self.signature_verifier = signature_verifier
         if self.db_path != ":memory:":
@@ -320,8 +321,8 @@ class PersistentSkillRegistry:
                     "UPDATE skills SET validation_error=? WHERE skill_id=? AND version=?",
                     (error[:4000], manifest.skill_id, manifest.version),
                 )
-        except Exception:
-            pass
+        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     def register_file(self, path: str | Path, *, replace_existing: bool = False) -> SkillManifest:
         raw_path = Path(path)
@@ -348,7 +349,7 @@ class PersistentSkillRegistry:
                     raise ValueError("skill signature verification failed")
             manifest = self._manifest_from_metadata(metadata, checksum=checksum, location=str(resolved))
             return self.register_manifest(manifest, body=body, replace_existing=replace_existing)
-        except Exception as exc:
+        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self._record_broken(str(raw_path), str(exc))
             raise
 
@@ -368,7 +369,7 @@ class PersistentSkillRegistry:
                 try:
                     manifest = self.register_file(document)
                     loaded.append(f"{manifest.skill_id}@{manifest.version}")
-                except Exception as exc:
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     broken.append({"path": str(document), "error": str(exc)})
         return {"loaded": loaded, "broken": broken, "dependency_errors": self.validate_graph()}
 
@@ -377,11 +378,11 @@ class PersistentSkillRegistry:
         data["status"] = SkillStatus(str(row["status"]))
         data["risk_level"] = RiskLevel(str(data.get("risk_level", "LOW")))
         data["side_effect_level"] = SideEffectLevel(str(data.get("side_effect_level", "NONE")))
-        for field_name in {
+        for field_name in (
             "domains", "intents", "triggers", "negative_triggers", "examples", "anti_examples",
             "required_inputs", "optional_inputs", "required_tools", "optional_tools", "forbidden_tools",
             "dependencies", "conflicts_with", "fallback_skills", "validation_rules",
-        }:
+        ):
             data[field_name] = tuple(data.get(field_name) or ())
         return SkillManifest(**data)
 
@@ -409,7 +410,7 @@ class PersistentSkillRegistry:
         manifests = [self._row_to_manifest(row) for row in rows]
         if not include_inactive:
             manifests = [m for m in manifests if m.status in {SkillStatus.ACTIVE, SkillStatus.EXPERIMENTAL}]
-        return sorted(manifests, key=lambda m: self._version_key(m.version), reverse=True)[0] if manifests else None
+        return max(manifests, key=lambda m: self._version_key(m.version)) if manifests else None
 
     def list(self, *, statuses: Sequence[SkillStatus | str] | None = None) -> list[SkillManifest]:
         with self._lock:

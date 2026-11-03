@@ -1,19 +1,20 @@
-import pytest
+import os
 import sqlite3
 import tempfile
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+import pytest
 
 from services.orchestrator.architecture_hardening_part13 import (
-    ExplicitRetryEnforcer,
     CommandExpirationEnforcer,
-    EventDeduplicator,
-    ImplicitRetryError,
     CommandExpiredError,
-    DuplicateEventError
+    EventDeduplicator,
+    ExplicitRetryEnforcer,
+    ImplicitRetryError,
 )
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.state_machine import JobState
+
 
 def test_explicit_retry_enforcer():
     db = sqlite3.connect(":memory:")
@@ -55,77 +56,74 @@ def test_event_deduplicator():
         dedup.process_event("")
 
 def test_persistence_deduplicator():
-    with tempfile.TemporaryDirectory() as td:
-        with SQLiteStateStore(os.path.join(td, "state.db")) as store:
-            job = store.ensure_job("job1")
+    with tempfile.TemporaryDirectory() as td, SQLiteStateStore(os.path.join(td, "state.db")) as store:
+        job = store.ensure_job("job1")
 
-            # Valid transition
-            store.transition_job(
-                "job1",
-                request_id="req1",
-                expected_revision=job.revision,
-                target=JobState.VALIDATING,
-            )
+        # Valid transition
+        store.transition_job(
+            "job1",
+            request_id="req1",
+            expected_revision=job.revision,
+            target=JobState.VALIDATING,
+        )
 
 def test_persistence_command_expiration():
-    with tempfile.TemporaryDirectory() as td:
-        with SQLiteStateStore(os.path.join(td, "state.db")) as store:
-            job = store.ensure_job("job2")
+    with tempfile.TemporaryDirectory() as td, SQLiteStateStore(os.path.join(td, "state.db")) as store:
+        job = store.ensure_job("job2")
 
-            now = datetime.now(timezone.utc).timestamp()
-            expired_metadata = {"expires_at": now - 100}
+        now = datetime.now(UTC).timestamp()
+        expired_metadata = {"expires_at": now - 100}
 
-            # Expired command should raise
-            with pytest.raises(CommandExpiredError):
-                store.transition_job(
-                    "job2",
-                    request_id="req2",
-                    expected_revision=job.revision,
-                    target=JobState.VALIDATING,
-                    command_metadata=expired_metadata
-                )
-
-            # Valid command should pass
-            valid_metadata = {"expires_at": now + 100}
+        # Expired command should raise
+        with pytest.raises(CommandExpiredError):
             store.transition_job(
                 "job2",
-                request_id="req3",
+                request_id="req2",
                 expected_revision=job.revision,
                 target=JobState.VALIDATING,
-                command_metadata=valid_metadata
+                command_metadata=expired_metadata
             )
 
-def test_persistence_explicit_retry():
-    with tempfile.TemporaryDirectory() as td:
-        with SQLiteStateStore(os.path.join(td, "state.db")) as store:
-            job = store.ensure_job("job3")
+        # Valid command should pass
+        valid_metadata = {"expires_at": now + 100}
+        store.transition_job(
+            "job2",
+            request_id="req3",
+            expected_revision=job.revision,
+            target=JobState.VALIDATING,
+            command_metadata=valid_metadata
+        )
 
-            # First attempt
+def test_persistence_explicit_retry():
+    with tempfile.TemporaryDirectory() as td, SQLiteStateStore(os.path.join(td, "state.db")) as store:
+        job = store.ensure_job("job3")
+
+        # First attempt
+        store.transition_job(
+            "job3",
+            request_id="req4",
+            expected_revision=job.revision,
+            target=JobState.VALIDATING,
+            attempt_number=1
+        )
+
+        job = store.get_job("job3")
+
+        # Implicit retry (same attempt number) should fail
+        with pytest.raises(ImplicitRetryError):
             store.transition_job(
                 "job3",
-                request_id="req4",
+                request_id="req5",
                 expected_revision=job.revision,
-                target=JobState.VALIDATING,
+                target=JobState.PLANNING,
                 attempt_number=1
             )
 
-            job = store.get_job("job3")
-
-            # Implicit retry (same attempt number) should fail
-            with pytest.raises(ImplicitRetryError):
-                store.transition_job(
-                    "job3",
-                    request_id="req5",
-                    expected_revision=job.revision,
-                    target=JobState.PLANNING,
-                    attempt_number=1
-                )
-
-            # Explicit retry (higher attempt number) should pass
-            store.transition_job(
-                "job3",
-                request_id="req6",
-                expected_revision=job.revision,
-                target=JobState.PLANNING,
-                attempt_number=2
-            )
+        # Explicit retry (higher attempt number) should pass
+        store.transition_job(
+            "job3",
+            request_id="req6",
+            expected_revision=job.revision,
+            target=JobState.PLANNING,
+            attempt_number=2
+        )

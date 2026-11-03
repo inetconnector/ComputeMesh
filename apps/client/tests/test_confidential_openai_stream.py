@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import json
 import unittest
+from datetime import UTC, datetime, timedelta
 
-from apps.client.confidential_openai import LocalAttestationPolicy
+from apps.client.confidential_openai import (
+    ConfidentialOpenAIError,
+    LocalAttestationPolicy,
+)
 from apps.client.confidential_openai_stream import StreamingConfidentialOpenAIBridge
 from protocol.confidential_envelope import (
     ConfidentialEnvelope,
@@ -14,7 +17,6 @@ from protocol.confidential_envelope import (
 from protocol.confidential_request_contract import create_committed_attestation_nonce
 from protocol.confidential_stream import encrypt_stream_event_in_attested_recipient
 from services.common.secure_memory import secure_zero_memory
-
 
 RUNTIME = "sha256:" + "a" * 64
 TLS = "sha256:" + "b" * 64
@@ -161,7 +163,7 @@ class StreamingBridgeTests(unittest.TestCase):
                 allowed_runtime_digests=frozenset({RUNTIME}),
             ),
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(ConfidentialOpenAIError):
             list(
                 bridge.stream(
                     authorization="Bearer key",

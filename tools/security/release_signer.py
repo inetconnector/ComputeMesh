@@ -15,15 +15,14 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from config import CONFIG
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
+
+
+from cm_project_bootstrap import REPO_ROOT as REPO_ROOT
+
+from config import CONFIG
 from tools.security.signing_keys import TRUSTED_RELEASE_PUBLIC_KEYS_HEX
 
 DISKSTATION_PATH = Path(r"\\diskstation\Dani\ComputeMesh")
@@ -157,32 +156,39 @@ def sign_manifest(
     a readable binary, with SHA-256 and byte sizes computed directly from real bytes.
     Hardcoded hash fallbacks and unverified historical carryover are strictly prohibited.
     """
-    priv_key, pub_key = get_or_create_keypair(allow_generate=allow_generate)
-    pub_raw = pub_key.public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    )
-
+    # Inventory all mandatory bytes before touching a production signing key.
     artifacts: dict[str, dict[str, Any]] = {}
     targets = {
         "windows-x64": "ComputeMesh-Setup-x64.exe",
         "linux-x64": "computemesh-linux-x86_64.tar.gz",
         "nodeos-iso": "computemesh-nodeos-x86_64.iso",
         "nodeos-img": "computemesh-nodeos-x86_64.img.xz",
+        "nodeos-runtime-x64": "computemesh-nodeos-runtime-x86_64.tar.gz",
         "installer-script": "install.sh",
+        # These must be signed with the same trusted manifest as desktop and
+        # NodeOS. The Android metadata file alone is not a trust anchor:
+        # its hashes and production_signed flag are otherwise editable.
+        "android-apk": "ComputeMesh-Android.apk",
+        "android-aab": "ComputeMesh-Android.aab",
+        "android-release-metadata": "ComputeMesh-Android.json",
     }
 
     missing_targets: list[str] = []
 
     for platform_id, filename in targets.items():
-        # Check downloads_dir first, then staging_dir if provided
+        # Neither the primary nor the staged release slot may be a symlink.
+        # A linked artifact could silently change after digesting and signing.
         file_path = downloads_dir / filename
+        if file_path.is_symlink():
+            raise ValueError(f"release artifact must not be a symlink: {filename}")
         if not file_path.exists() and staging_dir is not None:
             staged = staging_dir / filename
+            if staged.is_symlink():
+                raise ValueError(f"staged release artifact must not be a symlink: {filename}")
             if staged.exists():
                 file_path = staged
 
-        if file_path.exists() and file_path.stat().st_size > 0:
+        if file_path.is_file() and file_path.stat().st_size > 0:
             sha = compute_sha256(file_path)
             size = file_path.stat().st_size
             artifacts[platform_id] = {
@@ -201,6 +207,13 @@ def sign_manifest(
             f"{', '.join(missing_targets)}. "
             f"All release artifacts must be physically present and verified before signing."
         )
+
+    # No key access until every required physical artifact passed preflight.
+    priv_key, pub_key = get_or_create_keypair(allow_generate=allow_generate)
+    pub_raw = pub_key.public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
 
     manifest_data = {
         "version": version,

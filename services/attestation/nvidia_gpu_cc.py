@@ -9,14 +9,14 @@ production integrations; the legacy Python SDK is not imported here.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from services.attestation.pinned_verifier_process import (
     PinnedVerifierProcess,
     VerifierProcessError,
 )
-
 
 NVIDIA_GPU_CC_TECHNOLOGY = "nvidia_gpu_cc"
 

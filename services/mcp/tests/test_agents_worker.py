@@ -20,7 +20,10 @@ from services.mcp.platform.session import (
     TurnStatus,
 )
 from services.mcp.platform.tool_broker import AgentToolBroker
-from services.mcp.platform.tool_execution import SafeToolExecutor, ToolCapabilityRegistry
+from services.mcp.platform.tool_execution import (
+    SafeToolExecutor,
+    ToolCapabilityRegistry,
+)
 from services.mcp.platform.worker import (
     AgentWorkerRequest,
     DurableWorkerConcurrencyGate,
@@ -264,7 +267,7 @@ class TestMeshAgentWorker(unittest.TestCase):
             store = AgentSessionStore(Path(directory) / "sessions.sqlite3")
             try:
                 session = store.create_session("agent", principal_id="principal_a")
-                turn = store.start_turn(session.session_id, "write something")
+                _turn = store.start_turn(session.session_id, "write something")
                 backend = _WriteTool()
                 capabilities = ToolCapabilityRegistry()
                 capabilities.register(ToolManifest(
@@ -509,7 +512,7 @@ class TestMeshAgentWorker(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             store = AgentSessionStore(Path(directory) / "sessions.sqlite3")
             try:
-                session, turn = store.create_task(
+                _session, turn = store.create_task(
                     "mesh.agent",
                     "demo-model",
                     "hello",

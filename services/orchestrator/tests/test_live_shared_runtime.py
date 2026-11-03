@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
@@ -59,7 +59,7 @@ def session(node_id: str, *, expires_in: timedelta = timedelta(minutes=10)) -> S
         node_id=node_id,
         principal_id=f"principal-{node_id}",
         auth_method="computemesh-ed25519-v1",
-        credential_expires_at=datetime.now(timezone.utc) + expires_in,
+        credential_expires_at=datetime.now(UTC) + expires_in,
         negotiated_capabilities=frozenset({"execution_attestation_v1"}),
         profile_revision=3,
         drain_reason=None,
@@ -75,7 +75,7 @@ def live_node(
     session_override=None,
     inference_ready: bool = True,
 ) -> LiveNodeState:
-    captured = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    captured = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     return LiveNodeState(
         session=session_override or session(node_id),
         profile=profile(node_id, gpu_memory=gpu_memory, captured=captured),
@@ -99,7 +99,8 @@ class LiveSharedRuntimeTests(unittest.TestCase):
     def test_agent_policy_resolver_is_optional_and_replaceable(self):
         registry = LiveSharedRuntimeRegistry()
         self.assertIsNone(registry.agent_policy_resolver)
-        resolver = lambda _session, _turn: {"allow_agents": True}
+        def resolver(_session, _turn):
+            return {"allow_agents": True}
         registry.set_agent_policy_resolver(resolver)
         self.assertIs(registry.agent_policy_resolver, resolver)
         registry.set_agent_policy_resolver(None)

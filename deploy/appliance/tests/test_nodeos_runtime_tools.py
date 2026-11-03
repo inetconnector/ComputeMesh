@@ -1,15 +1,15 @@
 import json
 import os
-from pathlib import Path
-import tempfile
-import unittest
-from unittest.mock import call, patch
 import subprocess
 import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
 
+from services.appliance_dashboard import tunnel_relay
 from tools.appliance.boot_preflight import PreflightError, run_preflight
 from tools.appliance.enroll import EnrollmentError, _activate_nodeos_services, enroll
-from services.appliance_dashboard import tunnel_relay
 
 
 def _write_valid_evidence(root: Path, node_id: str) -> tuple[Path, Path, Path]:
@@ -91,9 +91,8 @@ class TestNodeOSRuntimeTools(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), "False")
 
     def test_preflight_rejects_unprovisioned_provider_environment(self) -> None:
-        with tempfile.TemporaryDirectory() as root:
-            with self.assertRaisesRegex(PreflightError, "provider.env"):
-                run_preflight(env_path=Path(root) / "provider.env", require_hardware=False)
+        with tempfile.TemporaryDirectory() as root, self.assertRaisesRegex(PreflightError, "provider.env"):
+            run_preflight(env_path=Path(root) / "provider.env", require_hardware=False)
 
     def test_enrollment_rejects_template_bundle_without_network_or_credentials(self) -> None:
         with tempfile.TemporaryDirectory() as root:
@@ -312,9 +311,8 @@ class TestNodeOSRuntimeTools(unittest.TestCase):
             ), patch(
                 "tools.appliance.boot_preflight.subprocess.run",
                 return_value=subprocess.CompletedProcess(["findmnt"], 0, "", ""),
-            ):
-                with self.assertRaisesRegex(PreflightError, "evidence"):
-                    run_preflight(env_path=env_path, require_hardware=False)
+            ), self.assertRaisesRegex(PreflightError, "evidence"):
+                run_preflight(env_path=env_path, require_hardware=False)
 
     def test_enrollment_rejects_missing_runtime_evidence_before_gateway_acceptance(self) -> None:
         class Response:
@@ -350,9 +348,8 @@ class TestNodeOSRuntimeTools(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with patch("tools.appliance.enroll.urlopen", return_value=Response()) as request:
-                with self.assertRaisesRegex(EnrollmentError, "measured runtime evidence"):
-                    enroll(bundle, allow_insecure_localhost=True)
+            with patch("tools.appliance.enroll.urlopen", return_value=Response()) as request, self.assertRaisesRegex(EnrollmentError, "measured runtime evidence"):
+                enroll(bundle, allow_insecure_localhost=True)
             request.assert_not_called()
             self.assertTrue(bundle.exists())
 
@@ -405,9 +402,8 @@ class TestNodeOSRuntimeTools(unittest.TestCase):
             ), patch(
                 "tools.appliance.enroll.persist_node_auth_token",
                 side_effect=OSError("identity mount unavailable"),
-            ):
-                with self.assertRaisesRegex(EnrollmentError, "token cannot be persisted"):
-                    enroll(bundle, allow_insecure_localhost=True)
+            ), self.assertRaisesRegex(EnrollmentError, "token cannot be persisted"):
+                enroll(bundle, allow_insecure_localhost=True)
             self.assertTrue(bundle.exists())
             self.assertFalse(provider_env.exists())
             self.assertFalse(token_path.exists())

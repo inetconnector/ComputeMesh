@@ -413,13 +413,12 @@ class UnifiedOwnerPromoRoutes:
         if existing is not None:
             return (existing, None, HTTPStatus.OK)
 
-        if claim_class == PROMO_GPU:
-            if self.owner_store.owner_for_provider_node(node_id) != owner_id:
-                return (
-                    None,
-                    "GPU promo node is not owned by the authenticated owner",
-                    HTTPStatus.FORBIDDEN,
-                )
+        if claim_class == PROMO_GPU and self.owner_store.owner_for_provider_node(node_id) != owner_id:
+            return (
+                None,
+                "GPU promo node is not owned by the authenticated owner",
+                HTTPStatus.FORBIDDEN,
+            )
 
         try:
             challenge = self.control_plane.issue_challenge(

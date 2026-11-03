@@ -7,11 +7,11 @@ valid, unexpired lease signed by an out-of-band Safety Supervisor is present.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
 import json
 import logging
 import threading
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from tools.security.ed25519_verify import verify_ed25519_signature
@@ -76,17 +76,17 @@ class ExecutionLease:
     def is_expired(self, now: datetime | None = None) -> bool:
         current = now or utc_now()
         try:
-            exp = datetime.fromisoformat(self.expires_at_iso.replace("Z", "+00:00"))
+            exp = datetime.fromisoformat(self.expires_at_iso)
             return current >= exp
-        except Exception:
+        except (ValueError, TypeError):
             return True
 
     def time_to_live_seconds(self, now: datetime | None = None) -> float:
         current = now or utc_now()
         try:
-            exp = datetime.fromisoformat(self.expires_at_iso.replace("Z", "+00:00"))
+            exp = datetime.fromisoformat(self.expires_at_iso)
             return max(0.0, (exp - current).total_seconds())
-        except Exception:
+        except (ValueError, TypeError):
             return 0.0
 
     def as_dict(self) -> dict[str, Any]:
@@ -303,9 +303,7 @@ class DeadMansLeaseGuard:
                 return False
             if self._active_lease is None:
                 return False
-            if self._active_lease.is_expired():
-                return False
-            return True
+            return not self._active_lease.is_expired()
 
     def assert_authorized(self, scope: str = "inference", owner_id: str | None = None, node_id: str | None = None) -> ExecutionLease:
         """Assert authorization or raise specific KillSwitchError."""
@@ -386,7 +384,7 @@ def get_lease_guard(node_id: str = "local-node") -> DeadMansLeaseGuard:
             anchor_file = Path(__file__).resolve().parents[2] / "config" / "safety" / "master_killswitch_public.hex"
             if anchor_file.exists():
                 pub_hex = anchor_file.read_text(encoding="utf-8").strip()
-        except Exception:
+        except (OSError, UnicodeError, ValueError):
             pub_hex = None
 
         _GLOBAL_LEASE_GUARD = DeadMansLeaseGuard(

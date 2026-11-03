@@ -1,13 +1,7 @@
 """Unit tests for ComputeMesh LAN Discovery UDP Responder."""
-from pathlib import Path
 import socket
-import sys
-import time
 import unittest
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from pathlib import Path
 
 from tools.appliance.lan_discovery_responder import (
     DISCOVERY_PORT,
@@ -15,6 +9,8 @@ from tools.appliance.lan_discovery_responder import (
     LanDiscoveryResponder,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestLanDiscoveryResponder(unittest.TestCase):
     def test_udp_ping_pong_discovery(self) -> None:

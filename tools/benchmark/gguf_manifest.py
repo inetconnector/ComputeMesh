@@ -14,13 +14,13 @@ shard of a multi-shard model rather than silently hashing only part of it.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import struct
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, BinaryIO
 
 GGUF_MAGIC = b"GGUF"

@@ -1,10 +1,11 @@
 """Tests for Architecture Hardening Part 8 (Manifest Invariants)"""
 import pytest
+
 from services.orchestrator.architecture_hardening_part8 import (
     ModelManifestEnforcer,
-    ShardManifestEnforcer,
     ModelManifestError,
-    ShardManifestError
+    ShardManifestEnforcer,
+    ShardManifestError,
 )
 
 

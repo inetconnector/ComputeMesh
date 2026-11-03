@@ -5,12 +5,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import struct
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.android_play_store")
 
@@ -29,7 +28,7 @@ PROHIBITED_TERMS = [
 ]
 
 
-def _get_image_dimensions_pure_python(file_path: Path) -> Optional[Tuple[int, int]]:
+def _get_image_dimensions_pure_python(file_path: Path) -> tuple[int, int] | None:
     """Reads PNG or JPEG dimensions without requiring PIL/Pillow."""
     try:
         with open(file_path, "rb") as f:
@@ -64,7 +63,7 @@ def _get_image_dimensions_pure_python(file_path: Path) -> Optional[Tuple[int, in
                         if idx + 2 <= size:
                             length = struct.unpack(">H", full_data[idx : idx + 2])[0]
                             idx += length
-    except Exception as exc:
+    except (zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         log.debug("Image dimension extraction error for %s: %s", file_path, exc)
     return None
 
@@ -74,14 +73,14 @@ def validate_store_listing(
     short_description: str,
     full_description: str,
     check_prohibited_terms: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validates Google Play Store text listing against official character bounds and policy guidelines."""
     t_clean = str(title or "").strip()
     s_clean = str(short_description or "").strip()
     f_clean = str(full_description or "").strip()
 
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
 
     # Length checks
     t_len = len(t_clean)
@@ -127,12 +126,12 @@ def validate_store_listing(
 
 
 def validate_store_graphics(
-    icon_path: Optional[str] = None,
-    feature_graphic_path: Optional[str] = None,
-    screenshots_dir: Optional[str] = None,
-) -> Dict[str, Any]:
+    icon_path: str | None = None,
+    feature_graphic_path: str | None = None,
+    screenshots_dir: str | None = None,
+) -> dict[str, Any]:
     """Validates app icons (512x512 PNG), feature graphics (1024x500 PNG/JPEG) and screenshot sets."""
-    results: Dict[str, Any] = {
+    results: dict[str, Any] = {
         "valid": True,
         "errors": [],
         "warnings": [],
@@ -194,13 +193,13 @@ def validate_store_graphics(
     return results
 
 
-def inspect_android_manifest_or_bundle(file_path: str) -> Dict[str, Any]:
+def inspect_android_manifest_or_bundle(file_path: str) -> dict[str, Any]:
     """Inspects an Android project, APK, AAB, or build.gradle to extract package, version, and SDK specifications."""
     p = Path(file_path).resolve()
     if not p.exists():
         return {"error": f"Path '{file_path}' does not exist.", "success": False}
 
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "success": True,
         "file": str(p).replace("\\", "/"),
         "type": "unknown",
@@ -237,7 +236,7 @@ def inspect_android_manifest_or_bundle(file_path: str) -> Dict[str, Any]:
             target_sdk = re.search(r'targetSdk(?:Version)?\s*=?\s*(\d+)', text)
             if target_sdk:
                 info["target_sdk"] = int(target_sdk.group(1))
-        except Exception as exc:
+        except (zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Failed to parse gradle file: {exc}", "success": False}
 
 
@@ -255,7 +254,7 @@ def inspect_android_manifest_or_bundle(file_path: str) -> Dict[str, Any]:
             v_name = re.search(r'android:versionName\s*=\s*["\']([^"\']+)["\']', text)
             if v_name:
                 info["version_name"] = v_name.group(1)
-        except Exception as exc:
+        except (zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Failed to parse manifest: {exc}", "success": False}
 
     # Inspect ZIP / AAB structure
@@ -268,7 +267,7 @@ def inspect_android_manifest_or_bundle(file_path: str) -> Dict[str, Any]:
                 info["has_base_manifest"] = any("AndroidManifest.xml" in n for n in names)
                 info["has_dex"] = any(n.endswith(".dex") for n in names)
                 info["has_resources"] = any("resources.pb" in n or "resources.arsc" in n for n in names)
-        except Exception as exc:
+        except (zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Failed to inspect android archive: {exc}", "success": False}
 
     return info
@@ -279,9 +278,9 @@ def sync_play_console_metadata(
     package_name: str,
     edition_name: str,
     is_paid: bool = False,
-    default_price_eur: Optional[str] = None,
-    output_dir: Optional[str] = None,
-) -> Dict[str, Any]:
+    default_price_eur: str | None = None,
+    output_dir: str | None = None,
+) -> dict[str, Any]:
     """Ensures play-store-assets directory has complete package_name.txt, metadata.json and listing templates."""
     base_dir = Path(output_dir or asset_dir).resolve()
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -289,7 +288,7 @@ def sync_play_console_metadata(
     pkg_clean = str(package_name or "").strip()
     ed_clean = str(edition_name or "").strip()
 
-    created_or_updated: List[str] = []
+    created_or_updated: list[str] = []
 
     # 1. package_name.txt
     pkg_file = base_dir / "package_name.txt"

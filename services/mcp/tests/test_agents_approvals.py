@@ -7,7 +7,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from services.mcp.agent_loop import AgentApprovalRequired, AgentExecutionResult, AgentLoop
+from services.mcp.agent_loop import (
+    AgentApprovalRequired,
+    AgentExecutionResult,
+    AgentLoop,
+)
 from services.mcp.config import MCPConfig
 from services.mcp.platform.contracts import SideEffectLevel, ToolManifest
 from services.mcp.platform.harness import MeshAgentHarness
@@ -20,7 +24,10 @@ from services.mcp.platform.session import (
 )
 from services.mcp.platform.session_projection import project_approval, project_approvals
 from services.mcp.platform.tool_broker import AgentToolBroker
-from services.mcp.platform.tool_execution import SafeToolExecutor, ToolCapabilityRegistry
+from services.mcp.platform.tool_execution import (
+    SafeToolExecutor,
+    ToolCapabilityRegistry,
+)
 from services.mcp.tool_registry import ToolRegistry
 
 

@@ -5,12 +5,12 @@ live latency metrics, and client stream synchronization.
 """
 from __future__ import annotations
 
-import json
 import logging
-import time
 import threading
+import time
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, field
-from typing import Any, Generator, Callable
+from typing import Any
 
 log = logging.getLogger("computemesh.runtime.stream_federation")
 
@@ -127,7 +127,7 @@ class P2PStreamFederator:
 
                 yield token
 
-        except Exception as exc:
+        except (OSError, ValueError, RuntimeError, LookupError) as exc:
             log.warning("P2P Stream error on primary peer %s: %s. Initiating zero-drop failover...", primary_peer_id, exc)
             metrics.failover_occurred = True
             next_peer = fallback_peer_id or "local_failover"

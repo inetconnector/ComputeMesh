@@ -2,20 +2,10 @@
 """Comprehensive test suite for the ComputeMesh Kill Switch & Safety Subsystem."""
 from __future__ import annotations
 
-import datetime
-from datetime import UTC, datetime, timedelta
-import json
-import os
-from pathlib import Path
-import sys
 import tempfile
-import time
 import unittest
-
-# Ensure project root is on sys.path
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from datetime import timedelta
+from pathlib import Path
 
 from runtime.safety.dead_mans_switch import (
     AuthorizationLeaseExpiredError,
@@ -23,22 +13,19 @@ from runtime.safety.dead_mans_switch import (
     EmergencyKillTrippedError,
     ExecutionLease,
     InvalidLeaseSignatureError,
-    KillSwitchError,
-    get_lease_guard,
     set_global_lease_guard,
     utc_now,
-    utc_now_iso,
 )
 from runtime.safety.hardware_relay import (
     GPIOApplianceRelay,
-    HardwareKillRelay,
     NullHardwareRelay,
     SmartPDUWebhookRelay,
 )
 from runtime.safety.supervisor import SafetySupervisor
 from runtime.safety.tripline_monitor import TriplineMonitor
-from tools.security.ed25519_verify import verify_ed25519_signature
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestDeadMansSwitchAndLease(unittest.TestCase):
     """Test Positive Authorization Lease verification, expiration, and trip state."""
@@ -156,7 +143,7 @@ class TestHardwareRelays(unittest.TestCase):
     def test_smart_pdu_relay_mock(self) -> None:
         pdu = SmartPDUWebhookRelay(cutoff_url="http://127.0.0.1:9999/pdu/off", auth_token="secret-pdu", timeout_seconds=0.01)
         self.assertFalse(pdu.tripped)
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
         with patch("urllib.request.urlopen") as mock_open:
             mock_resp = MagicMock()
             mock_resp.status = 200

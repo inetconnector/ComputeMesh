@@ -10,8 +10,8 @@ import html
 import re
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
 import xml.etree.ElementTree as ET
+from typing import Any
 
 TAG_RE = re.compile(r"(?is)<[^>]+>")
 SPACE_RE = re.compile(r"\s+")
@@ -30,7 +30,7 @@ def clean_html(raw_html: str) -> str:
     return SPACE_RE.sub(" ", text).strip()
 
 
-def duckduckgo_search(query: str, max_results: int = 5, timeout: float = 8.0) -> List[Dict[str, str]]:
+def duckduckgo_search(query: str, max_results: int = 5, timeout: float = 8.0) -> list[dict[str, str]]:
     encoded = urllib.parse.urlencode({"q": query, "b": ""})
     url = f"https://html.duckduckgo.com/html/?{encoded}"
     req = urllib.request.Request(
@@ -42,7 +42,7 @@ def duckduckgo_search(query: str, max_results: int = 5, timeout: float = 8.0) ->
         },
     )
 
-    results: List[Dict[str, str]] = []
+    results: list[dict[str, str]] = []
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             content = resp.read().decode("utf-8", errors="ignore")
@@ -55,7 +55,7 @@ def duckduckgo_search(query: str, max_results: int = 5, timeout: float = 8.0) ->
             if "uddg=" in raw_url:
                 parsed = urllib.parse.urlparse(raw_url)
                 qs = urllib.parse.parse_qs(parsed.query)
-                if "uddg" in qs and qs["uddg"]:
+                if qs.get("uddg"):
                     target_url = qs["uddg"][0]
 
             title = clean_html(raw_title)
@@ -69,8 +69,8 @@ def duckduckgo_search(query: str, max_results: int = 5, timeout: float = 8.0) ->
                 })
             if len(results) >= max_results:
                 break
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     return results
 
@@ -103,7 +103,7 @@ def detect_locale_for_query(query: str) -> tuple[str, str, str, str]:
     return ("de", "DE", "de-DE", "de-DE,de;q=0.9,en;q=0.8")
 
 
-def google_news_search(query: str, max_results: int = 5, timeout: float = 6.0) -> List[Dict[str, str]]:
+def google_news_search(query: str, max_results: int = 5, timeout: float = 6.0) -> list[dict[str, str]]:
     hl, gl, _, _ = detect_locale_for_query(query)
     encoded = urllib.parse.quote(query)
     ceid = f"{gl}:{hl}"
@@ -112,7 +112,7 @@ def google_news_search(query: str, max_results: int = 5, timeout: float = 6.0) -
         url,
         headers={"User-Agent": USER_AGENT, "Accept": "application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.8"},
     )
-    results: List[Dict[str, str]] = []
+    results: list[dict[str, str]] = []
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             content = resp.read().decode("utf-8", errors="ignore")
@@ -130,12 +130,12 @@ def google_news_search(query: str, max_results: int = 5, timeout: float = 6.0) -
                     "url": link,
                     "snippet": desc,
                 })
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return results
 
 
-def bing_rss_search(query: str, max_results: int = 5, timeout: float = 8.0) -> List[Dict[str, str]]:
+def bing_rss_search(query: str, max_results: int = 5, timeout: float = 8.0) -> list[dict[str, str]]:
     _, gl, setlang, accept_lang = detect_locale_for_query(query)
     encoded = urllib.parse.urlencode({"q": query, "format": "rss", "setlang": setlang, "cc": gl})
     url = f"https://www.bing.com/search?{encoded}"
@@ -144,7 +144,7 @@ def bing_rss_search(query: str, max_results: int = 5, timeout: float = 8.0) -> L
         headers={"User-Agent": USER_AGENT, "Accept-Language": accept_lang},
     )
 
-    results: List[Dict[str, str]] = []
+    results: list[dict[str, str]] = []
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             content = resp.read().decode("utf-8", errors="ignore")
@@ -169,13 +169,13 @@ def bing_rss_search(query: str, max_results: int = 5, timeout: float = 8.0) -> L
                     })
                 if len(results) >= max_results:
                     break
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     return results
 
 
-def yahoo_search(query: str, max_results: int = 5, timeout: float = 6.0) -> List[Dict[str, str]]:
+def yahoo_search(query: str, max_results: int = 5, timeout: float = 6.0) -> list[dict[str, str]]:
     _, _, _, accept_lang = detect_locale_for_query(query)
     encoded = urllib.parse.urlencode({"p": query, "ei": "UTF-8"})
     url = f"https://search.yahoo.com/search?{encoded}"
@@ -183,7 +183,7 @@ def yahoo_search(query: str, max_results: int = 5, timeout: float = 6.0) -> List
         url,
         headers={"User-Agent": USER_AGENT, "Accept-Language": accept_lang},
     )
-    results: List[Dict[str, str]] = []
+    results: list[dict[str, str]] = []
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             content = resp.read().decode("utf-8", errors="ignore")
@@ -194,8 +194,8 @@ def yahoo_search(query: str, max_results: int = 5, timeout: float = 6.0) -> List
                 results.append({"title": title, "url": raw_url, "snippet": ""})
             if len(results) >= max_results:
                 break
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return results
 
 
@@ -246,7 +246,7 @@ def deep_cultural_event_search(
     query_hint: str = "",
     max_results: int = 8,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Executes a multi-vector deep cultural research strategy for any city, town, or village worldwide.
 
@@ -262,7 +262,7 @@ def deep_cultural_event_search(
     if not clean_city:
         return {"city": "", "results": [], "categories": {}}
 
-    hl, gl, _, _ = detect_locale_for_query(clean_city)
+    hl, _gl, _, _ = detect_locale_for_query(clean_city)
 
     # Formulate multi-angle research vectors tailored by language & region
     if hl == "fr":
@@ -301,7 +301,7 @@ def deep_cultural_event_search(
             (f"{clean_city} Stadtmagazin Veranstaltungskalender Ausgehtipps alternative Termine heute Wochenende", "calendars"),
         ]
 
-    raw_candidates: List[Dict[str, Any]] = []
+    raw_candidates: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
 
     with ThreadPoolExecutor(max_workers=len(vectors)) as executor:
@@ -329,7 +329,8 @@ def deep_cultural_event_search(
                         "rubric_key": rubric_key,
                         "score": score,
                     })
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
                 continue
 
     # Sort candidates by cultural archetype priority score
@@ -337,7 +338,7 @@ def deep_cultural_event_search(
     selected = raw_candidates[:max_results]
 
     # Group by rubric
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for item in selected:
         badge = item["badge"]
         grouped.setdefault(badge, []).append(item)
@@ -350,7 +351,7 @@ def deep_cultural_event_search(
     }
 
 
-def execute_web_search(query: str, max_results: int = 5, timeout: float = 10.0) -> Dict[str, Any]:
+def execute_web_search(query: str, max_results: int = 5, timeout: float = 10.0) -> dict[str, Any]:
     """
     Executes live web search using DuckDuckGo, Google News RSS, Bing RSS, or Yahoo Search.
     """

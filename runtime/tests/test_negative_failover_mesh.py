@@ -1,8 +1,10 @@
 import unittest
+
 from runtime.autonomous_failover_mesh import (
-    EndToEndLatencyOptimizer,
     AutonomousFailoverMeshFabric,
+    EndToEndLatencyOptimizer,
 )
+
 
 class TestAutonomousFailoverMeshNegative(unittest.TestCase):
     def setUp(self) -> None:

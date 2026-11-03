@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
 import unittest
+from datetime import UTC, datetime, timedelta
 
 from protocol.node_session import (
     AuthenticationAttempt,
@@ -28,7 +28,7 @@ class FakeVerifier:
 
 class NodeSessionTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 21, 10, 0, tzinfo=timezone.utc)
+        self.now = datetime(2026, 8, 21, 10, 0, tzinfo=UTC)
         self.hello = NodeHelloInfo(
             agent_version="0.0.1",
             platform="windows-amd64",

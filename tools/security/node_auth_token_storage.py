@@ -7,12 +7,11 @@ helper for its legacy non-NodeOS desktop mode through a compatibility wrapper.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import os
-from pathlib import Path
 import secrets
 import sys
-
+from collections.abc import Callable, Iterable
+from pathlib import Path
 
 TOKEN_PREFIX = "cm_tunnel_"
 _LIVE_PATH_PREFIXES = ("/boot", "/live", "/run/live")
@@ -123,7 +122,7 @@ def get_or_create_node_auth_token(
         try:
             writer(Path(target), new_token)
             return new_token
-        except Exception as exc:  # noqa: BLE001 - try the next authorized tier
+        except (OSError, ValueError, TypeError, RuntimeError, NodeAuthTokenStorageError) as exc:
             last_error = exc
     raise NodeAuthTokenStorageError("cannot persist node authentication token") from last_error
 

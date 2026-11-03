@@ -1,36 +1,27 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
-from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from services.compliance.provider_identity import (
-    BusinessRegistryInfo,
-    ContractCounterpartyModel,
-    CustomerAudience,
     DSA_TRADER_DECLARATION_VERSION,
-    DSAArticle30PublicDisclosure,
+    BusinessRegistryInfo,
+    CustomerAudience,
     EntityType,
     EvidenceConfidence,
     EvidenceSource,
-    IdentityEvidence,
     IdentityVerificationState,
-    LegalDeclaration,
     MarketplaceEligibilityState,
     MarketplaceMode,
-    MinimalProviderPublicProfile,
     PaymentVerificationState,
     ProviderIdentity,
     StructuredAddress,
-    TraderDeclaration,
-    VerificationState,
     evaluate_provider_requirements,
 )
 from services.compliance.provider_identity_store import (
     ProviderIdentityStore,
-    ProviderIdentityStoreError,
 )
 
 

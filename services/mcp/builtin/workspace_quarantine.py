@@ -11,13 +11,13 @@ import os
 import shutil
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.quarantine")
 QUARANTINE_DIR_NAME = ".computemesh-quarantine"
 
 
-def _get_quarantine_root(workspace_root: Optional[str] = None) -> str:
+def _get_quarantine_root(workspace_root: str | None = None) -> str:
     root = os.path.abspath(workspace_root or ".")
     q_dir = os.path.join(root, QUARANTINE_DIR_NAME)
     os.makedirs(q_dir, exist_ok=True)
@@ -25,10 +25,10 @@ def _get_quarantine_root(workspace_root: Optional[str] = None) -> str:
 
 
 def quarantine_stage_files(
-    files: Dict[str, str],
-    workspace_root: Optional[str] = None,
-    txn_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    files: dict[str, str],
+    workspace_root: str | None = None,
+    txn_id: str | None = None,
+) -> dict[str, Any]:
     """Stages proposed file modifications in an isolated quarantine sandbox."""
     if not files:
         return {"error": "Keine Dateien zum Staging übergeben.", "success": False}
@@ -41,7 +41,7 @@ def quarantine_stage_files(
     os.makedirs(orig_dir, exist_ok=True)
     os.makedirs(staged_dir, exist_ok=True)
 
-    diffs: Dict[str, str] = {}
+    diffs: dict[str, str] = {}
     manifest_files = []
 
     for rel_path, staged_content in files.items():
@@ -102,7 +102,7 @@ def quarantine_stage_files(
     }
 
 
-def quarantine_validate(txn_id: str, workspace_root: Optional[str] = None) -> Dict[str, Any]:
+def quarantine_validate(txn_id: str, workspace_root: str | None = None) -> dict[str, Any]:
     """Validates syntax and AST of all staged files in the quarantine transaction."""
     root = os.path.abspath(workspace_root or ".")
     txn_dir = os.path.join(_get_quarantine_root(root), txn_id)
@@ -114,7 +114,7 @@ def quarantine_validate(txn_id: str, workspace_root: Optional[str] = None) -> Di
         manifest = json.load(f)
 
     staged_dir = os.path.join(txn_dir, "staged")
-    errors: List[Dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
 
     for f_meta in manifest.get("files", []):
         clean_rel = f_meta.get("path", "")
@@ -133,7 +133,7 @@ def quarantine_validate(txn_id: str, workspace_root: Optional[str] = None) -> Di
         elif clean_rel.endswith(".json"):
             try:
                 json.loads(code)
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 errors.append({"file": clean_rel, "message": f"Ungültiges JSON: {exc}"})
 
     is_valid = len(errors) == 0
@@ -146,7 +146,7 @@ def quarantine_validate(txn_id: str, workspace_root: Optional[str] = None) -> Di
     }
 
 
-def quarantine_commit(txn_id: str, workspace_root: Optional[str] = None) -> Dict[str, Any]:
+def quarantine_commit(txn_id: str, workspace_root: str | None = None) -> dict[str, Any]:
     """Atomically commits staged quarantine files into the active workspace."""
     root = os.path.abspath(workspace_root or ".")
     txn_dir = os.path.join(_get_quarantine_root(root), txn_id)
@@ -177,7 +177,7 @@ def quarantine_commit(txn_id: str, workspace_root: Optional[str] = None) -> Dict
     }
 
 
-def quarantine_rollback(txn_id: str, workspace_root: Optional[str] = None) -> Dict[str, Any]:
+def quarantine_rollback(txn_id: str, workspace_root: str | None = None) -> dict[str, Any]:
     """Discards the staged quarantine transaction without touching the workspace."""
     root = os.path.abspath(workspace_root or ".")
     txn_dir = os.path.join(_get_quarantine_root(root), txn_id)

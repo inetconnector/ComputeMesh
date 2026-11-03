@@ -10,9 +10,7 @@ from pathlib import Path
 
 from runtime.network.mesh_transport import generate_node_tls_credentials
 from runtime.network.webrtc_mesh_fabric import (
-    MeshFabricMetrics,
     ResilientMeshFabricManager,
-    WebRTCFabricError,
     WebRTCFrameType,
     WebRTCP2PPeer,
     WebRTCP2PState,
@@ -35,7 +33,7 @@ class TestWebRTCMeshFabric(unittest.TestCase):
         payload = b"ComputeMesh WebRTC Resilience Test Payload"
         seq = 42
         frame = pack_frame(WebRTCFrameType.DATA, seq, payload)
-        ftype, unpacked_seq, plen, checksum = unpack_frame_header(frame[:17])
+        ftype, unpacked_seq, plen, _checksum = unpack_frame_header(frame[:17])
         self.assertEqual(ftype, WebRTCFrameType.DATA)
         self.assertEqual(unpacked_seq, seq)
         self.assertEqual(plen, len(payload))
@@ -89,7 +87,7 @@ class TestWebRTCMeshFabric(unittest.TestCase):
 
         # Now attach a P2P peer
         sock_a, sock_b = socket.socketpair()
-        peer_a = mgr_a.register_peer_p2p("node-b", sock_a)
+        _peer_a = mgr_a.register_peer_p2p("node-b", sock_a)
         peer_b = WebRTCP2PPeer(local_creds=self.node_b_creds, remote_node_id="node-a")
         peer_b.attach_socket(sock_b)
 

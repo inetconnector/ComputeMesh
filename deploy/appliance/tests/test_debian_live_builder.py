@@ -1,12 +1,11 @@
 """Unit tests for Debian Live NodeOS Image Builder."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from deploy.appliance.debian_live_builder import (
-    ApplianceBuildConfig,
-    DebianLiveBuilder,
     REQUIRED_PACKAGES,
+    DebianLiveBuilder,
 )
 
 

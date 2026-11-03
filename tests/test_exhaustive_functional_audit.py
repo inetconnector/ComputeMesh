@@ -15,42 +15,16 @@ Tests every functional unit, method, and tool across:
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
-import sys
-from typing import Any, Dict, List
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 # --- Pillar 1: Code Interpreter ---
-from services.mcp.builtin.python_sandbox import execute_python_code, run_code_interpreter
-
-# --- Pillar 2: RAG, Embeddings, Chunker, Parser, VectorStore ---
-from services.rag.embeddings import (
-    _dense_semantic_embedding,
-    compute_embeddings,
-    compute_semantic_embedding,
-    cosine_similarity,
-    get_text_embedding,
-)
-from services.rag.chunker import DocumentChunk, chunk_text
-from services.rag.document_parser import extract_text_from_file, parse_document_content, parse_document_text
-from services.rag.vector_store import SearchResult, VectorStore, get_default_vector_store
-
-# --- Pillar 3 & 9: Reasoning Blocks & Agent Loop ---
-from services.mcp.agent_loop import (
-    _decode_arguments,
-    detect_direct_tool_intent,
-    format_reasoning_and_thinking_blocks,
-    format_tool_content_if_json,
-)
+# --- Pillar 7: SD.cpp Image Engine ---
+from runtime.sd_cpp.image_engine_service import FAST_MODELS, find_sd_server_binary
 
 # --- Pillar 4: GBNF Grammar Compiler ---
 from services.grammar.json_schema_to_gbnf import (
@@ -60,29 +34,13 @@ from services.grammar.json_schema_to_gbnf import (
     json_schema_to_gbnf,
 )
 
-# --- Pillar 5: User Memory ---
-from services.memory.user_memory import (
-    UserProfile,
-    UserMemoryStore,
-    delete_user_memory,
-    get_user_memory,
-    get_user_memory_store,
-    update_user_memory,
+# --- Pillar 3 & 9: Reasoning Blocks & Agent Loop ---
+from services.mcp.agent_loop import (
+    _decode_arguments,
+    detect_direct_tool_intent,
+    format_reasoning_and_thinking_blocks,
+    format_tool_content_if_json,
 )
-
-# --- Pillar 6: Streaming Voice VAD ---
-from services.voice.voice_realtime import (
-    RealtimeVoiceSession,
-    SimpleEnergyVAD,
-    compute_audio_energy,
-    create_voice_session,
-)
-
-# --- Pillar 7: SD.cpp Image Engine ---
-from runtime.sd_cpp.image_engine_service import FAST_MODELS, find_sd_server_binary
-
-# --- Pillar 8: Tool Registry & All Builtin Tools ---
-from services.mcp.tool_registry import ToolRegistry
 from services.mcp.builtin.arxiv_research import search_arxiv_papers
 from services.mcp.builtin.chemical_data import lookup_chemical_compound
 from services.mcp.builtin.company_lookup import lookup_company
@@ -96,14 +54,27 @@ from services.mcp.builtin.food_products import lookup_food_product
 from services.mcp.builtin.generate_image import generate_ai_image
 from services.mcp.builtin.geo_routing import get_distance_route
 from services.mcp.builtin.network_tools import lookup_network_host
-from services.mcp.builtin.news_feed import clean_text as news_clean_text, execute_get_news, get_live_news
+from services.mcp.builtin.news_feed import clean_text as news_clean_text
+from services.mcp.builtin.news_feed import execute_get_news, get_live_news
 from services.mcp.builtin.package_registry import lookup_software_package
 from services.mcp.builtin.places import search_places
 from services.mcp.builtin.python_calc import run_python_calc
-from services.mcp.builtin.rag_tool import index_document_text, list_indexed_documents, search_knowledge_base
+from services.mcp.builtin.python_sandbox import (
+    execute_python_code,
+    run_code_interpreter,
+)
+from services.mcp.builtin.rag_tool import (
+    index_document_text,
+    list_indexed_documents,
+    search_knowledge_base,
+)
 from services.mcp.builtin.sports_data import get_sports_data
 from services.mcp.builtin.system_tools import execute_system_info
-from services.mcp.builtin.time_calendar import calculate_easter_sunday, get_german_holidays, get_time_and_calendar
+from services.mcp.builtin.time_calendar import (
+    calculate_easter_sunday,
+    get_german_holidays,
+    get_time_and_calendar,
+)
 from services.mcp.builtin.train_transit import lookup_train_schedule
 from services.mcp.builtin.url_security import check_url_safety
 from services.mcp.builtin.weather import execute_get_weather, get_current_weather
@@ -113,22 +84,105 @@ from services.mcp.builtin.web_search import execute_web_search
 from services.mcp.builtin.wikipedia import get_wikipedia_summary
 from services.mcp.builtin.world_bank import get_world_bank_stats
 
+# --- Pillar 8: Tool Registry & All Builtin Tools ---
+from services.mcp.tool_registry import ToolRegistry
+
+# --- Pillar 5: User Memory ---
+from services.memory.user_memory import (
+    UserMemoryStore,
+    UserProfile,
+    delete_user_memory,
+    get_user_memory,
+    get_user_memory_store,
+    update_user_memory,
+)
+from services.rag.chunker import DocumentChunk, chunk_text
+from services.rag.document_parser import (
+    extract_text_from_file,
+    parse_document_content,
+    parse_document_text,
+)
+
+# --- Pillar 2: RAG, Embeddings, Chunker, Parser, VectorStore ---
+from services.rag.embeddings import (
+    _dense_semantic_embedding,
+    compute_embeddings,
+    compute_semantic_embedding,
+    cosine_similarity,
+    get_text_embedding,
+)
+from services.rag.vector_store import (
+    SearchResult,
+    VectorStore,
+    get_default_vector_store,
+)
+
+# --- Pillar 6: Streaming Voice VAD ---
+from services.voice.voice_realtime import (
+    RealtimeVoiceSession,
+    SimpleEnergyVAD,
+    compute_audio_energy,
+    create_voice_session,
+)
+
+# Keep the import-audit coverage explicit: these names are intentionally
+# imported so collection proves that every built-in surface resolves, even
+# where a separate behavioral test does not call the symbol directly.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+_IMPORT_AUDIT_TARGETS = (
+    _compile_type_to_gbnf,
+    search_arxiv_papers,
+    lookup_company,
+    get_recent_earthquakes,
+    search_events,
+    execute_finance_quote,
+    get_market_quote,
+    generate_ai_image,
+    get_distance_route,
+    lookup_network_host,
+    execute_get_news,
+    get_live_news,
+    lookup_software_package,
+    search_places,
+    get_sports_data,
+    lookup_train_schedule,
+    execute_get_weather,
+    get_current_weather,
+    get_weather_forecast,
+    execute_web_fetch,
+    execute_web_search,
+    get_wikipedia_summary,
+    get_world_bank_stats,
+    UserProfile,
+    get_user_memory_store,
+    parse_document_text,
+    _dense_semantic_embedding,
+    compute_semantic_embedding,
+    SearchResult,
+    get_default_vector_store,
+    RealtimeVoiceSession,
+)
+
 
 class TestPillar1CodeInterpreter(unittest.TestCase):
     """Tests for Python Sandbox execution and plot generation."""
 
     def test_basic_math_execution(self):
+        # Until an OS-isolated executor exists, even innocent expressions
+        # must not execute inside the MCP server process.
         res = execute_python_code("a = 10\nb = 20\nresult = a + b\nprint('Computed:', result)")
-        self.assertTrue(res["success"])
-        self.assertEqual(res["status"], "success")
-        self.assertIn("Computed: 30", res["stdout"])
-        self.assertEqual(res["result"], "30")
-        self.assertIn("Rückgabewert:", res["markdown"])
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "disabled")
+        self.assertEqual(res["stdout"], "")
+        self.assertIsNone(res["result"])
 
     def test_expression_evaluation(self):
         res = execute_python_code("2 ** 10")
-        self.assertTrue(res["success"])
-        self.assertEqual(res["result"], "1024")
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "disabled")
+        self.assertIsNone(res["result"])
 
     def test_empty_code_handling(self):
         res = execute_python_code("")
@@ -144,8 +198,8 @@ class TestPillar1CodeInterpreter(unittest.TestCase):
         for snip in dangerous_snippets:
             res = execute_python_code(snip)
             self.assertFalse(res["success"])
-            self.assertEqual(res["status"], "security_violation")
-            self.assertIn("Sicherheitsverletzung", res["markdown"])
+            self.assertEqual(res["status"], "disabled")
+            self.assertIn("deaktiviert", res["markdown"])
 
     def test_matplotlib_figure_capture(self):
         code = (
@@ -155,13 +209,14 @@ class TestPillar1CodeInterpreter(unittest.TestCase):
             "plt.title('Test Plot')\n"
         )
         res = execute_python_code(code)
-        self.assertTrue(res["success"])
-        self.assertGreaterEqual(len(res["images"]), 1)
-        self.assertTrue(res["images"][0].startswith("data:image/png;base64,"))
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "disabled")
+        self.assertEqual(res["images"], [])
 
     def test_alias_run_code_interpreter(self):
         res = run_code_interpreter("1 + 1")
-        self.assertEqual(res["result"], "2")
+        self.assertEqual(res["status"], "disabled")
+        self.assertIsNone(res["result"])
 
 
 class TestPillar2VectorRAGAndEmbeddings(unittest.TestCase):
@@ -422,7 +477,7 @@ class TestPillar6VoiceStreamingVAD(unittest.TestCase):
         for i in range(320):
             speech_chunk.extend((14000).to_bytes(2, byteorder="little", signed=True))
 
-        res1 = session.process_audio_chunk(bytes(speech_chunk))
+        _res1 = session.process_audio_chunk(bytes(speech_chunk))
         res2 = session.process_audio_chunk(bytes(speech_chunk))
         self.assertFalse(session.is_ai_speaking)
         self.assertIn("interruption_detected", res2["events"])
@@ -477,7 +532,9 @@ class TestPillar8CompleteBuiltinTools(unittest.TestCase):
 
     def test_tool_url_security(self):
         # Safe URL
-        safe_res = check_url_safety("https://example.com")
+        # Offline CI cannot assume external DNS. Use a real globally
+        # routable IP literal to test the policy without network resolution.
+        safe_res = check_url_safety("https://1.1.1.1")
         self.assertTrue(safe_res.get("safe"))
         self.assertEqual(safe_res.get("status"), "CLEAN")
 

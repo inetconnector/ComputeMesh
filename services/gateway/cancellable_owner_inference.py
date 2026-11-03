@@ -1,9 +1,11 @@
 """Cancellation/request-id support without regressing unified-owner economics."""
 from __future__ import annotations
 
+import sqlite3
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
 from services.gateway.inference_backend import BackendResult, InferenceBackend
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
@@ -72,7 +74,8 @@ class CancellableUnifiedOwnerInferenceEngine(UnifiedOwnerInferenceEngine):
     @staticmethod
     def validate_request_id(value: Any) -> str:
         if not isinstance(value, str):
-            raise ValueError("ComputeMesh request id must be a string")
+            err = ValueError("ComputeMesh request id must be a string")
+            raise err
         request_id = value.strip()
         if not request_id or len(request_id) > 128:
             raise ValueError("ComputeMesh request id must be between 1 and 128 characters")
@@ -108,10 +111,10 @@ class CancellableUnifiedOwnerInferenceEngine(UnifiedOwnerInferenceEngine):
             if execution_job_id and store is not None:
                 try:
                     acknowledge_job_settlement(store, execution_job_id)
-                except Exception:
+                except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     # Owner settlement is already durable; backend acknowledgement is
                     # recoverable and must not turn a paid completion into an error.
-                    pass
+                    _ = exc
             return result
         finally:
             self._request_local.execution_job_id = None

@@ -8,12 +8,15 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
+from pathlib import Path
 
 from apps.node import provider_agent
-from services.identity.machine_identity import MachineIdentityError, attach_governance_identity
+from services.identity.machine_identity import (
+    MachineIdentityError,
+    attach_governance_identity,
+)
 
 
 class GovernedProviderAgentError(RuntimeError):

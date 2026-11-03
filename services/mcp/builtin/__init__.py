@@ -1,14 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
 """ComputeMesh Built-in Tools for Live Intelligence."""
 
-from .adb_bridge_tools import adb_list_devices, adb_capture_screenshot, adb_install_app, adb_get_system_log
-from .android_play_store_tools import validate_store_listing, validate_store_graphics, inspect_android_manifest_or_bundle, sync_play_console_metadata
+from .adb_bridge_tools import (
+    adb_capture_screenshot,
+    adb_get_system_log,
+    adb_install_app,
+    adb_list_devices,
+)
+from .android_play_store_tools import (
+    inspect_android_manifest_or_bundle,
+    sync_play_console_metadata,
+    validate_store_graphics,
+    validate_store_listing,
+)
 from .arxiv_research import search_arxiv_papers
-from .audio_tools import transcribe_audio_data, synthesize_speech_audio
+from .audio_tools import synthesize_speech_audio, transcribe_audio_data
 from .chemical_data import lookup_chemical_compound
-from .code_lint_and_syntax import validate_code_syntax, check_code_quality
-from .code_patch_engine import replace_file_content, multi_replace_file_content
-from .code_search_indexer import grep_search_code, extract_code_symbols
+from .code_lint_and_syntax import check_code_quality, validate_code_syntax
+from .code_patch_engine import multi_replace_file_content, replace_file_content
+from .code_search_indexer import extract_code_symbols, grep_search_code
 from .company_lookup import lookup_company
 from .country_data import lookup_country_data
 from .currency import convert_currency
@@ -18,29 +28,66 @@ from .document_reader import extract_document_content
 from .earthquake_feed import get_recent_earthquakes
 from .events import search_events
 from .fact_triangulation import verify_fact_multi_source
-from .file_system_tools import list_workspace_files, read_workspace_file, write_workspace_file
-from .finance_market import get_market_quote, get_market_movers
-
+from .file_system_tools import (
+    list_workspace_files,
+    read_workspace_file,
+    write_workspace_file,
+)
+from .finance_market import get_market_movers, get_market_quote
 from .food_products import lookup_food_product
 from .geo_routing import get_distance_route
-from .git_tools import get_git_status, get_git_diff, get_git_log
-from .github_ci_tools import github_list_releases, github_get_latest_release, github_list_commits, github_get_workflow_runs
-from .github_issue_tools import github_list_issues, github_get_issue, github_create_issue, github_add_issue_comment
-from .github_pr_tools import github_list_pull_requests, github_get_pull_request, github_get_pull_request_diff, github_get_pull_request_files
-from .github_repo_tools import github_get_repo, github_search_repositories, github_get_file_contents, github_list_repo_tree, github_search_code
+from .git_tools import get_git_diff, get_git_log, get_git_status
+from .github_ci_tools import (
+    github_get_latest_release,
+    github_get_workflow_runs,
+    github_list_commits,
+    github_list_releases,
+)
+from .github_issue_tools import (
+    github_add_issue_comment,
+    github_create_issue,
+    github_get_issue,
+    github_list_issues,
+)
+from .github_pr_tools import (
+    github_get_pull_request,
+    github_get_pull_request_diff,
+    github_get_pull_request_files,
+    github_list_pull_requests,
+)
+from .github_repo_tools import (
+    github_get_file_contents,
+    github_get_repo,
+    github_list_repo_tree,
+    github_search_code,
+    github_search_repositories,
+)
 from .http_api_client import execute_http_request
 from .knowledge_fusion import cross_source_knowledge_search, deep_research_topic
-from .mission_journal import mission_start, mission_log_step, mission_verify_postconditions, mission_get_summary
+from .mission_journal import (
+    mission_get_summary,
+    mission_log_step,
+    mission_start,
+    mission_verify_postconditions,
+)
 from .multilingual_wiki import fetch_multilingual_wikipedia
 from .network_tools import lookup_network_host
 from .news_feed import get_live_news
-from .office_suite import generate_office_document, parse_office_document, convert_data_to_markdown_table
+from .office_suite import (
+    convert_data_to_markdown_table,
+    generate_office_document,
+    parse_office_document,
+)
 from .package_registry import lookup_software_package
 from .places import search_places
 from .product_price_engine import search_product_prices
 from .python_calc import run_python_calc
 from .sports_data import get_sports_data
-from .system_tools import execute_system_info, execute_gpu_telemetry, execute_process_summary
+from .system_tools import (
+    execute_gpu_telemetry,
+    execute_process_summary,
+    execute_system_info,
+)
 from .terminal_runner import run_terminal_command
 from .test_runner_tools import run_project_tests
 from .time_calendar import get_time_and_calendar
@@ -51,11 +98,21 @@ from .weather import get_current_weather
 from .weather_forecast import get_weather_forecast
 from .web_fetch import execute_web_fetch
 from .web_search import execute_web_search
-from .webapp_deployer import deploy_local_webapp, list_deployed_webapps, remove_deployed_webapp, launch_deployed_webapp
+from .webapp_deployer import (
+    deploy_local_webapp,
+    launch_deployed_webapp,
+    list_deployed_webapps,
+    remove_deployed_webapp,
+)
 from .wikipedia import get_wikipedia_summary
-from .world_bank import get_world_bank_stats
 from .workspace_doctor import run_doctor_diagnostics
-from .workspace_quarantine import quarantine_stage_files, quarantine_validate, quarantine_commit, quarantine_rollback
+from .workspace_quarantine import (
+    quarantine_commit,
+    quarantine_rollback,
+    quarantine_stage_files,
+    quarantine_validate,
+)
+from .world_bank import get_world_bank_stats
 
 __all__ = [
     "adb_capture_screenshot",
@@ -65,10 +122,10 @@ __all__ = [
     "analyze_data_table",
     "check_code_quality",
     "convert_currency",
+    "convert_data_to_markdown_table",
     "cross_source_knowledge_search",
     "deep_research_topic",
     "deploy_local_webapp",
-    "launch_deployed_webapp",
     "detect_missing_tools",
     "execute_gpu_telemetry",
     "execute_http_request",
@@ -80,12 +137,14 @@ __all__ = [
     "extract_document_content",
     "fetch_multilingual_wikipedia",
     "fetch_recent_timeline",
+    "generate_office_document",
     "get_current_weather",
     "get_distance_route",
     "get_git_diff",
     "get_git_log",
     "get_git_status",
     "get_live_news",
+    "get_market_movers",
     "get_market_quote",
     "get_recent_earthquakes",
     "get_sports_data",
@@ -111,8 +170,9 @@ __all__ = [
     "github_search_code",
     "github_search_repositories",
     "grep_search_code",
-    "install_dev_tool",
     "inspect_android_manifest_or_bundle",
+    "install_dev_tool",
+    "launch_deployed_webapp",
     "list_deployed_webapps",
     "list_workspace_files",
     "lookup_chemical_compound",
@@ -128,6 +188,7 @@ __all__ = [
     "mission_start",
     "mission_verify_postconditions",
     "multi_replace_file_content",
+    "parse_office_document",
     "quarantine_commit",
     "quarantine_rollback",
     "quarantine_stage_files",
@@ -142,6 +203,7 @@ __all__ = [
     "search_arxiv_papers",
     "search_events",
     "search_places",
+    "search_product_prices",
     "sync_play_console_metadata",
     "synthesize_speech_audio",
     "transcribe_audio_data",

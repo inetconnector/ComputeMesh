@@ -10,13 +10,12 @@ Tripping any anomaly instantly triggers the Safety Supervisor emergency kill.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
 import hashlib
 import logging
-import os
-from pathlib import Path
 import threading
 import time
+from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger("cm_safety.tripline_monitor")
@@ -70,7 +69,7 @@ class TriplineMonitor:
     def _hash_file(path: Path) -> str | None:
         try:
             return hashlib.sha256(path.read_bytes()).hexdigest()
-        except Exception:
+        except OSError:
             return None
 
     def start(self) -> None:
@@ -100,7 +99,7 @@ class TriplineMonitor:
         logger.critical("TRIPLINE BREACH DETECTED: %s - %s", tripline_name, details)
         try:
             self.on_breach_callback(tripline_name, details)
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
             logger.error("Error executing tripline breach callback: %s", exc)
 
     def verify_integrity_now(self) -> tuple[bool, str | None]:
@@ -125,10 +124,10 @@ class TriplineMonitor:
                 if not self._is_running or self._tripped:
                     break
             try:
-                ok, reason = self.verify_integrity_now()
+                ok, _reason = self.verify_integrity_now()
                 if not ok:
                     break
-            except Exception as exc:
+            except (OSError, RuntimeError, ValueError) as exc:
                 logger.debug("Tripline loop iteration error: %s", exc)
 
             time.sleep(self.check_interval_seconds)

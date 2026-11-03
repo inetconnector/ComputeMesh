@@ -7,15 +7,14 @@ enforcement of the core invariants defined in ARCHITECTURE.md:
 from __future__ import annotations
 
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 class HardeningPart4Error(RuntimeError):
     """Base exception for architecture hardening Part 4 violations."""
-    pass
 
 class SplitPhaseModelingError(HardeningPart4Error):
     """Raised when the scheduler fails to model prefill and decode separately."""
-    pass
 
 
 class SplitPhasePerformanceModel:
@@ -27,7 +26,7 @@ class SplitPhasePerformanceModel:
     def __init__(self):
         self._lock = threading.Lock()
 
-    def estimate_job_performance(self, node_profile: Dict[str, Any], prompt_tokens: int, expected_decode_tokens: int) -> Dict[str, Any]:
+    def estimate_job_performance(self, node_profile: dict[str, Any], prompt_tokens: int, expected_decode_tokens: int) -> dict[str, Any]:
         """Estimates the performance of a job by explicitly modeling prefill and decode separately."""
 
         # We MUST ensure the caller provides tokens for both phases to prove they are modeled

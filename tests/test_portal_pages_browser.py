@@ -278,7 +278,9 @@ def test_status_page_marks_ledger_explorer_for_bilingual_switching():
     page = (PORTAL / "status.html").read_text(encoding="utf-8-sig")
     core = (PORTAL / "portal-core.js").read_text(encoding="utf-8-sig")
     required = (
-        "status_ledger_title", "status_ledger_badge", "status_ledger_desc",
+        # A LIVE VERIFIED badge is intentionally absent until independent
+        # proof validation, so never require it for the static portal.
+        "status_ledger_title", "status_ledger_desc",
         "status_ledger_refresh", "status_ledger_height", "status_ledger_genesis",
         "status_ledger_receipts", "status_ledger_anchored", "status_ledger_integrity",
         "status_ledger_valid", "status_ledger_storage", "status_ledger_verify_title",

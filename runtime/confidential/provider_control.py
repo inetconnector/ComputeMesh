@@ -6,7 +6,8 @@ provider returns only one attested endpoint for that exact content-free contract
 """
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from protocol.node_session import SessionSnapshot
 from runtime.confidential.protected_worker import (
@@ -15,7 +16,6 @@ from runtime.confidential.protected_worker import (
     ProtectedWorkerSessionManager,
     decode_freshness_challenge,
 )
-
 
 CONFIDENTIAL_PROVISION_MESSAGE = "ConfidentialSessionProvisionRequest"
 

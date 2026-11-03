@@ -5,7 +5,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from services.mcp.platform.node_registry import NodeLifecycle, NodeRegistry, NodeStateConflict
+from services.mcp.platform.node_registry import (
+    NodeLifecycle,
+    NodeRegistry,
+    NodeStateConflict,
+)
 
 
 class TestNodeRegistry(unittest.TestCase):

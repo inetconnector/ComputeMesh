@@ -1,10 +1,14 @@
-from pathlib import Path
 import hashlib
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-from services.appliance_dashboard.model_engine_service import EngineModel, ModelEngineError, ModelEngineService
+from services.appliance_dashboard.model_engine_service import (
+    EngineModel,
+    ModelEngineError,
+    ModelEngineService,
+)
 from tools.appliance.hardware_detector import GpuDevice, RigInventory
 
 
@@ -90,9 +94,8 @@ class TestModelEngineService(unittest.TestCase):
                 runtime_probe=lambda _binary, _plan: (False, "vulkan_runtime_unavailable"),
             )
             (root / "llama-server").write_bytes(b"binary")
-            with patch.object(service, "_health", return_value=True):
-                with self.assertRaisesRegex(ModelEngineError, "vulkan_runtime_unavailable"):
-                    service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 64))
+            with patch.object(service, "_health", return_value=True), self.assertRaisesRegex(ModelEngineError, "vulkan_runtime_unavailable"):
+                service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 64))
 
     def test_rejects_digest_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

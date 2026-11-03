@@ -9,26 +9,22 @@ enforcement of the core invariants defined in ARCHITECTURE.md:
 from __future__ import annotations
 
 import hashlib
-import json
 import threading
 import time
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
+
 
 class HardeningPart3Error(RuntimeError):
     """Base exception for architecture hardening Part 3 violations."""
-    pass
 
 class ArbitraryCodeExecutionError(HardeningPart3Error):
     """Raised when arbitrary code execution is attempted on a provider host."""
-    pass
 
 class HardConstraintViolationError(HardeningPart3Error):
     """Raised when hard constraints are violated before or during scheduling."""
-    pass
 
 class BillingAuditError(HardeningPart3Error):
     """Raised when billing derivation fails due to lack of auditable events."""
-    pass
 
 
 class RuntimeSandbox:
@@ -38,12 +34,12 @@ class RuntimeSandbox:
     and strictly formatted inference requests are allowed. Arbitrary scripts or unrecognized
     commands are rejected.
     """
-    def __init__(self, allowed_binaries: Set[str], allowed_model_formats: Set[str]):
+    def __init__(self, allowed_binaries: set[str], allowed_model_formats: set[str]):
         self.allowed_binaries = allowed_binaries
         self.allowed_model_formats = allowed_model_formats
         self._lock = threading.Lock()
 
-    def validate_execution_request(self, binary_name: str, model_format: str, parameters: Dict[str, Any]) -> bool:
+    def validate_execution_request(self, binary_name: str, model_format: str, parameters: dict[str, Any]) -> bool:
         """Validates that a request does not attempt to execute arbitrary code."""
         with self._lock:
             if binary_name not in self.allowed_binaries:
@@ -54,9 +50,8 @@ class RuntimeSandbox:
 
             # Simple check for injection attempts in string parameters
             for key, value in parameters.items():
-                if isinstance(value, str):
-                    if "&&" in value or ";" in value or "|" in value or "`" in value or "$" in value:
-                        raise ArbitraryCodeExecutionError(f"Execution rejected: Potential command injection detected in parameter '{key}'.")
+                if isinstance(value, str) and ("&&" in value or ";" in value or "|" in value or "`" in value or "$" in value):
+                    raise ArbitraryCodeExecutionError(f"Execution rejected: Potential command injection detected in parameter '{key}'.")
 
             return True
 
@@ -66,7 +61,7 @@ class HardConstraintScheduler:
     def __init__(self):
         self._lock = threading.Lock()
 
-    def filter_feasible_nodes(self, available_nodes: List[Dict[str, Any]], hard_constraints: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def filter_feasible_nodes(self, available_nodes: list[dict[str, Any]], hard_constraints: dict[str, Any]) -> list[dict[str, Any]]:
         """Evaluates hard constraints and filters out ineligible nodes BEFORE any ranking occurs."""
         feasible_nodes = []
         with self._lock:
@@ -79,34 +74,26 @@ class HardConstraintScheduler:
 
             return feasible_nodes
 
-    def _evaluate_constraints(self, node: Dict[str, Any], constraints: Dict[str, Any]) -> bool:
+    def _evaluate_constraints(self, node: dict[str, Any], constraints: dict[str, Any]) -> bool:
         """Evaluates a single node against a set of hard constraints."""
         # Check model/runtime compatibility
-        if "required_model" in constraints:
-            if constraints["required_model"] not in node.get("supported_models", []):
-                return False
+        if "required_model" in constraints and constraints["required_model"] not in node.get("supported_models", []):
+            return False
 
         # Check memory bounds
-        if "min_memory_bytes" in constraints:
-            if node.get("available_memory_bytes", 0) < constraints["min_memory_bytes"]:
-                return False
+        if "min_memory_bytes" in constraints and node.get("available_memory_bytes", 0) < constraints["min_memory_bytes"]:
+            return False
 
         # Check architecture capability
-        if "required_architecture" in constraints:
-            if node.get("architecture") != constraints["required_architecture"]:
-                return False
+        if "required_architecture" in constraints and node.get("architecture") != constraints["required_architecture"]:
+            return False
 
         # Check privacy tier
-        if "privacy_tier" in constraints:
-            if constraints["privacy_tier"] not in node.get("privacy_policies", []):
-                return False
+        if "privacy_tier" in constraints and constraints["privacy_tier"] not in node.get("privacy_policies", []):
+            return False
 
         # Check explicit region limits
-        if "allowed_regions" in constraints:
-            if node.get("region") not in constraints["allowed_regions"]:
-                return False
-
-        return True
+        return not ("allowed_regions" in constraints and node.get("region") not in constraints["allowed_regions"])
 
 
 class AuditableBillingEventLogger:
@@ -115,11 +102,11 @@ class AuditableBillingEventLogger:
     Generates cryptographic receipts of execution steps that both client and provider can verify.
     """
     def __init__(self):
-        self._execution_events: Dict[str, List[Dict[str, Any]]] = {}
-        self._settled_jobs: Set[str] = set()
+        self._execution_events: dict[str, list[dict[str, Any]]] = {}
+        self._settled_jobs: set[str] = set()
         self._lock = threading.Lock()
 
-    def log_auditable_event(self, job_id: str, event_type: str, provider_id: str, client_id: str, metrics: Dict[str, Any], signature: str) -> None:
+    def log_auditable_event(self, job_id: str, event_type: str, provider_id: str, client_id: str, metrics: dict[str, Any], signature: str) -> None:
         """Logs a cryptographically signed execution event."""
         if not signature:
             raise BillingAuditError("Auditable events must include a cryptographic signature.")
@@ -141,7 +128,7 @@ class AuditableBillingEventLogger:
             }
             self._execution_events[job_id].append(event)
 
-    def derive_billing_from_events(self, job_id: str, expected_client_id: str) -> Dict[str, Any]:
+    def derive_billing_from_events(self, job_id: str, expected_client_id: str) -> dict[str, Any]:
         """Derives the final billing statement strictly from the sequence of auditable events."""
         with self._lock:
             if job_id not in self._execution_events or not self._execution_events[job_id]:

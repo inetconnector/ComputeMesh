@@ -13,10 +13,11 @@ import threading
 import time
 import uuid
 from collections import deque
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Deque
+from typing import Any
 
 from .harness import HarnessRun, MeshAgentHarness
 from .session import (
@@ -72,7 +73,7 @@ class WorkerSchedulingPolicy:
 
     def __post_init__(self) -> None:
         if not isinstance(self.fair_principals, bool):
-            raise ValueError("fair_principals must be a boolean")
+            raise TypeError("fair_principals must be a boolean")
         try:
             aging = float(self.aging_interval_seconds)
             candidates = int(self.max_candidates)
@@ -291,7 +292,7 @@ class DurableWorkerConcurrencyGate:
                 self._connection.execute("BEGIN IMMEDIATE")
                 yield self._connection
                 self._connection.commit()
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._connection.rollback()
                 raise
 
@@ -573,7 +574,7 @@ class MeshAgentWorkerService:
         self,
         session_store: AgentSessionStore,
         *,
-        worker_factory: Callable[[str], "MeshAgentWorker"],
+        worker_factory: Callable[[str], MeshAgentWorker],
         worker_count: int = 1,
         worker_prefix: str = "mesh-agent",
         poll_interval: float = 0.25,
@@ -610,8 +611,8 @@ class MeshAgentWorkerService:
             raise ValueError("all workers must use the service session store")
         self._recover_on_start = bool(recover_on_start)
         self._recovered_turn_ids: tuple[str, ...] = ()
-        self._results: Deque[AgentWorkerResult] = deque(maxlen=result_limit)
-        self._errors: Deque[str] = deque(maxlen=result_limit)
+        self._results: deque[AgentWorkerResult] = deque(maxlen=result_limit)
+        self._errors: deque[str] = deque(maxlen=result_limit)
         self._stop_event = threading.Event()
         self._threads: list[threading.Thread] = []
         self._lock = threading.RLock()
@@ -635,7 +636,7 @@ class MeshAgentWorkerService:
             for worker in self.workers:
                 worker.set_concurrency_gate(self.concurrency_gate)
 
-    def _run_worker(self, worker: "MeshAgentWorker") -> None:
+    def _run_worker(self, worker: MeshAgentWorker) -> None:
         try:
             results = worker.run_until_stopped(
                 self._stop_event,
@@ -644,7 +645,7 @@ class MeshAgentWorkerService:
             )
             with self._lock:
                 self._results.extend(results)
-        except Exception as exc:
+        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             with self._lock:
                 self._errors.append(f"{worker.worker_id}:{type(exc).__name__}")
 
@@ -764,7 +765,7 @@ class MeshAgentWorker:
                 try:
                     if not bool(renew(admission_key=admission_key)):
                         return
-                except Exception:
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     return
 
         thread = threading.Thread(
@@ -813,7 +814,7 @@ class MeshAgentWorker:
                 session = self.session_store.get_session(candidate.session_id)
                 try:
                     ready = bool(self.preflight(session, candidate))
-                except Exception as exc:
+                except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     self.session_store.record_event(
                         candidate.session_id,
                         "worker.preflight_failed",
@@ -933,7 +934,7 @@ class MeshAgentWorker:
                     claimed=True,
                     execution=execution,
                 ))
-            except Exception as exc:
+            except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 if (
                     request is not None
                     and getattr(request, "billing_release", None) is not None
@@ -941,8 +942,8 @@ class MeshAgentWorker:
                 ):
                     try:
                         request.billing_release(billing_reservation, exc)
-                    except Exception:
-                        pass
+                    except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
                 results.append(self._fail_claimed_turn(claimed, exc))
             finally:
                 if heartbeat is not None:

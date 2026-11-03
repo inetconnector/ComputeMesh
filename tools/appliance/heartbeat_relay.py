@@ -1,13 +1,13 @@
 """Run the existing authenticated dashboard relay after NodeOS preflight."""
 from __future__ import annotations
 
-from contextlib import contextmanager
 import os
-from pathlib import Path
 import signal
 import sys
 import threading
-from typing import Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
 
 from services.appliance_dashboard.tunnel_relay import (
     nodeos_provider_ready,

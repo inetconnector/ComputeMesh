@@ -8,7 +8,7 @@ import os
 import re
 import subprocess
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.terminal_runner")
 
@@ -28,9 +28,9 @@ FORBIDDEN_PATTERNS = [
 
 def run_terminal_command(
     command: str,
-    cwd: Optional[str] = None,
+    cwd: str | None = None,
     timeout_seconds: float = 35.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Executes a terminal or build command in a controlled workspace subprocess environment."""
     clean_cmd = str(command or "").strip()
     if not clean_cmd:
@@ -51,10 +51,9 @@ def run_terminal_command(
     try:
         proc = subprocess.run(
             clean_cmd,
-            cwd=work_dir,
+            check=False, cwd=work_dir,
             shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             timeout=timeout_seconds,
             encoding="utf-8",
@@ -80,5 +79,5 @@ def run_terminal_command(
             "error": f"Befehl wurde nach {timeout_seconds}s abgebrochen (Timeout).",
             "exit_code": 124,
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "command": clean_cmd, "error": f"Ausführungsfehler: {exc}", "exit_code": 1}

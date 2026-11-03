@@ -7,8 +7,7 @@ import ast
 import fnmatch
 import os
 import re
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 EXCLUDED_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", ".idea", ".vscode", "dist", "build", "target"}
 MAX_FILE_SEARCH_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
@@ -19,9 +18,9 @@ def grep_search_code(
     search_path: str = ".",
     is_regex: bool = False,
     case_insensitive: bool = True,
-    includes: Optional[List[str]] = None,
+    includes: list[str] | None = None,
     max_results: int = 50,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Searches workspace files for code patterns with line numbers, regex support, and file filtering."""
     base_dir = os.path.abspath(str(search_path or ".").strip())
     if not os.path.exists(base_dir):
@@ -29,7 +28,7 @@ def grep_search_code(
 
     flags = re.IGNORECASE if case_insensitive else 0
     pattern = re.compile(query if is_regex else re.escape(query), flags)
-    matches: List[Dict[str, Any]] = []
+    matches: list[dict[str, Any]] = []
 
     for root, dirs, files in os.walk(base_dir):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS and not d.startswith(".pytest")]
@@ -55,7 +54,8 @@ def grep_search_code(
                             })
                             if len(matches) >= max_results:
                                 break
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
                 continue
 
     return {
@@ -66,14 +66,14 @@ def grep_search_code(
     }
 
 
-def extract_code_symbols(file_path: str) -> Dict[str, Any]:
+def extract_code_symbols(file_path: str) -> dict[str, Any]:
     """Extracts top-level symbols (classes, functions, structs, interfaces) using AST or syntax parsing."""
     clean_path = os.path.abspath(str(file_path or "").strip())
     if not os.path.isfile(clean_path):
         return {"error": f"Datei '{clean_path}' existiert nicht.", "symbols": []}
 
     ext = os.path.splitext(clean_path)[1].lower()
-    symbols: List[Dict[str, Any]] = []
+    symbols: list[dict[str, Any]] = []
 
     try:
         with open(clean_path, "r", encoding="utf-8", errors="replace") as f:
@@ -126,5 +126,5 @@ def extract_code_symbols(file_path: str) -> Dict[str, Any]:
             "total_symbols": len(symbols),
             "symbols": symbols,
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Symbol-Extraktionsfehler: {exc}", "symbols": []}

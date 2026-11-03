@@ -1,22 +1,17 @@
 """Unit tests for ComputeMesh Hardened Security, Rate Limiting & Data Sanitization."""
-from pathlib import Path
-import sys
-import time
 import unittest
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from pathlib import Path
 
 from services.gateway.security import (
-    MAX_REQUEST_PAYLOAD_BYTES,
-    RateLimiter,
     SECURITY_HEADERS,
+    RateLimiter,
     sanitize_error_message,
     zero_memory_bytes,
 )
 from services.portal.server import _safe_resolve_portal_file
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestGatewaySecurity(unittest.TestCase):
     def test_security_headers_completeness(self) -> None:

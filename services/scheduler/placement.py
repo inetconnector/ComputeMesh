@@ -11,22 +11,21 @@ latency/speedup.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import math
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
 from services.scheduler.architecture_hardening_part6 import (
+    ComponentBoundaryEnforcer,
     ExecutionPathOptimizer,
     OSNeutralProtocolEnforcer,
-    ComponentBoundaryEnforcer
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_ROOT = REPO_ROOT / "protocol" / "schemas"
@@ -65,7 +64,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _schema(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise RuntimeError(f"invalid schema {path}")
+        raise TypeError(f"invalid schema {path}")
     return value
 
 
@@ -80,12 +79,12 @@ def _validate(value: dict[str, Any], schema_path: Path, label: str) -> None:
 
 def _timestamp(value: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise PlacementInputError("invalid RFC3339 timestamp") from exc
     if parsed.tzinfo is None:
         raise PlacementInputError("timestamp must be timezone-aware")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _profile_clock(value: str, now: datetime) -> tuple[float, float]:
@@ -106,10 +105,7 @@ def _selected_memory(profile: dict[str, Any], policy: PlannerPolicy) -> dict[str
         if device["kind"] in {"gpu", "accelerator"} and int(device["memory_total_bytes"]) > 0
     ]
     if accelerators:
-        selected = sorted(
-            accelerators,
-            key=lambda device: (-int(device["memory_total_bytes"]), device["device_id"]),
-        )[0]
+        selected = min(accelerators, key=lambda device: (-int(device["memory_total_bytes"]), device["device_id"]))
         device_id = selected["device_id"]
         kind = selected["kind"]
         name = selected["name"]
@@ -186,13 +182,12 @@ def _resolve_layer_count(
     caller_layer_count: int | None,
 ) -> tuple[int, str]:
     manifest_layer_count = manifest.get("layer_count")
-    if caller_layer_count is not None:
-        if (
-            isinstance(caller_layer_count, bool)
-            or not isinstance(caller_layer_count, int)
-            or not 2 <= caller_layer_count <= 100_000
-        ):
-            raise PlacementInputError("layer_count must be an integer between 2 and 100000")
+    if caller_layer_count is not None and (
+        isinstance(caller_layer_count, bool)
+        or not isinstance(caller_layer_count, int)
+        or not 2 <= caller_layer_count <= 100_000
+    ):
+        raise PlacementInputError("layer_count must be an integer between 2 and 100000")
     if manifest_layer_count is not None:
         resolved = int(manifest_layer_count)
         if caller_layer_count is not None and caller_layer_count != resolved:
@@ -211,13 +206,12 @@ def _resolve_network_binding(
     worker_node_id: str,
     caller_peer_node_id: str | None,
 ) -> tuple[str, str, list[dict[str, Any]]]:
-    if caller_peer_node_id is not None:
-        if (
-            not isinstance(caller_peer_node_id, str)
-            or not caller_peer_node_id
-            or len(caller_peer_node_id) > 128
-        ):
-            raise PlacementInputError("network_peer_node_id must be 1..128 characters")
+    if caller_peer_node_id is not None and (
+        not isinstance(caller_peer_node_id, str)
+        or not caller_peer_node_id
+        or len(caller_peer_node_id) > 128
+    ):
+        raise PlacementInputError("network_peer_node_id must be 1..128 characters")
 
     conditions = network_result.get("conditions", {})
     local_node_id = conditions.get("local_node_id")
@@ -380,9 +374,11 @@ def build_placement_decision(
     network_peer_node_id: str | None = None,
     layer_count: int | None = None,
     artifact_digest: str | None = None,
-    policy: PlannerPolicy = PlannerPolicy(),
+    policy: PlannerPolicy | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    if policy is None:
+        policy = PlannerPolicy()
     # -- Architecture Hardening Part 6 Invariants --
     os_neutral_enforcer = OSNeutralProtocolEnforcer()
     os_neutral_enforcer.validate_contract(model_manifest)
@@ -392,8 +388,10 @@ def build_placement_decision(
     boundary_enforcer = ComponentBoundaryEnforcer()
 
     # Enforce architecture invariant: model prefill and decode separately
+    from services.orchestrator.architecture_hardening_part4 import (
+        SplitPhasePerformanceModel,
+    )
     from services.orchestrator.architecture_hardening_part5 import MoEWANCostMeasurer
-    from services.orchestrator.architecture_hardening_part4 import SplitPhasePerformanceModel
     perf_model = SplitPhasePerformanceModel()
     moe_measurer = MoEWANCostMeasurer()
     moe_measurer.record_routing_cost(0.0, 0.0, 0.0)
@@ -475,7 +473,7 @@ def build_placement_decision(
     if "contiguous_layers" not in model_manifest["partitioning"]["allowed"]:
         raise PlacementInputError("model manifest does not allow contiguous_layers partitioning")
 
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     coord_age, coord_future = _profile_clock(coordinator_profile["captured_at"], current)
     worker_age, worker_future = _profile_clock(worker_profile["captured_at"], current)
     coord_mem = _selected_memory(coordinator_profile, policy)

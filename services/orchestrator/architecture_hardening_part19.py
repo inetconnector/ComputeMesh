@@ -7,40 +7,34 @@ Enforces invariants from FAILURE_SEMANTICS.md:
 - "billing is neutral for platform-caused duplicate execution unless policy explicitly assigns cost."
 """
 
-from typing import Any, Dict, Optional, Set
 import threading
 
 
 class HardeningPart19Error(RuntimeError):
     """Base exception for Part 19 invariant violations."""
-    pass
 
 
 class AmbiguousCompletionError(HardeningPart19Error):
     """Raised when settlement is attempted on an ambiguous completion."""
-    pass
 
 
 class DuplicateMeteringError(HardeningPart19Error):
     """Raised when duplicate metering occurs."""
-    pass
 
 
 class ConflictingDuplicateError(HardeningPart19Error):
     """Raised when a conflicting duplicate attempts to settle."""
-    pass
 
 
 class PlatformRetryBillingError(HardeningPart19Error):
     """Raised when platform retry incurs unassigned cost."""
-    pass
 
 
 class AmbiguousCompletionReconciler:
     """Enforces: ambiguous completion is reconciled before settlement."""
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._ambiguous_jobs: Set[str] = set()
+        self._ambiguous_jobs: set[str] = set()
 
     def mark_ambiguous(self, job_id: str) -> None:
         with self._lock:
@@ -63,7 +57,7 @@ class DuplicateSegmentResultEnforcer:
     """Enforces: A duplicate SegmentResult ... creates no duplicate metering."""
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._metered_segments: Set[str] = set()
+        self._metered_segments: set[str] = set()
 
     def record_metering(self, attempt_identity: str, result_identity: str) -> bool:
         """Returns True if metering should proceed, False if duplicate."""
@@ -79,8 +73,8 @@ class ConflictingDuplicateEnforcer:
     """Enforces: A conflicting duplicate: integrity incident; do not settle until investigated."""
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._investigated_incidents: Set[str] = set()
-        self._incidents: Set[str] = set()
+        self._investigated_incidents: set[str] = set()
+        self._incidents: set[str] = set()
 
     def mark_conflicting_duplicate(self, job_id: str) -> None:
         with self._lock:

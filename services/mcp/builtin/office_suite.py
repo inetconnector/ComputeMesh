@@ -17,12 +17,12 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.office_suite")
 
 
-def _convert_to_table_rows(data: Any) -> tuple[List[str], List[Dict[str, Any]]]:
+def _convert_to_table_rows(data: Any) -> tuple[list[str], list[dict[str, Any]]]:
     """Normalizes various input formats (JSON array, dict of lists, CSV string) into column headers and row dicts."""
     if not data:
         return [], []
@@ -33,8 +33,8 @@ def _convert_to_table_rows(data: Any) -> tuple[List[str], List[Dict[str, Any]]]:
         if (cleaned.startswith("[") and cleaned.endswith("]")) or (cleaned.startswith("{") and cleaned.endswith("}")):
             try:
                 data = json.loads(cleaned)
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
         if isinstance(data, str):
             # Parse as CSV
@@ -44,7 +44,7 @@ def _convert_to_table_rows(data: Any) -> tuple[List[str], List[Dict[str, Any]]]:
                 rows = [dict(r) for r in reader if any(v for v in r.values())]
                 cols = list(rows[0].keys()) if rows else []
                 return cols, rows
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 return ["Inhalt"], [{"Inhalt": cleaned}]
 
     # 2. Dict with 'rows' / 'columns' or 'data' or 'locations' or 'articles'
@@ -75,7 +75,7 @@ def _convert_to_table_rows(data: Any) -> tuple[List[str], List[Dict[str, Any]]]:
             # Collect all unique keys preserving insertion order
             cols = []
             for item in data:
-                for k in item.keys():
+                for k in item:
                     if k not in cols and not str(k).startswith("_"):
                         cols.append(k)
             return cols, [dict(item) for item in data]
@@ -92,10 +92,10 @@ def _convert_to_table_rows(data: Any) -> tuple[List[str], List[Dict[str, Any]]]:
 
 def convert_data_to_markdown_table(
     data: Any,
-    columns: Optional[List[str]] = None,
-    sort_by: Optional[str] = None,
+    columns: list[str] | None = None,
+    sort_by: str | None = None,
     ascending: bool = True,
-    title: Optional[str] = None,
+    title: str | None = None,
 ) -> str:
     """Converts structured dataset (list of dicts, CSV, or key-value map) into a formatted Markdown table.
 
@@ -119,7 +119,7 @@ def convert_data_to_markdown_table(
 
     if sort_by and sort_by in target_cols:
         try:
-            def _sort_key(r: Dict[str, Any]) -> Any:
+            def _sort_key(r: dict[str, Any]) -> Any:
                 v = r.get(sort_by)
                 if v is None:
                     return ""
@@ -128,8 +128,8 @@ def convert_data_to_markdown_table(
                 except (ValueError, TypeError):
                     return str(v).lower()
             rows.sort(key=_sort_key, reverse=not ascending)
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     # Build Header
     lines = []
@@ -174,10 +174,10 @@ def convert_data_to_markdown_table(
 def generate_office_document(
     file_format: str = "xlsx",
     title: str = "ComputeMesh Export",
-    data: Optional[Any] = None,
-    markdown_content: Optional[str] = None,
-    filename: Optional[str] = None,
-) -> Dict[str, Any]:
+    data: Any | None = None,
+    markdown_content: str | None = None,
+    filename: str | None = None,
+) -> dict[str, Any]:
     """Generates an Office spreadsheet (.xlsx, .csv) or document (.html, .md) with structured data.
 
     Args:
@@ -299,9 +299,9 @@ tr:hover {{ background: #334155; }}
 
 def parse_office_document(
     file_path_or_content: str,
-    file_format: Optional[str] = None,
+    file_format: str | None = None,
     max_preview_rows: int = 15,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Parses spreadsheets (Excel .xlsx, .csv), Word docs (.docx), PDFs, and text/Markdown files into structured JSON.
 
     Args:
@@ -342,13 +342,13 @@ def parse_office_document(
                         "sample_rows": data_rows[:max_preview_rows],
                         "markdown_table": convert_data_to_markdown_table(data_rows[:max_preview_rows], columns=cols),
                     }
-            except Exception as e:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
                 log.warning(f"openpyxl failed, falling back to text read: {e}")
 
         try:
             with open(p, "r", encoding="utf-8", errors="replace") as f:
                 text_content = f.read(1_000_000)
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Datei konnte nicht gelesen werden: {exc}"}
 
     cols, rows = _convert_to_table_rows(text_content)

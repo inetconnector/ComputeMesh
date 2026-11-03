@@ -1,8 +1,8 @@
-import collections
+import copy
 import hashlib
 import time
-import copy
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
+
 
 class HardeningPart6Error(RuntimeError):
     pass
@@ -20,7 +20,7 @@ class ExecutionPathOptimizer:
     def __init__(self, optimize_whole_path: bool = True):
         self.optimize_whole_path = optimize_whole_path
 
-    def optimize_and_verify(self, plan: Dict[str, Any]) -> None:
+    def optimize_and_verify(self, plan: dict[str, Any]) -> None:
         if "optimization_target" in plan and plan["optimization_target"] == "individual_gpu":
             raise WholeExecutionPathError("MUST optimize the whole execution path, not individual GPUs.")
 
@@ -48,11 +48,11 @@ class OSNeutralProtocolEnforcer:
     def __init__(self):
         self.forbidden_os_specific_keys = {"windows_registry", "linux_cgroups", "mac_plist", "win32_handle", "unix_socket_path"}
 
-    def validate_contract(self, contract: Dict[str, Any]) -> None:
+    def validate_contract(self, contract: dict[str, Any]) -> None:
         self._check_dict(contract)
         self._check_paths(contract)
 
-    def _check_dict(self, d: Dict[str, Any]) -> None:
+    def _check_dict(self, d: dict[str, Any]) -> None:
         for key, value in d.items():
             if key in self.forbidden_os_specific_keys:
                 raise OSNeutralContractError(f"Protocol contracts MUST remain OS-neutral. Found OS-specific key: {key}")
@@ -65,9 +65,9 @@ class OSNeutralProtocolEnforcer:
                     elif isinstance(item, str) and item in self.forbidden_os_specific_keys:
                          raise OSNeutralContractError(f"Protocol contracts MUST remain OS-neutral. Found OS-specific key: {item}")
 
-    def _check_paths(self, d: Dict[str, Any]) -> None:
-        for key, value in d.items():
-            if isinstance(value, str) and "\\" in value:
+    def _check_paths(self, d: dict[str, Any]) -> None:
+        for value in d.values():
+            if isinstance(value, str) and "\\" in value and (":" in value or "/" in value or value.startswith("\\\\")):
                  raise OSNeutralContractError(f"Protocol contracts MUST remain OS-neutral. Found OS-specific path format: {value}")
             if isinstance(value, dict):
                 self._check_paths(value)
@@ -75,14 +75,14 @@ class OSNeutralProtocolEnforcer:
                 for item in value:
                     if isinstance(item, dict):
                         self._check_paths(item)
-                    elif isinstance(item, str) and "\\" in item:
+                    elif isinstance(item, str) and "\\" in item and (":" in item or "/" in item or item.startswith("\\\\")):
                         raise OSNeutralContractError(f"Protocol contracts MUST remain OS-neutral. Found OS-specific path format: {item}")
 
 class ComponentBoundaryEnforcer:
     def __init__(self):
         self.explicit_boundaries = {"scheduler", "dispatcher", "verifier", "gateway", "runtime"}
 
-    def call_across_boundary(self, source: str, target: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def call_across_boundary(self, source: str, target: str, payload: dict[str, Any]) -> dict[str, Any]:
         if source not in self.explicit_boundaries or target not in self.explicit_boundaries:
             raise ExplicitBoundaryError(f"The boundary MUST remain explicit in code. Unknown component: {source} -> {target}")
 

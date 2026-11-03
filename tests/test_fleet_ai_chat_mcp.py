@@ -1,24 +1,21 @@
 """Unit and Integration Tests for ComputeMesh Fleet AI-Chat, llama.cpp WebUI, and MCP Live-Tools."""
-from http.client import HTTPConnection
-from dataclasses import replace
 import json
-from pathlib import Path
-import sys
 import tempfile
 import threading
 import time
 import unittest
+from dataclasses import replace
+from http.client import HTTPConnection
+from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-import services.gateway.server as gateway_server_module
 import services.gateway.catalog as catalog_module
-from services.gateway.server import GatewayHandler, create_gateway_server
+import services.gateway.server as gateway_server_module
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
+from services.gateway.server import GatewayHandler, create_gateway_server
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestFleetAIChatAndMCP(unittest.TestCase):
     """End-to-End test suite ensuring AI-Chat and MCP tools never break in production."""
@@ -63,7 +60,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
         gateway_server_module.NODE_TELEMETRY_REGISTRY.pop("cm-inference-node-01", None)
         self.tmp_dir.cleanup()
 
-    def _get(self, path: str, headers: dict = None):
+    def _get(self, path: str, headers: dict | None = None):
         conn = HTTPConnection("127.0.0.1", self.port, timeout=5)
         req_headers = headers or {}
         conn.request("GET", path, headers=req_headers)
@@ -71,12 +68,12 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
         raw = res.read().decode("utf-8")
         try:
             payload = json.loads(raw)
-        except Exception:
+        except (ValueError, TypeError):
             payload = raw
         conn.close()
         return res.status, payload
 
-    def _post(self, path: str, body: dict, headers: dict = None):
+    def _post(self, path: str, body: dict, headers: dict | None = None):
         conn = HTTPConnection("127.0.0.1", self.port, timeout=5)
         data = json.dumps(body).encode("utf-8")
         req_headers = {"Content-Type": "application/json", "Content-Length": str(len(data))}
@@ -87,7 +84,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
         raw = res.read().decode("utf-8")
         try:
             payload = json.loads(raw)
-        except Exception:
+        except (ValueError, TypeError):
             payload = raw
         conn.close()
         return res.status, payload

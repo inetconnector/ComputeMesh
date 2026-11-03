@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
-from services.gateway.cancellable_owner_inference import CancellableUnifiedOwnerInferenceEngine
+from services.gateway.cancellable_owner_inference import (
+    CancellableUnifiedOwnerInferenceEngine,
+)
 from services.gateway.inference_backend import BackendResult
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
-
 
 MODEL = "qwen/qwen2.5-7b-instruct"
 
@@ -90,9 +91,8 @@ class CancellableOwnerInferenceTests(unittest.TestCase):
         self.assertEqual(self.backend.cancelled, ["req-active"])
 
     def test_invalid_request_id_fails_closed(self) -> None:
-        with self.assertRaises(ValueError):
-            with self.engine.request_scope("bad request id"):
-                pass
+        with self.assertRaises(ValueError), self.engine.request_scope("bad request id"):
+            pass
 
 
 if __name__ == "__main__":

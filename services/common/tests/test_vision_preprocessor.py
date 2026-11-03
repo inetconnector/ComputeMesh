@@ -3,15 +3,11 @@ from __future__ import annotations
 
 import base64
 import io
-import sys
 import unittest
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from PIL import Image
+
 from services.common.vision_preprocessor import (
     ProcessedImage,
     VisionPreprocessingError,
@@ -19,6 +15,8 @@ from services.common.vision_preprocessor import (
     get_vision_preprocessor,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestVisionPreprocessor(unittest.TestCase):
     def setUp(self) -> None:

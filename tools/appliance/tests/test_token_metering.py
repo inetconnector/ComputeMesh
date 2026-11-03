@@ -2,18 +2,15 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from tools.appliance.token_metering import (
-    PROVIDER_USD_PER_MILLION_TOKENS,
-    TokenStats,
     get_token_stats,
     load_token_stats,
     record_tokens,
-    save_token_stats,
     sync_with_coordinator,
 )
 

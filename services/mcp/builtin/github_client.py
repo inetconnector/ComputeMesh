@@ -9,7 +9,7 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.github_client")
 
@@ -17,7 +17,7 @@ GITHUB_API_BASE = "https://api.github.com"
 USER_AGENT = "ComputeMesh-Agent/1.2 (+https://computemesh.inetconnector.com)"
 
 
-def get_github_token() -> Optional[str]:
+def get_github_token() -> str | None:
     """Retrieves GitHub token from environment variables if configured."""
     return os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or None
 
@@ -25,11 +25,11 @@ def get_github_token() -> Optional[str]:
 def execute_github_request(
     endpoint: str,
     method: str = "GET",
-    params: Optional[Dict[str, Any]] = None,
-    json_body: Optional[Dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
+    json_body: dict[str, Any] | None = None,
     accept_header: str = "application/vnd.github.v3+json",
     timeout: float = 15.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Executes an authenticated or public HTTPS request against the GitHub REST API."""
     clean_endpoint = "/" + endpoint.strip().lstrip("/")
     url = f"{GITHUB_API_BASE}{clean_endpoint}"
@@ -73,7 +73,7 @@ def execute_github_request(
 
             try:
                 parsed_json = json.loads(raw_data.decode("utf-8", errors="replace"))
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 parsed_json = raw_data.decode("utf-8", errors="replace")
 
             return {
@@ -89,13 +89,13 @@ def execute_github_request(
             err_body = json.loads(exc.read().decode("utf-8", errors="replace"))
             if isinstance(err_body, dict) and "message" in err_body:
                 err_msg = f"GitHub API Fehler ({exc.code}): {err_body['message']}"
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
         return {
             "success": False,
             "status_code": exc.code,
             "error": err_msg,
             "rate_limit_remaining": int(exc.headers.get("X-RateLimit-Remaining", 0)) if exc.headers else 0,
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "status_code": 500, "error": f"Verbindungsfehler zu GitHub: {exc}"}

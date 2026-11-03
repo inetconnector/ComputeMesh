@@ -60,8 +60,8 @@ class GpuPromoDispatchClient:
         except urllib.error.HTTPError as exc:
             try:
                 exc.read(_MAX_RESPONSE_BYTES + 1)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as read_exc:
+                _ = read_exc
             raise GpuPromoDispatchClientError(
                 "GPU promo dispatch rejected the request",
                 status_code=int(exc.code),

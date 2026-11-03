@@ -7,22 +7,19 @@ production node eligibility is controlled by the server-owned provider registry.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hmac
-from http import HTTPStatus
 import json
 import os
-from pathlib import Path
 import secrets
-import sys
+from datetime import UTC, datetime
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.compliance.policy import EEA_COUNTRY_CODES
 from services.identity.vault import DEFAULT_VAULT
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 CURRENT_TERMS_VERSION = "2.1"
 REGISTERED_ACCOUNTS: dict[str, dict[str, Any]] = {}
@@ -131,7 +128,7 @@ class PortalRegistrationHandler:
             prefix = "cm_live_" if role == "consumer" else "cm_provider_"
             token = prefix + secrets.token_hex(16)
             account_id = f"acc_{secrets.token_hex(8)}"
-            created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            created_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             encrypted_wallet = DEFAULT_VAULT.encrypt(wallet) if wallet else None
             encrypted_email = DEFAULT_VAULT.encrypt(email)
 

@@ -7,12 +7,13 @@ these primitives with real hardware attestation and protected execution memory.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
 import ctypes
 import os
 import platform
 import secrets
-from typing import Generator
+from collections.abc import Generator
+from contextlib import contextmanager, suppress
+from typing import Self
 
 try:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -48,7 +49,7 @@ if _SYSTEM == "Windows":
         _VirtualUnlock.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
         _VirtualUnlock.restype = ctypes.c_int
         _HAS_MLOCK = True
-    except Exception:
+    except (OSError, TypeError, ValueError, AttributeError, ctypes.ArgumentError):
         _HAS_MLOCK = False
 else:
     try:
@@ -61,7 +62,7 @@ else:
             _munlock.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
             _munlock.restype = ctypes.c_int
             _HAS_MLOCK = True
-    except Exception:
+    except (OSError, TypeError, ValueError, AttributeError, ctypes.ArgumentError):
         _HAS_MLOCK = False
 
 
@@ -102,7 +103,7 @@ def lock_memory_buffer(buffer: MutableBuffer) -> bool:
         if _SYSTEM == "Windows":
             return bool(_VirtualLock(ptr, size))
         return _mlock(ptr, size) == 0
-    except Exception:
+    except (OSError, TypeError, ValueError, AttributeError, ctypes.ArgumentError):
         return False
 
 
@@ -117,7 +118,7 @@ def unlock_memory_buffer(buffer: MutableBuffer) -> bool:
         if _SYSTEM == "Windows":
             return bool(_VirtualUnlock(ptr, size))
         return _munlock(ptr, size) == 0
-    except Exception:
+    except (OSError, TypeError, ValueError, AttributeError, ctypes.ArgumentError):
         return False
 
 
@@ -149,7 +150,7 @@ def disable_process_core_dumps() -> bool:
             # PR_SET_DUMPABLE = 4
             if _libc.prctl(4, 0, 0, 0, 0) != 0:
                 return False
-        except Exception:
+        except (OSError, TypeError, ValueError, AttributeError, ctypes.ArgumentError):
             return False
     return True
 
@@ -265,14 +266,12 @@ class SecureMemoryBuffer:
             unlock_memory_buffer(self._key)
         self._is_zeroized = True
 
-    def __enter__(self) -> "SecureMemoryBuffer":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.zeroize()
 
     def __del__(self) -> None:
-        try:
+        with suppress(AttributeError, OSError, ValueError, TypeError, BufferError, RuntimeError):
             self.zeroize()
-        except Exception:
-            pass

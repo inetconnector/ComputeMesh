@@ -1,10 +1,11 @@
 """Formal subagent delegation contracts and scope validation."""
 from __future__ import annotations
 
+import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
-import uuid
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -33,7 +34,7 @@ class SubagentContract:
         forbidden_actions: Sequence[str] = (),
         max_steps: int = 20,
         context_refs: Sequence[str] = (),
-    ) -> "SubagentContract":
+    ) -> SubagentContract:
         clean_task = str(task or "").strip()
         if not clean_task:
             raise ValueError("subagent task is required")

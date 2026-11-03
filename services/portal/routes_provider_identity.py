@@ -9,25 +9,17 @@ Exposes REST APIs for:
 """
 from __future__ import annotations
 
-from http import HTTPStatus
-import json
 import logging
 import os
+from http import HTTPStatus
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
-from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from services.compliance.fleet_gatekeeper import FleetGatekeeper
 from services.compliance.provider_identity import (
-    ContractCounterpartyModel,
-    CustomerAudience,
     DSA_TRADER_DECLARATION_VERSION,
     EntityType,
-    EvidenceSource,
     IdentityVerificationState,
-    LegalDeclaration,
-    MarketplaceMode,
-    ProviderIdentity,
     StructuredAddress,
     evaluate_provider_requirements,
 )
@@ -53,7 +45,7 @@ def _resolve_provider_store_path() -> Path:
 def _build_provider_store() -> ProviderIdentityStore:
     try:
         return ProviderIdentityStore(_resolve_provider_store_path())
-    except Exception:
+    except (OSError, RuntimeError, ValueError):
         return ProviderIdentityStore(Path("/tmp/computemesh_provider_identity.db"))
 
 
@@ -78,7 +70,7 @@ class PortalProviderIdentityHandler:
         marketplace_mode: str = "PUBLIC_INTERMEDIARY",
         counterparty_model: str = "CUSTOMER_PROVIDER",
         customer_audience: str = "CONSUMER_ALLOWED",
-    ) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
+    ) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         account = session_account_from_headers(headers)
         if account is None:
             return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
@@ -124,7 +116,7 @@ class PortalProviderIdentityHandler:
             "dsa_declaration_version": DSA_TRADER_DECLARATION_VERSION,
         }, HTTPStatus.OK, None
 
-    def update_provider_identity(self, headers: Any, body: dict[str, Any]) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
+    def update_provider_identity(self, headers: Any, body: dict[str, Any]) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         account = session_account_from_headers(headers)
         if account is None:
             return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
@@ -202,7 +194,7 @@ class PortalProviderIdentityHandler:
         headers: Any,
         body: dict[str, Any],
         client_address: tuple[str, int] | None = None,
-    ) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
+    ) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         account = session_account_from_headers(headers)
         if account is None:
             return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
@@ -247,7 +239,7 @@ class PortalProviderIdentityHandler:
         self,
         provider_identity_id: str,
         marketplace_mode: str = "PUBLIC_INTERMEDIARY",
-    ) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
+    ) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         """Public Marketplace transparency endpoint returning filtered allowlist DTO."""
         clean_id = str(provider_identity_id or "").strip()
         if not clean_id:
@@ -287,7 +279,7 @@ class PortalProviderIdentityHandler:
         self,
         headers: Any,
         body: dict[str, Any],
-    ) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
+    ) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         """Admin manual review endpoint with mandatory audit reasoning."""
         account = session_account_from_headers(headers)
         if account is None:

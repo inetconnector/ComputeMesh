@@ -53,12 +53,12 @@ class TestRoutesDownloads(unittest.TestCase):
         self.assertIn("owk_456", content_sh)
 
         # Reset for Windows
-        res_bat, res_bat_name, res_bat_mime = get_download_file_response("reset", "windows")
+        _res_bat, res_bat_name, res_bat_mime = get_download_file_response("reset", "windows")
         self.assertEqual(res_bat_name, "OLLAMA-RESET-DEFAULT.bat")
         self.assertEqual(res_bat_mime, "application/x-bat")
 
         # Reset for Linux
-        res_sh, res_sh_name, res_sh_mime = get_download_file_response("reset", "linux")
+        _res_sh, res_sh_name, res_sh_mime = get_download_file_response("reset", "linux")
         self.assertEqual(res_sh_name, "ollama-reset-default.sh")
         self.assertEqual(res_sh_mime, "application/x-sh")
 

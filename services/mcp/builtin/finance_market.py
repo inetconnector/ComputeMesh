@@ -6,11 +6,12 @@ Supports Global Stocks, ETFs, Indices, Crypto, and Currencies.
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import re
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2"
 
@@ -58,7 +59,7 @@ COMPANY_TICKER_MAPPINGS = {
 }
 
 
-def fetch_yahoo_quote(symbol: str, timeout: float = 8.0) -> Optional[Dict[str, Any]]:
+def fetch_yahoo_quote(symbol: str, timeout: float = 8.0) -> dict[str, Any] | None:
     """
     Fetches real-time market data from Yahoo Finance API.
     """
@@ -106,11 +107,11 @@ def fetch_yahoo_quote(symbol: str, timeout: float = 8.0) -> Optional[Dict[str, A
             "exchange": exchange,
             "market_state": meta.get("tradingPeriods", [[]])[0][0].get("state", "REGULAR") if meta.get("tradingPeriods") else "REGULAR",
         }
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
 
-def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> Optional[Dict[str, Any]]:
+def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> dict[str, Any] | None:
     """
     Fetches cryptocurrency price from CoinGecko public API.
     """
@@ -140,11 +141,9 @@ def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> Optional[Dict[s
             "change_24h_percent": round(change_24h, 2) if change_24h is not None else 0.0,
             "source": "coingecko",
         }
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
-
-import concurrent.futures
 
 MARKET_BASKETS = {
     "NASDAQ": [
@@ -169,7 +168,7 @@ def get_market_movers(
     market: str = "nasdaq",
     count: int = 5,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Returns real-time top gainers and top losers for a specified market (NASDAQ, DAX, S&P 500, Crypto).
     """
@@ -193,8 +192,8 @@ def get_market_movers(
                 res = future.result()
                 if res and isinstance(res, dict) and ("price" in res or "price_usd" in res) and res.get("change_percent") is not None:
                     quotes.append(res)
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     if not quotes:
         return {
@@ -225,7 +224,7 @@ def get_market_quote(
     crypto: str = "",
     ticker: str = "",
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Returns real-time quote for a stock, index, ETF, or cryptocurrency.
     """
@@ -269,7 +268,7 @@ def get_market_quote(
         clean_sym = COMPANY_TICKER_MAPPINGS[raw_sym.strip().upper()]
 
     # Check if query is a crypto symbol
-    if clean_sym in CRYPTO_MAPPINGS or clean_sym.endswith("-USD") or clean_sym.endswith("USDT"):
+    if clean_sym in CRYPTO_MAPPINGS or clean_sym.endswith(("-USD", "USDT")):
         crypto_id = CRYPTO_MAPPINGS.get(clean_sym) or clean_sym.lower().split("-")[0]
         crypto_res = fetch_coingecko_quote(crypto_id, timeout=timeout)
         if crypto_res:
@@ -298,7 +297,7 @@ def get_market_quote(
         return res
 
     # If simple symbol failed, try with common suffixes if German stock (e.g. SAP -> SAP.DE)
-    if not "." in clean_sym and len(clean_sym) <= 5:
+    if "." not in clean_sym and len(clean_sym) <= 5:
         de_res = fetch_yahoo_quote(f"{clean_sym}.DE", timeout=timeout)
         if de_res:
             return de_res

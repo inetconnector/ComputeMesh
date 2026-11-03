@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from protocol.confidential_envelope import (
     ConfidentialBinding,
@@ -25,7 +25,9 @@ from runtime.confidential.session import (
     ConfidentialSessionProvision,
     SQLiteConfidentialSessionStore,
 )
-from services.billing.confidential_owner_ledger import PayoutCapableConfidentialOwnerLedger
+from services.billing.confidential_owner_ledger import (
+    PayoutCapableConfidentialOwnerLedger,
+)
 from services.billing.owner_credits import owner_bucket_account
 from services.gateway.confidential_coordinator import (
     ConfidentialCoordinatorError,

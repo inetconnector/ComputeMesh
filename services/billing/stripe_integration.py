@@ -7,23 +7,24 @@ webhook confirms the Checkout Session payment.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
 import json
 import math
 import os
 import threading
-from pathlib import Path
-from typing import Any, Callable
-from urllib.parse import quote, urlencode
 import urllib.error
 import urllib.request
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
+from typing import Any
+from urllib.parse import quote, urlencode
 
 from services.billing.ledger import (
+    MICRO_UNIT_SCALE,
     DuplicateEventError,
     Ledger,
-    MICRO_UNIT_SCALE,
 )
 
 
@@ -197,7 +198,7 @@ WebhookVerifier = Callable[[bytes, str, str], dict[str, Any]]
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _stripe_get(obj: Any, key: str, default: Any = None) -> Any:
@@ -251,7 +252,7 @@ def _connect_v2_recipient_status(account: dict[str, Any]) -> tuple[str, bool, bo
 
 def _amount_to_cents(amount_usd: float) -> int:
     amount = Decimal(str(amount_usd))
-    return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return int((amount * Decimal(100)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
 def _cents_to_micro_units(amount_cents: int) -> int:
@@ -303,7 +304,7 @@ class StripePaymentService:
             self._require_live_configuration()
 
     @classmethod
-    def from_env(cls, *, ledger: Ledger) -> "StripePaymentService":
+    def from_env(cls, *, ledger: Ledger) -> StripePaymentService:
         session_store_path = stripe_session_store_path_from_env()
         session_store = StripeSessionStore(Path(session_store_path)) if session_store_path else None
         return cls(
@@ -494,11 +495,11 @@ class StripePaymentService:
                         stripe = self.stripe_client or _load_stripe_module()
                         payload = stripe.Webhook.construct_event(raw_payload, signature_header, secret)
                     break
-                except Exception as exc:
+                except (StripeIntegrationError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                     last_error = exc
             if payload is None:
                 raise last_error or StripeIntegrationError("no Stripe webhook secret accepted the signature")
-        except Exception as exc:
+        except (StripeIntegrationError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
             raise StripeIntegrationError(f"Stripe webhook signature verification failed: {exc}") from exc
 
         return self.process_webhook_event(payload=_stripe_to_plain(payload), trusted=True)

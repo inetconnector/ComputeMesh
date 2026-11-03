@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -23,7 +22,7 @@ class MCPConfig:
     config_path: str = ""
     max_agent_iterations: int = 5
     request_timeout_seconds: float = 15.0
-    allowed_domains: List[str] = field(default_factory=lambda: ["*"])
+    allowed_domains: list[str] = field(default_factory=lambda: ["*"])
     custom_mcp_servers: dict = field(default_factory=dict)
 
     # Agents Platform rollout controls. Active by default with backward-compatible fallback.
@@ -51,7 +50,7 @@ class MCPConfig:
     agents_platform_openai_agents_api_key_env: str = "OPENAI_API_KEY"
 
     @classmethod
-    def from_env(cls) -> "MCPConfig":
+    def from_env(cls) -> MCPConfig:
         try:
             max_iter = int(os.getenv("COMPUTEMESH_MCP_MAX_ITERATIONS", "5"))
         except ValueError:
@@ -106,7 +105,7 @@ class MCPConfig:
         )
 
 
-_default_config: Optional[MCPConfig] = None
+_default_config: MCPConfig | None = None
 
 
 def get_mcp_config() -> MCPConfig:

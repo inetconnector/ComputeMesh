@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -37,7 +37,7 @@ def _public_bytes(private_key: Ed25519PrivateKey) -> bytes:
 
 class ExecutionAttestationTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
+        self.now = datetime(2026, 8, 26, 8, 0, tzinfo=UTC)
         self.keys = {"node-a": Ed25519PrivateKey.generate(), "node-b": Ed25519PrivateKey.generate()}
         self.records = {}
         for node_id, private in self.keys.items():
@@ -51,16 +51,16 @@ class ExecutionAttestationTests(unittest.TestCase):
                 active=True,
             )
         self.resolver = _Resolver(self.records)
-        self.common = dict(
-            job_id="inf-0123456789",
-            placement_decision_id="placement-0123456789abcdef",
-            model_sha256="a" * 64,
-            runtime_sha256="b" * 64,
-            evidence_sha256="c" * 64,
-            output_sha256="d" * 64,
-            issued_at=int(self.now.timestamp()),
-            expires_at=int((self.now + timedelta(minutes=2)).timestamp()),
-        )
+        self.common = {
+            "job_id": "inf-0123456789",
+            "placement_decision_id": "placement-0123456789abcdef",
+            "model_sha256": "a" * 64,
+            "runtime_sha256": "b" * 64,
+            "evidence_sha256": "c" * 64,
+            "output_sha256": "d" * 64,
+            "issued_at": int(self.now.timestamp()),
+            "expires_at": int((self.now + timedelta(minutes=2)).timestamp()),
+        }
 
     def _bundle(self):
         attestations = []
@@ -76,9 +76,9 @@ class ExecutionAttestationTests(unittest.TestCase):
         return {"schema_version": 1, "attestations": attestations}
 
     def _write(self, document):
-        tmp = tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False)
-        json.dump(document, tmp)
-        tmp.close()
+        with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as tmp:
+            json.dump(document, tmp)
+            tmp.flush()
         self.addCleanup(lambda: __import__("pathlib").Path(tmp.name).unlink(missing_ok=True))
         return tmp.name
 

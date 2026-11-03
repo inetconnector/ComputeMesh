@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import unittest
+from datetime import UTC, datetime, timedelta
 
-from services.orchestrator.startup_recovery import RecoveryStateStore, reconcile_startup_state
+from services.orchestrator.startup_recovery import (
+    RecoveryStateStore,
+    reconcile_startup_state,
+)
 from services.orchestrator.state_machine import JobState, ReservationState
 
 
@@ -28,7 +31,7 @@ class StartupRecoveryTests(unittest.TestCase):
         record = self.store.ensure_job(job_id)
         for state in order:
             if state.value == target.value or record.state != target:
-                result = self.store.transition_job(
+                _result = self.store.transition_job(
                     job_id,
                     request_id=f"advance:{job_id}:{state.value}",
                     expected_revision=record.revision,
@@ -44,7 +47,7 @@ class StartupRecoveryTests(unittest.TestCase):
             reservation_id,
             request_id=f"lease:{reservation_id}",
             expected_revision=reservation.revision,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+            expires_at=datetime.now(UTC) + timedelta(minutes=10),
         )
         committed = self.store.commit_reservation(
             reservation_id,
@@ -91,7 +94,7 @@ class StartupRecoveryTests(unittest.TestCase):
         self.assertEqual(report.failed_jobs, ())
 
     def test_expired_unbound_lease_expires_and_future_lease_survives(self) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired = self.store.ensure_reservation("res-expired")
         leased = self.store.lease_reservation(
             "res-expired",

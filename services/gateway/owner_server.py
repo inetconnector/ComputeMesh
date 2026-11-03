@@ -17,14 +17,21 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from services.billing.accounting import AccountingStore
-from services.billing.confidential_owner_ledger import PayoutCapableConfidentialOwnerLedger
+from services.billing.confidential_owner_ledger import (
+    PayoutCapableConfidentialOwnerLedger,
+)
 from services.billing.owner_accounts import OwnerAccountStore
-from services.billing.owner_settlement import OwnerSettlementExecutor, PayoutCapableOwnerLedger
+from services.billing.owner_settlement import (
+    OwnerSettlementExecutor,
+    PayoutCapableOwnerLedger,
+)
 from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecutor
 from services.billing.stripe_connect import StripeConnectService
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager
-from services.gateway.gpu_promo_dispatch_client import build_gpu_promo_dispatch_client_from_env
+from services.gateway.gpu_promo_dispatch_client import (
+    build_gpu_promo_dispatch_client_from_env,
+)
 from services.gateway.inference_backend import build_inference_backend_from_env
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
@@ -33,7 +40,9 @@ from services.gateway.owner_promo_routes import (
     build_signed_promo_applier_from_env,
 )
 from services.gateway.owner_provider_routes import UnifiedOwnerProviderRoutesHandler
-from services.gateway.promo_control_plane import build_promo_control_plane_client_from_env
+from services.gateway.promo_control_plane import (
+    build_promo_control_plane_client_from_env,
+)
 from services.gateway.routes_billing import BillingRoutesHandler
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 from services.gateway.server import DEFAULT_PORT, GatewayHandler, _build_stripe_service
@@ -177,8 +186,8 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
                 raw_body = self.rfile.read(content_length)
                 body = json.loads(raw_body.decode("utf-8")) if raw_body else {}
                 if not isinstance(body, dict):
-                    raise ValueError("request body must be a JSON object")
-            except Exception:
+                    raise TypeError("request body must be a JSON object")
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._send_error_response(
                     "Malformed JSON request body",
                     "invalid_request_error",

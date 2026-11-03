@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import secrets
 import threading
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Iterator, Mapping
+from typing import Any
 
 
 class CapacityGuardError(RuntimeError):

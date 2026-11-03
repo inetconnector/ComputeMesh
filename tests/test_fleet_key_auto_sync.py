@@ -1,9 +1,8 @@
 """Unit tests for automatic fleet owner key pulling and client synchronization."""
-from http import HTTPStatus
-import json
-from pathlib import Path
 import tempfile
 import unittest
+from http import HTTPStatus
+from pathlib import Path
 
 from services.billing.owner_accounts import OwnerAccountStore
 from services.gateway import server as gateway_server_module

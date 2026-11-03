@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from services.gateway.cancellable_inference import CancellableInferenceEngine, RequestContextBackend
+from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.inference_backend import BackendResult
 
 

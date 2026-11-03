@@ -6,7 +6,9 @@ updates SHA-256 checksums, and signs version.json with the Master Ed25519 key.
 """
 from __future__ import annotations
 
+import gzip
 import hashlib
+import io
 import json
 import lzma
 import os
@@ -17,9 +19,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from cm_project_bootstrap import REPO_ROOT
 
 from config import CONFIG
 from deploy.windows.build_installer import build_windows_standalone_bundle
@@ -49,6 +49,31 @@ def _source_commit() -> str:
     if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit.lower()):
         raise ReleaseBuildError(f"git returned an invalid source commit: {commit!r}")
     return commit
+
+
+def _require_clean_release_checkout() -> str:
+    """Fail closed if a release would mix tracked and mutable local source."""
+    root = REPO_ROOT.resolve()
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        if Path(top).resolve() != root:
+            raise ReleaseBuildError(
+                "release source must be the Git checkout root, not a nested directory"
+            )
+        status = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ReleaseBuildError("cannot verify clean Git source checkout") from exc
+    if status:
+        raise ReleaseBuildError(
+            "release source has modified or untracked files; use a clean checkout"
+        )
+    return _source_commit()
 
 
 def _expected_nodeos_provenance() -> dict[str, object]:
@@ -164,18 +189,18 @@ def _validate_nodeos_provenance_report(
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("NodeOS provenance digest report is invalid") from exc
     if not isinstance(report, dict):
-        raise ValueError("NodeOS provenance digest report is not an object")
+        raise TypeError("NodeOS provenance digest report is not an object")
     for key, expected_value in expected.items():
         if report.get(key) != expected_value:
             raise ValueError(f"NodeOS provenance report mismatch: {key}")
 
     artifacts = report.get("artifacts")
     if not isinstance(artifacts, dict):
-        raise ValueError("NodeOS provenance report lacks artifact digests")
+        raise TypeError("NodeOS provenance report lacks artifact digests")
     for name, artifact in (("iso", iso), ("img_xz", image)):
         entry = artifacts.get(name)
         if not isinstance(entry, dict):
-            raise ValueError(f"NodeOS provenance report lacks {name} digest")
+            raise TypeError(f"NodeOS provenance report lacks {name} digest")
         if entry.get("filename") != artifact.name:
             raise ValueError(f"NodeOS provenance report filename mismatch for {name}")
         if entry.get("size_bytes") != artifact.stat().st_size:
@@ -199,54 +224,93 @@ def _exclude_linux_release_path(name: str) -> bool:
 
 
 def build_linux_tarball() -> Path:
-    """Pack all repository source directories into a clean Linux release archive."""
+    """Package exactly the tracked bytes of one immutable Git commit.
+
+    A working-directory walk can silently include dirty, untracked or generated
+    code. Git archive and an embedded provenance record make the input source
+    explicit without touching the current operator checkout.
+    """
     print("\n[1/4] Packing Linux Release Package (computemesh-linux-x86_64.tar.gz)...")
     tar_path = DOWNLOADS_DIR / "computemesh-linux-x86_64.tar.gz"
     DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    commit = _source_commit()
+    include_dirs = {"services", "runtime", "tools", "deploy", "protocol", "config", "apps"}
+    include_files = {
+        "config.py", "requirements.txt", "pyproject.toml", "README.md",
+        "README.de.md", "ARCHITECTURE.md", "PROTOCOL.md", "SECURITY.md",
+    }
 
-    include_dirs = [
-        "services",
-        "runtime",
-        "tools",
-        "deploy",
-        "protocol",
-        "config",
-        "apps",
-    ]
-    include_files = [
-        "config.py",
-        "requirements.txt",
-        "pyproject.toml",
-        "README.md",
-        "README.de.md",
-        "ARCHITECTURE.md",
-        "PROTOCOL.md",
-        "SECURITY.md",
-    ]
+    with tempfile.TemporaryDirectory(
+        prefix=".computemesh-linux-", dir=str(DOWNLOADS_DIR)
+    ) as staging_dir:
+        snapshot = Path(staging_dir) / "source.tar"
+        candidate = Path(staging_dir) / "computemesh-linux-x86_64.tar.gz"
+        # Archive by exact object id, not HEAD after it may have moved.
+        with snapshot.open("wb") as stream:
+            subprocess.run(
+                ["git", "-C", str(REPO_ROOT), "archive", "--format=tar", commit],
+                stdout=stream, check=True,
+            )
+        with (
+            tarfile.open(snapshot, "r:") as committed,
+            candidate.open("wb") as output,
+            gzip.GzipFile(fileobj=output, mode="wb", filename="", mtime=0) as gz,
+            tarfile.open(fileobj=gz, mode="w") as release_tar,
+        ):
+            for member in committed:
+                name = member.name.rstrip("/")
+                if (
+                    not name
+                    or _exclude_linux_release_path(name)
+                    or not (
+                        name in include_files
+                        or name.split("/", 1)[0] in include_dirs
+                    )
+                ):
+                    continue
+                if member.isdir():
+                    release_tar.addfile(member)
+                elif member.isfile():
+                    entry_stream = committed.extractfile(member)
+                    if entry_stream is None:
+                        raise ReleaseBuildError(f"cannot read committed Linux entry: {name}")
+                    with entry_stream:
+                        release_tar.addfile(member, entry_stream)
+                else:
+                    raise ReleaseBuildError(
+                        f"unsupported symlink or special file in committed release: {name}"
+                    )
 
-    def _filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
-        if _exclude_linux_release_path(tarinfo.name):
-            return None
-        return tarinfo
-
-    with tarfile.open(tar_path, "w:gz", compresslevel=9) as tar:
-        for d in include_dirs:
-            dp = REPO_ROOT / d
-            if dp.exists():
-                tar.add(dp, arcname=d, filter=_filter)
-        for f in include_files:
-            fp = REPO_ROOT / f
-            if fp.exists():
-                tar.add(fp, arcname=f)
+            provenance = (
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "artifact_kind": "linux-x64",
+                        "source_commit": commit,
+                        "version": VERSION,
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode("utf-8")
+            info = tarfile.TarInfo("computemesh-build-provenance.json")
+            info.size = len(provenance)
+            info.mode = 0o644
+            info.mtime = 0
+            release_tar.addfile(info, io.BytesIO(provenance))
+        # Only promote the complete deterministic archive; never a partial tar.
+        os.replace(candidate, tar_path)
 
     size = tar_path.stat().st_size
-    sha = hashlib.sha256(tar_path.read_bytes()).hexdigest()
-    print(f"--> Linux Tarball built: {size:,} bytes | SHA256: {sha}")
+    sha = _sha256(tar_path)
+    print(f"--> Linux Tarball built from {commit}: {size:,} bytes | SHA256: {sha}")
     return tar_path
+
 
 
 def build_windows_exe() -> Path:
     """Build standalone Windows installer executable via PyInstaller."""
+    _require_clean_release_checkout()
     print("\n[2/4] Building Windows Standalone Executable (ComputeMesh-Setup-x64.exe)...")
     dist_dir = REPO_ROOT / "dist"
     built_exe = dist_dir / "ComputeMesh-Setup-x64.exe"
@@ -337,6 +401,7 @@ def sign_and_verify_release() -> None:
             "release signing requires explicit COMPUTEMESH_RELEASE_SIGNING_APPROVED=1; "
             "no signing key was used"
         )
+    _require_clean_release_checkout()
     from tools.security.release_signer import sign_manifest, verify_manifest
 
     manifest_file = UPDATES_DIR / "version.json"
@@ -352,6 +417,7 @@ def sign_and_verify_release() -> None:
 
 
 def main() -> int:
+    _require_clean_release_checkout()
     print("====================================================================")
     print(f"         Building ComputeMesh Release v{VERSION} (Windows + Linux)  ")
     print("====================================================================")

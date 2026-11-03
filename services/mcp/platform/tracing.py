@@ -7,12 +7,13 @@ import sqlite3
 import threading
 import time
 import uuid
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Mapping
+from typing import Any, Self
 
-_SENSITIVE = re.compile(r"(token|secret|password|credential|authorization|api[_-]?key|private[_-]?key)", re.I)
+_SENSITIVE = re.compile(r"(token|secret|password|credential|authorization|api[_-]?key|private[_-]?key)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -146,8 +147,8 @@ class TraceStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> "TraceStore":
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()

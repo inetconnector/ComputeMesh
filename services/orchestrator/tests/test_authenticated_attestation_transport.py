@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -42,7 +42,7 @@ def _snapshot(node_id: str, *, capability: bool = True, expired: bool = False) -
         node_id=node_id,
         principal_id=f"principal-{node_id}",
         auth_method="computemesh-ed25519-v1",
-        credential_expires_at=datetime.now(timezone.utc) + (timedelta(minutes=-1) if expired else timedelta(minutes=10)),
+        credential_expires_at=datetime.now(UTC) + (timedelta(minutes=-1) if expired else timedelta(minutes=10)),
         negotiated_capabilities=frozenset({"execution_attestation_v1"} if capability else set()),
         profile_revision=1,
         drain_reason=None,

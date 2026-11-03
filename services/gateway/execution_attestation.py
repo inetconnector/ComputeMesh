@@ -1,16 +1,19 @@
 """Ed25519 participant attestations for verified ComputeMesh execution settlement."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import base64
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 
@@ -163,7 +166,7 @@ def verify_execution_attestations(
 
     expected_set = set(expected_nodes)
     seen: set[str] = set()
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     for item in items:
         claims, signature = _parse_attestation(item)
         signing_message(claims)
@@ -175,8 +178,8 @@ def verify_execution_attestations(
             raise ExecutionAttestationError("attestation model/runtime binding mismatch")
         if claims.evidence_sha256 != evidence_sha256 or claims.output_sha256 != output_sha256:
             raise ExecutionAttestationError("attestation evidence/output binding mismatch")
-        issued = datetime.fromtimestamp(claims.issued_at, tz=timezone.utc)
-        expires = datetime.fromtimestamp(claims.expires_at, tz=timezone.utc)
+        issued = datetime.fromtimestamp(claims.issued_at, tz=UTC)
+        expires = datetime.fromtimestamp(claims.expires_at, tz=UTC)
         if expires - issued <= timedelta(0) or expires - issued > MAX_TTL:
             raise ExecutionAttestationError("attestation TTL is outside policy")
         if issued > current + clock_skew or expires <= current - clock_skew:

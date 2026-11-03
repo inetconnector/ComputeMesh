@@ -6,7 +6,8 @@ without satisfying the specific requirements applicable to the target marketplac
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from .provider_identity import (
     ComplianceEvaluation,
@@ -14,7 +15,6 @@ from .provider_identity import (
     CustomerAudience,
     IdentityVerificationState,
     MarketplaceMode,
-    ProviderIdentity,
     evaluate_provider_requirements,
 )
 from .provider_identity_store import ProviderIdentityStore
@@ -73,7 +73,7 @@ class FleetGatekeeper:
         if self.stripe_profile_provider is not None:
             try:
                 stripe_profile = self.stripe_profile_provider(account_id)
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError):
                 stripe_profile = None
 
         return evaluate_provider_requirements(
@@ -108,19 +108,19 @@ class FleetGatekeeper:
             state = evaluation.identity_state
             if state == IdentityVerificationState.SUSPENDED:
                 code = "PROVIDER_SUSPENDED"
-                msg = "Anbieterkonto ist derzeit suspendiert."
+                _msg = "Anbieterkonto ist derzeit suspendiert."
             elif state == IdentityVerificationState.REJECTED:
                 code = "PROVIDER_VERIFICATION_FAILED"
-                msg = "Anbieterverifikation wurde abgelehnt."
+                _msg = "Anbieterverifikation wurde abgelehnt."
             elif state == IdentityVerificationState.UNVERIFIED:
                 code = "PROVIDER_IDENTITY_REQUIRED"
-                msg = "Für die Marketplace-Teilnahme ist ein vollständiges rechtliches Anbieterprofil erforderlich."
+                _msg = "Für die Marketplace-Teilnahme ist ein vollständiges rechtliches Anbieterprofil erforderlich."
             elif any(r.code == "trader_declaration_missing" for r in evaluation.missing_requirements):
                 code = "TRADER_DECLARATION_REQUIRED"
-                msg = "Die gesetzliche Händler-Selbsterklärung gem. DSA Art. 30 muss akzeptiert werden."
+                _msg = "Die gesetzliche Händler-Selbsterklärung gem. DSA Art. 30 muss akzeptiert werden."
             else:
                 code = "PROVIDER_IDENTITY_INCOMPLETE"
-                msg = "Anbieterprofil ist unvollständig oder noch in Prüfung."
+                _msg = "Anbieterprofil ist unvollständig oder noch in Prüfung."
 
             return False, code, [r.to_dict() for r in evaluation.missing_requirements]
 

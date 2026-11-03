@@ -5,12 +5,12 @@ import json
 from http import HTTPStatus
 from typing import Any
 
-from runtime.dynamic_sharding import DynamicShardingEngine, NodeShardCapability
-from runtime.distributed_model_cache import GLOBAL_DISTRIBUTED_MODEL_CACHE
-from runtime.p2p_stream_federation import GLOBAL_STREAM_FEDERATOR
-from runtime.multi_cluster_federation import GLOBAL_MULTI_CLUSTER_FEDERATOR
-from runtime.zero_trust_worker import GLOBAL_ZERO_TRUST_WORKER_COMMUNICATOR
 from runtime.adaptive_video_compression import GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR
+from runtime.distributed_model_cache import GLOBAL_DISTRIBUTED_MODEL_CACHE
+from runtime.dynamic_sharding import DynamicShardingEngine, NodeShardCapability
+from runtime.multi_cluster_federation import GLOBAL_MULTI_CLUSTER_FEDERATOR
+from runtime.p2p_stream_federation import GLOBAL_STREAM_FEDERATOR
+from runtime.zero_trust_worker import GLOBAL_ZERO_TRUST_WORKER_COMMUNICATOR
 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
 
 
@@ -177,7 +177,7 @@ class MeshShardingHandler:
                     }
                 )
                 return True
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 handler_inst._send_json(
                     {"error": {"message": f"Invalid sharding calculation request: {exc}", "code": 400}},
                     HTTPStatus.BAD_REQUEST,
@@ -196,7 +196,7 @@ class MeshShardingHandler:
                 res = GLOBAL_DISTRIBUTED_MODEL_CACHE.verify_shard_integrity(model_id)
                 handler_inst._send_json({"integrity": res})
                 return True
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 handler_inst._send_json(
                     {"error": {"message": f"Cache verification failed: {exc}", "code": 400}},
                     HTTPStatus.BAD_REQUEST,
@@ -216,7 +216,7 @@ class MeshShardingHandler:
                     }
                 )
                 return True
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 handler_inst._send_json(
                     {"error": {"message": f"Multi-cluster sync failed: {exc}", "code": 400}},
                     HTTPStatus.BAD_REQUEST,
@@ -232,7 +232,7 @@ class MeshShardingHandler:
                 target_fps = data.get("target_fps")
                 max_bitrate = data.get("max_bitrate_kbps")
 
-                profile = GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR.evaluate_network_conditions(
+                _profile = GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR.evaluate_network_conditions(
                     rtt_ms=rtt_ms, packet_loss_pct=loss_pct, bandwidth_kbps=bw_kbps
                 )
                 if target_fps or max_bitrate:
@@ -248,7 +248,7 @@ class MeshShardingHandler:
                     }
                 )
                 return True
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 handler_inst._send_json(
                     {"error": {"message": f"Video compression tuning failed: {exc}", "code": 400}},
                     HTTPStatus.BAD_REQUEST,

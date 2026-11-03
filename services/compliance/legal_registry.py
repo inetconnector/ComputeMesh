@@ -7,8 +7,7 @@ data protection, and platform-to-business relations.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass(frozen=True)
@@ -29,7 +28,7 @@ class LegalRuleCitation:
 class LegalRuleRegistry:
     """Registry of official legal citations and normative foundations."""
 
-    RULES: dict[str, LegalRuleCitation] = {
+    RULES: ClassVar[dict[str, LegalRuleCitation]] = {
         "dsa_article_30": LegalRuleCitation(
             rule_id="dsa_article_30",
             short_title="DSA Art. 30 (Traceability of Traders)",

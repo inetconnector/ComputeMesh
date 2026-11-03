@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
@@ -41,7 +42,7 @@ def _compass_direction(lat1: float, lon1: float, lat2: float, lon2: float) -> st
     return directions[idx]
 
 
-def _geocode_location(location_name: str, timeout: float = 4.0) -> Optional[Dict[str, Any]]:
+def _geocode_location(location_name: str, timeout: float = 4.0) -> dict[str, Any] | None:
     """Resolves location name to latitude and longitude using OpenStreetMap Nominatim."""
     loc_clean = location_name.strip()
     if not loc_clean:
@@ -60,12 +61,12 @@ def _geocode_location(location_name: str, timeout: float = 4.0) -> Optional[Dict
                     "lon": float(item["lon"]),
                     "type": item.get("type", ""),
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
-def _get_osrm_route(lat1: float, lon1: float, lat2: float, lon2: float, timeout: float = 4.0) -> Optional[Dict[str, Any]]:
+def _get_osrm_route(lat1: float, lon1: float, lat2: float, lon2: float, timeout: float = 4.0) -> dict[str, Any] | None:
     """Queries OSRM routing API for driving distance and travel duration."""
     url = f"https://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -84,8 +85,8 @@ def _get_osrm_route(lat1: float, lon1: float, lat2: float, lon2: float, timeout:
                     "driving_duration_seconds": int(duration_sec),
                     "driving_duration_formatted": duration_str,
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -97,7 +98,7 @@ def get_distance_route(
     query: str = "",
     mode: str = "driving",
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Calculates geographic straight-line distance, driving route distance, coordinates, and travel time between two or more locations.
     """
@@ -136,7 +137,7 @@ def get_distance_route(
     straight_dist_km = round(_haversine_distance_km(lat1, lon1, lat2, lon2), 2)
     direction = _compass_direction(lat1, lon1, lat2, lon2)
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "origin": {
             "name": start_loc,
             "resolved_name": geo_start["display_name"],

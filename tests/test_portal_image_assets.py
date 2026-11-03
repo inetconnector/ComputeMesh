@@ -1,10 +1,9 @@
 """Keep public site image files and static references usable."""
 
+import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
-import xml.etree.ElementTree as ET
-
 
 PORTAL = Path(__file__).resolve().parents[1] / "portal"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
@@ -23,12 +22,10 @@ class ImageReferences(HTMLParser):
             self.references.append(values["src"])
         if tag in {"img", "source"} and values.get("srcset"):
             self.references.extend(item.strip().split()[0] for item in values["srcset"].split(","))
-        if tag == "link" and ("icon" in values.get("rel", "") or values.get("as") == "image"):
-            if values.get("href"):
-                self.references.append(values["href"])
-        if tag == "meta" and values.get("property") in {"og:image", "twitter:image"}:
-            if values.get("content"):
-                self.references.append(values["content"])
+        if tag == "link" and ("icon" in values.get("rel", "") or values.get("as") == "image") and values.get("href"):
+            self.references.append(values["href"])
+        if tag == "meta" and values.get("property") in {"og:image", "twitter:image"} and values.get("content"):
+            self.references.append(values["content"])
         if tag == "a" and Path(urlsplit(values.get("href", "")).path).suffix.lower() in IMAGE_EXTENSIONS:
             self.references.append(values["href"])
 

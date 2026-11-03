@@ -6,13 +6,12 @@ Provides synchronization with local SQLite accounting and coordinator telemetry.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 import json
-import os
-from pathlib import Path
 import threading
 import time
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 # Historical display constant. Settlement policy is coordinator-owned and this
@@ -70,8 +69,8 @@ def load_token_stats() -> TokenStats:
                 )
                 _CACHED_STATS = st
                 return st
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
         st = TokenStats()
         _CACHED_STATS = st
         return st
@@ -87,7 +86,7 @@ def flush_token_stats_to_disk(force: bool = False) -> None:
             return
         stats = _CACHED_STATS
         p = _get_token_storage_path()
-        stats.last_updated_at = datetime.now(timezone.utc).isoformat()
+        stats.last_updated_at = datetime.now(UTC).isoformat()
         try:
             data = stats.to_dict()
             tmp = p.with_suffix(".tmp")
@@ -95,8 +94,8 @@ def flush_token_stats_to_disk(force: bool = False) -> None:
             tmp.replace(p)
             _DIRTY = False
             _LAST_FLUSH_TS = now
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
 
 def save_token_stats(stats: TokenStats) -> None:
@@ -137,7 +136,7 @@ def sync_with_coordinator(coordinator_tokens: int, coordinator_earnings_usd: flo
             changed = True
         if c_earn > st.total_earnings_usd:
             st.total_earnings_usd = c_earn
-            st.earnings_cm = int(round(c_earn * 1_000_000))
+            st.earnings_cm = round(c_earn * 1_000_000)
             st.earnings_confirmed = True
             changed = True
     if changed:

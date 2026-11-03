@@ -1,16 +1,11 @@
 """Unit tests for Mutual TLS (mTLS) Peer-to-Peer Encrypted Transport."""
-from pathlib import Path
+import contextlib
 import socket
-import ssl
-import sys
 import tempfile
 import threading
 import time
 import unittest
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from pathlib import Path
 
 from runtime.network.mesh_transport import (
     MeshTunnelClient,
@@ -19,6 +14,8 @@ from runtime.network.mesh_transport import (
     generate_node_tls_credentials,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestMeshTransport(unittest.TestCase):
     def setUp(self) -> None:
@@ -49,22 +46,17 @@ class TestMeshTransport(unittest.TestCase):
 
         def echo_worker():
             try:
-                conn, _ = echo_sock.accept()
-                data = conn.recv(1024)
-                if data:
-                    conn.sendall(b"ECHO:" + data)
-                try:
-                    conn.recv(1024)
-                except Exception:
-                    pass
-                conn.close()
-            except Exception:
-                pass
+                with contextlib.suppress(OSError):
+                    conn, _ = echo_sock.accept()
+                    data = conn.recv(1024)
+                    if data:
+                        conn.sendall(b"ECHO:" + data)
+                    with contextlib.suppress(OSError):
+                        conn.recv(1024)
+                    conn.close()
             finally:
-                try:
+                with contextlib.suppress(OSError):
                     echo_sock.close()
-                except Exception:
-                    pass
 
         threading.Thread(target=echo_worker, daemon=True).start()
 
@@ -105,7 +97,7 @@ class TestMeshTransport(unittest.TestCase):
                     if not chunk:
                         break
                     response += chunk
-                except (socket.timeout, TimeoutError):
+                except TimeoutError:
                     break
             app_sock.close()
 

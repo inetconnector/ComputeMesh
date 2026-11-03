@@ -10,12 +10,12 @@ Enables operators to:
 from __future__ import annotations
 
 import argparse
-from datetime import UTC, datetime, timedelta
+import contextlib
 import json
 import os
-from pathlib import Path
 import sys
-from typing import Any
+from datetime import UTC, datetime
+from pathlib import Path
 
 # Ensure project root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -29,7 +29,6 @@ LOCAL_SAFETY_DIR = REPO_ROOT / "config" / "safety"
 def generate_master_keys(target_dir: Path = DEFAULT_DISKSTATION_DIR) -> tuple[bytes, str]:
     """Generates Ed25519 Master Signing Keypair for the Kill Switch subsystem."""
     from cryptography.hazmat.primitives.asymmetric import ed25519
-    from cryptography.hazmat.primitives import serialization
 
     priv = ed25519.Ed25519PrivateKey.generate()
     pub = priv.public_key()
@@ -41,7 +40,7 @@ def generate_master_keys(target_dir: Path = DEFAULT_DISKSTATION_DIR) -> tuple[by
     # Create target directory
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as exc:
+    except OSError as exc:
         print(f"Warning: Could not create target dir {target_dir}: {exc}")
 
     # 1. Save Master Private Key (Sealed to DiskStation / Operator Vault)
@@ -49,7 +48,7 @@ def generate_master_keys(target_dir: Path = DEFAULT_DISKSTATION_DIR) -> tuple[by
     try:
         priv_file.write_bytes(priv_raw)
         print(f"[OK] Master Private Key sealed to: {priv_file}")
-    except Exception as exc:
+    except OSError as exc:
         print(f"[WARN] Failed to write private key to {priv_file}: {exc}")
 
     # 2. Save Master Public Key Hex
@@ -57,7 +56,7 @@ def generate_master_keys(target_dir: Path = DEFAULT_DISKSTATION_DIR) -> tuple[by
     try:
         pub_file.write_text(pub_hex + "\n", encoding="utf-8")
         print(f"[OK] Master Public Key saved to: {pub_file}")
-    except Exception as exc:
+    except OSError as exc:
         print(f"[WARN] Failed to write public key to {pub_file}: {exc}")
 
     # 3. Also save public key to local node config so the node can verify leases offline
@@ -86,7 +85,7 @@ def generate_master_keys(target_dir: Path = DEFAULT_DISKSTATION_DIR) -> tuple[by
     try:
         manifest_file.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         print(f"[OK] Safety Manifest sealed to: {manifest_file}")
-    except Exception as exc:
+    except OSError as exc:
         print(f"[WARN] Could not write manifest: {exc}")
 
     # 5. Write Quick Operator Batch Files & Instructions to DiskStation
@@ -127,10 +126,8 @@ def write_diskstation_operator_kit(target_dir: Path, pub_hex: str) -> None:
         "echo.\n"
         "pause\n"
     )
-    try:
+    with contextlib.suppress(OSError):
         not_aus_bat.write_text(not_aus_content, encoding="utf-8")
-    except Exception:
-        pass
 
     # 2. STATUS.bat
     status_bat = target_dir / "STATUS.bat"
@@ -146,10 +143,8 @@ def write_diskstation_operator_kit(target_dir: Path, pub_hex: str) -> None:
         "echo.\n"
         "pause\n"
     )
-    try:
+    with contextlib.suppress(OSError):
         status_bat.write_text(status_content, encoding="utf-8")
-    except Exception:
-        pass
 
     # 3. RENEW-LEASE.bat
     renew_bat = target_dir / "RENEW-LEASE.bat"
@@ -161,10 +156,8 @@ def write_diskstation_operator_kit(target_dir: Path, pub_hex: str) -> None:
         "echo [OK] Autorisierung verlaengert.\n"
         "timeout /t 3\n"
     )
-    try:
+    with contextlib.suppress(OSError):
         renew_bat.write_text(renew_content, encoding="utf-8")
-    except Exception:
-        pass
 
     # 4. SPERRE-FLOTTE.bat (Master Admin Flotten-Sperrung)
     ban_bat = target_dir / "SPERRE-FLOTTE.bat"
@@ -191,10 +184,8 @@ def write_diskstation_operator_kit(target_dir: Path, pub_hex: str) -> None:
         "echo.\n"
         "pause\n"
     )
-    try:
+    with contextlib.suppress(OSError):
         ban_bat.write_text(ban_content, encoding="utf-8")
-    except Exception:
-        pass
 
     # 5. ENTSPERRE-FLOTTE.bat (Master Admin Flotten-Reaktivierung)
     unban_bat = target_dir / "ENTSPERRE-FLOTTE.bat"
@@ -221,10 +212,8 @@ def write_diskstation_operator_kit(target_dir: Path, pub_hex: str) -> None:
         "echo.\n"
         "pause\n"
     )
-    try:
+    with contextlib.suppress(OSError):
         unban_bat.write_text(unban_content, encoding="utf-8")
-    except Exception:
-        pass
 
     # 6. ANLEITUNG.md
     anleitung_md = target_dir / "ANLEITUNG.md"
@@ -340,7 +329,7 @@ python -m tools.security.killswitch_cli status
     try:
         anleitung_md.write_text(anleitung_content, encoding="utf-8")
         print(f"[OK] Ausführliche Anleitung erstellt: {anleitung_md}")
-    except Exception as exc:
+    except OSError as exc:
         print(f"[WARN] Could not write ANLEITUNG.md: {exc}")
 
 
@@ -348,10 +337,8 @@ def load_master_private_key(key_dir: Path = DEFAULT_DISKSTATION_DIR) -> bytes | 
     """Attempts to load the master private key from DiskStation or local fallback."""
     priv_file = key_dir / "master_killswitch_private.key"
     if priv_file.exists():
-        try:
+        with contextlib.suppress(OSError):
             return priv_file.read_bytes()
-        except Exception:
-            pass
     return None
 
 
@@ -359,16 +346,12 @@ def load_master_public_key(key_dir: Path = DEFAULT_DISKSTATION_DIR) -> str | Non
     """Attempts to load the master public key hex."""
     pub_file = key_dir / "master_killswitch_public.hex"
     if pub_file.exists():
-        try:
+        with contextlib.suppress(OSError, UnicodeError):
             return pub_file.read_text(encoding="utf-8").strip()
-        except Exception:
-            pass
     local_pub = LOCAL_SAFETY_DIR / "master_killswitch_public.hex"
     if local_pub.exists():
-        try:
+        with contextlib.suppress(OSError, UnicodeError):
             return local_pub.read_text(encoding="utf-8").strip()
-        except Exception:
-            pass
     return None
 
 
@@ -453,7 +436,7 @@ def main() -> None:
                 print(f"[OK] Response ({resp.status}): {resp.read().decode('utf-8')}")
         except urllib.error.HTTPError as err:
             print(f"[HTTP {err.code}] {err.read().decode('utf-8')}")
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             print(f"[WARN] Local endpoint notification error: {exc}")
 
     elif args.command == "reset":
@@ -477,7 +460,7 @@ def main() -> None:
                 print(f"[OK] Reset Response ({resp.status}): {resp.read().decode('utf-8')}")
         except urllib.error.HTTPError as err:
             print(f"[HTTP {err.code}] {err.read().decode('utf-8')}")
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             print(f"[WARN] Error resetting: {exc}")
 
     elif args.command == "status":
@@ -491,7 +474,7 @@ def main() -> None:
             with urllib.request.urlopen(req, timeout=3.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 print(json.dumps(data, indent=2))
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             print(f"Error fetching status from {url}: {exc}")
 
     elif args.command == "renew":
@@ -504,7 +487,7 @@ def main() -> None:
         try:
             with urllib.request.urlopen(req, timeout=3.0) as resp:
                 print(f"[OK] Lease renewed: {resp.read().decode('utf-8')}")
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             print(f"Error renewing lease: {exc}")
 
     elif args.command == "ban":
@@ -532,7 +515,7 @@ def main() -> None:
                 print(json.dumps(data, indent=2))
         except urllib.error.HTTPError as err:
             print(f"[HTTP {err.code}] {err.read().decode('utf-8')}")
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             print(f"[ERROR] Could not execute fleet ban: {exc}")
 
     elif args.command == "unban":
@@ -560,7 +543,7 @@ def main() -> None:
                 print(json.dumps(data, indent=2))
         except urllib.error.HTTPError as err:
             print(f"[HTTP {err.code}] {err.read().decode('utf-8')}")
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             print(f"[ERROR] Could not execute fleet unban: {exc}")
 
     elif args.command == "list-banned":
@@ -577,7 +560,7 @@ def main() -> None:
                 print(json.dumps(data, indent=2))
         except urllib.error.HTTPError as err:
             print(f"[HTTP {err.code}] {err.read().decode('utf-8')}")
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             print(f"[ERROR] Could not fetch banned fleets: {exc}")
 
 

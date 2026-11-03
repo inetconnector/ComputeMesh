@@ -7,20 +7,17 @@ meeting the minimum payout threshold ($25.00), and executes safe, idempotent Str
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import logging
 import os
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from cm_project_bootstrap import REPO_ROOT as REPO_ROOT
 
-from services.billing.accounting import AccountingStore, SettlementRecord
-from services.billing.ledger import Ledger, MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS
+from services.billing.accounting import AccountingStore
+from services.billing.ledger import MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS, Ledger
 from services.billing.owner_credits import owner_bucket_account
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
 from services.billing.owner_settlement import OwnerPayoutProfileStore
@@ -91,7 +88,7 @@ def run_batch_settlement_cycle(
             record = settlement_executor.run_owner_settlement(owner_id=owner_id)
             logger.info(f"✓ Settlement '{record.settlement_id}' completed for owner '{owner_id}': Status={record.status}, TransferID={record.stripe_transfer_id}")
             results.append(record.to_dict())
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
             logger.error(f"⚠️ Settlement failed for owner '{owner_id}': {exc}")
             results.append({"owner_id": owner_id, "error": str(exc), "status": "failed"})
 
@@ -128,7 +125,7 @@ def main() -> int:
         while True:
             try:
                 run_batch_settlement_cycle(ledger, account_store, stripe_connect)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                 logger.error(f"Unexpected error in settlement daemon: {exc}")
             time.sleep(args.interval)
     else:

@@ -11,13 +11,14 @@ local filesystem paths, plus the fully validated placement decision.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -74,7 +75,7 @@ def _canonical_json(value: dict[str, Any]) -> bytes:
 def _json_schema(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise RuntimeError(f"schema root must be an object: {path}")
+        raise TypeError(f"schema root must be an object: {path}")
     return value
 
 
@@ -89,12 +90,12 @@ def _validate_schema(value: dict[str, Any], schema_path: Path, label: str) -> No
 
 def _timestamp(value: str, label: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except (AttributeError, ValueError) as exc:
         raise EvidenceBundleError(f"{label} has invalid RFC3339 timestamp") from exc
     if parsed.tzinfo is None:
         raise EvidenceBundleError(f"{label} timestamp must be timezone-aware")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _load_document(path: Path, *, label: str) -> EvidenceDocument:
@@ -206,7 +207,7 @@ def _select_current_profile(
         raise EvidenceBundleError(
             f"{role} root has conflicting profiles at revision {max_revision}"
         )
-    return sorted(latest, key=lambda doc: (doc.file_name, doc.sha256))[0]
+    return min(latest, key=lambda doc: (doc.file_name, doc.sha256))
 
 
 def _select_artifact(manifest: dict[str, Any], digest: str | None) -> dict[str, Any]:
@@ -282,7 +283,7 @@ def _latest_unique(
         raise EvidenceBundleError(
             f"ambiguous equally recent {label} candidates: {run_ids}"
         )
-    return sorted(latest, key=lambda doc: (str(doc.value.get("run_id")), doc.sha256))[0]
+    return min(latest, key=lambda doc: (str(doc.value.get("run_id")), doc.sha256))
 
 
 def _select_llama_pair(
@@ -484,13 +485,16 @@ def _source(doc: EvidenceDocument, *, extra: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_DEFAULT_PLANNER_POLICY = PlannerPolicy()
+
+
 def build_experiment_bundle(
     selected: SelectedEvidence,
     *,
-    policy: PlannerPolicy = PlannerPolicy(),
+    policy: PlannerPolicy = _DEFAULT_PLANNER_POLICY,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
     llama_build_commit, llama_build_number = _selected_llama_build_identity(selected)
     decision = build_placement_decision(
         coordinator_profile=selected.coordinator.profile.value,

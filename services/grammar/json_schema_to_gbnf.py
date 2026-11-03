@@ -7,22 +7,21 @@ mathematically guaranteeing 100% syntactically valid JSON responses.
 
 from __future__ import annotations
 
-import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
-def json_schema_to_gbnf(schema: Dict[str, Any]) -> str:
+def json_schema_to_gbnf(schema: dict[str, Any]) -> str:
     """Converts a JSON schema dictionary into a strict llama.cpp GBNF grammar."""
     if not isinstance(schema, dict) or not schema:
         # Fallback to general JSON grammar
         return GENERAL_JSON_GBNF
 
     schema_type = schema.get("type", "object")
-    rules: List[str] = []
+    rules: list[str] = []
 
     if schema_type == "object":
         props = schema.get("properties", {})
-        required = schema.get("required", list(props.keys()))
+        _required = schema.get("required", list(props.keys()))
 
         prop_rules = []
         for p_name, p_spec in props.items():
@@ -43,7 +42,7 @@ def json_schema_to_gbnf(schema: Dict[str, Any]) -> str:
     elif schema_type == "array":
         items_spec = schema.get("items", {})
         item_rule = _compile_type_to_gbnf(items_spec, "item")
-        rules.append(f'root ::= "[" ws (item ("," ws item)*)? ws "]"')
+        rules.append('root ::= "[" ws (item ("," ws item)*)? ws "]"')
         rules.append(f"item ::= {item_rule}")
     else:
         rules.append(f"root ::= {_compile_type_to_gbnf(schema, 'root')}")
@@ -70,7 +69,7 @@ def _sanitize_rule_name(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_]", "_", name)
 
 
-def _compile_type_to_gbnf(spec: Dict[str, Any], name_hint: str) -> str:
+def _compile_type_to_gbnf(spec: dict[str, Any], name_hint: str) -> str:
     if not isinstance(spec, dict):
         return "string"
 

@@ -15,5 +15,3 @@ class PayoutCapableConfidentialOwnerLedger(
     introduces a competing constructor, so one append-only journal and one RLock
     back all owner buckets, withdrawals and confidential reservations.
     """
-
-    pass

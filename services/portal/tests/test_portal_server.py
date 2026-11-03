@@ -1,18 +1,17 @@
 """Unit tests for ComputeMesh Public Web Portal & Registration Server."""
-from http.server import ThreadingHTTPServer
-from datetime import datetime, timedelta, timezone
 import json
-from pathlib import Path
 import threading
 import time
 import unittest
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime, timedelta
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 
-from services.portal.server import PortalHandler
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 from services.portal.routes_registration import CURRENT_TERMS_VERSION
-
+from services.portal.server import PortalHandler
 
 PORTAL_DIR = Path(__file__).resolve().parents[3] / "portal"
 FORBIDDEN_BROWSER_ORIGINS = (
@@ -63,13 +62,12 @@ class TestPortalServer(unittest.TestCase):
     def test_serve_subpages(self) -> None:
         subpages = ["/docs", "/status", "/benchmarks", "/terms", "/privacy", "/impressum", "/contact", "/billing/cancel", "/billing/success"]
         for page in subpages:
-            with self.subTest(page=page):
-                with urllib.request.urlopen(f"http://127.0.0.1:13000{page}") as resp:
-                    self.assertEqual(resp.status, 200)
-                    content = resp.read().decode("utf-8")
-                    self.assertIn("ComputeMesh", content)
-                    self.assertIn("<!DOCTYPE html>", content)
-                    self.assertIn('rel="canonical"', content)
+            with self.subTest(page=page), urllib.request.urlopen(f"http://127.0.0.1:13000{page}") as resp:
+                self.assertEqual(resp.status, 200)
+                content = resp.read().decode("utf-8")
+                self.assertIn("ComputeMesh", content)
+                self.assertIn("<!DOCTYPE html>", content)
+                self.assertIn('rel="canonical"', content)
 
     def test_portal_html_has_no_forbidden_third_party_resources(self) -> None:
         violations: list[str] = []
@@ -122,7 +120,7 @@ class TestPortalServer(unittest.TestCase):
 
     def test_mesh_stats_api_counts_only_fresh_heartbeats(self) -> None:
         NODE_TELEMETRY_REGISTRY.clear()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         NODE_TELEMETRY_REGISTRY.update({
             "fresh-node": {
                 "node_id": "fresh-node",
@@ -240,7 +238,7 @@ class TestPortalServer(unittest.TestCase):
         OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
         OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, "fleet-node-01")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         NODE_TELEMETRY_REGISTRY.clear()
         NODE_TELEMETRY_REGISTRY["fleet-node-01"] = {
             "node_id": "fleet-node-01",

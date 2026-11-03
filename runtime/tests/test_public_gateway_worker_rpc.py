@@ -1,11 +1,11 @@
-import unittest
+import json
 import multiprocessing
 import socket
 import time
-import json
-from typing import Optional
+import unittest
 
 from runtime.zero_trust_worker import ZeroTrustWorkerCommunicator
+
 
 def run_worker_rpc_server(
     port_queue: multiprocessing.Queue,
@@ -34,7 +34,7 @@ def run_worker_rpc_server(
 
     while not stop_event.is_set():
         try:
-            conn, addr = sock.accept()
+            conn, _addr = sock.accept()
             with conn:
                 data = b""
                 conn.settimeout(1.0)
@@ -46,7 +46,7 @@ def run_worker_rpc_server(
                         data += chunk
                         if b'\n' in data:
                             break
-                    except socket.timeout:
+                    except TimeoutError:
                         break
 
                 if data:
@@ -90,7 +90,7 @@ def run_worker_rpc_server(
 
                     except (json.JSONDecodeError, KeyError):
                         pass
-        except socket.timeout:
+        except TimeoutError:
             continue
         except OSError:
             break
@@ -131,11 +131,11 @@ class TestPublicGatewayWorkerRPC(unittest.TestCase):
 
         # We must inject the exact session into the gateway so they share keys.
         # ZeroTrustWorkerCommunicator derives the key using the session_id.
-        import hmac
         import hashlib
+        import hmac
         session_key = hmac.new(
             self.gateway_zt._master_secret,
-            f"{self.worker_session_id}:{self.worker_id}:{self.client_cert_cn}".encode("utf-8"),
+            f"{self.worker_session_id}:{self.worker_id}:{self.client_cert_cn}".encode(),
             hashlib.sha256,
         ).digest()
 
@@ -282,11 +282,11 @@ class TestPublicGatewayWorkerRPC(unittest.TestCase):
         new_port = new_port_queue.get(timeout=2.0)
         new_worker_session_id = new_session_id_queue.get(timeout=2.0)
 
-        import hmac
         import hashlib
+        import hmac
         session_key = hmac.new(
             self.gateway_zt._master_secret,
-            f"{new_worker_session_id}:{self.worker_id}:{self.client_cert_cn}".encode("utf-8"),
+            f"{new_worker_session_id}:{self.worker_id}:{self.client_cert_cn}".encode(),
             hashlib.sha256,
         ).digest()
 

@@ -7,15 +7,14 @@ conflict, organization, or person from live news feeds and web records.
 
 from __future__ import annotations
 
-import re
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .news_feed import execute_get_news
 from .web_search import duckduckgo_search
 
 
-def fetch_recent_timeline(topic: str = "", query: str = "", max_events: int = 6, timeout: float = 7.0) -> Dict[str, Any]:
+def fetch_recent_timeline(topic: str = "", query: str = "", max_events: int = 6, timeout: float = 7.0) -> dict[str, Any]:
     """
     Constructs a chronological event timeline with dates, summaries, and verified sources.
     """
@@ -23,8 +22,8 @@ def fetch_recent_timeline(topic: str = "", query: str = "", max_events: int = 6,
     if not search_target:
         return {"error": "Thema für die Zeitleiste darf nicht leer sein."}
 
-    news_data: Optional[Dict[str, Any]] = None
-    web_results: List[Dict[str, str]] = []
+    news_data: dict[str, Any] | None = None
+    web_results: list[dict[str, str]] = []
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         f_news = executor.submit(execute_get_news, search_target, max_events)
@@ -32,15 +31,15 @@ def fetch_recent_timeline(topic: str = "", query: str = "", max_events: int = 6,
 
         try:
             news_data = f_news.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             news_data = None
 
         try:
             web_results = f_web.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             web_results = []
 
-    events: List[Dict[str, str]] = []
+    events: list[dict[str, str]] = []
     seen_titles: set[str] = set()
 
     # Process news articles with dates

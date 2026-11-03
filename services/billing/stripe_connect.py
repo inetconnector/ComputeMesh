@@ -2,13 +2,13 @@
 """Stripe Connect onboarding and settlement execution for providers."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
-from typing import Any
-from urllib.parse import quote, urlencode
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import quote, urlencode
 
 from services.billing.accounting import (
     AccountingStore,
@@ -18,12 +18,16 @@ from services.billing.accounting import (
     utc_now,
 )
 from services.billing.ledger import (
-    BillingError,
-    Ledger,
     MICRO_UNIT_SCALE,
     MINIMUM_PAYOUT_MICRO_UNITS,
+    BillingError,
+    Ledger,
 )
-from services.billing.stripe_integration import StripeIntegrationError, _load_stripe_module, _stripe_get
+from services.billing.stripe_integration import (
+    StripeIntegrationError,
+    _load_stripe_module,
+    _stripe_get,
+)
 
 STRIPE_CONNECT_PLATFORM_ACTIVATION_ERROR = (
     "Stripe Connect platform activation is required in the Stripe Dashboard "

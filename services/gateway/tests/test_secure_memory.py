@@ -2,13 +2,8 @@
 from __future__ import annotations
 
 import ctypes
-from pathlib import Path
-import sys
 import unittest
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from pathlib import Path
 
 from services.common.secure_memory import (
     SecureMemoryBuffer,
@@ -17,6 +12,8 @@ from services.common.secure_memory import (
     unlock_memory_buffer,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestSecureMemory(unittest.TestCase):
     def test_secure_memory_buffer_lifecycle(self) -> None:
@@ -39,9 +36,8 @@ class TestSecureMemory(unittest.TestCase):
         self.assertTrue(all(b == 0 for b in buf._ciphertext))
 
         # 4. Access after zeroization raises RuntimeError
-        with self.assertRaises(RuntimeError):
-            with buf.open_plaintext():
-                pass
+        with self.assertRaises(RuntimeError), buf.open_plaintext():
+            pass
 
     def test_secure_zero_memory_bytearray(self) -> None:
         arr = bytearray(b"sensitive_keys_1234567890")

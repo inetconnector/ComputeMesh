@@ -2,19 +2,19 @@
 (GatewayHandler) -- production nginx routes all /api/* traffic here, not to
 services.portal.server_core.PortalHandler, so this is the path that matters.
 """
-from datetime import datetime, timezone
-from http import HTTPStatus
-from http.client import HTTPConnection
 import json
-from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
+from datetime import UTC, datetime
+from http import HTTPStatus
+from http.client import HTTPConnection
+from pathlib import Path
 
 import services.gateway.server as gateway_server_module
-from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 from services.billing.owner_accounts import OwnerAccountStore
+from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 from services.portal import passkey_routes
 from services.portal.fleet_accounts import FleetAccountStore
 
@@ -69,11 +69,11 @@ class TestGatewayPasskeyAuth(unittest.TestCase):
         return res.status, payload
 
     def test_me_requires_session(self) -> None:
-        status, data = self._get("/api/auth/me")
+        status, _data = self._get("/api/auth/me")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
     def test_portal_fleet_requires_session(self) -> None:
-        status, data = self._get("/api/portal/fleet")
+        status, _data = self._get("/api/portal/fleet")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
     def test_register_begin_for_new_email(self) -> None:
@@ -83,7 +83,7 @@ class TestGatewayPasskeyAuth(unittest.TestCase):
         self.assertIsNone(cookie)
 
     def test_login_begin_unknown_email(self) -> None:
-        status, data, cookie = self._post("/api/auth/login/begin", {"email": "ghost@example.com"})
+        status, _data, _cookie = self._post("/api/auth/login/begin", {"email": "ghost@example.com"})
         self.assertEqual(status, HTTPStatus.NOT_FOUND)
 
     def test_me_and_portal_fleet_via_session_cookie(self) -> None:
@@ -103,7 +103,7 @@ class TestGatewayPasskeyAuth(unittest.TestCase):
             "auth_token": "cm_tunnel_deadbeef",
             "inventory": {"gpus": [{"model_name": "RTX 4090", "vram_bytes": 24 * 1024**3, "vendor": "nvidia"}]},
             "telemetry": {"local_compute_tflops": 60.0},
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
         status, fleet = self._get("/api/portal/fleet", cookie=cookie)
@@ -117,7 +117,7 @@ class TestGatewayPasskeyAuth(unittest.TestCase):
         token = self.fleet_store.create_session(account.account_id)
         cookie = f"{passkey_routes.SESSION_COOKIE_NAME}={token}"
 
-        status, data, _ = self._post("/api/auth/logout", {}, cookie=cookie)
+        status, _data, _ = self._post("/api/auth/logout", {}, cookie=cookie)
         self.assertEqual(status, HTTPStatus.OK)
 
         status, _ = self._get("/api/auth/me", cookie=cookie)

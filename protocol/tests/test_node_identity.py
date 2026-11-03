@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
 import base64
 import json
 import unittest
+from datetime import UTC, datetime, timedelta
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -33,7 +33,7 @@ class Resolver:
 
 class NodeIdentityTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc)
+        self.now = datetime(2026, 8, 21, 19, 0, tzinfo=UTC)
         self.private = Ed25519PrivateKey.generate()
         self.public = self.private.public_key().public_bytes(
             serialization.Encoding.Raw, serialization.PublicFormat.Raw
@@ -55,15 +55,15 @@ class NodeIdentityTests(unittest.TestCase):
         self.verifier = Ed25519ChallengeVerifier(Resolver(self.record))
 
     def proof(self, **kwargs):
-        params = dict(
-            private_key=self.private,
-            node_id="node-1",
-            key_id=self.key_id,
-            session_id="session-1",
-            challenge="challenge-0123456789abcdef",
-            hello=self.hello,
-            now=self.now,
-        )
+        params = {
+            "private_key": self.private,
+            "node_id": "node-1",
+            "key_id": self.key_id,
+            "session_id": "session-1",
+            "challenge": "challenge-0123456789abcdef",
+            "hello": self.hello,
+            "now": self.now,
+        }
         params.update(kwargs)
         return create_node_auth_proof(**params)
 

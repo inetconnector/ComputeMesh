@@ -10,7 +10,8 @@ import argparse
 import json
 import math
 import os
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from .environment import (
     EnvironmentKind,
@@ -30,7 +31,7 @@ def _apply_posix_limits(*, memory_bytes: int, max_runtime_seconds: int, max_proc
     try:
         import resource
 
-        cpu_seconds = max(1, int(math.ceil(float(max_runtime_seconds))))
+        cpu_seconds = max(1, math.ceil(float(max_runtime_seconds)))
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 1))
         resource.setrlimit(resource.RLIMIT_AS, (int(memory_bytes), int(memory_bytes)))
         if hasattr(resource, "RLIMIT_FSIZE"):
@@ -43,10 +44,10 @@ def _apply_posix_limits(*, memory_bytes: int, max_runtime_seconds: int, max_proc
 
 def _spec(raw: Any) -> EnvironmentSpec:
     if not isinstance(raw, Mapping):
-        raise ValueError("spec must be an object")
+        raise TypeError("spec must be an object")
     resources = raw.get("resources")
     if not isinstance(resources, Mapping):
-        raise ValueError("spec resources must be an object")
+        raise TypeError("spec resources must be an object")
     return EnvironmentSpec(
         environment_id=str(raw["environment_id"]),
         session_id=str(raw["session_id"]),
@@ -69,7 +70,7 @@ def _spec(raw: Any) -> EnvironmentSpec:
 
 def _lease(raw: Any) -> EnvironmentLease:
     if not isinstance(raw, Mapping):
-        raise ValueError("lease must be an object")
+        raise TypeError("lease must be an object")
     return EnvironmentLease(
         lease_id=str(raw["lease_id"]),
         environment_id=str(raw["environment_id"]),
@@ -81,10 +82,10 @@ def _lease(raw: Any) -> EnvironmentLease:
 
 def _request(raw: Any) -> EnvironmentRequest:
     if not isinstance(raw, Mapping):
-        raise ValueError("request must be an object")
+        raise TypeError("request must be an object")
     payload = raw.get("payload")
     if not isinstance(payload, Mapping):
-        raise ValueError("request payload must be an object")
+        raise TypeError("request payload must be an object")
     return EnvironmentRequest(
         request_id=str(raw["request_id"]),
         operation=EnvironmentOperation(str(raw["operation"])),
@@ -123,11 +124,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             message = json.loads(line)
             if not isinstance(message, Mapping):
-                raise ValueError("message must be an object")
+                raise TypeError("message must be an object")
             operation = str(message.get("operation") or "")
             payload = message.get("payload")
             if not isinstance(payload, Mapping):
-                raise ValueError("message payload must be an object")
+                raise TypeError("message payload must be an object")
             if operation == "prepare":
                 lease = transport.prepare(_spec(payload.get("spec")))
                 result = {"lease": _lease_payload(lease)}
@@ -145,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 raise ValueError("unsupported workspace operation")
             _write({"ok": True, "result": result})
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             _write({"ok": False, "error": f"{type(exc).__name__}: {exc}"})
     return 0
 

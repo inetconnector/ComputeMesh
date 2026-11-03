@@ -8,8 +8,8 @@ from __future__ import annotations
 import logging
 import time
 import zlib
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any
 
 log = logging.getLogger("computemesh.runtime.adaptive_video_compression")
 
@@ -26,7 +26,7 @@ class VideoCompressionProfile:
     max_resolution: str
 
 
-PROFILES: Dict[str, VideoCompressionProfile] = {
+PROFILES: dict[str, VideoCompressionProfile] = {
     "ultra_hd": VideoCompressionProfile(
         tier_name="ultra_hd",
         target_bitrate_kbps=10000,
@@ -84,8 +84,8 @@ class AdaptiveVideoCompressor:
         self._total_compressed_bytes = 0
         self._processed_frames_count = 0
         self._last_evaluation_timestamp = time.time()
-        self._target_fps_override: Optional[int] = None
-        self._max_bitrate_override_kbps: Optional[int] = None
+        self._target_fps_override: int | None = None
+        self._max_bitrate_override_kbps: int | None = None
 
     def evaluate_network_conditions(
         self, rtt_ms: float, packet_loss_pct: float, bandwidth_kbps: float
@@ -112,7 +112,7 @@ class AdaptiveVideoCompressor:
         return self._current_profile
 
     def tune_parameters(
-        self, target_fps: Optional[int] = None, max_bitrate_kbps: Optional[int] = None
+        self, target_fps: int | None = None, max_bitrate_kbps: int | None = None
     ) -> None:
         """Overrides manual tuning parameters if requested by client/webui."""
         if target_fps is not None and target_fps > 0:
@@ -121,7 +121,7 @@ class AdaptiveVideoCompressor:
             self._max_bitrate_override_kbps = max_bitrate_kbps
 
     def compress_frame_tokens(
-        self, frame_data: bytes, profile_tier: Optional[str] = None
+        self, frame_data: bytes, profile_tier: str | None = None
     ) -> bytes:
         """Compresses video frame bytes / visual activation tokens according to selected profile."""
         if not frame_data:
@@ -144,7 +144,7 @@ class AdaptiveVideoCompressor:
             return b""
         return zlib.decompress(compressed_data)
 
-    def get_compression_metrics(self) -> Dict[str, Any]:
+    def get_compression_metrics(self) -> dict[str, Any]:
         """Returns comprehensive adaptive video stream compression metrics."""
         input_b = self._total_input_bytes
         comp_b = self._total_compressed_bytes

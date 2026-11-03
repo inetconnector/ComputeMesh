@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import unittest
+from datetime import UTC, datetime, timedelta
 
 from protocol.attestation_session_wire import (
     AttestationSessionWireError,
@@ -38,7 +38,7 @@ def _session():
         node_id="node-a",
         principal_id="principal-a",
         auth_method="computemesh-ed25519-v1",
-        credential_expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        credential_expires_at=datetime.now(UTC) + timedelta(minutes=5),
         negotiated_capabilities=frozenset({"execution_attestation_v1"}),
         profile_revision=1,
         drain_reason=None,
@@ -82,7 +82,7 @@ class AttestationSessionWireTests(unittest.TestCase):
             "request_id": req["request_id"],
             "attestation": _attestation(),
         }
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         env = ControlEnvelope(
             protocol_major=0,
             protocol_minor=2,
@@ -104,7 +104,7 @@ class AttestationSessionWireTests(unittest.TestCase):
     def test_wrong_actor_is_rejected(self):
         session = _session()
         req = _request()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         env = ControlEnvelope(
             protocol_major=0, protocol_minor=2,
             message_type="ExecutionAttestationResponse",

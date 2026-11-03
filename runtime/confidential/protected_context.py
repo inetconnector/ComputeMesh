@@ -1,8 +1,9 @@
 """Build request-scoped P0 protected-execution evidence from bound artifacts."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from runtime.confidential.execution_gate import ProtectedExecutionEvidence
 from runtime.confidential.key_release import KeyReleaseBinding, KeyReleaseError

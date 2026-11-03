@@ -1,20 +1,20 @@
 """Unit tests for modular portal registration and quotes handlers."""
-from http import HTTPStatus
 import json
 import os
-from pathlib import Path
-import sys
 import tempfile
 import unittest
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from http import HTTPStatus
+from pathlib import Path
 
 from services.identity.vault import DEFAULT_VAULT
 from services.portal.routes_quotes import PortalQuotesHandler
-from services.portal.routes_registration import CURRENT_TERMS_VERSION, PortalRegistrationHandler
+from services.portal.routes_registration import (
+    CURRENT_TERMS_VERSION,
+    PortalRegistrationHandler,
+)
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def accepted_registration(**overrides):
     body = {
@@ -77,7 +77,7 @@ class TestPortalModular(unittest.TestCase):
         self.assertEqual(stored["terms_version"], CURRENT_TERMS_VERSION)
 
     def test_registration_is_idempotency_protected_for_repeated_email(self) -> None:
-        first, first_err, first_status = self.reg_handler.handle_register(accepted_registration())
+        _first, first_err, first_status = self.reg_handler.handle_register(accepted_registration())
         second, second_err, second_status = self.reg_handler.handle_register(accepted_registration())
         self.assertIsNone(first_err)
         self.assertEqual(first_status, HTTPStatus.CREATED)

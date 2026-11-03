@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 INDEX = Path(__file__).resolve().parents[1] / "services" / "appliance_dashboard" / "static" / "index.html"
 
 

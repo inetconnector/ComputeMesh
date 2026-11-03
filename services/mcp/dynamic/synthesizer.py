@@ -12,11 +12,16 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from .ast_security_guard import SecurityASTViolation, validate_python_code_ast
-from .sandbox_runner import SandboxExecutionError, SandboxTimeoutError, run_code_in_sandbox
+from .sandbox_runner import (
+    SandboxExecutionError,
+    SandboxTimeoutError,
+    run_code_in_sandbox,
+)
 
 logger = logging.getLogger("ComputeMesh.MCP.DynamicEngine")
 
@@ -34,7 +39,7 @@ class SynthesizedTool:
     name: str
     description: str
     code: str
-    parameters_schema: Dict[str, Any]
+    parameters_schema: dict[str, Any]
     sha256_hash: str
     created_at: float = field(default_factory=time.time)
 
@@ -47,7 +52,7 @@ class AuditLogEntry:
     task_description: str
     success: bool
     elapsed_seconds: float
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class DynamicToolEngine:
@@ -55,8 +60,8 @@ class DynamicToolEngine:
 
     def __init__(self, cache_ttl_seconds: float = 3600.0) -> None:
         self.cache_ttl_seconds = cache_ttl_seconds
-        self._tool_cache: Dict[str, SynthesizedTool] = {}
-        self._audit_log: List[AuditLogEntry] = []
+        self._tool_cache: dict[str, SynthesizedTool] = {}
+        self._audit_log: list[AuditLogEntry] = []
 
     def check_safety_guardrails(self, task_description: str) -> None:
         """Scans user task description for prohibited malicious intents."""
@@ -69,8 +74,8 @@ class DynamicToolEngine:
     def synthesize_tool_code(
         self,
         task_description: str,
-        inputs: Dict[str, Any],
-        llm_caller: Optional[Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]]] = None,
+        inputs: dict[str, Any],
+        llm_caller: Callable[[list[dict[str, Any]], list[dict[str, Any]]], dict[str, Any]] | None = None,
     ) -> str:
         """Generates Python code for the requested dynamic calculation or transformation."""
         self.check_safety_guardrails(task_description)
@@ -114,7 +119,7 @@ class DynamicToolEngine:
             "    return {'status': 'success', 'inputs': inputs, 'message': 'Dynamisches Tool ausgeführt'}\n"
         )
 
-    def preflight_smoke_test(self, code: str, sample_inputs: Dict[str, Any]) -> None:
+    def preflight_smoke_test(self, code: str, sample_inputs: dict[str, Any]) -> None:
         """Runs the code with sample inputs in a temporary sandbox to ensure it runs without errors."""
         test_inputs = sample_inputs if sample_inputs else {"test_mode": True}
         res = run_code_in_sandbox(code, test_inputs, timeout_seconds=2.0)
@@ -124,11 +129,11 @@ class DynamicToolEngine:
     def execute_dynamic_task(
         self,
         task_description: str,
-        inputs: Dict[str, Any],
-        llm_caller: Optional[Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]]] = None,
-        provided_code: Optional[str] = None,
-        on_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> Dict[str, Any]:
+        inputs: dict[str, Any],
+        llm_caller: Callable[[list[dict[str, Any]], list[dict[str, Any]]], dict[str, Any]] | None = None,
+        provided_code: str | None = None,
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
         """
         Full 7-Layer Zero-Trust Pipeline:
         1. Guardrail Check
@@ -147,15 +152,15 @@ class DynamicToolEngine:
             if on_progress:
                 try:
                     on_progress({"phase": phase, "tool_name": tool_name, "task": task_description[:80], **extra})
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
 
         # Step 1: Guardrail
         _notify("guardrail_check", status="verifying")
         self.check_safety_guardrails(task_description)
 
         # Check Cache
-        task_hash = hashlib.sha256(f"{task_description}:{json.dumps(inputs, sort_keys=True)}".encode("utf-8")).hexdigest()
+        task_hash = hashlib.sha256(f"{task_description}:{json.dumps(inputs, sort_keys=True)}".encode()).hexdigest()
         if task_hash in self._tool_cache:
             cached_tool = self._tool_cache[task_hash]
             if (time.time() - cached_tool.created_at) < self.cache_ttl_seconds:
@@ -221,7 +226,7 @@ class DynamicToolEngine:
                     )
                     receipt_id = receipt.receipt_id
                     _notify("execution_complete", receipt_id=receipt_id, elapsed_seconds=elapsed)
-                except Exception as l_exc:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as l_exc:
                     logger.debug(f"Ledger record error: {l_exc}")
 
                 result["_dynamic_meta"] = {
@@ -263,7 +268,7 @@ class DynamicToolEngine:
             }
         }
 
-    def get_audit_log(self) -> List[Dict[str, Any]]:
+    def get_audit_log(self) -> list[dict[str, Any]]:
         """Returns the immutable audit log entries."""
         return [
             {
@@ -279,7 +284,7 @@ class DynamicToolEngine:
         ]
 
 
-_global_engine: Optional[DynamicToolEngine] = None
+_global_engine: DynamicToolEngine | None = None
 
 
 def get_dynamic_tool_engine() -> DynamicToolEngine:

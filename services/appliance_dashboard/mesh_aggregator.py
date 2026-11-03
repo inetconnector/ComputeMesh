@@ -1,14 +1,14 @@
 """ComputeMesh Heterogeneous Cluster Mesh Telemetry Aggregator."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
 import os
 import socket
 import threading
 import time
-from typing import Any
 import urllib.request
+from datetime import UTC, datetime
+from typing import Any
 
 from tools.appliance.hardware_detector import is_integrated_display_adapter
 
@@ -41,8 +41,8 @@ def _get_local_ip_set() -> set[str]:
         for ip in socket.gethostbyname_ex(hostname)[2]:
             if ip:
                 ips.add(ip)
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -50,8 +50,8 @@ def _get_local_ip_set() -> set[str]:
         s.close()
         if primary:
             ips.add(primary)
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     return ips
 
 
@@ -112,13 +112,13 @@ class MeshRegistryAggregator:
                                     "telemetry": d.get("telemetry", {}),
                                     "last_seen": now_ts,
                                 }
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             # 2. Coordinator Fleet Sync via owner_key
             try:
-                from tools.appliance.appliance_config import load_appliance_config
                 from config import CONFIG
+                from tools.appliance.appliance_config import load_appliance_config
                 cfg = load_appliance_config()
                 owner_key = getattr(cfg, "owner_key", "")
                 if owner_key:
@@ -176,12 +176,12 @@ class MeshRegistryAggregator:
 
                                 with self._lock:
                                     self._peer_nodes[nid] = peer_dict
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
             # 3. Update peer status without silently purging offline nodes
             with self._lock:
-                for k, v in self._peer_nodes.items():
+                for v in self._peer_nodes.values():
                     # For direct polled nodes, update status based on last seen age
                     last_seen_val = float(v.get("last_seen", 0) or 0)
                     if last_seen_val > 0:
@@ -217,7 +217,7 @@ class MeshRegistryAggregator:
                         "inventory": inv.to_dict(),
                         "telemetry": {"tokens_processed": 0, "local_compute_tflops": 0.0},
                     }
-                except Exception:
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     local_entry = None
 
             if local_entry:
@@ -322,7 +322,7 @@ class MeshRegistryAggregator:
             "total_compute_tflops": round(total_tflops, 1),
             "total_tokens_processed": total_tokens,
             "nodes": node_details,
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
 

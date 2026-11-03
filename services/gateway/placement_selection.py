@@ -6,8 +6,9 @@ Consequently this adapter requires an explicit experimental opt-in before a
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import itertools
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -103,7 +104,7 @@ def load_shared_placement_selection(
     ordered = sorted(layer_ranges, key=lambda item: item[1])
     if ordered[0][1] != 0:
         raise PlacementSelectionError("shared layer ranges must begin at layer zero")
-    for previous, current in zip(ordered, ordered[1:]):
+    for previous, current in itertools.pairwise(ordered):
         if previous[2] != current[1]:
             raise PlacementSelectionError("shared layer ranges must be contiguous")
     if ordered[-1][2] != int(decision["model"]["layer_count"]):

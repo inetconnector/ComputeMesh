@@ -3,19 +3,18 @@
 
 from __future__ import annotations
 
-import json
 import unittest
-from unittest.mock import MagicMock, patch
 import urllib.error
+from unittest.mock import MagicMock, patch
 
-from services.mcp.config import MCPConfig
-from services.mcp.tool_registry import ToolRegistry
 from services.mcp.builtin.company_lookup import lookup_company
 from services.mcp.builtin.events import search_events
 from services.mcp.builtin.http_json import ProviderError, fetch_json
 from services.mcp.builtin.places import search_places
 from services.mcp.builtin.sports_data import get_sports_data
 from services.mcp.builtin.weather_forecast import get_weather_forecast
+from services.mcp.config import MCPConfig
+from services.mcp.tool_registry import ToolRegistry
 
 
 class _Response:
@@ -206,11 +205,11 @@ class TestCompletedRegistry(unittest.TestCase):
     def test_all_completed_tools_registered(self):
         names = {tool.name for tool in self.registry.list_tools(is_owner=True)}
         self.assertGreaterEqual(len(names), 29)
-        for name in {
+        for name in (
             "search_events", "search_places", "get_weather_forecast",
             "get_sports_data", "lookup_company", "list_available_tools",
             "generate_ai_image", "check_url_safety",
-        }:
+        ):
             self.assertIn(name, names)
 
 

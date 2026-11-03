@@ -10,17 +10,18 @@ Then point an ordinary OpenAI client at http://127.0.0.1:11435/v1.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import json
+import sys
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json
 from pathlib import Path
-import sys
 from typing import Any
 from urllib.parse import urlparse
 
 from apps.client.confidential_openai import (
-    ConfidentialOpenAIError,
     MAX_OPENAI_BODY_BYTES,
+    ConfidentialOpenAIError,
     is_loopback_host,
     load_local_attestation_policy,
 )
@@ -28,7 +29,6 @@ from apps.client.confidential_openai_stream import (
     HttpStreamingProtectedTransport,
     StreamingConfidentialOpenAIBridge,
 )
-
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 11435
@@ -166,10 +166,8 @@ class LocalOpenAIProxyHandler(BaseHTTPRequestHandler):
             # the connection without [DONE]; OpenAI clients surface an interrupted stream.
             pass
         finally:
-            try:
+            with contextlib.suppress(OSError, ValueError, RuntimeError):
                 stream.close()
-            except Exception:
-                pass
             self.close_connection = True
 
     def do_POST(self) -> None:
@@ -254,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
             bridge=bridge,
             transport=transport,
         )
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
         print(f"protected OpenAI proxy startup failed: {type(exc).__name__}", file=sys.stderr)
         return 2
     print(f"ComputeMesh protected OpenAI API listening on http://{args.host}:{bound_port}/v1")

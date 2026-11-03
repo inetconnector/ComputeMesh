@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import hmac
-from http import HTTPStatus
+import ipaddress
 import json
+import logging
 import os
-from pathlib import Path
 import re
 import secrets
-import sys
+import sqlite3
 import threading
+from dataclasses import dataclass
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.ledger import Ledger
 from services.billing.owner_accounts import OwnerAccountStore
@@ -23,9 +21,12 @@ from services.billing.owner_credits import OwnerCreditLedger
 from services.common.config import CONFIG
 from services.gateway.teaser import TeaserQuotaManager
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 PROVIDER_NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
 API_KEY_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{8,128}$")
 ADMIN_KEY_MIN_LENGTH = 24
+logger = logging.getLogger(__name__)
 
 
 def _env_truthy(name: str) -> bool:
@@ -71,8 +72,9 @@ def _load_api_key_store(path: Path | None) -> dict[str, str]:
         return {}
     try:
         raw = path.read_text(encoding="utf-8").strip()
-    except Exception:
-        return {}
+    except OSError as exc:
+        # An inaccessible configured key registry is not an empty registry.
+        raise GatewayCredentialStoreError("configured gateway key registry is unreadable") from exc
     if not raw:
         return {}
 
@@ -87,13 +89,22 @@ def _load_api_key_store(path: Path | None) -> dict[str, str]:
         elif isinstance(parsed, list):
             records = [r for r in parsed if isinstance(r, dict)]
     except json.JSONDecodeError:
-        for line in raw.splitlines():
+        # A JSONL credential file with an invalid record must not be
+        # interpreted as an incomplete but authoritative key registry.
+        for line_number, line in enumerate(raw.splitlines(), start=1):
+            if not line.strip():
+                continue
             try:
                 item = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(item, dict):
-                records.append(item)
+            except json.JSONDecodeError as exc:
+                raise GatewayCredentialStoreError(
+                    f"invalid gateway key registry JSONL record at line {line_number}"
+                ) from exc
+            if not isinstance(item, dict):
+                raise GatewayCredentialStoreError(
+                    f"gateway key registry JSONL entry {line_number} is not an object"
+                )
+            records.append(item)
 
     result: dict[str, str] = {}
     for record in records:
@@ -146,17 +157,26 @@ def resolve_client_ip(
 ) -> str:
     peer_ip = str(client_address[0]) if client_address and len(client_address) > 0 else "127.0.0.1"
     trusted = trusted_proxies if trusted_proxies is not None else TRUSTED_PROXIES
-    is_trusted_peer = peer_ip in trusted or peer_ip.startswith("127.") or peer_ip == "::1"
-    if headers and is_trusted_peer:
-        forwarded = str(headers.get("X-Forwarded-For", "")).strip()
-        if forwarded:
-            ip = forwarded.split(",")[0].strip()
-            if ip and len(ip) <= 45:  # IPv6 max length
-                return ip
-        real_ip = str(headers.get("X-Real-IP", "")).strip()
-        if real_ip and len(real_ip) <= 45:
-            return real_ip
+    # Without an authenticated transport peer, X-Forwarded-For is untrusted.
+    if not client_address or peer_ip not in trusted or not headers:
+        return peer_ip
+    for candidate in (
+        str(headers.get("X-Forwarded-For", "")).split(",", 1)[0].strip(),
+        str(headers.get("X-Real-IP", "")).strip(),
+    ):
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
     return peer_ip
+
+
+class GatewayCredentialStoreError(RuntimeError):
+    """The configured persistent gateway API credential registry is unavailable."""
+
+
+class FleetBanLookupError(RuntimeError):
+    """The authoritative fleet ban registry could not be checked."""
 
 
 class GatewayAuthManager:
@@ -241,14 +261,16 @@ class GatewayAuthManager:
         cleaned = str(owner_or_account_id).strip()
         try:
             from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
+
             if FLEET_ACCOUNT_STORE.is_fleet_banned(cleaned):
                 info = FLEET_ACCOUNT_STORE.get_fleet_ban_info(cleaned)
                 return info.get("reason", "Administrative suspension") if info else "Administrative suspension"
-        except Exception:
-            pass
-        if self.owner_account_store and self.owner_account_store.is_owner_banned(cleaned):
-            info = self.owner_account_store.get_owner_ban_info(cleaned)
-            return info.get("reason", "Administrative suspension") if info else "Administrative suspension"
+            if self.owner_account_store and self.owner_account_store.is_owner_banned(cleaned):
+                info = self.owner_account_store.get_owner_ban_info(cleaned)
+                return info.get("reason", "Administrative suspension") if info else "Administrative suspension"
+        except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError) as exc:
+            # Never treat a failed ban check as "not banned".
+            raise FleetBanLookupError("cannot verify fleet suspension state") from exc
         return None
 
     def _guard_auth_result(self, res: AuthResult) -> AuthResult:
@@ -256,7 +278,15 @@ class GatewayAuthManager:
         if not res.is_authenticated or res.account_id in ("admin_root", None):
             return res
         target = res.owner_id or res.account_id
-        ban_reason = self._check_fleet_banned(target)
+        try:
+            ban_reason = self._check_fleet_banned(target)
+        except FleetBanLookupError:
+            return AuthResult(
+                account_id=None,
+                owner_id=None,
+                error_message="Fleet authorization temporarily unavailable: ban status cannot be verified",
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+            )
         if ban_reason:
             return AuthResult(
                 account_id=None,
@@ -292,7 +322,13 @@ class GatewayAuthManager:
             # Check registered keys using constant-time comparison. In unified mode,
             # the configured account_id is the durable owner_id. No automatic
             # production credit is created merely by presenting a key.
-            account_id = self._lookup_registered_key(token)
+            try:
+                account_id = self._lookup_registered_key(token)
+            except GatewayCredentialStoreError:
+                return AuthResult(
+                    error_message="Gateway key registry temporarily unavailable",
+                    status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+                )
             if account_id:
                 if self.uses_owner_credits:
                     self._bind_owner_credential(token, account_id)
@@ -313,12 +349,12 @@ class GatewayAuthManager:
                 return self._guard_auth_result(AuthResult(
                     account_id=account_id,
                     is_teaser=False,
-                    is_provider_self_compute=token.startswith("cm_provider_") or token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_"),
+                    is_provider_self_compute=token.startswith(("cm_provider_", "inet-", "ok_", "cm_owner_")),
                     is_quota_exceeded=False,
                 ))
 
             # Fleet Owner Key authentication (e.g. inet-..., ok_..., cm_owner_...)
-            if token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_") or token.startswith("owner_"):
+            if token.startswith(("inet-", "ok_", "cm_owner_", "owner_")):
                 try:
                     from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
                     resolved = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(token) or token
@@ -348,8 +384,14 @@ class GatewayAuthManager:
                             is_provider_self_compute=True,
                             is_quota_exceeded=False,
                         ))
-                except Exception:
-                    pass
+                except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError) as exc:
+                    # A failed owner-key registry/billing lookup must not turn an
+                    # authenticated owner into a new anonymous teaser session.
+                    logger.warning("owner-key authorization unavailable: %s", type(exc).__name__)
+                    return AuthResult(
+                        error_message="Owner-key authorization temporarily unavailable",
+                        status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+                    )
 
             # Lab/private appliance compatibility must be enabled explicitly.
             if token.startswith("cm_provider_") and _env_truthy("COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS"):
@@ -410,7 +452,10 @@ class GatewayAuthManager:
 
         # Check passkey cookie session if no Bearer token was supplied
         try:
-            from services.portal.passkey_routes import session_account_from_headers, FLEET_ACCOUNT_STORE
+            from services.portal.passkey_routes import (
+                FLEET_ACCOUNT_STORE,
+                session_account_from_headers,
+            )
             account = session_account_from_headers(headers)
             if account is not None and account.owner_key:
                 owner_id = account.account_id
@@ -435,8 +480,14 @@ class GatewayAuthManager:
                     is_provider_self_compute=True,
                     is_quota_exceeded=False,
                 ))
-        except Exception:
-            pass
+        except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError, TypeError) as exc:
+            # A failed session/owner lookup must not silently fall back to
+            # an anonymous teaser or a weaker provider-IP authorization path.
+            logger.warning("gateway session lookup unavailable: %s", type(exc).__name__)
+            return AuthResult(
+                error_message="Gateway session authorization temporarily unavailable",
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+            )
 
         # Check if caller IP matches a registered active provider node in cluster
         try:
@@ -462,8 +513,12 @@ class GatewayAuthManager:
                                 is_provider_self_compute=True,
                                 is_quota_exceeded=False,
                             ))
-        except Exception:
-            pass
+        except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError, TypeError) as exc:
+            logger.warning("provider-node authorization unavailable: %s", type(exc).__name__)
+            return AuthResult(
+                error_message="Provider authorization temporarily unavailable",
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+            )
 
         # No token or session provided: evaluate Free Teaser Playground Mode.
         if allow_teaser:

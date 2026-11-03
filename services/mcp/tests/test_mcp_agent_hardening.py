@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from services.mcp.agent_loop import AgentLoop, MAX_TOOL_CALLS_PER_ITERATION
+from services.mcp.agent_loop import MAX_TOOL_CALLS_PER_ITERATION, AgentLoop
 from services.mcp.config import MCPConfig
 from services.mcp.tool_registry import ToolRegistry
 

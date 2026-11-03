@@ -1,9 +1,8 @@
 """Tests for signed private-control-plane promo grant consumption."""
-from dataclasses import replace
 import base64
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat

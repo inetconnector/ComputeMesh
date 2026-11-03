@@ -1,20 +1,24 @@
 """Appliance Telemetry, GPU Metrics, and Diagnostics Handlers."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 
 from config import CONFIG
-from services.appliance_dashboard.network import get_network_interfaces
 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+from services.appliance_dashboard.network import get_network_interfaces
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
-from tools.appliance.hardware_detector import collect_hardware_debug, read_all_thermals, scan_rig_hardware
+from tools.appliance.hardware_detector import (
+    collect_hardware_debug,
+    read_all_thermals,
+    scan_rig_hardware,
+)
 
 log = logging.getLogger("computemesh.appliance.telemetry")
 APPLIANCE_VERSION = CONFIG.appliance_version
@@ -32,11 +36,11 @@ class TelemetryHandler:
 
             def _run(cmd: list[str]) -> dict[str, Any]:
                 try:
-                    res = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+                    res = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=8)
                     return {"cmd": cmd, "returncode": res.returncode, "stdout": res.stdout[-4000:], "stderr": res.stderr[-2000:]}
                 except FileNotFoundError:
                     return {"cmd": cmd, "error": "command not found"}
-                except Exception as exc:
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                     return {"cmd": cmd, "error": str(exc)}
 
             def _file_probe(p: Path) -> dict[str, Any]:
@@ -47,7 +51,7 @@ class TelemetryHandler:
                         info["mtime"] = st.st_mtime
                         info["size"] = st.st_size
                         info["content"] = json.loads(p.read_text(encoding="utf-8"))
-                    except Exception as exc:
+                    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                         info["read_error"] = str(exc)
                 return info
 
@@ -71,7 +75,7 @@ class TelemetryHandler:
                 }
             try:
                 diagnostics["fresh_rescan"] = scan_rig_hardware().to_dict()
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 diagnostics["fresh_rescan_error"] = str(exc)
 
             resp = json.dumps(diagnostics, indent=2).encode("utf-8")
@@ -105,8 +109,8 @@ class TelemetryHandler:
                 t_stats = get_token_stats()
                 t_toks = max(t_toks, int(t_stats.get("tokens_processed", 0) or 0))
                 t_earn = max(t_earn, float(t_stats.get("earnings_cm", 0.0) or 0.0))
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
             local_payload = {
                 "node_id": handler._current_node_id(),
@@ -135,17 +139,17 @@ class TelemetryHandler:
                 elif sys.platform == "win32":
                     import ctypes
                     uptime_seconds = int(ctypes.windll.kernel32.GetTickCount64() // 1000)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
             try:
                 from services.appliance_dashboard.model_manager import get_model_manager
                 model_runtime = get_model_manager().status()
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 model_runtime = {"engine": {"state": "unavailable", "ready": False, "last_error": str(exc)}, "models": []}
             try:
                 from tools.appliance.fan_control import fan_status
                 fan_runtime = fan_status(handler.inventory, handler.config)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 fan_runtime = {"control_available": False, "supported_modes": ["auto"], "message": str(exc), "gpus": []}
             payload = {
                 "node_id": current_node_id,
@@ -193,7 +197,7 @@ class TelemetryHandler:
                 from tools.appliance.lan_discovery_scanner import discover_lan_nodes
                 payload = {"nodes": discover_lan_nodes(force=req_path.endswith("/scan")), "scan_scope": "local_private_lan"}
                 handler._send_json(payload)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 handler._send_json({"error": str(exc), "nodes": []}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return True
 

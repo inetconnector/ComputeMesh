@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
 
 from .contracts import (
     RequestEnvelope,
@@ -236,10 +236,7 @@ class SkillRouter:
                 continue
             # Deterministic policy: higher priority wins; exact ties prefer the
             # lexically smaller stable id rather than incidental iteration order.
-            winner = sorted(
-                (skill, conflict),
-                key=lambda item: (-item.priority, item.skill_id),
-            )[0]
+            winner = min((skill, conflict), key=lambda item: (-item.priority, item.skill_id))
             loser = conflict if winner.skill_id == skill.skill_id else skill
             if winner.skill_id != conflict.skill_id:
                 resolved.remove(conflict.skill_id)

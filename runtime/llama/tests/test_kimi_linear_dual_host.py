@@ -6,9 +6,9 @@ topology and a downloaded, verified 30–41 GB GGUF artifact.
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from runtime.llama.kimi_linear_dual_host import (

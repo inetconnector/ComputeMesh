@@ -15,28 +15,20 @@ Verifies remediation of critical and high-priority vulnerabilities:
 12. Pre-inference balance reservation preventing unpaid compute execution.
 13. Dynamic API key revocation without process restart.
 """
-from dataclasses import replace
-from datetime import datetime, timezone
-import html
+import contextlib
 import http.client
-from http import HTTPStatus
-import io
 import json
-import os
-from pathlib import Path
 import socket
-import ssl
-import sys
 import tempfile
 import threading
 import time
 import unittest
+from dataclasses import replace
+from http import HTTPStatus
+from pathlib import Path
 from unittest.mock import MagicMock
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
+import services.gateway.catalog as catalog_module
 from runtime.network.mesh_transport import (
     MeshTunnelClient,
     MeshTunnelServer,
@@ -44,20 +36,17 @@ from runtime.network.mesh_transport import (
     generate_node_tls_credentials,
 )
 from services.appliance_dashboard.server import DashboardHandler
-from services.billing.ledger import InsufficientBalanceError, Ledger
+from services.billing.ledger import BillingError, InsufficientBalanceError, Ledger
+from services.common.node_access import issue_node_session, node_session_cookie
 from services.common.pricing import (
-    DEFAULT_PRICE_TIERS,
     MICRO_UNITS_PER_USD,
-    calculate_max_charge_micro,
     calculate_token_charge_micro,
-    get_price_tier,
 )
 from services.gateway.auth import (
     GatewayAuthManager,
     extract_bearer_token,
     resolve_client_ip,
 )
-import services.gateway.catalog as catalog_module
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     render_node_remote_dashboard_html,
@@ -65,14 +54,15 @@ from services.gateway.dashboard import (
 )
 from services.gateway.inference import InferenceEngine
 from services.gateway.metrics_exporter import MetricsRegistry
-from services.gateway.security import RateLimiter
 from services.gateway.server import GatewayHandler, create_gateway_server
 from services.gateway.teaser import TeaserQuotaManager
-from services.common.node_access import issue_node_session, node_session_cookie
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.server import PortalHandler
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import RigInventory
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestSecurityAuditFixes(unittest.TestCase):
@@ -162,23 +152,20 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
         def echo_worker():
             try:
-                echo_sock.settimeout(4.0)
-                while True:
-                    try:
-                        conn, _ = echo_sock.accept()
-                        data = conn.recv(1024)
-                        if data:
-                            conn.sendall(b"ECHO:" + data)
-                        conn.close()
-                    except (socket.timeout, OSError):
-                        break
-            except Exception:
-                pass
+                with contextlib.suppress(OSError):
+                    echo_sock.settimeout(4.0)
+                    while True:
+                        try:
+                            conn, _ = echo_sock.accept()
+                            data = conn.recv(1024)
+                            if data:
+                                conn.sendall(b"ECHO:" + data)
+                            conn.close()
+                        except (TimeoutError, OSError):
+                            break
             finally:
-                try:
+                with contextlib.suppress(OSError):
                     echo_sock.close()
-                except Exception:
-                    pass
 
         threading.Thread(target=echo_worker, daemon=True).start()
 
@@ -582,7 +569,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
         # Quotes handler calculation for 100M tokens of 8B ($0.15*0.75 + $0.25*0.25 = $0.175/M -> $17.50 for 100M)
         quotes = PortalQuotesHandler()
-        res, err, status = quotes.handle_quote({"tokens_million": 100.0, "model_tier": "8b"})
+        res, err, _status = quotes.handle_quote({"tokens_million": 100.0, "model_tier": "8b"})
         self.assertIsNone(err)
         self.assertEqual(res["total_cost_usd"], 17.50)
 
@@ -666,7 +653,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
                     prompt_tokens=100,
                     completion_tokens=100,
                 )
-            except Exception as e:
+            except (BillingError, OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
                 errors.append(e)
 
         threads = [threading.Thread(target=worker, args=(i,)) for i in range(20)]
@@ -717,6 +704,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
     # 17. Release Manifest SHA-256 Binary Integrity & Ed25519 Signature Verification
     def test_release_manifest_sha256_binary_integrity(self) -> None:
         import hashlib
+
         from config import CONFIG
         from tools.security.ed25519_verify import verify_ed25519_signature
         manifest_file = REPO_ROOT / "portal" / "updates" / "version.json"
@@ -724,7 +712,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
         data = json.loads(manifest_file.read_text(encoding="utf-8"))
         self.assertEqual(data.get("version"), CONFIG.appliance_version)
 
-        for platform, info in data.get("platforms", {}).items():
+        for info in data.get("platforms", {}).values():
             fn = info.get("filename")
             expected_sha = info.get("sha256")
             expected_size = info.get("size_bytes")
@@ -751,7 +739,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
     # 18. Strict capture_hold Invariants & Hold Overrun Protection
     def test_capture_hold_strict_invariants(self) -> None:
-        from services.billing.ledger import BillingError, InsufficientBalanceError
+        from services.billing.ledger import BillingError
         self.ledger.deposit_customer_credits(
             customer_account_id="cust_strict",
             amount_micro_units=500_000,

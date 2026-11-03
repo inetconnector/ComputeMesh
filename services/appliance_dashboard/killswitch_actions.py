@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import hmac
-from http import HTTPStatus
 import json
 import logging
 import os
+from http import HTTPStatus
 from typing import Any
 
 log = logging.getLogger("computemesh.appliance.killswitch")
@@ -28,7 +28,7 @@ class KillswitchHandler:
         if req_path == "/api/killswitch/trigger":
             try:
                 data = json.loads(post_body.decode("utf-8")) if post_body else {}
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 data = {}
             reason = str(data.get("reason") or "Appliance Operator Emergency Stop")
             req_scope = str(data.get("scope") or "node").lower().strip()
@@ -44,10 +44,12 @@ class KillswitchHandler:
                     # Isolate local node and block global kill without master secret
                     guard.trip_node(handler._current_node_id(), reason=reason)
                     try:
-                        from services.appliance_dashboard.tunnel_relay import CLOUD_TUNNEL_RELAY
+                        from services.appliance_dashboard.tunnel_relay import (
+                            CLOUD_TUNNEL_RELAY,
+                        )
                         CLOUD_TUNNEL_RELAY.stop()
-                    except Exception:
-                        pass
+                    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        log.debug("Tunnel relay stop on node trip skipped: %s", exc)
                     handler._send_json({
                         "status": "node_tripped_only",
                         "scope": "node",
@@ -65,8 +67,8 @@ class KillswitchHandler:
             try:
                 from services.appliance_dashboard.tunnel_relay import CLOUD_TUNNEL_RELAY
                 CLOUD_TUNNEL_RELAY.stop()
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                log.debug("Tunnel relay stop on global trip skipped: %s", exc)
 
             handler._send_json({
                 "status": "tripped",
@@ -80,7 +82,7 @@ class KillswitchHandler:
         if req_path == "/api/killswitch/renew":
             try:
                 data = json.loads(post_body.decode("utf-8")) if post_body else {}
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 data = {}
             from runtime.safety.dead_mans_switch import get_lease_guard
             guard = get_lease_guard(handler._current_node_id())
@@ -89,7 +91,7 @@ class KillswitchHandler:
                     guard.update_lease(data)
                     handler._send_json({"status": "renewed", "guard": guard.get_status()})
                     return True
-                except Exception as exc:
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     handler._send_json({"status": "error", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
                     return True
             handler._send_json({"status": "active", "guard": guard.get_status()})

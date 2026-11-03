@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
@@ -16,7 +16,7 @@ class ProtocolSchemaTests(unittest.TestCase):
         return Draft202012Validator(schema, format_checker=FormatChecker())
 
     def test_control_envelope_schema(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         document = {
             "protocol_major": 0,
             "protocol_minor": 2,

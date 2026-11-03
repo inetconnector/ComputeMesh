@@ -7,14 +7,14 @@ a model catalogue with fabricated metadata.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
 import threading
 import time
+from dataclasses import dataclass
+from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
-from typing import Any
 
 
 class RegistryClientError(RuntimeError):

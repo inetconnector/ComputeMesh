@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import unittest
+from datetime import UTC, datetime, timedelta
 
 from runtime.confidential.key_release import KeyReleaseBinding
 from runtime.confidential.protected_context import (

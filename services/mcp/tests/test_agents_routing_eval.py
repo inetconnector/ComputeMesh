@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from services.mcp.platform.contracts import RequestEnvelope, SkillManifest
 from services.mcp.platform.skill_registry import PersistentSkillRegistry
 from services.mcp.platform.skill_router import SkillRouter
-
 
 DATASET = Path(__file__).parent / "data" / "agents_routing_eval.json"
 

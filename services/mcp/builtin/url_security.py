@@ -12,8 +12,9 @@ import ipaddress
 import socket
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any
 
 BLOCKED_HOST_SUFFIXES = (
     ".localhost",
@@ -127,7 +128,7 @@ class SafePublicRedirectHandler(urllib.request.HTTPRedirectHandler):
     max_repeats = 3
     max_redirections = 5
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
         absolute = urllib.parse.urljoin(req.full_url, newurl)
         validate_public_url(absolute)
         return super().redirect_request(req, fp, code, msg, headers, absolute)
@@ -167,7 +168,7 @@ def check_url_safety(url: str) -> dict[str, Any]:
             "error": str(exc),
             "message": f"Sicherheitsrisiko erkannt: {exc}",
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {
             "url": clean_url,
             "safe": False,

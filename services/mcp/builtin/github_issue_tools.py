@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .github_client import execute_github_request
 from .github_repo_tools import _resolve_owner_repo
@@ -13,17 +13,17 @@ log = logging.getLogger("computemesh.mcp.github_issue_tools")
 
 
 def github_list_issues(
-    repo: Optional[str] = None,
-    owner: Optional[str] = None,
+    repo: str | None = None,
+    owner: str | None = None,
     state: str = "open",
-    labels: Optional[str] = None,
+    labels: str | None = None,
     limit: int = 20,
     per_page: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lists issues for a GitHub repository with status, labels, and comment counts."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "issues": []}
 
     count = min(30, max(1, limit or per_page))
@@ -42,7 +42,7 @@ def github_list_issues(
     if not isinstance(raw_items, list):
         return {"error": "Unerwartetes Antwortformat.", "issues": []}
 
-    issues: List[Dict[str, Any]] = []
+    issues: list[dict[str, Any]] = []
     for it in raw_items:
         if "pull_request" in it:
             continue
@@ -66,11 +66,11 @@ def github_list_issues(
     }
 
 
-def github_get_issue(issue_number: int, repo: Optional[str] = None, owner: Optional[str] = None) -> Dict[str, Any]:
+def github_get_issue(issue_number: int, repo: str | None = None, owner: str | None = None) -> dict[str, Any]:
     """Retrieves full body, comments, and metadata for a specific GitHub issue."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}/issues/{issue_number}")
@@ -78,7 +78,7 @@ def github_get_issue(issue_number: int, repo: Optional[str] = None, owner: Optio
         return {"error": resp.get("error", f"Issue #{issue_number} nicht gefunden."), "success": False}
 
     data = resp.get("data", {})
-    comments: List[Dict[str, Any]] = []
+    comments: list[dict[str, Any]] = []
     c_resp = execute_github_request(f"/repos/{r_owner}/{r_name}/issues/{issue_number}/comments", params={"per_page": 15})
     if c_resp.get("success") and isinstance(c_resp.get("data"), list):
         for c in c_resp["data"]:
@@ -107,18 +107,18 @@ def github_get_issue(issue_number: int, repo: Optional[str] = None, owner: Optio
 
 def github_create_issue(
     title: str,
-    repo: Optional[str] = None,
-    owner: Optional[str] = None,
+    repo: str | None = None,
+    owner: str | None = None,
     body: str = "",
-    labels: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    labels: list[str] | None = None,
+) -> dict[str, Any]:
     """Creates a new issue in a GitHub repository."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
-    payload: Dict[str, Any] = {"title": title.strip(), "body": body.strip()}
+    payload: dict[str, Any] = {"title": title.strip(), "body": body.strip()}
     if labels:
         payload["labels"] = labels
 
@@ -143,13 +143,13 @@ def github_create_issue(
 def github_add_issue_comment(
     issue_number: int,
     body: str,
-    repo: Optional[str] = None,
-    owner: Optional[str] = None,
-) -> Dict[str, Any]:
+    repo: str | None = None,
+    owner: str | None = None,
+) -> dict[str, Any]:
     """Adds a new comment to a GitHub issue or pull request."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(

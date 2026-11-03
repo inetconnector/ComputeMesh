@@ -1,8 +1,8 @@
 import hashlib
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -101,17 +101,20 @@ class RpcSpikeTests(unittest.TestCase):
 
     def test_model_hash_is_correct(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "model.gguf"; path.write_bytes(b"abc" * 10000)
+            path = Path(tmp) / "model.gguf"
+            path.write_bytes(b"abc" * 10000)
             self.assertEqual(sha256_file(path), hashlib.sha256(path.read_bytes()).hexdigest())
 
     def test_failure_artifact_contains_no_prompt(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp); server = root / "server"; model = root / "model.gguf"
-            server.write_bytes(b"x"); model.write_bytes(b"model")
+            root = Path(tmp)
+            server = root / "server"
+            model = root / "model.gguf"
+            server.write_bytes(b"x")
+            model.write_bytes(b"model")
             plan = SpikePlan(server, model, (), ("CUDA0",), (1,), mode="local_baseline")
-            with patch("runtime.llama.rpc_spike.runtime_version", side_effect=RpcSpikeError("bad version")):
-                with self.assertRaises(RpcSpikeError):
-                    run_spike(plan, prompt="SENSITIVE PROMPT", output_dir=root / "run")
+            with patch("runtime.llama.rpc_spike.runtime_version", side_effect=RpcSpikeError("bad version")), self.assertRaises(RpcSpikeError):
+                run_spike(plan, prompt="SENSITIVE PROMPT", output_dir=root / "run")
             failure = json.loads((root / "run" / "runtime_spike_failure.json").read_text())
             self.assertEqual(failure["phase"], "runtime_version")
             self.assertNotIn("SENSITIVE PROMPT", json.dumps(failure))
@@ -124,14 +127,16 @@ class RpcSpikeTests(unittest.TestCase):
                       "correctness": {"prompt_sha256": "b" * 64, "output_sha256": "c" * 64, "token_ids_sha256": "d" * 64},
                       "timings": {"prompt_per_second": 100.0, "predicted_per_second": 50.0, "request_ms": 1000.0}}
             base.write_text(json.dumps({**common, "placement": {"mode": "local_baseline"}}))
-            remote = json.loads(json.dumps(common)); remote["placement"] = {"mode": "shared_rpc"}
+            remote = json.loads(json.dumps(common))
+            remote["placement"] = {"mode": "shared_rpc"}
             remote["timings"].update(prompt_per_second=80.0, predicted_per_second=40.0, request_ms=1200.0)
             shared.write_text(json.dumps(remote))
             result = compare_results(base, shared)
             self.assertTrue(result["exact_output_match"])
             self.assertEqual(result["match_basis"], "token_ids_sha256")
             self.assertAlmostEqual(result["shared_over_baseline"]["predicted_tokens_per_second"], 0.8)
-            remote["model"]["sha256"] = "e" * 64; shared.write_text(json.dumps(remote))
+            remote["model"]["sha256"] = "e" * 64
+            shared.write_text(json.dumps(remote))
             with self.assertRaises(RpcSpikeError):
                 compare_results(base, shared)
 
@@ -149,9 +154,12 @@ class RpcSpikeTests(unittest.TestCase):
             {"prompt_sha256": "b" * 64, "output_sha256": "c" * 64, "token_ids_sha256": "d" * 64},
         ).to_dict()
         validator.validate(result)
-        local = json.loads(json.dumps(result)); local["placement"] = {"mode": "local_baseline", "split_mode": "none", "devices": ["CUDA0"], "tensor_split": [1.0], "fit": False}; local["topology"]["rpc_endpoints"] = []
+        local = json.loads(json.dumps(result))
+        local["placement"] = {"mode": "local_baseline", "split_mode": "none", "devices": ["CUDA0"], "tensor_split": [1.0], "fit": False}
+        local["topology"]["rpc_endpoints"] = []
         validator.validate(local)
-        bad = dict(result); bad["raw_output"] = "secret"
+        bad = dict(result)
+        bad["raw_output"] = "secret"
         self.assertTrue(list(validator.iter_errors(bad)))
 
 

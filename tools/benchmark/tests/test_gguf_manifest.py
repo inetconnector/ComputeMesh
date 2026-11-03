@@ -1,9 +1,9 @@
 import hashlib
 import json
-from pathlib import Path
 import struct
 import tempfile
 import unittest
+from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
 

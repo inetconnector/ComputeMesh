@@ -84,7 +84,7 @@ def is_ollama_running(endpoint_url: str = DEFAULT_OLLAMA_URL) -> bool:
         req = urllib.request.Request(url, headers={"User-Agent": "ComputeMesh-Ollama-Bridge/1.2"})
         with urllib.request.urlopen(req, timeout=1.5) as resp:
             return resp.status == 200
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return False
 
 
@@ -109,8 +109,8 @@ def get_installed_ollama_models(endpoint_url: str = DEFAULT_OLLAMA_URL) -> list[
                         )
                     )
                 return models
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     return []
 
 
@@ -145,7 +145,7 @@ def get_ollama_model_inventory(endpoint_url: str = DEFAULT_OLLAMA_URL) -> list[d
                     if str(key).endswith(".context_length"):
                         entry["context_window"] = max(0, int(value))
                         break
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             # A model whose capability probe fails is not safe to advertise as
             # executable to capability-sensitive clients.
             entry["availability"] = "unavailable"
@@ -166,8 +166,8 @@ def get_ollama_bridge_status(endpoint_url: str = DEFAULT_OLLAMA_URL) -> OllamaBr
             with urllib.request.urlopen(req, timeout=1.5) as resp:
                 if resp.status == 200:
                     version = json.loads(resp.read().decode("utf-8")).get("version", "")
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     return OllamaBridgeStatus(
         installed=exe is not None,
@@ -227,12 +227,12 @@ def stop_ollama_process() -> bool:
     """Stops running Ollama instances gracefully or forcefully so configuration changes take effect."""
     try:
         if sys.platform == "win32":
-            subprocess.run(["taskkill", "/F", "/IM", "ollama.exe", "/T"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["taskkill", "/F", "/IM", "ollama.exe", "/T"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
-            subprocess.run(["pkill", "-f", "ollama"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["pkill", "-f", "ollama"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(1.0)
         return True
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return False
 
 
@@ -249,11 +249,11 @@ def reset_ollama_to_default_environment(restart_default: bool = False) -> dict[s
             for key in ["OLLAMA_HOST", "OLLAMA_ORIGINS", "OLLAMA_KEEP_ALIVE", "OLLAMA_NUM_PARALLEL"]:
                 subprocess.run(
                     ["reg", "delete", "HKCU\\Environment", "/v", key, "/f"],
-                    stdout=subprocess.DEVNULL,
+                    check=False, stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError) as exc:
+            _ = exc
 
     if restart_default:
         stop_ollama_process()
@@ -304,7 +304,7 @@ def main() -> int:
             else:
                 print("⚠️ Failed to start Ollama daemon.")
                 return 1
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             print(f"Error launching Ollama: {exc}")
             return 1
 

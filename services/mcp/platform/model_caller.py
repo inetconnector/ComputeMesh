@@ -4,9 +4,10 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Protocol
 
 from .node_routing import NodeRouteRequirement
 
@@ -436,7 +437,7 @@ class MeshDispatchModelCaller:
             material = (
                 f"{self.session_id}\0{self.turn_id}\0{self._call_index}\0"
                 f"{selected_node_id}\0{getattr(getattr(dispatched, 'lease', None), 'lease_id', '')}"
-            ).encode("utf-8")
+            ).encode()
             execution_job_id = f"mesh-agent-{hashlib.sha256(material).hexdigest()[:48]}"
             self.result_observer(
                 _MeshExecutionEvidence(

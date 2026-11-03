@@ -7,36 +7,32 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from services.mcp.builtin.github_client import execute_github_request, get_github_token
-from services.mcp.builtin.github_repo_tools import (
-    github_get_repo,
-    github_search_repositories,
-    github_get_file_contents,
-    github_list_repo_tree,
-    github_search_code,
-)
-from services.mcp.builtin.github_issue_tools import (
-    github_list_issues,
-    github_get_issue,
-    github_create_issue,
-    github_add_issue_comment,
-)
-from services.mcp.builtin.github_pr_tools import (
-    github_list_pull_requests,
-    github_get_pull_request,
-    github_get_pull_request_diff,
-    github_get_pull_request_files,
+from services.mcp.agent_loop import (
+    detect_direct_tool_intent,
+    format_tool_content_if_json,
 )
 from services.mcp.builtin.github_ci_tools import (
-    github_list_releases,
-    github_get_latest_release,
-    github_list_commits,
     github_get_workflow_runs,
+    github_list_releases,
 )
-from services.mcp.builtin.terminal_runner import run_terminal_command
+from services.mcp.builtin.github_client import execute_github_request, get_github_token
+from services.mcp.builtin.github_issue_tools import (
+    github_get_issue,
+    github_list_issues,
+)
+from services.mcp.builtin.github_pr_tools import (
+    github_get_pull_request_diff,
+    github_list_pull_requests,
+)
+from services.mcp.builtin.github_repo_tools import (
+    github_get_file_contents,
+    github_get_repo,
+    github_list_repo_tree,
+    github_search_repositories,
+)
 from services.mcp.builtin.http_api_client import execute_http_request
+from services.mcp.builtin.terminal_runner import run_terminal_command
 from services.mcp.tool_registry import ToolRegistry
-from services.mcp.agent_loop import detect_direct_tool_intent, format_tool_content_if_json
 
 
 class TestGitHubClient(unittest.TestCase):

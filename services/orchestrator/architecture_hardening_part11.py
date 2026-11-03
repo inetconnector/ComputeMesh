@@ -8,23 +8,20 @@ Enforces invariants:
 
 import sqlite3
 import time
-from typing import Any, Dict, List
+from typing import Any
+
 
 class HardeningPart11Error(RuntimeError):
     """Base exception for Part 11 invariant violations."""
-    pass
 
 class MonetaryUnitError(HardeningPart11Error):
     """Raised when monetary data is not an integer."""
-    pass
 
 class AppendOnlyLedgerError(HardeningPart11Error):
     """Raised when an append-only ledger invariant is violated."""
-    pass
 
 class OptimisticConcurrencyError(HardeningPart11Error):
     """Raised when an optimistic concurrency check fails."""
-    pass
 
 
 class StrictLedgerManager:
@@ -80,7 +77,7 @@ class StrictLedgerManager:
                 raise AppendOnlyLedgerError(f"Ledger entry {entry_id} already exists. Financial ledger entries are append-only.")
             raise
 
-    def get_entries(self) -> List[Dict[str, Any]]:
+    def get_entries(self) -> list[dict[str, Any]]:
         cursor = self.conn.cursor()
         cursor.execute("SELECT entry_id, account, amount, timestamp FROM ledger ORDER BY timestamp ASC")
         return [
@@ -159,7 +156,7 @@ class RevisionedJobManager:
             raise OptimisticConcurrencyError("Concurrency conflict during update.")
         self.conn.commit()
 
-    def get_job(self, job_id: str) -> Dict[str, Any]:
+    def get_job(self, job_id: str) -> dict[str, Any]:
         cursor = self.conn.cursor()
         cursor.execute("SELECT job_id, state, revision FROM jobs WHERE job_id = ?", (job_id,))
         row = cursor.fetchone()

@@ -8,11 +8,10 @@ and clean JSON IPC over standard streams.
 from __future__ import annotations
 
 import json
-import os
-import sys
 import subprocess
+import sys
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 MAX_OUTPUT_PAYLOAD_BYTES = 64 * 1024  # 64 KB
 DEFAULT_TIMEOUT_SECONDS = 3.0
@@ -21,12 +20,10 @@ MAX_MEMORY_BYTES = 256 * 1024 * 1024  # 256 MB
 
 class SandboxExecutionError(Exception):
     """Raised when sandbox execution crashes or returns an error."""
-    pass
 
 
 class SandboxTimeoutError(Exception):
     """Raised when sandbox execution exceeds wall-clock or CPU quotas."""
-    pass
 
 
 # Micro-runner script executed inside the isolated child process
@@ -82,9 +79,9 @@ if __name__ == '__main__':
 
 def run_code_in_sandbox(
     code: str,
-    inputs: Dict[str, Any],
+    inputs: dict[str, Any],
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Executes Python tool code within an isolated child process with hardware quotas.
     Returns the execution output dictionary.
@@ -112,8 +109,8 @@ def run_code_in_sandbox(
         try:
             proc.kill()
             proc.communicate()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
         elapsed = round(time.perf_counter() - start_time, 3)
         raise SandboxTimeoutError(
             f"Ausführungszeit hat das Sicherheitslimit von {timeout_seconds}s überschritten ({elapsed}s)."
@@ -155,7 +152,7 @@ def run_code_in_sandbox(
 
 
 class SandboxResult:
-    def __init__(self, success: bool, output: Any = None, error: Optional[str] = None, stdout: str = ""):
+    def __init__(self, success: bool, output: Any = None, error: str | None = None, stdout: str = ""):
         self.success = success
         self.output = output
         self.error = error
@@ -169,11 +166,11 @@ class SandboxRunner:
         self.timeout_seconds = timeout_seconds
         self.max_memory_mb = max_memory_mb
 
-    def execute(self, code: str, inputs: Dict[str, Any]) -> SandboxResult:
+    def execute(self, code: str, inputs: dict[str, Any]) -> SandboxResult:
         try:
             res = run_code_in_sandbox(code, inputs, timeout_seconds=self.timeout_seconds)
             return SandboxResult(success=True, output=res)
         except (SandboxExecutionError, SandboxTimeoutError) as exc:
             return SandboxResult(success=False, error=str(exc))
-        except Exception as exc:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return SandboxResult(success=False, error=f"Unerwarteter Sandbox-Fehler: {exc}")

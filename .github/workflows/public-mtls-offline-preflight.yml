@@ -1,0 +1,67 @@
+name: Public mTLS offline preflight
+
+on:
+  push:
+    branches:
+      - codex/consolidate-public-20261103
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/public-mtls-offline-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mtls-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Prepare dependency-only image and record resolved identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/Dockerfile.cm-test" <<'EOF'
+          FROM python:3.11.18-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+          RUN python -m pip install --no-cache-dir pytest==9.0.2 cryptography==46.0.4 ruff==0.14.4
+          ENV PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+          USER 10001:10001
+          EOF
+          docker build --pull --file "$RUNNER_TEMP/Dockerfile.cm-test" --tag cm-test-offline:ci "$RUNNER_TEMP"
+          docker image inspect cm-test-offline:ci --format 'Preflight image ID {{.Id}}'
+          printf 'Source SHA: %s\n' "$GITHUB_SHA"
+      - name: Isolated mTLS regression and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 2g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=128m \
+            --user 10001:10001 \
+            --env COMPUTEMESH_NODE_AUTH_TOKEN_PATH=/tmp/computemesh-ci-node-token.txt \
+            --env HOME=/tmp \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
+            --workdir /src cm-test-offline:ci \
+            python -m pytest -q -p no:cacheprovider \
+              tests/test_mtls_tunnel_duplex_drain.py \
+              tests/test_mtls_tunnel_credentials.py
+      - name: Isolated Ruff validation of mTLS source and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 2g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=128m \
+            --user 10001:10001 \
+            --env HOME=/tmp \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
+            --workdir /src cm-test-offline:ci \
+            ruff check --no-cache runtime/network/mesh_transport.py tests/test_mtls_tunnel_duplex_drain.py tests/test_mtls_tunnel_credentials.py

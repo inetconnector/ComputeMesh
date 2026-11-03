@@ -1,9 +1,9 @@
 """Unit tests for the extended fleet account store with magic links and multi-passkeys."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
-from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError
+from services.portal.fleet_accounts import FleetAccountStore
 
 
 class TestFleetAccountsExtended(unittest.TestCase):

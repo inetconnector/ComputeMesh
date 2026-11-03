@@ -9,10 +9,11 @@ import tempfile
 import threading
 import time
 import uuid
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, Self
 
 
 class ArtifactError(RuntimeError):
@@ -201,10 +202,10 @@ class ArtifactStore:
         path = self._storage_path(artifact_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
-            temporary = tempfile.NamedTemporaryFile(prefix=".artifact-", dir=path.parent, delete=False)
-            temporary_path = Path(temporary.name)
+            temporary_path: Path
             try:
-                with temporary:
+                with tempfile.NamedTemporaryFile(prefix=".artifact-", dir=path.parent, delete=False) as temporary:
+                    temporary_path = Path(temporary.name)
                     temporary.write(raw)
                     temporary.flush()
                     os.fsync(temporary.fileno())
@@ -276,7 +277,7 @@ class ArtifactStore:
     ) -> ArtifactChunk:
         """Read one bounded verified slice for resumable artifact transfer."""
         if isinstance(offset, bool) or isinstance(length, bool):
-            raise ValueError("artifact chunk offset and length must be integers")
+            raise TypeError("artifact chunk offset and length must be integers")
         offset = int(offset)
         length = int(length)
         if offset < 0 or length < 1 or length > 4 * 1024 * 1024:
@@ -342,8 +343,8 @@ class ArtifactStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> "ArtifactStore":
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()

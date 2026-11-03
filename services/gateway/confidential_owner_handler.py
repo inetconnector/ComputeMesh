@@ -8,26 +8,38 @@ recovered from escrow without customer content.
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
+import sqlite3
+from http import HTTPStatus
 from typing import Any
 from urllib.parse import urlparse
 
-from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialEnvelopeError
+from protocol.confidential_envelope import (
+    ConfidentialEnvelope,
+    ConfidentialEnvelopeError,
+)
 from protocol.confidential_metering import ConfidentialMeteringError
-from runtime.confidential.data_plane import ConfidentialDataPlane, ConfidentialDataPlaneError
+from runtime.confidential.data_plane import (
+    ConfidentialDataPlane,
+    ConfidentialDataPlaneError,
+)
 from runtime.confidential.replay_store import (
     ConfidentialReplayBindingError,
     ConfidentialReplayDetected,
     ConfidentialReplayStore,
 )
 from runtime.confidential.session import ConfidentialSessionStateError
-from services.compliance.mesh_policy import ExecutionPrivacyClass
+from services.billing.accounting import AccountingStoreError
+from services.billing.ledger import BillingError
+from services.billing.owner_accounts import OwnerAccountStoreError
 from services.gateway.confidential_coordinator import (
     ConfidentialCoordinatorError,
     ConfidentialInferenceCoordinator,
 )
-from services.gateway.live_handler import LiveGatewayHandler, MAX_CONFIDENTIAL_HTTP_BYTES
+from services.gateway.live_handler import (
+    MAX_CONFIDENTIAL_HTTP_BYTES,
+    LiveGatewayHandler,
+)
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
 
@@ -134,7 +146,7 @@ class ConfidentialOwnerGatewayHandler(LiveGatewayHandler):
                 max_prompt_tokens=max_prompt,
                 max_completion_tokens=max_completion,
             )
-        except Exception:
+        except (ConfidentialCoordinatorError, BillingError, OwnerAccountStoreError, AccountingStoreError, sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             # Broker/placement/balance details are intentionally not exposed.
             self._send_error_response(
                 "Confidential session could not be admitted",
@@ -220,7 +232,7 @@ class ConfidentialOwnerGatewayHandler(LiveGatewayHandler):
             )
             if reservation is None or reservation.state != "reserved":
                 raise ConfidentialCoordinatorError("confidential financial reservation is missing")
-        except Exception:
+        except (ConfidentialCoordinatorError, BillingError, OwnerAccountStoreError, AccountingStoreError, sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response("Confidential session binding could not be verified", "invalid_confidential_envelope", HTTPStatus.BAD_REQUEST)
             return
 
@@ -263,7 +275,7 @@ class ConfidentialOwnerGatewayHandler(LiveGatewayHandler):
         except (ConfidentialReplayBindingError, ConfidentialSessionStateError):
             self._send_error_response("Confidential dispatch state is invalid", "confidential_session_state", HTTPStatus.CONFLICT)
             return
-        except Exception:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response("Confidential replay protection is unavailable", "confidential_execution_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
             return
 
@@ -275,14 +287,14 @@ class ConfidentialOwnerGatewayHandler(LiveGatewayHandler):
             # the envelope. Operator recovery can inspect content-free evidence.
             self._send_error_response("Confidential execution evidence failed", "confidential_execution_failed", HTTPStatus.BAD_GATEWAY)
             return
-        except Exception:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response("Confidential execution failed", "confidential_execution_failed", HTTPStatus.BAD_GATEWAY)
             return
 
         billing_status = "completed"
         try:
             coordinator.settle_metered_session(job_id=session.job_id)
-        except Exception:
+        except (ConfidentialCoordinatorError, BillingError, OwnerAccountStoreError, AccountingStoreError, sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             # Funds remain in durable escrow and the signed METERED receipt is
             # persistent, so returning ciphertext does not create an unbacked job.
             billing_status = "recovery_pending"

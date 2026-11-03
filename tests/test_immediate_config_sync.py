@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import sys
 import tempfile
 import threading
 import unittest
@@ -10,22 +9,40 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.appliance_dashboard.server import ApplianceConfig
-from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay, trigger_immediate_mesh_sync
+from services.appliance_dashboard.tunnel_relay import (
+    CloudTunnelRelay,
+    trigger_immediate_mesh_sync,
+)
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
-from services.gateway.server import OWNER_ACCOUNT_STORE, _build_fleet_payload, owner_id_for_key
+from services.gateway.server import (
+    OWNER_ACCOUNT_STORE,
+    _build_fleet_payload,
+    owner_id_for_key,
+)
 from services.portal.server_core import PortalHandler
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
         NODE_TELEMETRY_REGISTRY.clear()
+        # These tests exercise heartbeat ordering, not host hardware identity.
+        # Production must still fail closed when no durable machine ID exists.
+        identity = MagicMock()
+        identity.to_public_dict.return_value = {
+            "fingerprint": "fixture-stable-machine-id",
+            "version": 1,
+        }
+        identity_patch = patch(
+            "services.identity.machine_identity.collect_machine_identity",
+            return_value=identity,
+        )
+        identity_patch.start()
+        self.addCleanup(identity_patch.stop)
 
     def test_portal_fleet_button_label_in_html_and_js(self) -> None:
         """Verify that fleet.html and portal-core.js render 'Server Info' instead of 'Open Server'."""
@@ -128,7 +145,12 @@ class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):
 
         self.assertEqual(periodic_result["node_id"], "old-rig-name")
         self.assertEqual(renamed_result["node_id"], "new-rig-name")
-        sent_ids = [json.loads(call.args[0].data.decode("utf-8"))["node_id"] for call in mock_urlopen.call_args_list]
+        heartbeat_payloads = [
+            call.args[0].data
+            for call in mock_urlopen.call_args_list
+            if getattr(call.args[0], "data", None) is not None
+        ]
+        sent_ids = [json.loads(payload.decode("utf-8"))["node_id"] for payload in heartbeat_payloads]
         self.assertEqual(sent_ids, ["old-rig-name", "new-rig-name"])
 
     def test_coordinator_heartbeat_unlinks_previous_node_id_and_stores_payout(self) -> None:

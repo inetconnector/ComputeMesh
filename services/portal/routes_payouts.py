@@ -5,25 +5,22 @@ and authenticated withdrawal settlements with double-entry ledger protection.
 """
 from __future__ import annotations
 
-from http import HTTPStatus
+import contextlib
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.billing.accounting import AccountingStore
-from services.billing.ledger import Ledger, MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS
+from services.billing.ledger import MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS, Ledger
 from services.billing.owner_credits import owner_bucket_account
-from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
-from services.billing.owner_settlement import OwnerPayoutProfile, OwnerPayoutProfileStore
+from services.billing.owner_settlement import OwnerPayoutProfileStore
 from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecutor
 from services.billing.stripe_connect import StripeConnectService
 from services.billing.stripe_integration import StripeIntegrationError
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _resolve_accounting_store() -> AccountingStore:
     path_env = os.environ.get("COMPUTEMESH_ACCOUNTING_DB_PATH") or os.environ.get("COMPUTEMESH_ACCOUNT_STORE_PATH")
@@ -33,10 +30,8 @@ def _resolve_accounting_store() -> AccountingStore:
         p = Path.home() / ".computemesh" / "accounting.db"
     else:
         p = Path("/var/lib/computemesh/accounting.db")
-    try:
+    with contextlib.suppress(OSError):
         p.parent.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
     return AccountingStore(storage_path=p)
 
 
@@ -154,8 +149,8 @@ class PortalPayoutsHandler:
                 payouts_enabled=status_res.payouts_enabled,
                 details_submitted=status_res.details_submitted,
             )
-        except Exception:
-            pass
+        except (StripeIntegrationError, OSError, ValueError, TypeError, KeyError, RuntimeError):
+            return self.get_payout_overview(owner_id)
 
         return self.get_payout_overview(owner_id)
 

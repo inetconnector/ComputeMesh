@@ -7,17 +7,17 @@ Supports generic single and multi-word lookups with concurrent execution.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
 
-def _split_dictionary_queries(raw: str) -> List[str]:
+def _split_dictionary_queries(raw: str) -> list[str]:
     """Splits dictionary queries containing multiple words."""
     cleaned = re.sub(r"^(?:definition\s+(?:von|fuer|für)\s+|was\s+bedeutet\s+|bedeutung\s+von\s+|synonyme\s+(?:fuer|für|zu)\s+|wörterbuch\s+(?:zu|für)\s+|dictionary\s+)", "", raw, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"[\?\.!]$", "", cleaned).strip()
@@ -35,7 +35,7 @@ def _clean_html_tags(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text).strip()
 
 
-def _fetch_wiktionary_fallback(word_clean: str, timeout: float = 4.0) -> Optional[Dict[str, Any]]:
+def _fetch_wiktionary_fallback(word_clean: str, timeout: float = 4.0) -> dict[str, Any] | None:
     """Fetches dictionary definitions from Wiktionary REST API."""
     for lang in ("en", "de"):
         encoded = urllib.parse.quote(word_clean)
@@ -49,14 +49,14 @@ def _fetch_wiktionary_fallback(word_clean: str, timeout: float = 4.0) -> Optiona
             sections = data.get(lang, [])
             if not sections:
                 # Try other language keys in data
-                for k, v in data.items():
+                for v in data.values():
                     if isinstance(v, list) and v:
                         sections = v
                         break
             if not sections:
                 continue
 
-            formatted_meanings: List[Dict[str, Any]] = []
+            formatted_meanings: list[dict[str, Any]] = []
             summary_lines = [f"**Wörterbuch-Eintrag für '{word_clean}'** (Wiktionary):"]
 
             for s in sections[:4]:
@@ -85,12 +85,12 @@ def _fetch_wiktionary_fallback(word_clean: str, timeout: float = 4.0) -> Optiona
                     "summary": "\n".join(summary_lines),
                     "source": "Wiktionary Open Access API",
                 }
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
     return None
 
 
-def _fetch_single_word(search_word: str, timeout: float = 6.0) -> Dict[str, Any]:
+def _fetch_single_word(search_word: str, timeout: float = 6.0) -> dict[str, Any]:
     word_clean = search_word.strip().lower()
     encoded = urllib.parse.quote(word_clean)
     url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{encoded}"
@@ -105,7 +105,7 @@ def _fetch_single_word(search_word: str, timeout: float = 6.0) -> Dict[str, Any]
             phonetic = item.get("phonetic", "")
             meanings = item.get("meanings", [])
 
-            formatted_meanings: List[Dict[str, Any]] = []
+            formatted_meanings: list[dict[str, Any]] = []
             summary_lines = [f"**Wörterbuch-Eintrag für '{word_clean}'** {phonetic}:"]
 
             for m in meanings:
@@ -113,7 +113,7 @@ def _fetch_single_word(search_word: str, timeout: float = 6.0) -> Dict[str, Any]
                 defs = m.get("definitions", [])
                 syns = m.get("synonyms", [])
 
-                top_defs: List[str] = []
+                top_defs: list[str] = []
                 for d in defs[:2]:
                     defn = d.get("definition", "")
                     example = d.get("example")
@@ -141,8 +141,8 @@ def _fetch_single_word(search_word: str, timeout: float = 6.0) -> Dict[str, Any]
                 "summary": "\n".join(summary_lines),
                 "source": "Free Dictionary Open API",
             }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     # Wiktionary fallback
     wiki_res = _fetch_wiktionary_fallback(word_clean, timeout=min(timeout, 3.5))
@@ -156,7 +156,7 @@ def lookup_word_definition(
     word: str = "",
     query: str = "",
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Looks up official dictionary definitions, word types (noun, verb, adjective), phonetic pronunciation, and synonyms.
     Supports single or multiple word queries concurrently.

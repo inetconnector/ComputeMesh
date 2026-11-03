@@ -2,14 +2,12 @@
 
 Follows strict Rule 7: NO stubs or mocks. Uses real OS loopback sockets, separate processes, and cryptographic HMAC verification.
 """
-import unittest
+import hashlib
+import hmac
+import json
 import multiprocessing
 import socket
-import time
-import json
-import hmac
-import hashlib
-from typing import Optional
+import unittest
 
 from runtime.autonomous_failover_mesh import (
     AutonomousFailoverMeshFabric,
@@ -20,7 +18,7 @@ from runtime.autonomous_failover_mesh import (
 def run_authenticated_worker_node(
     port_queue: multiprocessing.Queue,
     stop_event: multiprocessing.Event,
-    auth_secret: Optional[str] = None,
+    auth_secret: str | None = None,
     tamper_mac: bool = False,
     node_id: str = "worker_node_auth_1",
     crash_after_first_req: bool = False,
@@ -72,7 +70,7 @@ def run_authenticated_worker_node(
                         if tamper_mac:
                             resp["auth_mac"] = "0" * 64
                         else:
-                            mac_data = f"ACK:{session_id}:{request_id}:{target}".encode("utf-8")
+                            mac_data = f"ACK:{session_id}:{request_id}:{target}".encode()
                             resp["auth_mac"] = hmac.new(auth_secret.encode("utf-8"), mac_data, hashlib.sha256).hexdigest()
 
                     conn.sendall(json.dumps(resp).encode("utf-8") + b"\n")
@@ -90,7 +88,7 @@ def run_authenticated_worker_node(
                     # Verify client MAC if auth_secret configured
                     valid = True
                     if auth_secret:
-                        expected_mac = hmac.new(auth_secret.encode("utf-8"), f"JOB:{job_id}:{session_id}".encode("utf-8"), hashlib.sha256).hexdigest()
+                        expected_mac = hmac.new(auth_secret.encode("utf-8"), f"JOB:{job_id}:{session_id}".encode(), hashlib.sha256).hexdigest()
                         if client_mac != expected_mac:
                             valid = False
 
@@ -103,11 +101,11 @@ def run_authenticated_worker_node(
                         resp = {"status": "success", "job_id": job_id, "result": f"computed_val_{job_id}"}
 
                     if auth_secret:
-                        resp_mac = hmac.new(auth_secret.encode("utf-8"), f"RESULT:{job_id}:{resp['status']}".encode("utf-8"), hashlib.sha256).hexdigest()
+                        resp_mac = hmac.new(auth_secret.encode("utf-8"), f"RESULT:{job_id}:{resp['status']}".encode(), hashlib.sha256).hexdigest()
                         resp["result_mac"] = resp_mac
 
                     conn.sendall(json.dumps(resp).encode("utf-8") + b"\n")
-        except socket.timeout:
+        except TimeoutError:
             continue
         except OSError:
             break

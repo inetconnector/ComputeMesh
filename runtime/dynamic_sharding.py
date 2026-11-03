@@ -5,13 +5,12 @@ compute capacity (TFLOPS), network bandwidth, and model architectures.
 """
 from __future__ import annotations
 
-
-import time
-import threading
 import logging
-from runtime.distributed_model_cache import OffHeapCacheManager
+import threading
+import time
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+
+from runtime.distributed_model_cache import OffHeapCacheManager
 
 log = logging.getLogger("computemesh.runtime.dynamic_sharding")
 
@@ -127,7 +126,7 @@ class DynamicShardingEngine:
         sum_weights = sum(node_weights)
 
         raw_layer_counts = [(w / sum_weights) * total_layers for w in node_weights]
-        assigned_layers = [int(l) for l in raw_layer_counts]
+        assigned_layers = [int(layer_count) for layer_count in raw_layer_counts]
         remaining = total_layers - sum(assigned_layers)
 
         # Distribute remaining layers to nodes with largest fractional remainders
@@ -303,7 +302,6 @@ class DecentralizedShardFailover:
                 # No valid replicas alive, free the chunk to preserve quota
                 self._active_primary.pop(chunk_id, None)
                 self._shard_replicas.pop(chunk_id, None)
-                pass
             else:
                 # Select the best replica (e.g., lowest latency or highest VRAM)
                 alive_replicas.sort(key=lambda x: x[1].network_latency_ms)

@@ -4,13 +4,14 @@ from __future__ import annotations
 import unittest
 
 from services.scheduler.architecture_hardening_part6 import (
-    ExecutionPathOptimizer,
-    OSNeutralProtocolEnforcer,
     ComponentBoundaryEnforcer,
-    WholeExecutionPathError,
-    OSNeutralContractError,
+    ExecutionPathOptimizer,
     ExplicitBoundaryError,
+    OSNeutralContractError,
+    OSNeutralProtocolEnforcer,
+    WholeExecutionPathError,
 )
+
 
 class TestArchitectureHardeningPart6(unittest.TestCase):
     def test_whole_execution_path(self):
@@ -78,6 +79,17 @@ class TestArchitectureHardeningPart6(unittest.TestCase):
         with self.assertRaises(OSNeutralContractError) as ctx:
             enforcer.validate_contract(invalid_contract2)
         self.assertIn("Protocol contracts MUST remain OS-neutral", str(ctx.exception))
+
+    def test_os_neutral_contract_allows_literal_backslash_but_rejects_unc(self):
+        enforcer = OSNeutralProtocolEnforcer()
+        # A literal escape pattern is not itself a Windows filesystem path.
+        enforcer.validate_contract({"pattern": r"version\\d+"})
+        # Network shares and mixed slash forms still expose OS-specific paths.
+        for value in (r"\\\\server\\share", r"C:\\Windows\\System32", r"some/path\\file"):
+            with self.subTest(value=value), self.assertRaises(OSNeutralContractError):
+                enforcer.validate_contract({"items": [value]})
+            with self.subTest(root=value), self.assertRaises(OSNeutralContractError):
+                enforcer.validate_contract({"root": value})
 
     def test_explicit_boundary(self):
         enforcer = ComponentBoundaryEnforcer()

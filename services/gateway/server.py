@@ -10,19 +10,19 @@ import argparse
 import hashlib
 import hmac
 import json
+import logging
 import os
+import sqlite3
 import sys
 import threading
-from datetime import datetime, timezone
+import time
+from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, urlparse
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from cm_project_bootstrap import REPO_ROOT
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import InsufficientBalanceError, Ledger
@@ -37,6 +37,69 @@ from services.portal.passkey_routes import (
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
 
+from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
+from services.billing.stripe_integration import (
+    StripePaymentService,
+    StripeSessionStore,
+    stripe_session_store_path_from_env,
+)
+from services.common.config import CONFIG
+from services.gateway.auth import (
+    GatewayAuthManager,
+    extract_bearer_token,
+    resolve_client_ip,
+)
+from services.gateway.catalog import (
+    current_models,
+    model_modalities,
+    model_modality_flags,
+    resolve_model_id,
+)
+from services.gateway.dashboard import (
+    NODE_TELEMETRY_REGISTRY,
+    _extract_candidate_local_urls,
+    fresh_node_telemetry_entries,
+    render_node_remote_dashboard_html,
+    save_node_telemetry_registry,
+)
+from services.gateway.inference import InferenceEngine
+from services.gateway.metrics_exporter import MetricsRegistry
+from services.gateway.routes_billing import BillingRoutesHandler
+from services.gateway.routes_provider import ProviderRoutesHandler
+from services.gateway.security import (
+    GLOBAL_RATE_LIMITER,
+    MAX_REQUEST_PAYLOAD_BYTES,
+    SECURITY_HEADERS,
+    sanitize_error_message,
+)
+from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
+from services.mcp.platform.artifacts import (
+    ArtifactAccessDenied,
+    ArtifactNotFound,
+    ArtifactStore,
+)
+from services.mcp.platform.session import (
+    AgentSessionStore,
+    ApprovalStatus,
+    SessionStateConflict,
+    TurnStatus,
+)
+from services.mcp.platform.session_projection import (
+    SessionProjectionDenied,
+    authorize_session,
+    project_approval,
+    project_approvals,
+    project_events,
+    project_item,
+    project_items,
+    project_session,
+    project_sessions,
+    project_turn,
+    project_turns,
+)
+
+logger = logging.getLogger(__name__)
+
 
 def _resolve_owner_account_store_path() -> Path:
     env_path = os.environ.get("COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH")
@@ -48,7 +111,7 @@ def _resolve_owner_account_store_path() -> Path:
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
-    except Exception:
+    except OSError:
         return Path("/tmp/computemesh_owner_accounts.db")
 
 
@@ -153,13 +216,13 @@ def _validate_client_tools(value: Any) -> list[dict[str, Any]] | None:
             raise ValueError("only function tools are supported")
         function = tool.get("function")
         if not isinstance(function, dict):
-            raise ValueError("tool function must be an object")
+            raise TypeError("tool function must be an object")
         name = str(function.get("name", "")).strip()
         if not name or len(name) > 128 or name in names:
             raise ValueError("tool names must be non-empty, unique, and at most 128 characters")
         parameters = function.get("parameters", {})
         if not isinstance(parameters, dict):
-            raise ValueError("tool parameters must be a JSON schema object")
+            raise TypeError("tool parameters must be a JSON schema object")
         names.add(name)
         result.append(tool)
     return result
@@ -200,7 +263,7 @@ def _build_fleet_payload(
     passkey-session-authenticated portal fleet view (services/portal/passkey_routes.py)."""
     from tools.appliance.hardware_detector import is_integrated_display_adapter
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     online_max_age_seconds = 45
     stale_max_age_seconds = 300
 
@@ -223,10 +286,10 @@ def _build_fleet_payload(
         age_seconds = float("inf")
         if updated_at_str:
             try:
-                ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+                ts = datetime.fromisoformat(updated_at_str)
                 updated_at_ts = ts.timestamp()
                 age_seconds = (now - ts).total_seconds()
-            except Exception:
+            except (TypeError, ValueError):
                 age_seconds = float("inf")
 
         is_quarantined = bool(n.get("is_quarantined", False) or n.get("quarantined", False))
@@ -375,7 +438,9 @@ def _build_fleet_payload(
             "display_name": display_name,
             "status": status,
             "is_online": is_online,
-            "available_for_routing": is_online and not c["alias_collision"],
+            # Mobile heartbeat proves device presence, not that a tested
+            # inference runtime is ready for paid fleet scheduling.
+            "available_for_routing": is_online and not c["alias_collision"] and not n.get("mobile_device", False),
             "vram_gb": round(node_vram / (1024**3), 1),
             "tflops": round(node_tflops, 1) if is_online else 0.0,
             "gpus": [(g.get("model_name") if isinstance(g, dict) else str(g)) for g in gpus] if gpus else [],
@@ -392,7 +457,7 @@ def _build_fleet_payload(
             "software_version": node_version,
             "commit_sha": commit_sha,
             "protocol_version": protocol_version,
-            "auth_status": "quarantined" if status == "quarantined" else ("authenticated" if c["auth_token"] else "unauthenticated"),
+            "auth_status": "quarantined" if status == "quarantined" else ("authenticated" if (c["auth_token"] or n.get("mobile_device", False)) else "unauthenticated"),
             "is_enrolled": True,
             "capabilities": {
                 "gpus": gpus,
@@ -435,8 +500,8 @@ def _build_fleet_payload(
                 if binfo:
                     suspension_reason = binfo.get("reason")
                     banned_at = binfo.get("banned_at")
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
+            logger.debug("fleet ban lookup failed: %s", exc, exc_info=True)
         if not is_suspended and OWNER_ACCOUNT_STORE.is_owner_banned(owner_id):
             is_suspended = True
             binfo = OWNER_ACCOUNT_STORE.get_owner_ban_info(owner_id)
@@ -467,7 +532,7 @@ def _build_fleet_payload(
         "has_more": has_more,
         "alias_collisions": alias_collisions,
         "target_software_version": target_version,
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
     if is_suspended:
         payload_dict["is_suspended"] = True
@@ -482,48 +547,7 @@ def _build_ledger_from_env() -> Ledger:
         from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
         return GatewayOwnerCreditLedger(storage_path=path)
     return ThreadSafeLedger(storage_path=path)
-from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
-from services.billing.stripe_integration import (
-    StripePaymentService,
-    StripeSessionStore,
-    stripe_session_store_path_from_env,
-)
-from services.common.config import CONFIG
-from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
-from services.gateway.catalog import (
-    current_models,
-    model_modalities,
-    model_modality_flags,
-    resolve_model_id,
-)
-from services.gateway.dashboard import (
-    NODE_TELEMETRY_REGISTRY,
-    _extract_candidate_local_urls,
-    fresh_node_telemetry_entries,
-    render_node_remote_dashboard_html,
-    save_node_telemetry_registry,
-)
-from services.gateway.inference import InferenceEngine
-from services.gateway.metrics_exporter import MetricsRegistry
-from services.gateway.routes_billing import BillingRoutesHandler
-from services.gateway.routes_provider import ProviderRoutesHandler
-from services.gateway.security import (
-    GLOBAL_RATE_LIMITER,
-    MAX_REQUEST_PAYLOAD_BYTES,
-    SECURITY_HEADERS,
-    sanitize_error_message,
-)
-from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
-from services.mcp.platform.artifacts import ArtifactAccessDenied, ArtifactNotFound, ArtifactStore
-from services.mcp.platform.session import AgentSessionStore, ApprovalStatus, SessionStateConflict, TurnStatus
-from services.mcp.platform.session_projection import (
-    SessionProjectionDenied,
-    project_approval,
-    project_approvals,
-    project_events,
-    project_session,
-    project_sessions,
-)
+
 
 DEFAULT_PORT = CONFIG.default_gateway_port
 
@@ -541,8 +565,8 @@ def _build_account_store_from_env() -> AccountingStore:
         p = Path("/var/lib/computemesh/accounting.db")
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
+    except OSError:
+        logger.debug("accounting database directory creation failed", exc_info=True)
     return AccountingStore(storage_path=p)
 
 
@@ -624,12 +648,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
         cls.billing_routes = BillingRoutesHandler(ledger=cls.ledger, stripe_svc=cls.stripe_svc, auth_manager=cls.auth_manager)
         try:
             cls.provider_routes = ProviderRoutesHandler(account_store=cls.account_store, settlement_executor=cls.settlement_executor, auth_manager=cls.auth_manager, ledger=cls.ledger)
-        except Exception:
-            pass
+        except (ImportError, RuntimeError, TypeError, ValueError, sqlite3.Error) as exc:
+            logger.debug("provider routes initialization failed: %s", exc, exc_info=True)
         try:
             cls.payouts_handler = PortalPayoutsHandler(ledger=cls.ledger, account_store=cls.account_store)
-        except Exception:
-            pass
+        except (ImportError, RuntimeError, TypeError, ValueError, sqlite3.Error) as exc:
+            logger.debug("payout routes initialization failed: %s", exc, exc_info=True)
         backend = getattr(getattr(cls, "inference_engine", None), "backend", None)
         cls.inference_engine = InferenceEngine(ledger=cls.ledger, metrics=cls.metrics, teaser_manager=cls.teaser_manager, backend=backend)
 
@@ -718,8 +742,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
         try:
             self.wfile.flush()
-        except Exception:
-            pass
+        except (OSError, ValueError) as exc:
+            logger.debug("response flush failed: %s", exc, exc_info=True)
         self.close_connection = True
 
     def _send_teaser_quota_response(self, client_ip: str) -> None:
@@ -790,6 +814,110 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(error_message or "Operator authentication required", "authentication_error", status)
         return allowed
 
+    def _stream_agent_events_sse(
+        self,
+        store: AgentSessionStore,
+        session_id: str,
+        *,
+        principal_id: str | None,
+        is_admin: bool,
+        after_sequence: int,
+        max_events: int,
+        wait_seconds: float,
+        heartbeat_seconds: float,
+    ) -> None:
+        session = authorize_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+        cursor = max(0, int(after_sequence))
+        event_budget = max(1, min(int(max_events), 500))
+        page = store.read_event_page(session.session_id, after_sequence=cursor, limit=event_budget)
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Connection", "close")
+        self.end_headers()
+
+        def write_sse(event_name: str, data: dict[str, Any], *, event_id: int | None = None, comment: str | None = None) -> bool:
+            lines: list[str] = []
+            if comment:
+                lines.append(f": {comment}")
+            if event_id is not None:
+                lines.append(f"id: {event_id}")
+            lines.append(f"event: {event_name}")
+            lines.append("data: " + json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+            frame = ("\n".join(lines) + "\n\n").encode("utf-8")
+            try:
+                self.wfile.write(frame)
+                self.wfile.flush()
+            except (OSError, ValueError):
+                return False
+            return True
+
+        open_payload: dict[str, Any] = {
+            "session_id": session.session_id,
+            "cursor": cursor,
+            "cursor_gap": page.cursor_gap,
+            "latest_sequence": page.latest_sequence,
+        }
+        if page.gap_reason:
+            open_payload["gap_reason"] = page.gap_reason
+        if not write_sse("stream.open", open_payload):
+            self.close_connection = True
+            return
+        if page.cursor_gap and not write_sse("cursor.gap", {
+            "session_id": session.session_id,
+            "requested_after_sequence": cursor,
+            "latest_sequence": page.latest_sequence,
+            "gap_reason": page.gap_reason,
+        }):
+            self.close_connection = True
+            return
+
+        emitted = 0
+        has_more = page.has_more
+        deadline = time.monotonic() + max(0.0, min(float(wait_seconds), 30.0))
+        while True:
+            for event in page.events:
+                if not write_sse(event.event_type, event.to_dict(), event_id=event.sequence):
+                    self.close_connection = True
+                    return
+                cursor = event.sequence
+                emitted += 1
+                if emitted >= event_budget:
+                    break
+            has_more = page.has_more or (emitted >= event_budget and store.latest_event_sequence(session.session_id) > cursor)
+            if emitted >= event_budget or time.monotonic() >= deadline:
+                break
+            remaining = deadline - time.monotonic()
+            step_wait = min(max(0.05, float(heartbeat_seconds)), remaining)
+            page = store.read_event_page(
+                session.session_id,
+                after_sequence=cursor,
+                limit=max(1, event_budget - emitted),
+                wait_seconds=step_wait,
+            )
+            if (
+                not page.events
+                and time.monotonic() < deadline
+                and not write_sse("heartbeat", {"cursor": cursor, "ts": time.time()}, comment="heartbeat")
+            ):
+                self.close_connection = True
+                return
+
+        backpressure = bool(emitted >= event_budget and has_more)
+        write_sse("stream.checkpoint", {
+            "session_id": session.session_id,
+            "next_sequence": cursor,
+            "has_more": has_more,
+            "backpressure": backpressure,
+            "emitted_count": emitted,
+        })
+        self.close_connection = True
+
     def do_DELETE(self) -> None:
         if not self._check_rate_limit():
             return
@@ -797,7 +925,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         clean_path = parsed_path.path.rstrip("/")
         if self._is_custom_tool_path(clean_path) and not self._require_mcp_admin():
             return
-        if clean_path.startswith("/v1/mcp/custom-tools/") or clean_path.startswith("/api/v1/mcp/custom-tools/"):
+        if clean_path.startswith(("/v1/mcp/custom-tools/", "/api/v1/mcp/custom-tools/")):
             from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
             t_name = clean_path.split("/")[-1]
             store = get_custom_tool_store()
@@ -823,7 +951,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
         )
         if agent_prefix is not None:
             relative = clean_path[len(agent_prefix):].strip("/").split("/") if clean_path[len(agent_prefix):].strip("/") else []
-            if len(relative) > 2 or (len(relative) == 2 and relative[1] not in {"events", "artifacts", "turns", "items"}):
+            valid_subpaths = (
+                len(relative) <= 1
+                or (len(relative) == 2 and relative[1] in {"events", "artifacts", "turns", "items"})
+                or (len(relative) == 3 and relative[1] == "events" and relative[2] == "stream")
+            )
+            if not valid_subpaths:
                 self._send_error_response("Invalid agent session path", "invalid_request_error", HTTPStatus.NOT_FOUND)
                 return
             auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
@@ -834,12 +967,41 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 store = self._get_agent_session_store()
                 principal_id = auth.owner_id or auth.account_id
                 is_admin = auth.account_id == "admin_root"
+
+                def bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
+                    raw = query.get(name, [str(default)])[0]
+                    value = int(raw)
+                    if value < minimum or value > maximum:
+                        raise ValueError(f"{name} is outside the allowed range")
+                    return value
+
+                def optional_bool(name: str) -> bool | None:
+                    raw = query.get(name, [None])[0]
+                    if raw is None or str(raw).strip() == "":
+                        return None
+                    norm = str(raw).strip().lower()
+                    if norm in {"1", "true", "yes"}:
+                        return True
+                    if norm in {"0", "false", "no"}:
+                        return False
+                    raise ValueError(f"{name} must be a boolean")
+
                 if len(relative) == 0:
-                    raw_limit = query.get("limit", ["100"])[0]
-                    list_limit = int(raw_limit)
-                    if list_limit < 1 or list_limit > 500:
-                        raise ValueError("limit is outside the allowed range")
-                    payload = project_sessions(store, principal_id=principal_id, limit=list_limit, is_admin=is_admin)
+                    list_limit = bounded_int("limit", 100, 1, 500)
+                    payload = project_sessions(
+                        store,
+                        principal_id=principal_id,
+                        limit=list_limit,
+                        cursor=query.get("cursor", [None])[0],
+                        search=query.get("search", query.get("q", [None]))[0],
+                        status=query.get("status", [None])[0],
+                        workspace=query.get("workspace", [None])[0],
+                        pinned=optional_bool("pinned"),
+                        archived=optional_bool("archived"),
+                        parent_session_id=query.get("parent_session_id", [None])[0],
+                        session_kind=query.get("session_kind", [None])[0],
+                        is_admin=is_admin,
+                    )
                 elif len(relative) == 1:
                     session_id = relative[0]
                     payload = project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
@@ -863,41 +1025,66 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     }
                 elif relative[1] == "turns":
                     session_id = relative[0]
-                    project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
-                    raw_limit = query.get("limit", ["100"])[0]
-                    turns = store.list_turns(session_id=session_id, limit=int(raw_limit))
-                    payload = {
-                        "schema_version": 2,
-                        "object": "agent_turns",
-                        "session_id": session_id,
-                        "turns": [turn.to_dict() for turn in turns],
-                    }
+                    list_limit = bounded_int("limit", 100, 1, 500)
+                    status_param = query.get("status", [None])[0]
+                    statuses = [s.strip() for s in str(status_param).split(",") if s.strip()] if status_param else None
+                    payload = project_turns(
+                        store,
+                        session_id,
+                        principal_id=principal_id,
+                        statuses=statuses,
+                        limit=list_limit,
+                        is_admin=is_admin,
+                    )
                 elif relative[1] == "items":
                     session_id = relative[0]
-                    project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
                     turn_filter = query.get("turn_id", [None])[0]
-                    items = store.list_items(session_id, turn_id=turn_filter)
-                    payload = {
-                        "schema_version": 2,
-                        "object": "agent_items",
-                        "session_id": session_id,
-                        "items": [item.to_dict() for item in items],
-                    }
+                    payload = project_items(
+                        store,
+                        session_id,
+                        principal_id=principal_id,
+                        turn_id=turn_filter,
+                        after_sequence=bounded_int("after_sequence", 0, 0, 2_147_483_647),
+                        limit=bounded_int("limit", 200, 1, 500),
+                        is_admin=is_admin,
+                    )
                 else:
-                    def bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
-                        raw = query.get(name, [str(default)])[0]
-                        value = int(raw)
-                        if value < minimum or value > maximum:
-                            raise ValueError(f"{name} is outside the allowed range")
-                        return value
-
+                    last_event_id_hdr = str(self.headers.get("Last-Event-ID") or "").strip()
+                    default_after = int(last_event_id_hdr) if last_event_id_hdr else 0
+                    if default_after < 0 or default_after > 2_147_483_647:
+                        raise ValueError("Last-Event-ID is outside the allowed range")
+                    after_seq = bounded_int("after_sequence", default_after, 0, 2_147_483_647)
+                    ev_limit = bounded_int("limit", 100, 1, 500)
+                    wait_sec = float(query.get("wait_seconds", ["0"])[0])
+                    if not (0.0 <= wait_sec <= 30.0):
+                        raise ValueError("wait_seconds is outside the allowed range")
+                    want_sse = (
+                        len(relative) == 3
+                        or query.get("stream", ["0"])[0] in {"1", "true"}
+                        or "text/event-stream" in str(self.headers.get("Accept") or "").lower()
+                    )
+                    if want_sse:
+                        hb_sec = float(query.get("heartbeat_seconds", ["5"])[0])
+                        if not (0.05 <= hb_sec <= 15.0):
+                            raise ValueError("heartbeat_seconds is outside the allowed range")
+                        self._stream_agent_events_sse(
+                            store,
+                            relative[0],
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                            after_sequence=after_seq,
+                            max_events=ev_limit,
+                            wait_seconds=wait_sec,
+                            heartbeat_seconds=hb_sec,
+                        )
+                        return
                     payload = project_events(
                         store,
                         relative[0],
                         principal_id=principal_id,
-                        after_sequence=bounded_int("after_sequence", 0, 0, 2_147_483_647),
-                        limit=bounded_int("limit", 100, 1, 1000),
-                        wait_seconds=float(query.get("wait_seconds", ["0"])[0]),
+                        after_sequence=after_seq,
+                        limit=ev_limit,
+                        wait_seconds=wait_sec,
                         is_admin=is_admin,
                     )
                 self._send_json(payload)
@@ -1089,8 +1276,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
             parts = node_rel.split("/", 1)
             node_id = parts[0].strip()
             sub_path = "/" + parts[1] if len(parts) > 1 else ""
-            auth_token = ""
-
             if sub_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
                 self._handle_props()
                 return
@@ -1221,7 +1406,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self.send_header("Cache-Control", "public, max-age=3600")
                 self.end_headers()
                 self.wfile.write(svg_bytes)
-            except Exception as exc:
+            except (ImportError, OSError, RuntimeError, ValueError) as exc:
+                logger.debug("QR generation logging failed: %s", exc, exc_info=True)
                 self._send_error_response(f"QR generation failed: {exc}", "internal_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
@@ -1242,10 +1428,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "average_latency_ms": None,
                     "network_uptime_percent": None,
                     "measurement_status": "not_measured",
-                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 }
             else:
-                from tools.appliance.hardware_detector import is_integrated_display_adapter
+                from tools.appliance.hardware_detector import (
+                    is_integrated_display_adapter,
+                )
                 total_vram_bytes = 0
                 total_gpus = 0
                 for n in live_nodes:
@@ -1277,7 +1465,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "average_latency_ms": None,
                     "network_uptime_percent": None,
                     "measurement_status": "live",
-                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 }
             self._send_json(payload)
             return
@@ -1291,7 +1479,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 auth_hdr = self.headers.get("Authorization", "").strip()
                 if auth_hdr.startswith("Bearer "):
                     candidate = auth_hdr[7:].strip()
-                    if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                         owner_key = candidate
             if not owner_key:
                 self._send_error_response("Owner authentication is required.", "unauthorized", HTTPStatus.UNAUTHORIZED)
@@ -1325,7 +1513,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json({"blocks": blocks, "stats": ledger.get_stats()})
             return
 
-        if clean_path.startswith("/v1/mcp/ledger/blocks/") or clean_path.startswith("/api/v1/mcp/ledger/blocks/"):
+        if clean_path.startswith(("/v1/mcp/ledger/blocks/", "/api/v1/mcp/ledger/blocks/")):
             from services.mcp.ledger import get_compact_ledger
             raw_idx = clean_path.split("/")[-1]
             try:
@@ -1339,7 +1527,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response("Ungültiger Block-Index", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
-        if clean_path.startswith("/v1/mcp/ledger/receipts/") or clean_path.startswith("/api/v1/mcp/ledger/receipts/"):
+        if clean_path.startswith(("/v1/mcp/ledger/receipts/", "/api/v1/mcp/ledger/receipts/")):
             from services.mcp.ledger import get_compact_ledger
             receipt_id = clean_path.split("/")[-1]
             r_data = get_compact_ledger().get_receipt(receipt_id)
@@ -1366,7 +1554,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json({"object": "list", "data": tools, "count": len(tools)})
             return
 
-        if (clean_path.startswith("/v1/mcp/custom-tools/") or clean_path.startswith("/api/v1/mcp/custom-tools/")) and not clean_path.endswith("/execute"):
+        if (clean_path.startswith(("/v1/mcp/custom-tools/", "/api/v1/mcp/custom-tools/"))) and not clean_path.endswith("/execute"):
             from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
             tool_name = clean_path.split("/")[-1]
             tool = get_custom_tool_store().get_tool(tool_name)
@@ -1405,7 +1593,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
@@ -1440,7 +1628,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
@@ -1454,7 +1642,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
-            account = session_account_from_headers(self.headers)
+            # Resolve session cookies without invoking the legacy auto-create
+            # path for arbitrary X-Owner-Key/Bearer header values. Raw owner
+            # keys below must already belong to an existing fleet account.
+            account = session_account_from_headers(
+                {"Cookie": self.headers.get("Cookie", "")}
+            )
             owner_key = ""
             if account is not None:
                 owner_key = account.owner_key
@@ -1464,15 +1657,19 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED)
+            # Only an actual, authenticated fleet account may enumerate
+            # owner-only tools or change MCP policy. Never hash an arbitrary
+            # claimant-supplied string into an authorization identity.
+            verified_account = account or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            if verified_account is None:
+                self._send_json({"error": "valid fleet authentication required"}, HTTPStatus.UNAUTHORIZED)
                 return
+            owner_id = owner_id_for_key(verified_account.owner_key)
             disabled = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
             all_tools = [t.name for t in self.inference_engine.tool_registry.list_tools(is_owner=True)]
             enabled_tools = [t for t in all_tools if t not in disabled]
@@ -1514,7 +1711,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             owner_id = owner_id_for_key(owner_key) if owner_key else None
             from runtime.safety.dead_mans_switch import get_lease_guard
@@ -1545,7 +1742,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
 
             os_target = query.get("os", ["windows"])[0].strip()
@@ -1665,7 +1862,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         try:
             body = json.loads(raw_body.decode("utf-8")) if raw_body else {}
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
             self._send_error_response("Malformed JSON request body", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
@@ -1675,7 +1872,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         )
         if agent_session_prefix is not None:
             relative = clean_path[len(agent_session_prefix):].strip("/").split("/") if clean_path[len(agent_session_prefix):].strip("/") else []
-            if (relative and (len(relative) != 2 or relative[1] not in {"turns", "control", "steer", "metadata"})) or not isinstance(body, dict):
+            allowed_actions = {"turns", "queue", "control", "steer", "metadata", "fork", "side-chat"}
+            if (relative and (len(relative) != 2 or relative[1] not in allowed_actions)) or not isinstance(body, dict):
                 self._send_error_response("Invalid agent task path", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
             auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
@@ -1687,6 +1885,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 store = self._get_agent_session_store()
                 principal_id = auth.owner_id or auth.account_id
                 is_admin = auth.account_id == "admin_root"
+                idem_key = body.get("idempotency_key") or self.headers.get("Idempotency-Key")
+                raw_expected_ver = body.get("expected_version")
+                expected_ver = int(raw_expected_ver) if raw_expected_ver is not None else None
                 if relative:
                     if relative[1] == "control":
                         action = str(body.get("action") or "").strip().lower()
@@ -1707,7 +1908,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             principal_id=principal_id,
                             is_admin=is_admin,
                         )
-                        turn_payload = store.get_turn(control.turn_id).to_dict() if control.turn_id else None
+                        turn_payload = project_turn(store.get_turn(control.turn_id)) if control.turn_id else None
                         self._send_json({
                             "schema_version": 1,
                             "object": "agent_control",
@@ -1723,7 +1924,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
                         turn_id = str(body.get("turn_id") or "").strip()
                         if not turn_id:
-                            # Auto-resolve currently active running turn
                             active_turns = store.list_turns(
                                 statuses=[
                                     TurnStatus.RUNNING,
@@ -1739,26 +1939,32 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             if not active_turns:
                                 raise SessionStateConflict("no active turn found in session to steer")
                             turn_id = active_turns[0].turn_id
-                        item = store.steer_turn(session_id, turn_id, input_items)
+                        item = store.steer_turn(
+                            session_id,
+                            turn_id,
+                            input_items,
+                            expected_version=expected_ver,
+                            idempotency_key=idem_key,
+                        )
                         session_payload = project_session(
                             store,
                             session_id,
                             principal_id=principal_id,
                             is_admin=is_admin,
                         )
-                        turn_payload = store.get_turn(turn_id).to_dict()
+                        turn_payload = project_turn(store.get_turn(turn_id))
                         self._send_json({
                             "schema_version": 2,
                             "object": "agent_steer",
                             "session": session_payload["session"],
                             "turn": turn_payload,
-                            "item": item.to_dict(),
+                            "item": project_item(item),
                         }, HTTPStatus.OK)
                         return
                     if relative[1] == "metadata":
                         session_id = relative[0]
                         project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
-                        store.update_metadata(session_id, body)
+                        store.update_metadata(session_id, body, expected_version=expected_ver)
                         session_payload = project_session(
                             store,
                             session_id,
@@ -1771,15 +1977,75 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             "session": session_payload["session"],
                         }, HTTPStatus.OK)
                         return
+                    if relative[1] == "fork":
+                        session_id = relative[0]
+                        project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                        raw_up_to = body.get("up_to_sequence")
+                        up_to_seq = int(raw_up_to) if raw_up_to is not None else None
+                        forked = store.fork_session(
+                            session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                            up_to_sequence=up_to_seq,
+                            title=str(body.get("title") or "").strip() or None,
+                        )
+                        session_payload = project_session(
+                            store,
+                            forked.session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                        )
+                        self._send_json({
+                            "schema_version": 2,
+                            "object": "agent_session_fork",
+                            "session": session_payload["session"],
+                        }, HTTPStatus.CREATED)
+                        return
+                    if relative[1] == "side-chat":
+                        session_id = relative[0]
+                        project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                        ctx_turn = str(body.get("context_turn_id") or "").strip() or None
+                        side_chat = store.create_side_chat(
+                            session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                            context_turn_id=ctx_turn,
+                            title=str(body.get("title") or "").strip() or None,
+                        )
+                        side_turn = None
+                        if input_items is not None:
+                            side_turn = store.start_turn(
+                                side_chat.session_id,
+                                input_items,
+                                priority=body.get("priority", 0),
+                                deadline_at=body.get("deadline_at"),
+                            )
+                        session_payload = project_session(
+                            store,
+                            side_chat.session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                        )
+                        self._send_json({
+                            "schema_version": 2,
+                            "object": "agent_side_chat",
+                            "session": session_payload["session"],
+                            "turn": project_turn(side_turn) if side_turn is not None else None,
+                        }, HTTPStatus.CREATED)
+                        return
                     if input_items is None:
                         raise ValueError("input is required")
                     session_id = relative[0]
                     project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                    allow_queue = relative[1] == "queue" or bool(body.get("queue", False))
                     turn = store.start_turn(
                         session_id,
                         input_items,
                         priority=body.get("priority", 0),
                         deadline_at=body.get("deadline_at"),
+                        expected_version=expected_ver,
+                        idempotency_key=idem_key,
+                        allow_queue=allow_queue,
                     )
                     session_payload = project_session(
                         store,
@@ -1791,7 +2057,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         "schema_version": 1,
                         "object": "agent_turn",
                         "session": session_payload["session"],
-                        "turn": turn.to_dict(),
+                        "turn": project_turn(turn),
                     }, HTTPStatus.CREATED)
                     return
                 agent_id = str(body.get("agent_id") or "").strip()
@@ -1814,7 +2080,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 metadata_updates = {
                     k: body[k]
                     for k in ("title", "workspace", "branch", "tags", "notes")
-                    if k in body and body[k]
+                    if body.get(k)
                 }
                 if metadata_updates:
                     store.update_metadata(session.session_id, metadata_updates)
@@ -1962,6 +2228,39 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
             return
 
+        if clean_path == "/api/portal/fleet/mobile/enrollment_token":
+            data, status, cookie = self.passkey_handler.create_enrollment_token(
+                self.headers, scope="mobile_device",
+            )
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/enrollment/consume":
+            from services.portal.mobile_device_auth import enroll_mobile_device
+            data, status = enroll_mobile_device(FLEET_ACCOUNT_STORE, body)
+            self._send_json(data, status)
+            return
+
+        if clean_path == "/api/v1/mobile/heartbeat":
+            from services.portal.mobile_device_auth import mobile_heartbeat
+            data, status = mobile_heartbeat(
+                FLEET_ACCOUNT_STORE, body, self.headers.get("Authorization", ""),
+            )
+            self._send_json(data, status)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/revoke":
+            from services.portal.mobile_device_auth import revoke_mobile_device
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_error_response("Fleet session required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            data, status = revoke_mobile_device(
+                FLEET_ACCOUNT_STORE, account.account_id, body.get("node_id", ""),
+            )
+            self._send_json(data, status)
+            return
+
         if clean_path == "/api/portal/fleet/enrollment_token":
             data, status, cookie = self.passkey_handler.create_enrollment_token(self.headers)
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
@@ -1987,7 +2286,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
-            account = session_account_from_headers(self.headers)
+            # Resolve session cookies without invoking the legacy auto-create
+            # path for arbitrary X-Owner-Key/Bearer header values. Raw owner
+            # keys below must already belong to an existing fleet account.
+            account = session_account_from_headers(
+                {"Cookie": self.headers.get("Cookie", "")}
+            )
             owner_key = ""
             if account is not None:
                 owner_key = account.owner_key
@@ -1997,15 +2301,19 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED)
+            # Only an actual, authenticated fleet account may enumerate
+            # owner-only tools or change MCP policy. Never hash an arbitrary
+            # claimant-supplied string into an authorization identity.
+            verified_account = account or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            if verified_account is None:
+                self._send_json({"error": "valid fleet authentication required"}, HTTPStatus.UNAUTHORIZED)
                 return
+            owner_id = owner_id_for_key(verified_account.owner_key)
             disabled_tools = body.get("disabled_tools", [])
             if not isinstance(disabled_tools, list):
                 disabled_tools = []
@@ -2025,6 +2333,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         if clean_path in ("/api/v1/node/heartbeat", "/api/node/heartbeat", "/v1/node/heartbeat"):
             node_id = str(body.get("node_id", "")).strip()
+            # Android identities must use the mobile-specific credential DB,
+            # even after a restart before their telemetry registry is loaded.
+            if node_id.startswith("android-"):
+                self._send_error_response("Android nodes require scoped mobile heartbeat", "forbidden", HTTPStatus.FORBIDDEN)
+                return
             auth_token = str(body.get("auth_token", "")).strip()
             if not node_id:
                 self._send_error_response("Valid node_id is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
@@ -2057,6 +2370,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             incoming_ts = body.get("timestamp")
 
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
+            if existing_node and existing_node.get("mobile_device"):
+                self._send_error_response(
+                    "Mobile nodes require the authenticated mobile heartbeat route",
+                    "forbidden", HTTPStatus.FORBIDDEN,
+                )
+                return
             registered_pub = str(existing_node.get("public_key", "")).strip() if existing_node else ""
             existing_owner_id = ""
             if existing_node:
@@ -2123,7 +2442,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             f"[HEARTBEAT] Node {node_id} presented verified Ed25519 proof; updating authenticated state.\n"
                         )
                         sys.stderr.flush()
-                except Exception as verif_exc:
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as verif_exc:
                     sys.stderr.write(f"[HEARTBEAT] Node {node_id} verification error: {verif_exc}\n")
 
             if existing_node and not token_matches and not owner_authorized and not crypto_authorized:
@@ -2261,7 +2580,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         owner_binding_error = str(rebind_exc)
                         owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
-            now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             existing_tokens = int(existing_node.get("telemetry", {}).get("tokens_processed", 0) or 0) if existing_node else 0
             incoming_tokens = int(body.get("telemetry", {}).get("tokens_processed", 0) or 0)
             final_tokens = max(existing_tokens, incoming_tokens)
@@ -2410,6 +2729,23 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
             account = session_account_from_headers(self.headers)
             owner_key = str(body.get("owner_key", "")).strip()
+            mobile_owner_account = FLEET_ACCOUNT_STORE.active_mobile_device_account(node_id)
+            if mobile_owner_account is not None:
+                # The telemetry registry is ephemeral; device credentials and
+                # ownership are durable. Revoke the device even if the gateway
+                # restarted and its in-memory node card disappeared.
+                if account is None and owner_key:
+                    account = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+                if account is None or account.account_id != mobile_owner_account:
+                    self._send_error_response("Not authorized for mobile device", "forbidden", HTTPStatus.FORBIDDEN)
+                    return
+                from services.portal.mobile_device_auth import revoke_mobile_device
+                data, status = revoke_mobile_device(
+                    FLEET_ACCOUNT_STORE, mobile_owner_account, node_id,
+                )
+                self._send_json(data, status)
+                return
+
             if account is not None:
                 owner_id = owner_id_for_key(account.owner_key)
             elif owner_key:
@@ -2423,6 +2759,20 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 stored_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
             if not owner_id or not stored_owner_id or not hmac.compare_digest(owner_id, stored_owner_id):
                 self._send_error_response("Owner authorization is required for this node.", "forbidden", HTTPStatus.FORBIDDEN)
+                return
+
+            # Removing a mobile node must revoke its durable device secret,
+            # not just remove its current registry row (which would re-enrol
+            # on the next authenticated heartbeat).
+            if node_data and node_data.get("mobile_device"):
+                from services.portal.mobile_device_auth import revoke_mobile_device
+                if account is None:
+                    self._send_error_response("Authenticated fleet account required", "forbidden", HTTPStatus.FORBIDDEN)
+                    return
+                data, status = revoke_mobile_device(
+                    FLEET_ACCOUNT_STORE, account.account_id, node_id,
+                )
+                self._send_json(data, status)
                 return
 
             unbound = OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)
@@ -2448,7 +2798,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
@@ -2472,7 +2822,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         refresh_url=refresh_url,
                     )
                     self._send_json(data)
-                except Exception as exc:
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                     from services.billing.stripe_connect import (
                         is_stripe_connect_platform_activation_error,
                     )
@@ -2493,7 +2843,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         self._send_json(data, HTTPStatus.BAD_REQUEST)
                     else:
                         self._send_json(data)
-                except Exception as exc:
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                     self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
                 return
 
@@ -2573,7 +2923,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                             owner_key = candidate
 
             owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
@@ -2893,7 +3243,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 saved = store.save_tool(name=t_name, description=t_desc, parameters=t_params, code=t_code, tags=t_tags)
                 store.load_into_registry(self.inference_engine.tool_registry)
                 self._send_json(saved, HTTPStatus.CREATED)
-            except Exception as exc:
+            except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
                 self._send_error_response(str(exc), "custom_tool_save_error", HTTPStatus.BAD_REQUEST)
             return
 
@@ -2998,7 +3348,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             {
                 "name": m.id,
                 "model": m.id,
-                "modified_at": datetime.now(timezone.utc).isoformat(),
+                "modified_at": datetime.now(UTC).isoformat(),
                 "size": getattr(m, "artifact_size_bytes", 0),
                 "digest": getattr(m, "artifact_digest", ""),
                 "details": {
@@ -3133,7 +3483,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         except InferenceBackendError as exc:
             self._send_error_response(sanitize_error_message(exc), "inference_error", HTTPStatus.SERVICE_UNAVAILABLE)
             return
-        except Exception as exc:
+        except (KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
             self._send_error_response(sanitize_error_message(exc), "internal_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
@@ -3276,7 +3626,9 @@ def run_gateway_server(host: str = "0.0.0.0", port: int = DEFAULT_PORT) -> None:
     worker_runtime = None
     try:
         if os.environ.get("COMPUTEMESH_AGENTS_WORKER_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}:
-            from services.gateway.agent_worker_runtime import build_gateway_agent_worker_runtime
+            from services.gateway.agent_worker_runtime import (
+                build_gateway_agent_worker_runtime,
+            )
 
             worker_runtime = build_gateway_agent_worker_runtime(
                 backend=GatewayHandler.inference_engine.backend,

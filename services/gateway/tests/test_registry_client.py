@@ -2,17 +2,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.gateway.registry_client import ModelRegistryClient, RegistryClientError
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class _Response:
     def __init__(self, value: dict) -> None:
@@ -51,9 +48,8 @@ class TestRegistryClient(unittest.TestCase):
         fetch.assert_called_once()
 
     def test_invalid_response_without_cache_fails_closed(self) -> None:
-        with patch("services.gateway.registry_client.urlopen", return_value=_Response({"object": "list", "data": [{"id": "bad"}]})):
-            with self.assertRaises(RegistryClientError):
-                ModelRegistryClient("https://control-plane/v1/registry/models").models()
+        with patch("services.gateway.registry_client.urlopen", return_value=_Response({"object": "list", "data": [{"id": "bad"}]})), self.assertRaises(RegistryClientError):
+            ModelRegistryClient("https://control-plane/v1/registry/models").models()
 
 
 if __name__ == "__main__":

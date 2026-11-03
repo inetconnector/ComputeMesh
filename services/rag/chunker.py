@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import re
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -16,7 +16,7 @@ class DocumentChunk:
     chunk_index: int
     total_chunks: int
     char_count: int
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def chunk_text(
@@ -24,8 +24,8 @@ def chunk_text(
     doc_id: str = "doc_1",
     chunk_size: int = 800,
     chunk_overlap: int = 150,
-    metadata: Optional[Dict[str, Any]] = None,
-) -> List[DocumentChunk]:
+    metadata: dict[str, Any] | None = None,
+) -> list[DocumentChunk]:
     """Splits a document text into overlapping chunks using paragraph and sentence boundaries.
 
     Args:
@@ -46,7 +46,7 @@ def chunk_text(
 
     # Split by paragraphs first
     paragraphs = re.split(r"\n\s*\n", clean_text)
-    raw_blocks: List[str] = []
+    raw_blocks: list[str] = []
 
     for p in paragraphs:
         p_clean = p.strip()
@@ -71,7 +71,7 @@ def chunk_text(
                 raw_blocks.append(" ".join(current_sent_block))
 
     # Assemble overlapping chunks from blocks
-    chunks: List[str] = []
+    chunks: list[str] = []
     current_chunk = ""
 
     for block in raw_blocks:
@@ -96,7 +96,7 @@ def chunk_text(
         chunks.append(current_chunk)
 
     total = len(chunks)
-    result: List[DocumentChunk] = []
+    result: list[DocumentChunk] = []
     for idx, c_text in enumerate(chunks):
         c_id = f"{doc_id}_chunk_{idx+1}"
         c_meta = dict(base_meta)

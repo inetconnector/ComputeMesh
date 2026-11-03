@@ -9,10 +9,13 @@ numeric operation cannot wedge the MCP server process.
 from __future__ import annotations
 
 import ast
+import logging
 import math
 import multiprocessing
 import time
-from typing import Any, Dict
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 MAX_SOURCE_CHARS = 2000
 MAX_AST_NODES = 400
@@ -64,7 +67,7 @@ def _bounded_collection(factory):
     return wrapper
 
 
-SAFE_GLOBALS: Dict[str, Any] = {
+SAFE_GLOBALS: dict[str, Any] = {
     "math": math,
     "statistics": __import__("statistics"),
     "abs": abs,
@@ -132,11 +135,13 @@ class SecurityValidator(ast.NodeVisitor):
         if target.startswith("_") or target in SAFE_GLOBALS:
             self.reject(f"Variable '{target}' darf nicht überschrieben werden")
             return
-        if isinstance(node.value, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
-            self.sequence_names.add(target)
-        elif isinstance(node.value, ast.Constant) and isinstance(node.value.value, (str, bytes)):
-            self.sequence_names.add(target)
-        elif isinstance(node.value, ast.Name) and node.value.id in self.sequence_names:
+        if (
+            isinstance(node.value, (ast.List, ast.Tuple, ast.Set, ast.Dict))
+            or isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, (str, bytes))
+            or isinstance(node.value, ast.Name)
+            and node.value.id in self.sequence_names
+        ):
             self.sequence_names.add(target)
         self.generic_visit(node)
 
@@ -222,11 +227,13 @@ class SecurityValidator(ast.NodeVisitor):
         if isinstance(node.op, ast.Mult):
             sequence_operand = False
             for operand in (node.left, node.right):
-                if isinstance(operand, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
-                    sequence_operand = True
-                elif isinstance(operand, ast.Constant) and isinstance(operand.value, (str, bytes)):
-                    sequence_operand = True
-                elif isinstance(operand, ast.Name) and operand.id in self.sequence_names:
+                if (
+                    isinstance(operand, (ast.List, ast.Tuple, ast.Set, ast.Dict))
+                    or isinstance(operand, ast.Constant)
+                    and isinstance(operand.value, (str, bytes))
+                    or isinstance(operand, ast.Name)
+                    and operand.id in self.sequence_names
+                ):
                     sequence_operand = True
             if sequence_operand:
                 other = node.right if self._looks_sequence(node.left) else node.left
@@ -279,25 +286,61 @@ def _worker(raw_code: str, connection: Any) -> None:
         if error or parsed is None:
             connection.send({"ok": False, "error": error or "Validierung fehlgeschlagen"})
             return
-        local_scope: Dict[str, Any] = {}
+        local_scope: dict[str, Any] = {}
+        safe_globals = {"__builtins__": {}, **SAFE_GLOBALS}
+        expression_value: Any = None
+        for statement in parsed.body:
+            # The validated language has only simple assignments and
+            # expression statements. Never compile a full Python module.
+            if isinstance(statement, ast.Assign):
+                if len(statement.targets) != 1 or not isinstance(statement.targets[0], ast.Name):
+                    raise ValueError("Nur einfache Variablenzuweisungen sind erlaubt")
+                expression = statement.value
+            elif isinstance(statement, ast.Expr):
+                expression = statement.value
+            else:
+                raise TypeError(f"Unzulässige Anweisung: {type(statement).__name__}")
+            expression_ast = ast.fix_missing_locations(ast.Expression(body=expression))
+            compiled = compile(expression_ast, "<calculator>", "eval")
+            expression_value = eval(compiled, safe_globals, local_scope)
+            if isinstance(statement, ast.Assign):
+                local_scope[statement.targets[0].id] = expression_value
+
         if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.Expr):
-            compiled = compile(ast.Expression(body=parsed.body[0].value), "<calculator>", "eval")
-            value = eval(compiled, {"__builtins__": {}, **SAFE_GLOBALS}, local_scope)
+            value = expression_value
         else:
-            compiled = compile(parsed, "<calculator>", "exec")
-            exec(compiled, {"__builtins__": {}, **SAFE_GLOBALS}, local_scope)
             value = local_scope.get("result", local_scope)
         connection.send({"ok": True, "result": _serialize_result(value)})
-    except BaseException as exc:
+    except (
+        ArithmeticError,
+        AssertionError,
+        AttributeError,
+        BufferError,
+        EOFError,
+        ImportError,
+        LookupError,
+        MemoryError,
+        NameError,
+        OSError,
+        ReferenceError,
+        RuntimeError,
+        StopIteration,
+        SyntaxError,
+        SystemError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        # User expressions and IPC errors must be reported without relying on
+        # the worker process surviving after its parent has timed out.
         try:
             connection.send({"ok": False, "error": f"{type(exc).__name__}: {exc}"})
-        except Exception:
-            pass
+        except (OSError, ValueError) as pipe_error:
+            logger.debug("calculator worker pipe unavailable: %s", pipe_error)
     finally:
         try:
             connection.close()
-        except Exception:
-            pass
+        except (OSError, ValueError) as close_error:
+            logger.debug("calculator worker pipe close failed: %s", close_error)
 
 
 def run_python_calc(
@@ -306,7 +349,7 @@ def run_python_calc(
     formula: str = "",
     query: str = "",
     timeout: float = 2.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Evaluate bounded mathematical expressions with a real process timeout."""
     raw_code = str(expression or code or formula or query or "").strip()
     if not raw_code:
@@ -326,8 +369,10 @@ def run_python_calc(
     context = multiprocessing.get_context("spawn")
     parent_connection, child_connection = context.Pipe(duplex=False)
     process = context.Process(target=_worker, args=(raw_code, child_connection), daemon=True)
+    started = False
     try:
         process.start()
+        started = True
         child_connection.close()
         process.join(timeout_value)
         if process.is_alive():
@@ -340,16 +385,20 @@ def run_python_calc(
         if not parent_connection.poll(0.5):
             return {"error": "Berechnungsprozess lieferte kein Ergebnis.", "expression": raw_code}
         payload = parent_connection.recv()
-    except Exception as exc:
-        if process.is_alive():
+    except (OSError, EOFError, ValueError, RuntimeError) as exc:
+        # A failed spawn is not a live child: is_alive() on an unstarted
+        # multiprocessing.Process raises AssertionError and masks the cause.
+        if started and process.is_alive():
             process.terminate()
             process.join(1.0)
         return {"error": f"Berechnungsprozess fehlgeschlagen: {type(exc).__name__}: {exc}", "expression": raw_code}
     finally:
-        try:
-            parent_connection.close()
-        except Exception:
-            pass
+        # Process.start() may fail before the child pipe is closed above.
+        for connection in (child_connection, parent_connection):
+            try:
+                connection.close()
+            except (OSError, ValueError) as close_error:
+                logger.debug("calculator parent pipe close failed: %s", close_error)
 
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
     if not isinstance(payload, dict) or not payload.get("ok"):

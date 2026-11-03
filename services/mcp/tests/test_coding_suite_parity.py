@@ -5,16 +5,27 @@ import os
 import shutil
 import tempfile
 import unittest
-from typing import Any, Dict
 
-from services.mcp.builtin.code_patch_engine import replace_file_content, multi_replace_file_content
-from services.mcp.builtin.code_search_indexer import grep_search_code, extract_code_symbols
-from services.mcp.builtin.code_lint_and_syntax import validate_code_syntax, check_code_quality
+from services.mcp.agent_loop import (
+    detect_direct_tool_intent,
+    format_tool_content_if_json,
+)
+from services.mcp.builtin.code_lint_and_syntax import (
+    check_code_quality,
+    validate_code_syntax,
+)
+from services.mcp.builtin.code_patch_engine import (
+    multi_replace_file_content,
+    replace_file_content,
+)
+from services.mcp.builtin.code_search_indexer import (
+    extract_code_symbols,
+    grep_search_code,
+)
+from services.mcp.builtin.git_tools import get_git_diff, get_git_log, get_git_status
 from services.mcp.builtin.test_runner_tools import run_project_tests
-from services.mcp.builtin.git_tools import get_git_status, get_git_diff, get_git_log
-from services.mcp.tool_registry import ToolRegistry
-from services.mcp.agent_loop import detect_direct_tool_intent, format_tool_content_if_json
 from services.mcp.config import get_mcp_config
+from services.mcp.tool_registry import ToolRegistry
 
 
 class TestCodePatchEngine(unittest.TestCase):

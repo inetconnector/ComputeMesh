@@ -5,10 +5,10 @@ third-party `webauthn` library and is not re-tested here; verify_* calls are
 mocked so these tests focus on this module's own wiring: challenge
 lifecycle, account/session creation, and error handling.
 """
-from http import HTTPStatus
-from pathlib import Path
 import tempfile
 import unittest
+from http import HTTPStatus
+from pathlib import Path
 from unittest.mock import patch
 
 from services.portal import passkey_routes
@@ -41,7 +41,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
         self.tmp_dir.cleanup()
 
     def test_register_begin_missing_email(self) -> None:
-        data, status, cookie = self.handler.register_begin({})
+        _data, status, cookie = self.handler.register_begin({})
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertIsNone(cookie)
 
@@ -56,11 +56,11 @@ class TestPasskeyAuthHandler(unittest.TestCase):
 
     def test_register_begin_rejects_existing_email(self) -> None:
         self.store.create_account("alice@example.com")
-        data, status, cookie = self.handler.register_begin({"email": "alice@example.com"})
+        _data, status, _cookie = self.handler.register_begin({"email": "alice@example.com"})
         self.assertEqual(status, HTTPStatus.CONFLICT)
 
     def test_register_complete_without_pending_challenge(self) -> None:
-        data, status, cookie = self.handler.register_complete(
+        _data, status, _cookie = self.handler.register_complete(
             {"email": "alice@example.com", "credential": {"id": "x"}}
         )
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
@@ -83,12 +83,12 @@ class TestPasskeyAuthHandler(unittest.TestCase):
         self.assertEqual(len(self.store.list_passkeys(account.account_id)), 1)
 
     def test_login_begin_unknown_email(self) -> None:
-        data, status, cookie = self.handler.login_begin({"email": "nobody@example.com"})
+        _data, status, _cookie = self.handler.login_begin({"email": "nobody@example.com"})
         self.assertEqual(status, HTTPStatus.NOT_FOUND)
 
     def test_login_begin_no_passkeys(self) -> None:
         self.store.create_account("alice@example.com")
-        data, status, cookie = self.handler.login_begin({"email": "alice@example.com"})
+        _data, status, _cookie = self.handler.login_begin({"email": "alice@example.com"})
         self.assertEqual(status, HTTPStatus.NOT_FOUND)
 
     @patch.object(passkey_routes.webauthn, "verify_authentication_response")
@@ -100,7 +100,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
         self.handler.login_begin({"email": "alice@example.com"})
         mock_verify.return_value = FakeVerifiedAuthentication(b"cred-id-bytes", 4)
 
-        data, status, cookie = self.handler.login_complete(
+        _data, status, cookie = self.handler.login_complete(
             {"email": "alice@example.com", "credential": {"id": cred_id_b64, "response": {}}}
         )
         self.assertEqual(status, HTTPStatus.OK)
@@ -113,7 +113,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
         self.store.add_passkey(acc.account_id, "cred_known", "pubkey_b64", 0, "")
         self.handler.login_begin({"email": "alice@example.com"})
 
-        data, status, cookie = self.handler.login_complete(
+        _data, status, _cookie = self.handler.login_complete(
             {"email": "alice@example.com", "credential": {"id": "cred_unknown", "response": {}}}
         )
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
@@ -127,7 +127,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
                 return dict.get(self, key, default)
 
         headers = FakeHeaders({"Cookie": f"{passkey_routes.SESSION_COOKIE_NAME}={token}"})
-        data, status, cookie = self.handler.logout(headers)
+        _data, status, _cookie = self.handler.logout(headers)
         self.assertEqual(status, HTTPStatus.OK)
         self.assertIsNone(self.store.get_session_account(token))
 
@@ -136,7 +136,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
             def get(self, key, default=""):
                 return dict.get(self, key, default)
 
-        data, status, cookie = self.handler.rotate_owner_key(FakeHeaders(), {})
+        _data, status, _cookie = self.handler.rotate_owner_key(FakeHeaders(), {})
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
     def test_rotate_owner_key_authenticated_success(self) -> None:
@@ -152,7 +152,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
             "User-Agent": "PyTest-Agent",
         })
 
-        data, status, cookie = self.handler.rotate_owner_key(headers, {})
+        data, status, _cookie = self.handler.rotate_owner_key(headers, {})
         self.assertEqual(status, HTTPStatus.OK)
         self.assertEqual(data["status"], "ok")
         self.assertTrue(data["owner_key"].startswith("inet-"))
@@ -163,10 +163,10 @@ class TestPasskeyAuthHandler(unittest.TestCase):
 
         # Verify audit log
         logs = self.store.get_audit_log(acc.account_id)
-        self.assertTrue(any(l["event_type"] == "owner_key_rotated" for l in logs))
+        self.assertTrue(any(record["event_type"] == "owner_key_rotated" for record in logs))
 
     def test_register_begin_returns_dict_options(self) -> None:
-        data, status, cookie = self.handler.register_begin({"email": "bob@example.com"})
+        data, status, _cookie = self.handler.register_begin({"email": "bob@example.com"})
         self.assertEqual(status, HTTPStatus.OK)
         self.assertIsInstance(data["options"], dict)
         self.assertIn("challenge", data["options"])
@@ -181,7 +181,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
                 return dict.get(self, key, default)
 
         headers = FakeHeaders({"Cookie": f"{passkey_routes.SESSION_COOKIE_NAME}={token}"})
-        data, status, cookie = self.handler.register_begin({"email": "bob@example.com"}, headers=headers)
+        data, status, _cookie = self.handler.register_begin({"email": "bob@example.com"}, headers=headers)
         self.assertEqual(status, HTTPStatus.OK)
         self.assertIsInstance(data["options"], dict)
 
@@ -198,7 +198,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
         self.handler.register_begin({"email": "bob@example.com"}, headers=headers)
         mock_verify.return_value = FakeVerifiedRegistration(b"secondary-cred-id", b"sec-pubkey")
 
-        data, status, cookie = self.handler.register_complete(
+        data, status, _cookie = self.handler.register_complete(
             {"email": "bob@example.com", "credential": {"id": "secondary-cred-id", "response": {}}, "nickname": "Backup Key"},
             headers=headers,
         )
@@ -208,7 +208,7 @@ class TestPasskeyAuthHandler(unittest.TestCase):
 
     def test_magic_link_full_lifecycle(self) -> None:
         with patch("services.portal.passkey_routes.send_magic_link", return_value=True):
-            req_data, req_status, _ = self.handler.request_magic_link({"email": "carol@example.com"})
+            _req_data, req_status, _ = self.handler.request_magic_link({"email": "carol@example.com"})
             self.assertEqual(req_status, HTTPStatus.OK)
 
             token = self.store.create_magic_link_token("carol@example.com")

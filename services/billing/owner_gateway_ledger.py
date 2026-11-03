@@ -24,13 +24,7 @@ class GatewayOwnerCreditLedger(OwnerCreditLedger):
     def _is_internal_account(account_id: str) -> bool:
         value = str(account_id or "")
         return (
-            value.startswith("owner:")
-            or value.startswith("provider:")
-            or value.startswith("revenue:")
-            or value.startswith("expense:")
-            or value.startswith("gateway:")
-            or value.startswith("asset:")
-            or value.startswith("liability:")
+            value.startswith(("owner:", "provider:", "revenue:", "expense:", "gateway:", "asset:", "liability:"))
         )
 
     def deposit_customer_credits(

@@ -15,8 +15,8 @@ must fail closed when ambiguous.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from services.billing.ledger import BillingError
 from services.billing.owner_credits import (

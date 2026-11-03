@@ -1,14 +1,17 @@
-import copy
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import unittest
+from datetime import UTC, datetime
+from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from services.scheduler.placement import PlacementInputError, PlannerPolicy, build_placement_decision
+from services.scheduler.placement import (
+    PlacementInputError,
+    PlannerPolicy,
+    build_placement_decision,
+)
 
-NOW = datetime(2026, 8, 21, 20, 30, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 21, 20, 30, tzinfo=UTC)
 MODEL_SIZE = 8_000_000_000
 DIGEST = "sha256:" + "a" * 64
 
@@ -123,19 +126,19 @@ def bench(
 
 
 def inputs():
-    return dict(
-        coordinator_profile=profile("node-a", gpu_memory=10_000_000_000),
-        worker_profile=profile("node-b", gpu_memory=6_000_000_000),
-        model_manifest=manifest(),
-        coordinator_prefill=bench("llama_cpp_prefill", "cp", 3, tps=300.0),
-        coordinator_decode=bench("llama_cpp_decode", "cd", 3, tps=80.0),
-        worker_prefill=bench("llama_cpp_prefill", "wp", 3, tps=120.0),
-        worker_decode=bench("llama_cpp_decode", "wd", 3, tps=35.0),
-        network_result=bench("tcp_network_path", "net", 3),
-        network_peer_node_id="node-b",
-        layer_count=32,
-        now=NOW,
-    )
+    return {
+        "coordinator_profile": profile("node-a", gpu_memory=10_000_000_000),
+        "worker_profile": profile("node-b", gpu_memory=6_000_000_000),
+        "model_manifest": manifest(),
+        "coordinator_prefill": bench("llama_cpp_prefill", "cp", 3, tps=300.0),
+        "coordinator_decode": bench("llama_cpp_decode", "cd", 3, tps=80.0),
+        "worker_prefill": bench("llama_cpp_prefill", "wp", 3, tps=120.0),
+        "worker_decode": bench("llama_cpp_decode", "wd", 3, tps=35.0),
+        "network_result": bench("tcp_network_path", "net", 3),
+        "network_peer_node_id": "node-b",
+        "layer_count": 32,
+        "now": NOW,
+    }
 
 
 def bound_inputs():

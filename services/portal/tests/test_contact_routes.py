@@ -1,13 +1,9 @@
 """Unit tests for portal contact form endpoint and mail dispatcher integration."""
 from __future__ import annotations
 
-import json
-from unittest.mock import patch
 import unittest
-import urllib.request
-import urllib.error
+from unittest.mock import patch
 
-from services.portal.server import PortalHandler
 from services.portal import mail_dispatcher
 
 
@@ -27,7 +23,7 @@ class TestPortalContactRoutes(unittest.TestCase):
             self.assertTrue(ok)
             self.assertTrue(mock_send.called)
             args, kwargs = mock_send.call_args
-            to_addr, subject, text, html = args
+            to_addr, subject, text, _html = args
             self.assertEqual(to_addr, "mesh@inetconnector.com")
             self.assertIn("Frederik Tech", subject)
             self.assertIn("Entwickler-API", subject)

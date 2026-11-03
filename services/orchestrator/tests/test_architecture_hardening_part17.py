@@ -1,17 +1,17 @@
 """Unit tests for Architecture Hardening (Part 17)."""
 
 import sqlite3
-import time
 import unittest
 
 from services.orchestrator.architecture_hardening_part17 import (
-    PlacementRevisionEnforcer,
-    RateBudgetLimitEnforcer,
     NodeWorkloadBoundaryEnforcer,
+    PlacementRevisionEnforcer,
     PlacementRevisionError,
+    RateBudgetLimitEnforcer,
     RateBudgetLimitError,
-    WorkloadBoundaryError
+    WorkloadBoundaryError,
 )
+
 
 class TestPlacementRevisionEnforcer(unittest.TestCase):
     def setUp(self):

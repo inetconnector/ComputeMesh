@@ -13,13 +13,13 @@ identity.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import socket
 import struct
 import time
 import uuid
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 1
@@ -30,7 +30,7 @@ MAX_NODE_ID_BYTES = 512
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def percentile(samples: list[float], q: float) -> float:

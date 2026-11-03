@@ -7,14 +7,33 @@ strict idempotency, and automated provider payout settlements.
 """
 from __future__ import annotations
 
+import contextlib
 import enum
 import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+import secrets
+import threading
+import time
+
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from services.common.pricing import (
+    DEFAULT_PRICE_TIERS as DEFAULT_PRICE_TIERS,  # noqa: PLC0414 - public compatibility re-export
+)
+from services.common.pricing import (
+    ModelPriceTier as ModelPriceTier,  # noqa: PLC0414 - public compatibility re-export
+)
+from services.common.pricing import (
+    calculate_token_charge_micro,
+)
+from services.common.pricing import (
+    get_price_tier as get_price_tier,  # noqa: PLC0414 - public compatibility re-export
+)
+
 
 SCHEMA_VERSION = 1
 MICRO_UNIT_SCALE = 1_000_000  # 1.000000 currency unit = 1,000,000 micro-units
@@ -46,18 +65,6 @@ class AccountType(enum.Enum):
     PAYOUT_SETTLEMENT = "expense:payout_settlement"
 
 
-from services.common.pricing import (
-    DEFAULT_PRICE_TIERS as DEFAULT_PRICE_TIERS,
-)
-from services.common.pricing import (
-    ModelPriceTier as ModelPriceTier,
-)
-from services.common.pricing import (
-    calculate_token_charge_micro,
-)
-from services.common.pricing import (
-    get_price_tier as get_price_tier,
-)
 
 
 @dataclass(frozen=True)
@@ -112,10 +119,6 @@ class PayoutSummary:
     wallet_address: str
     created_at: str
 
-
-import secrets
-import threading
-import time
 
 
 @dataclass
@@ -193,13 +196,13 @@ class Ledger:
                     if hold.status == "active" and hold.expires_at < now_ts:
                         hold.status = "expired"
                     self._holds[hold.hold_id] = hold
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError):
+            return
 
     def _persist_hold(self, hold: CreditHold) -> None:
         if not self.holds_storage_path:
             return
-        try:
+        with contextlib.suppress(OSError, ValueError, TypeError):
             self.holds_storage_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.holds_storage_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps({
@@ -211,8 +214,6 @@ class Ledger:
                     "expires_at": hold.expires_at,
                     "status": hold.status,
                 }) + "\n")
-        except Exception:
-            pass
 
     def get_available_balance(self, account_id: str) -> int:
         """Returns the customer spendable balance after deducting unexpired active credit holds."""
@@ -244,7 +245,7 @@ class Ledger:
                     f"customer {account_id} available balance ({avail}) insufficient for hold ({amount_micro_units})"
                 )
             hid = hold_id or f"hold_{secrets.token_hex(12)}"
-            now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             hold = CreditHold(
                 hold_id=hid,
                 account_id=account_id,
@@ -373,7 +374,7 @@ class Ledger:
             tx = Transaction(
                 tx_id=tx_id,
                 event_id=event_id,
-                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 description=f"Prepaid credit top-up via {payment_reference}",
                 postings=(
                     Posting(
@@ -473,7 +474,7 @@ class Ledger:
         tx = Transaction(
             tx_id=tx_id,
             event_id=event_id,
-            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             description=f"Inference execution for {job_id} ({model_id}, {prompt_tokens}+{completion_tokens} tokens)",
             postings=tuple(postings),
         )
@@ -503,7 +504,7 @@ class Ledger:
             tx = Transaction(
                 tx_id=tx_id,
                 event_id=event_id,
-                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 description=f"Operator network protocol fee revenue payout to treasury {wallet}",
                 postings=(
                     Posting(
@@ -553,7 +554,7 @@ class Ledger:
             tx = Transaction(
                 tx_id=tx_id,
                 event_id=event_id,
-                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 description=f"Automated settlement withdrawal to {wallet_address}",
                 postings=(
                     Posting(
@@ -630,7 +631,7 @@ class Ledger:
                 "total_turnover_micro_units": sum_debits,
                 "total_turnover_usd": round(sum_debits / MICRO_UNIT_SCALE, 2),
                 "active_accounts": len(self._balances),
-                "audited_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "audited_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             }
 
     def _record_transaction(self, tx: Transaction) -> None:

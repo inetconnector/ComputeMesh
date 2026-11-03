@@ -1,11 +1,10 @@
 """Contract tests for the resumable Agents Platform DAG workflow engine."""
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import threading
-import time
 import unittest
+from pathlib import Path
 
 from services.mcp.platform.workflow import (
     DAGWorkflowEngine,
@@ -142,7 +141,7 @@ class TestAgentsWorkflow(unittest.TestCase):
         self.assertTrue(entered.wait(timeout=2))
         try:
             engine.execute("wf-lock", (WorkflowNode("a", "hold"),), lambda _: "duplicate")
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             errors.append(exc)
         release.set()
         thread.join(timeout=2)

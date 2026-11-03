@@ -1,16 +1,15 @@
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-import sys
-
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
 
 from setup import lab
 
+
+REPO = Path(__file__).resolve().parents[2]
 
 class FakeRunner:
     def __init__(self, fail=False):
@@ -73,9 +72,8 @@ class LabSetupTests(unittest.TestCase):
     def test_inventory_failure_does_not_advance_revision(self):
         cfg = lab.LabConfig(node_id="lab-12345678")
         runner = FakeRunner(fail=True)
-        with patch.object(lab, "REPO_ROOT", self.root):
-            with self.assertRaises(subprocess.CalledProcessError):
-                lab.capture_inventory(cfg, self.config_path, self.output_root, runner=runner)
+        with patch.object(lab, "REPO_ROOT", self.root), self.assertRaises(subprocess.CalledProcessError):
+            lab.capture_inventory(cfg, self.config_path, self.output_root, runner=runner)
         self.assertEqual(cfg.profile_revision, 0)
         self.assertFalse(self.config_path.exists())
 

@@ -5,15 +5,13 @@ from __future__ import annotations
 
 import json
 import logging
-import math
-import os
-from pathlib import Path
 import re
 import threading
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any
 
-from .chunker import DocumentChunk, chunk_text
+from .chunker import chunk_text
 from .embeddings import cosine_similarity, get_text_embedding
 
 log = logging.getLogger("computemesh.rag.vector_store")
@@ -42,8 +40,8 @@ class VectorStore:
     def __init__(
         self,
         collection_name: str = "default",
-        persist_dir: Optional[Path | str] = None,
-        storage_dir: Optional[Path | str] = None,
+        persist_dir: Path | str | None = None,
+        storage_dir: Path | str | None = None,
     ):
         self.collection_name = collection_name
         target_dir = storage_dir or persist_dir or DATA_DIR
@@ -51,7 +49,7 @@ class VectorStore:
         self.persist_dir.mkdir(parents=True, exist_ok=True)
         self.persist_file = self.persist_dir / f"{collection_name}.json"
         self._lock = threading.RLock()
-        self._chunks: Dict[str, Dict[str, Any]] = {}
+        self._chunks: dict[str, dict[str, Any]] = {}
         self._load()
 
 
@@ -64,7 +62,7 @@ class VectorStore:
                     if isinstance(data, dict):
                         self._chunks = data.get("chunks", {})
                     log.info(f"Loaded {len(self._chunks)} vector chunks for collection '{self.collection_name}'")
-                except Exception as exc:
+                except (OSError, ValueError, TypeError, KeyError) as exc:
                     log.warning(f"Error loading vector store '{self.collection_name}': {exc}")
                     self._chunks = {}
             else:
@@ -84,7 +82,7 @@ class VectorStore:
                     json.dump(payload, f, ensure_ascii=False)
                 if temp_file.exists():
                     temp_file.replace(self.persist_file)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError) as exc:
                 log.error(f"Error saving vector store '{self.collection_name}': {exc}")
 
     def add_document(
@@ -92,10 +90,10 @@ class VectorStore:
         text: str,
         doc_id: str,
         filename: str = "document.txt",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         chunk_size: int = 800,
         chunk_overlap: int = 150,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Chunks, embeds, and stores a document in the vector database."""
         clean_text = str(text or "").strip()
         if not clean_text:
@@ -144,8 +142,8 @@ class VectorStore:
         document_id: str,
         text: str,
         filename: str = "document.txt",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Convenience alias for add_document."""
         return self.add_document(text=text, doc_id=document_id, filename=filename, metadata=metadata)
 
@@ -155,8 +153,8 @@ class VectorStore:
         query: str,
         top_k: int = 5,
         score_threshold: float = 0.05,
-        filter_doc_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        filter_doc_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Executes dense vector search with BM25 keyword boosting across stored chunks."""
         clean_query = str(query or "").strip()
         if not clean_query or not self._chunks:
@@ -165,7 +163,7 @@ class VectorStore:
         q_vec = get_text_embedding(clean_query)
         q_terms = set(re.sub(r"[^\w\s]", " ", clean_query.lower()).split())
 
-        scored_results: List[Tuple[float, Dict[str, Any]]] = []
+        scored_results: list[tuple[float, dict[str, Any]]] = []
 
         with self._lock:
             for c_id, chunk in self._chunks.items():
@@ -181,7 +179,7 @@ class VectorStore:
 
                 # Keyword BM25 overlap boost
                 c_text = chunk.get("text", "").lower()
-                stop_words = {"wie", "und", "oder", "der", "die", "das", "in", "von", "zu", "mit", "den", "dem", "des", "ein", "eine", "ist", "sind", "für", "auf", "the", "and", "or", "is", "of", "to", "in", "a", "an"}
+                stop_words = {"wie", "und", "oder", "der", "die", "das", "in", "von", "zu", "mit", "den", "dem", "des", "ein", "eine", "ist", "sind", "für", "auf", "the", "and", "or", "is", "of", "to", "a", "an"}
                 meaningful_q_terms = [t for t in q_terms if t not in stop_words and len(t) >= 2]
                 if not meaningful_q_terms:
                     meaningful_q_terms = list(q_terms)
@@ -215,9 +213,9 @@ class VectorStore:
         return [SearchResult(item[1]) for item in scored_results[:top_k]]
 
 
-    def list_documents(self) -> List[Dict[str, Any]]:
+    def list_documents(self) -> list[dict[str, Any]]:
         """Returns metadata summary of all documents currently indexed."""
-        docs: Dict[str, Dict[str, Any]] = {}
+        docs: dict[str, dict[str, Any]] = {}
         with self._lock:
             for chunk in self._chunks.values():
                 d_id = chunk.get("doc_id", "unknown")
@@ -254,7 +252,7 @@ class VectorStore:
 
 
 # Singleton collection manager
-_STORES: Dict[str, VectorStore] = {}
+_STORES: dict[str, VectorStore] = {}
 _STORES_LOCK = threading.Lock()
 
 

@@ -1,14 +1,15 @@
 """Appliance System Actions, Configuration, and Lifecycle Handlers."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
+
 from services.gateway.security import SECURITY_HEADERS
 
 log = logging.getLogger("computemesh.appliance.actions")
@@ -30,7 +31,11 @@ class SystemActionsHandler:
                     if candidate.exists() and str(candidate) not in sys.path:
                         sys.path.insert(0, str(candidate))
 
-                from services.updater.auto_updater import AutoUpdater
+                from services.updater.auto_updater import (
+                    AutoUpdater,
+                    ChecksumMismatchError,
+                    SignatureVerificationError,
+                )
                 updater = AutoUpdater(current_version=appliance_version)
                 u_info = updater.check_for_updates()
                 if u_info:
@@ -44,7 +49,7 @@ class SystemActionsHandler:
                 else:
                     resp_dict = {"update_available": False, "version": appliance_version, "current_version": appliance_version}
                 handler._send_json(resp_dict)
-            except Exception as e:
+            except (SignatureVerificationError, ChecksumMismatchError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
                 handler._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return True
 
@@ -55,7 +60,10 @@ class SystemActionsHandler:
             if sys.platform == "win32":
                 payload = {"booted_from_usb": False, "source_disk": None, "targets": []}
             else:
-                from tools.appliance.disk_clone import get_boot_source_info, list_clone_targets
+                from tools.appliance.disk_clone import (
+                    get_boot_source_info,
+                    list_clone_targets,
+                )
                 info = get_boot_source_info()
                 source_name = (info["source_disk"] or "").rsplit("/", 1)[-1] or None
                 payload = {
@@ -105,7 +113,9 @@ class SystemActionsHandler:
                 )
                 return True
             try:
-                from services.appliance_dashboard.tunnel_relay import rotate_node_auth_token
+                from services.appliance_dashboard.tunnel_relay import (
+                    rotate_node_auth_token,
+                )
                 new_token = rotate_node_auth_token()
                 handler._send_json({
                     "status": "ok",
@@ -131,7 +141,10 @@ class SystemActionsHandler:
                 ):
                     new_dict["fan_control_mode"] = "safe_auto"
 
-                from tools.appliance.appliance_config import ApplianceConfig, save_system_config
+                from tools.appliance.appliance_config import (
+                    ApplianceConfig,
+                    save_system_config,
+                )
                 updated_cfg = ApplianceConfig(**new_dict)
                 authorize_node_id_migration = False
                 migrated_node_id_from: str | None = None
@@ -176,19 +189,21 @@ class SystemActionsHandler:
                     from services.appliance_dashboard import server as dashboard_server
                     if dashboard_server.FAN_SAFETY_CONTROLLER is not None:
                         dashboard_server.FAN_SAFETY_CONTROLLER.config = updated_cfg
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    log.debug("Fan safety controller config update skipped: %s", exc)
 
                 # Instantly synchronize across local mesh, lan discovery responder & coordinator webserver
                 try:
-                    from services.appliance_dashboard.tunnel_relay import trigger_immediate_mesh_sync
+                    from services.appliance_dashboard.tunnel_relay import (
+                        trigger_immediate_mesh_sync,
+                    )
                     trigger_immediate_mesh_sync(
                         updated_cfg=updated_cfg,
                         previous_node_id=previous_node_id,
                         authorize_node_id_migration=authorize_node_id_migration,
                     )
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    log.debug("Immediate mesh sync skipped: %s", exc)
 
                 resp = json.dumps({
                     "status": "ok",
@@ -204,7 +219,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Length", str(len(resp)))
                 handler.end_headers()
                 handler.wfile.write(resp)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 handler.send_response(HTTPStatus.BAD_REQUEST)
                 handler.send_header("Content-Type", "application/json")
@@ -261,7 +276,7 @@ class SystemActionsHandler:
                 return True
             try:
                 data = json.loads(post_body.decode("utf-8"))
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 handler._send_json({"status": "error", "message": "Malformed JSON body"}, HTTPStatus.BAD_REQUEST)
                 return True
             target_device = str(data.get("target_device", "")).strip()
@@ -302,7 +317,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Length", str(len(resp)))
                 handler.end_headers()
                 handler.wfile.write(resp)
-            except Exception as e:
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 handler.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
                 handler.send_header("Content-Type", "application/json")
@@ -320,7 +335,11 @@ class SystemActionsHandler:
                     if candidate.exists() and str(candidate) not in sys.path:
                         sys.path.insert(0, str(candidate))
 
-                from services.updater.auto_updater import AutoUpdater
+                from services.updater.auto_updater import (
+                    AutoUpdater,
+                    ChecksumMismatchError,
+                    SignatureVerificationError,
+                )
                 updater = AutoUpdater(current_version=appliance_version)
                 u_info = updater.check_for_updates()
                 if u_info:
@@ -338,7 +357,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Length", str(len(resp)))
                 handler.end_headers()
                 handler.wfile.write(resp)
-            except Exception as e:
+            except (SignatureVerificationError, ChecksumMismatchError, subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 handler.send_response(HTTPStatus.BAD_REQUEST)
                 handler.send_header("Content-Type", "application/json")

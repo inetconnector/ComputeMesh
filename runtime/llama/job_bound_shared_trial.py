@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from runtime.llama.job_attestation import write_attestation_request
 from runtime.llama.rpc_spike import RpcEndpoint
@@ -119,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
             startup_timeout=args.startup_timeout,
             request_timeout=args.request_timeout,
         )
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
         print(f"job-bound shared trial failed: {type(exc).__name__}: {str(exc)[:MAX_FAILURE_MESSAGE]}", file=sys.stderr)
         return 2
     print(json.dumps({"evidence": str(evidence), "attestation_request": str(request)}, sort_keys=True))

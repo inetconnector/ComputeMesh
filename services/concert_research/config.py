@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import os
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -10,9 +10,9 @@ def resolve_timezone(tz_name: str = "Europe/Berlin"):
     try:
         from zoneinfo import ZoneInfo
         return ZoneInfo(tz_name)
-    except Exception:
+    except (ImportError, KeyError, ValueError, TypeError, OSError):
         local_tz = datetime.now().astimezone().tzinfo
-        return local_tz if local_tz is not None else timezone.utc
+        return local_tz if local_tz is not None else UTC
 
 
 def _bool(name: str, default: bool) -> bool:
@@ -63,7 +63,7 @@ class ConcertResearchConfig:
     timezone: str
 
     @classmethod
-    def from_env(cls) -> "ConcertResearchConfig":
+    def from_env(cls) -> ConcertResearchConfig:
         default_db = Path(os.getenv("COMPUTEMESH_CONCERT_DB", "/var/lib/computemesh/concert_research.sqlite"))
         if os.name == "nt" and "COMPUTEMESH_CONCERT_DB" not in os.environ:
             default_db = Path.home() / ".computemesh" / "concert_research.sqlite"

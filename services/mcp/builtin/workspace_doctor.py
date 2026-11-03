@@ -5,10 +5,9 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import subprocess
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.doctor")
 
@@ -18,7 +17,7 @@ def _check_command_version(cmd: str, version_flag: str = "--version", timeout: f
     try:
         proc = subprocess.run(
             [cmd, version_flag],
-            stdout=subprocess.PIPE,
+            check=False, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             timeout=timeout,
@@ -27,18 +26,18 @@ def _check_command_version(cmd: str, version_flag: str = "--version", timeout: f
         latency = int((time.time() - t0) * 1000)
         out = (proc.stdout or "").strip().splitlines()[0] if proc.stdout else "Verfügbar"
         return proc.returncode == 0, out[:80], latency
-    except Exception:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         latency = int((time.time() - t0) * 1000)
         return False, "Nicht gefunden / Nicht im PATH", latency
 
 
 def run_doctor_diagnostics(
-    categories: Optional[List[str]] = None,
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    categories: list[str] | None = None,
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Runs comprehensive diagnostics across compilers, hardware, network, and edge nodes."""
     root = os.path.abspath(workspace_root or ".")
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     overall = "healthy"
 
     def _add_item(name: str, cat: str, status: str, summary: str, latency_ms: int = 0, remediation: str = ""):
@@ -84,7 +83,7 @@ def run_doctor_diagnostics(
 
         status_disk = "healthy" if disk_free_gb >= 5.0 else "warning"
         _add_item("Festplattenspeicher (Disk)", "hardware_resources", status_disk, f"{disk_free_gb:.1f} GB frei im Workspace")
-    except Exception:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         _add_item("System-Ressourcen", "hardware_resources", "healthy", "Ressourcencheck abgeschlossen")
 
     # 3. GPU Hardware Acceleration
@@ -99,7 +98,7 @@ def run_doctor_diagnostics(
     adb_bin = _find_adb_binary()
     adb_ok, adb_out, adb_lat = _check_command_version(adb_bin, "devices")
     if adb_ok:
-        dev_lines = [l.strip() for l in adb_out.splitlines() if "\tdevice" in l]
+        dev_lines = [line.strip() for line in adb_out.splitlines() if "\tdevice" in line]
         dev_count = len(dev_lines)
         _add_item("Android ADB Edge Nodes", "edge_devices", "healthy", f"{dev_count} Gerät(e) verbunden", adb_lat)
     else:

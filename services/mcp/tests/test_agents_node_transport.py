@@ -3,10 +3,14 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from services.mcp.platform.node_registry import NodeLifecycle, NodeRegistry, NodeStateConflict
+from services.mcp.platform.node_registry import (
+    NodeLifecycle,
+    NodeRegistry,
+    NodeStateConflict,
+)
 from services.mcp.platform.node_transport import (
     AuthenticatedNodeRegistrySync,
     AuthenticatedNodeSyncError,
@@ -21,7 +25,7 @@ class FakeSession:
         self.node_id = "node_1"
         self.principal_id = "provider_1"
         self.key_id = "key_1"
-        self.credential_expires_at = expires or (datetime.now(timezone.utc) + timedelta(minutes=10))
+        self.credential_expires_at = expires or (datetime.now(UTC) + timedelta(minutes=10))
         self.negotiated_capabilities = frozenset({"execution_attestation_v1", "inference"})
         self.profile_revision = revision
 
@@ -79,7 +83,7 @@ class TestAuthenticatedNodeRegistrySync(unittest.TestCase):
                     sync.sync(
                         node_id="node_1",
                         endpoint="tls://node-1",
-                        session=FakeSession(expires=datetime.now(timezone.utc) - timedelta(seconds=1)),
+                        session=FakeSession(expires=datetime.now(UTC) - timedelta(seconds=1)),
                         profile=self._profile(),
                         models=self._models(),
                     )

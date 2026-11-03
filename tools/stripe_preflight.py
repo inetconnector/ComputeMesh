@@ -9,11 +9,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import sys
-from typing import Any
 import urllib.error
 import urllib.request
+from pathlib import Path
+from typing import Any
 
 
 def _mode_from_key(value: str) -> str:

@@ -1,16 +1,17 @@
 """Append-only, secret-minimizing audit events for Agents Platform decisions/actions."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
-from pathlib import Path
 import re
 import threading
 import time
-from typing import Any, Mapping
 import uuid
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
 
-_SECRET_KEY_RE = re.compile(r"(token|secret|password|api[_-]?key|authorization|cookie|private[_-]?key)", re.I)
+_SECRET_KEY_RE = re.compile(r"(token|secret|password|api[_-]?key|authorization|cookie|private[_-]?key)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -50,10 +51,9 @@ class AuditLogger:
             evidence=self._redact(dict(evidence or {})), metadata=self._redact(dict(metadata or {})),
         )
         line = json.dumps(asdict(event), ensure_ascii=False, sort_keys=True, default=str) + "\n"
-        with self._lock:
-            with self.path.open("a", encoding="utf-8") as handle:
-                handle.write(line)
-                handle.flush()
+        with self._lock, self.path.open("a", encoding="utf-8") as handle:
+            handle.write(line)
+            handle.flush()
         return event
 
     def read(self, *, limit: int = 100) -> list[dict[str, Any]]:

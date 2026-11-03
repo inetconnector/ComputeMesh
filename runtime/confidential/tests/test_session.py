@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
-from protocol.confidential_metering import generate_attested_metering_keypair, sign_confidential_usage
 from protocol.confidential_envelope import generate_attested_recipient_keypair
+from protocol.confidential_metering import (
+    generate_attested_metering_keypair,
+    sign_confidential_usage,
+)
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 from runtime.confidential.session import (
     ConfidentialSessionProvision,

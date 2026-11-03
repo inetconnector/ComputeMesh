@@ -9,16 +9,16 @@ Supports:
 from __future__ import annotations
 
 import base64
+import binascii
 import ctypes
-from ctypes import wintypes
 import json
 import os
-from pathlib import Path
 import platform
 import secrets
 import stat
 import time
-from typing import Any
+from ctypes import wintypes
+from pathlib import Path
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
@@ -105,7 +105,7 @@ if platform.system().lower() == "windows":
         _LocalFree.argtypes = [ctypes.c_void_p]
         _LocalFree.restype = ctypes.c_void_p
         _HAS_DPAPI = True
-    except Exception:
+    except (OSError, AttributeError, TypeError, ValueError):
         _HAS_DPAPI = False
 else:
     _HAS_DPAPI = False
@@ -268,14 +268,18 @@ def load_node_private_key(path: Path) -> Ed25519PrivateKey:
         except Exception as exc:
             raise KeyStorageError("failed to parse Ed25519 private key PEM data") from exc
 
-    # Try base64-decoded raw 32 bytes
+    # Only malformed base64 is an expected format fallthrough to PEM.
+    # A broken decoder or private-key constructor must not be hidden.
     stripped = key_bytes.strip()
     try:
         decoded = base64.b64decode(stripped, validate=True)
-        if len(decoded) == 32:
+    except (binascii.Error, ValueError):
+        decoded = None
+    if decoded is not None and len(decoded) == 32:
+        try:
             return Ed25519PrivateKey.from_private_bytes(decoded)
-    except Exception:
-        pass
+        except (TypeError, ValueError) as exc:
+            raise KeyStorageError("invalid base64-encoded Ed25519 private key") from exc
 
     try:
         key = serialization.load_pem_private_key(stripped, password=None)
@@ -414,8 +418,10 @@ def get_or_create_node_private_key(
                 if os.access(p.parent, os.W_OK):
                     chosen_path = p
                     break
-            except Exception:
-                pass
+            except OSError:
+                # An unavailable preferred directory may use the home fallback.
+                # Unexpected programming errors must not silently rotate identity.
+                continue
 
     if chosen_path is None:
         chosen_path = Path.home() / ".computemesh" / "node_identity.key"
@@ -447,11 +453,11 @@ def _heartbeat_signing_message(
             separators=(",", ":"),
             ensure_ascii=True,
         )
-        return f"ComputeMesh.NodeHeartbeat.v2:{fields}".encode("utf-8")
+        return f"ComputeMesh.NodeHeartbeat.v2:{fields}".encode()
     # Keep verification of the historical format available for already
     # enrolled nodes.  The gateway requires the v2 nonce form for new key
     # bindings and token-rotation proofs.
-    return f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+    return f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode()
 
 
 def sign_node_heartbeat(
@@ -542,5 +548,5 @@ def verify_node_heartbeat(
         )
         pub.verify(sig_bytes, message)
         return True
-    except (InvalidSignature, ValueError, TypeError, Exception):
+    except (InvalidSignature, ValueError, TypeError):
         return False

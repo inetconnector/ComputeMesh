@@ -7,14 +7,13 @@ configuration, Stripe webhook event idempotency, and external settlement state.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from contextlib import contextmanager
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import sqlite3
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
-
 
 SCHEMA_VERSION = 1
 
@@ -63,7 +62,7 @@ class SettlementRecord:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 class AccountingStore:

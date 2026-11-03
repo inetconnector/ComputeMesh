@@ -7,28 +7,23 @@ Enforces invariants:
 """
 
 import sqlite3
-from typing import Any, Dict, Optional
-import time
+from typing import Any
 
 
 class HardeningPart13Error(RuntimeError):
     """Base exception for Part 13 invariant violations."""
-    pass
 
 
 class ImplicitRetryError(HardeningPart13Error):
     """Raised when a retry is attempted implicitly without being an explicit attempt."""
-    pass
 
 
 class CommandExpiredError(HardeningPart13Error):
     """Raised when an expired command is executed."""
-    pass
 
 
 class DuplicateEventError(HardeningPart13Error):
     """Raised when a duplicate event is not deduped."""
-    pass
 
 
 class ExplicitRetryEnforcer:
@@ -61,7 +56,7 @@ class ExplicitRetryEnforcer:
 class CommandExpirationEnforcer:
     """Enforces: commands expire."""
 
-    def validate_command(self, command: Dict[str, Any], current_time: float) -> None:
+    def validate_command(self, command: dict[str, Any], current_time: float) -> None:
         if "expires_at" not in command:
             raise CommandExpiredError("Command must have an 'expires_at' timestamp.")
 

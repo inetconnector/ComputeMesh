@@ -1,10 +1,12 @@
 """Integrated persistent control plane that self-populates LiveSharedRuntimeRegistry."""
 from __future__ import annotations
 
+import contextlib
 import socket
 import ssl
 import threading
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from protocol.node_identity import Ed25519ChallengeVerifier
 from protocol.node_session import SessionSnapshot
@@ -20,7 +22,9 @@ from services.orchestrator.live_provider_registration import (
 )
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
 from services.orchestrator.persistent_control_channel import PersistentNodeControlClient
-from services.orchestrator.provider_compliance import ComplianceAwareLiveProviderRegistration
+from services.orchestrator.provider_compliance import (
+    ComplianceAwareLiveProviderRegistration,
+)
 
 CONFIDENTIAL_PROVISION_CAPABILITY = "confidential_session_provision_v1"
 CAPACITY_RESERVATION_CAPABILITY = "capacity_reservation_v1"
@@ -142,7 +146,7 @@ class IntegratedLiveControlPlane:
         while not self._stop.is_set():
             try:
                 raw, _ = self._listener.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break
@@ -152,19 +156,18 @@ class IntegratedLiveControlPlane:
         wrapped: ssl.SSLSocket | None = None
         transferred = False
         try:
-            wrapped = self._context.wrap_socket(raw, server_side=True)
-            accept_live_authenticated_provider(
-                sock=wrapped,
-                verifier=self.verifier,
-                benchmark_policy=self.benchmark_policy,
-                control_client=self.control_client,
-                registration=self.registration,
-                control_plane_id=self.control_plane_id,
-                control_plane_capabilities=LIVE_CONTROL_PLANE_CAPABILITIES,
-            )
-            transferred = True
-        except Exception:
-            pass
+            with contextlib.suppress(OSError, ssl.SSLError, ValueError, TypeError, KeyError, RuntimeError):
+                wrapped = self._context.wrap_socket(raw, server_side=True)
+                accept_live_authenticated_provider(
+                    sock=wrapped,
+                    verifier=self.verifier,
+                    benchmark_policy=self.benchmark_policy,
+                    control_client=self.control_client,
+                    registration=self.registration,
+                    control_plane_id=self.control_plane_id,
+                    control_plane_capabilities=LIVE_CONTROL_PLANE_CAPABILITIES,
+                )
+                transferred = True
         finally:
             if not transferred:
                 try:

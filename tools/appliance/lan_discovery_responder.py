@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import socket
 import threading
-from typing import Any, Optional
 
 logger = logging.getLogger("LAN-Discovery-Responder")
 DISCOVERY_PORT = 13379
@@ -31,8 +30,8 @@ class LanDiscoveryResponder:
         self.gpu_summary = gpu_summary
         self.bind_host = bind_host
         self._running = False
-        self._sock: Optional[socket.socket] = None
-        self._thread: Optional[threading.Thread] = None
+        self._sock: socket.socket | None = None
+        self._thread: threading.Thread | None = None
 
     def start(self) -> bool:
         """Starts the UDP listener thread."""
@@ -45,8 +44,8 @@ class LanDiscoveryResponder:
             try:
                 # Allow broadcast reception
                 self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
             self._sock.bind((self.bind_host, DISCOVERY_PORT))
             self._sock.settimeout(1.0)
             self._running = True
@@ -54,7 +53,7 @@ class LanDiscoveryResponder:
             self._thread.start()
             logger.info("LAN Discovery Responder active on UDP port %d (node: %s)", DISCOVERY_PORT, self.node_id)
             return True
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             logger.warning("Could not bind UDP discovery port %d: %s", DISCOVERY_PORT, exc)
             self.stop()
             return False
@@ -66,12 +65,12 @@ class LanDiscoveryResponder:
                 msg = data.decode("utf-8", errors="ignore").strip()
                 if msg == DISCOVERY_PROBE_MESSAGE or msg.startswith("COMPUTEMESH_DISCOVERY_PING"):
                     # Format: COMPUTEMESH_PONG:<nodeId>;<port>;<gpuSummary>
-                    response = f"COMPUTEMESH_PONG:{self.node_id};{self.port};{self.gpu_summary}".encode("utf-8")
+                    response = f"COMPUTEMESH_PONG:{self.node_id};{self.port};{self.gpu_summary}".encode()
                     self._sock.sendto(response, addr)
                     logger.debug("Sent discovery pong to %s for node %s", addr, self.node_id)
-            except socket.timeout:
+            except TimeoutError:
                 continue
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 if self._running:
                     logger.debug("Discovery socket read issue: %s", exc)
 
@@ -87,12 +86,12 @@ class LanDiscoveryResponder:
         if self._sock:
             try:
                 self._sock.close()
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
             self._sock = None
 
 
-_GLOBAL_RESPONDER: Optional[LanDiscoveryResponder] = None
+_GLOBAL_RESPONDER: LanDiscoveryResponder | None = None
 _LOCK = threading.Lock()
 
 
@@ -100,7 +99,7 @@ def start_lan_discovery_responder(
     node_id: str = "computemesh-node",
     port: int = 8000,
     gpu_summary: str = "Local Compute Node",
-) -> Optional[LanDiscoveryResponder]:
+) -> LanDiscoveryResponder | None:
     """Starts or returns the global singleton LAN discovery responder."""
     global _GLOBAL_RESPONDER
     with _LOCK:
@@ -128,12 +127,12 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
     try:
-        from tools.appliance.hardware_detector import scan_rig_hardware_stable
         from services.appliance_dashboard.tunnel_relay import get_default_node_id
+        from tools.appliance.hardware_detector import scan_rig_hardware_stable
         inv = scan_rig_hardware_stable()
         nid = get_default_node_id()
         gpu_name = inv.gpus[0].model_name if getattr(inv, "gpus", None) else "Windows AI Node"
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         nid = "windows-pc"
         gpu_name = "ComputeMesh GPU Node"
 

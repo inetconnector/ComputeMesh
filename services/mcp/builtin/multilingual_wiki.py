@@ -10,13 +10,13 @@ from __future__ import annotations
 import json
 import urllib.parse
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
 
-def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 5.0) -> Optional[Dict[str, Any]]:
+def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 5.0) -> dict[str, Any] | None:
     encoded_title = urllib.parse.quote(title.replace(" ", "_"))
     url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{encoded_title}"
     req = urllib.request.Request(
@@ -37,12 +37,12 @@ def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 
                 "language": lang,
                 "thumbnail": data.get("thumbnail", {}).get("source") if isinstance(data.get("thumbnail"), dict) else None,
             }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
-def _opensearch_wiki(query: str, lang: str = "de", timeout: float = 5.0) -> Optional[str]:
+def _opensearch_wiki(query: str, lang: str = "de", timeout: float = 5.0) -> str | None:
     encoded_query = urllib.parse.quote(query.strip())
     url = f"https://{lang}.wikipedia.org/w/api.php?action=opensearch&search={encoded_query}&limit=3&namespace=0&format=json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -51,12 +51,12 @@ def _opensearch_wiki(query: str, lang: str = "de", timeout: float = 5.0) -> Opti
             data = json.loads(resp.read().decode("utf-8"))
         if len(data) >= 2 and data[1] and len(data[1]) > 0:
             return str(data[1][0])
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
-def _get_interlanguage_link(title: str, source_lang: str = "de", target_lang: str = "en", timeout: float = 5.0) -> Optional[str]:
+def _get_interlanguage_link(title: str, source_lang: str = "de", target_lang: str = "en", timeout: float = 5.0) -> str | None:
     encoded = urllib.parse.quote(title.replace(" ", "_"))
     url = f"https://{source_lang}.wikipedia.org/w/api.php?action=query&prop=langlinks&lllang={target_lang}&titles={encoded}&format=json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -70,12 +70,12 @@ def _get_interlanguage_link(title: str, source_lang: str = "de", target_lang: st
                 target_title = langlinks[0].get("*")
                 if target_title:
                     return str(target_title)
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
-def fetch_multilingual_wikipedia(query: str, timeout: float = 6.0) -> Dict[str, Any]:
+def fetch_multilingual_wikipedia(query: str, timeout: float = 6.0) -> dict[str, Any]:
     """
     Fetches dual-language Wikipedia articles (German + English) in parallel and merges
     their knowledge for comprehensive factual coverage.
@@ -84,7 +84,7 @@ def fetch_multilingual_wikipedia(query: str, timeout: float = 6.0) -> Dict[str, 
     if not search_term:
         return {"error": "Suchbegriff für Wikipedia darf nicht leer sein."}
 
-    results: Dict[str, Any] = {"query": search_term, "languages": {}}
+    results: dict[str, Any] = {"query": search_term, "languages": {}}
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         # Step 1: Direct lookup & OpenSearch in parallel for DE and EN
@@ -127,7 +127,7 @@ def fetch_multilingual_wikipedia(query: str, timeout: float = 6.0) -> Dict[str, 
         }
 
     # Synthesize unified cross-lingual extract
-    unified_parts: List[str] = []
+    unified_parts: list[str] = []
     primary_title = (res_de or res_en or {}).get("title", search_term)
     primary_desc = (res_de or res_en or {}).get("description", "")
 

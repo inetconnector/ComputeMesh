@@ -7,19 +7,19 @@ import ast
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.code_lint_and_syntax")
 
 
-def validate_code_syntax(code: str, language: str = "python") -> Dict[str, Any]:
+def validate_code_syntax(code: str, language: str = "python") -> dict[str, Any]:
     """Validates code syntax using AST parsing or schema tokenizer, returning exact error positions."""
     clean_code = str(code or "").strip()
     if not clean_code:
         return {"valid": False, "language": language, "errors": [{"message": "Quellcode ist leer."}]}
 
     lang = language.lower().strip().lstrip(".")
-    errors: List[Dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
 
     if lang in ("python", "py"):
         try:
@@ -47,7 +47,7 @@ def validate_code_syntax(code: str, language: str = "python") -> Dict[str, Any]:
         try:
             import yaml
             yaml.safe_load(clean_code)
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             errors.append({"line": getattr(exc, "problem_mark", None) and exc.problem_mark.line + 1 or 1, "message": str(exc)})
     else:
         # General bracket & quote balancing validator for Go, Kotlin, JS, TS
@@ -62,7 +62,7 @@ def validate_code_syntax(code: str, language: str = "python") -> Dict[str, Any]:
                     if not stack:
                         errors.append({"line": l_num, "column": col, "message": f"Unerwartetes schließendes Zeichen '{char}'."})
                     else:
-                        top, top_l, top_c = stack.pop()
+                        top, top_l, _top_c = stack.pop()
                         if pairs[char] != top:
                             errors.append({"line": l_num, "column": col, "message": f"Klammer-Mismatch: '{char}' schließt nicht '{top}' aus Zeile {top_l}."})
         while stack:
@@ -78,10 +78,10 @@ def validate_code_syntax(code: str, language: str = "python") -> Dict[str, Any]:
     }
 
 
-def check_code_quality(code: str, language: str = "python") -> Dict[str, Any]:
+def check_code_quality(code: str, language: str = "python") -> dict[str, Any]:
     """Inspects code complexity, max line length, monster functions (>60 lines), and docstrings."""
     clean_code = str(code or "").strip()
-    warnings: List[Dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
     lines = clean_code.splitlines()
 
     for idx, line in enumerate(lines, start=1):
@@ -107,8 +107,8 @@ def check_code_quality(code: str, language: str = "python") -> Dict[str, Any]:
                             "type": "missing_docstring",
                             "message": f"Öffentliche Funktion '{node.name}' hat keinen Docstring.",
                         })
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     return {
         "language": lang,

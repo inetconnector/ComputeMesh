@@ -1,13 +1,14 @@
 """Validation, evidence/provenance and structured error recovery contracts."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from enum import Enum
 import hashlib
 import json
 import time
-from typing import Any, Callable, Iterable, Mapping, Sequence
 import uuid
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import asdict, dataclass, field
+from enum import Enum
+from typing import Any, ClassVar
 
 
 class ErrorCode(str, Enum):
@@ -97,7 +98,7 @@ class EvidenceRecord:
 class EvidenceLedger:
     """In-memory request-level evidence ledger with explicit provenance classes."""
 
-    ALLOWED_SOURCE_TYPES = {
+    ALLOWED_SOURCE_TYPES: ClassVar[set[str]] = {
         "USER",
         "FILE",
         "WEB",
@@ -220,7 +221,7 @@ class ValidationEngine:
                     results.append(result)
                 else:
                     results.append(ValidationResult(str(name), bool(result), "" if result else "validation failed"))
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 results.append(ValidationResult(str(name), False, f"validator raised: {exc}"))
         return ValidationReport(all(result.passed for result in results), tuple(results))
 
@@ -232,7 +233,7 @@ class ValidationEngine:
     def _non_empty(value: Any, _: Mapping[str, Any]) -> ValidationResult:
         try:
             passed = len(value) > 0  # type: ignore[arg-type]
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             passed = bool(value)
         return ValidationResult("non_empty", passed, "" if passed else "value is empty")
 

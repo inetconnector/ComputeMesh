@@ -7,8 +7,8 @@ Provides real-time datetime, global timezone conversions, calendar weeks, and st
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, date, datetime, timedelta, timezone
+from typing import Any
 
 try:
     import zoneinfo
@@ -154,14 +154,14 @@ def calculate_easter_sunday(year: int) -> date:
     h = (19 * a + b - d - g + 15) % 30
     i = c // 4
     k = c % 4
-    l = (32 + 2 * e + 2 * i - h - k) % 7
-    m = (a + 11 * h + 22 * l) // 451
-    month = (h + l - 7 * m + 114) // 31
-    day = ((h + l - 7 * m + 114) % 31) + 1
+    weekday_offset = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * weekday_offset) // 451
+    month = (h + weekday_offset - 7 * m + 114) // 31
+    day = ((h + weekday_offset - 7 * m + 114) % 31) + 1
     return date(year, month, day)
 
 
-def get_german_holidays(year: int, state: str = "BY") -> List[Dict[str, str]]:
+def get_german_holidays(year: int, state: str = "BY") -> list[dict[str, str]]:
     """Calculates German statutory public holidays for a given year and state."""
     easter = calculate_easter_sunday(year)
     holidays = [
@@ -196,8 +196,8 @@ def _resolve_tz(tz_name: str) -> timezone:
     if zoneinfo is not None:
         try:
             return zoneinfo.ZoneInfo(tz_name)
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     if tz_name in FALLBACK_TIMEZONE_OFFSETS:
         offset_hours = FALLBACK_TIMEZONE_OFFSETS[tz_name]
@@ -205,23 +205,23 @@ def _resolve_tz(tz_name: str) -> timezone:
 
     # Return local system timezone
     local_tz = datetime.now().astimezone().tzinfo
-    return local_tz if local_tz is not None else timezone.utc
+    return local_tz if local_tz is not None else UTC
 
 
 def _get_single_time_and_calendar(
     timezone_name: str = "",
     city: str = "",
     target_date: str = "",
-    year: Optional[int] = None,
+    year: int | None = None,
     state: str = "BY",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Internal helper to resolve a single location's time, date, and calendar metrics."""
     tz_query = (timezone_name or city or "Europe/Berlin").strip().lower()
     resolved_tz_name = COMMON_TIMEZONE_ALIASES.get(tz_query, timezone_name or "Europe/Berlin")
 
     tz = _resolve_tz(resolved_tz_name)
     now = datetime.now(tz)
-    iso_year, iso_week, iso_day = now.isocalendar()
+    _iso_year, iso_week, _iso_day = now.isocalendar()
     weekday_de = GERMAN_WEEKDAYS[now.weekday()]
     month_de = GERMAN_MONTHS[now.month]
 
@@ -230,7 +230,7 @@ def _get_single_time_and_calendar(
 
     display_city = (city or timezone_name or resolved_tz_name.split("/")[-1].replace("_", " ")).strip().title()
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "city": display_city,
         "datetime_iso": now.isoformat(),
         "formatted_date": f"{weekday_de}, {now.day}. {month_de} {now.year}",
@@ -256,8 +256,8 @@ def _get_single_time_and_calendar(
             diff_days = (t_date - now.date()).days
             result["target_date"] = str(t_date)
             result["days_until_target"] = diff_days
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     return result
 
@@ -266,9 +266,9 @@ def get_time_and_calendar(
     timezone_name: str = "",
     city: str = "",
     target_date: str = "",
-    year: Optional[int] = None,
+    year: int | None = None,
     state: str = "BY",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Returns the current date, time, timezone conversion, calendar week, and public holidays.
     Supports multiple cities (e.g. 'New York, Tokio und Berlin').

@@ -4,11 +4,12 @@ import socket
 import threading
 import time
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from services.orchestrator.persistent_control_channel import (
     ChannelClosed,
+    PersistentControlChannelError,
     PersistentNodeConnection,
     PersistentNodeControlClient,
     ProviderPersistentClient,
@@ -28,7 +29,7 @@ def ready_session(node_id: str = "node-a") -> SessionSnapshot:
         node_id=node_id,
         principal_id="provider-a",
         auth_method="computemesh-ed25519-v1",
-        credential_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        credential_expires_at=datetime.now(UTC) + timedelta(minutes=10),
         negotiated_capabilities=frozenset({"execution_attestation_v1"}),
         profile_revision=3,
         drain_reason=None,
@@ -67,7 +68,7 @@ class PersistentControlChannelTests(unittest.TestCase):
                     timeout_seconds=2,
                     request_id="req-cancel",
                 )
-            except BaseException as exc:
+            except (PersistentControlChannelError, OSError, ValueError, TypeError, RuntimeError) as exc:
                 result.append(exc)
 
         request_thread = threading.Thread(target=request)

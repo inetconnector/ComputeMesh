@@ -1,7 +1,10 @@
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
 
-from services.appliance_dashboard.server import DASHBOARD_SESSION_TOKEN, DashboardHandler
+from services.appliance_dashboard.server import (
+    DASHBOARD_SESSION_TOKEN,
+    DashboardHandler,
+)
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 
 

@@ -15,11 +15,12 @@ import sqlite3
 import threading
 import time
 import uuid
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Sequence
+from typing import Any, Self
 
 
 class SessionStateConflict(RuntimeError):
@@ -134,7 +135,7 @@ _TURN_TRANSITIONS: dict[TurnStatus, set[TurnStatus]] = {
     TurnStatus.CANCELLED: set(),
 }
 
-_SECRET_KEY = re.compile(r"(token|secret|password|api[_-]?key|authorization|cookie|private[_-]?key)", re.I)
+_SECRET_KEY = re.compile(r"(token|secret|password|api[_-]?key|authorization|cookie|private[_-]?key)", re.IGNORECASE)
 _MAX_TURN_CHECKPOINT_BYTES = 4 * 1024 * 1024
 
 
@@ -238,6 +239,17 @@ class AgentItem:
     sequence: int
     created_at: float
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "item_id": self.item_id,
+            "session_id": self.session_id,
+            "turn_id": self.turn_id,
+            "kind": self.kind,
+            "content": dict(self.content),
+            "sequence": self.sequence,
+            "created_at": self.created_at,
+        }
+
 
 @dataclass(frozen=True)
 class SessionEvent:
@@ -270,13 +282,21 @@ class EventPage:
     events: tuple[SessionEvent, ...]
     next_sequence: int
     has_more: bool
+    cursor_gap: bool = False
+    latest_sequence: int = 0
+    gap_reason: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "events": [event.to_dict() for event in self.events],
             "next_sequence": self.next_sequence,
             "has_more": self.has_more,
+            "cursor_gap": self.cursor_gap,
+            "latest_sequence": self.latest_sequence,
         }
+        if self.gap_reason:
+            result["gap_reason"] = self.gap_reason
+        return result
 
 
 @dataclass(frozen=True)
@@ -293,6 +313,7 @@ class Approval:
     created_at: float
     resolved_at: float | None
     resolution_reason: str
+    preview: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -308,6 +329,7 @@ class Approval:
             "created_at": self.created_at,
             "resolved_at": self.resolved_at,
             "resolution_reason": self.resolution_reason,
+            "preview": dict(self.preview or {}),
         }
 
 
@@ -463,6 +485,26 @@ class AgentSessionStore:
                 connection.execute(
                     "ALTER TABLE agent_turns ADD COLUMN checkpoint_json TEXT NOT NULL DEFAULT ''"
                 )
+            if "idempotency_key" not in columns:
+                connection.execute(
+                    "ALTER TABLE agent_turns ADD COLUMN idempotency_key TEXT NOT NULL DEFAULT ''"
+                )
+            item_columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(agent_items)").fetchall()
+            }
+            if "idempotency_key" not in item_columns:
+                connection.execute(
+                    "ALTER TABLE agent_items ADD COLUMN idempotency_key TEXT NOT NULL DEFAULT ''"
+                )
+            approval_columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(agent_approvals)").fetchall()
+            }
+            if "preview_json" not in approval_columns:
+                connection.execute(
+                    "ALTER TABLE agent_approvals ADD COLUMN preview_json TEXT NOT NULL DEFAULT '{}'"
+                )
             event_columns = {
                 str(row["name"])
                 for row in connection.execute("PRAGMA table_info(agent_events)").fetchall()
@@ -480,6 +522,16 @@ class AgentSessionStore:
             connection.execute(
                 """CREATE INDEX IF NOT EXISTS agent_turns_scheduler_idx
                    ON agent_turns(status, priority, deadline_at, created_at)"""
+            )
+            connection.execute(
+                """CREATE UNIQUE INDEX IF NOT EXISTS agent_turns_idempotency_idx
+                   ON agent_turns(session_id, idempotency_key)
+                   WHERE idempotency_key != ''"""
+            )
+            connection.execute(
+                """CREATE UNIQUE INDEX IF NOT EXISTS agent_items_idempotency_idx
+                   ON agent_items(session_id, idempotency_key)
+                   WHERE idempotency_key != ''"""
             )
             connection.execute(
                 """CREATE INDEX IF NOT EXISTS agent_events_outbox_claim_idx
@@ -529,7 +581,7 @@ class AgentSessionStore:
     @staticmethod
     def _validate_turn_schedule(priority: int, deadline_at: float | None) -> tuple[int, float | None]:
         if isinstance(priority, bool):
-            raise ValueError("priority must be an integer")
+            raise TypeError("priority must be an integer")
         try:
             clean_priority = int(priority)
         except (TypeError, ValueError) as exc:
@@ -555,7 +607,7 @@ class AgentSessionStore:
         if value is None:
             return {}
         if not isinstance(value, Mapping):
-            raise ValueError("routing must be an object")
+            raise TypeError("routing must be an object")
         allowed = {
             "required_capabilities",
             "min_free_vram_bytes",
@@ -573,7 +625,7 @@ class AgentSessionStore:
         def bounded_strings(name: str, *, maximum: int, item_maximum: int) -> list[str]:
             raw = value.get(name, ())
             if isinstance(raw, str) or not isinstance(raw, (list, tuple, set, frozenset)):
-                raise ValueError(f"routing.{name} must be an array")
+                raise TypeError(f"routing.{name} must be an array")
             result: list[str] = []
             for item in raw:
                 clean = str(item).strip()
@@ -590,7 +642,7 @@ class AgentSessionStore:
             if raw is None:
                 return None
             if isinstance(raw, bool):
-                raise ValueError(f"routing.{name} must be an integer")
+                raise TypeError(f"routing.{name} must be an integer")
             try:
                 clean = int(raw)
             except (TypeError, ValueError) as exc:
@@ -642,6 +694,17 @@ class AgentSessionStore:
         return clean_tenant
 
     @staticmethod
+    def _validate_idempotency_key(idempotency_key: str | None) -> str:
+        if idempotency_key is None:
+            return ""
+        clean_key = str(idempotency_key).strip()
+        if not clean_key:
+            return ""
+        if len(clean_key) > 160 or not re.fullmatch(r"[A-Za-z0-9_.:/-]{1,160}", clean_key):
+            raise ValueError("idempotency_key must be a bounded identifier")
+        return clean_key
+
+    @staticmethod
     def _event(row: sqlite3.Row) -> SessionEvent:
         return SessionEvent(
             event_id=str(row["event_id"]),
@@ -656,6 +719,14 @@ class AgentSessionStore:
 
     @staticmethod
     def _approval(row: sqlite3.Row) -> Approval:
+        try:
+            preview_raw = str(row["preview_json"] or "{}")
+        except IndexError:
+            preview_raw = "{}"
+        try:
+            preview = json.loads(preview_raw)
+        except (TypeError, ValueError):
+            preview = {}
         return Approval(
             approval_id=str(row["approval_id"]),
             session_id=str(row["session_id"]),
@@ -669,6 +740,7 @@ class AgentSessionStore:
             created_at=float(row["created_at"]),
             resolved_at=float(row["resolved_at"]) if row["resolved_at"] is not None else None,
             resolution_reason=str(row["resolution_reason"]),
+            preview=preview if isinstance(preview, Mapping) else {},
         )
 
     @staticmethod
@@ -735,6 +807,8 @@ class AgentSessionStore:
         turn_id: str,
         kind: str,
         content: Mapping[str, Any],
+        *,
+        idempotency_key: str = "",
     ) -> AgentItem:
         created_at = _now()
         sequence = int(
@@ -746,9 +820,9 @@ class AgentSessionStore:
         item_id = _new_id("item")
         connection.execute(
             """INSERT INTO agent_items
-               (item_id, session_id, turn_id, kind, content_json, sequence, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (item_id, session_id, turn_id, str(kind), _json(dict(content)), sequence, created_at),
+               (item_id, session_id, turn_id, kind, content_json, sequence, created_at, idempotency_key)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (item_id, session_id, turn_id, str(kind), _json(dict(content)), sequence, created_at, str(idempotency_key)),
         )
         return AgentItem(item_id, session_id, turn_id, str(kind), dict(content), sequence, created_at)
 
@@ -1246,7 +1320,7 @@ class AgentSessionStore:
                     raise SessionStateConflict(f"session cannot resume in state: {session_status.value}")
                 if selected_turn is None or current_turn not in {TurnStatus.PAUSED, TurnStatus.FAILED}:
                     raise SessionStateConflict("resume requires a paused or failed turn")
-                resumed = self._apply_turn_status(
+                _resumed = self._apply_turn_status(
                     connection, selected_turn, TurnStatus.RESUMING, reason="control_resume"
                 )
                 self._set_session_status(
@@ -1255,7 +1329,7 @@ class AgentSessionStore:
                     SessionStatus.RESUMING,
                     reason="control_resume",
                 )
-                ready = self._set_session_status(
+                _ready = self._set_session_status(
                     connection,
                     self._require_session(connection, str(session_id)),
                     SessionStatus.READY,
@@ -1316,19 +1390,132 @@ class AgentSessionStore:
                 self._apply_turn_status(connection, turn, target, reason=f"control_{target_action.value}")
             return self._set_control_status(connection, row, ControlStatus.APPLIED, reason=target.value)
 
-    def list_sessions(self, *, principal_id: str | None = None, limit: int = 100) -> list[AgentSession]:
-        """Return bounded session metadata, newest activity first."""
+    def list_sessions_page(
+        self,
+        *,
+        principal_id: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+        search: str | None = None,
+        status: SessionStatus | str | None = None,
+        workspace: str | None = None,
+        pinned: bool | None = None,
+        archived: bool | None = None,
+        parent_session_id: str | None = None,
+        session_kind: str | None = None,
+    ) -> tuple[list[AgentSession], str | None, bool]:
+        """Return a cursor-paginated, filtered page of sessions (newest activity first)."""
         page_limit = max(1, min(int(limit), 500))
-        query = "SELECT * FROM agent_sessions"
+        cursor_tuple: tuple[float, str] | None = None
+        if cursor is not None and str(cursor).strip():
+            raw_cursor = str(cursor).strip()
+            if "|" in raw_cursor:
+                ts_part, _, id_part = raw_cursor.partition("|")
+                id_clean = id_part.strip()
+                try:
+                    ts_val = float(ts_part)
+                except ValueError as exc:
+                    raise ValueError("invalid session cursor") from exc
+                if not math.isfinite(ts_val) or not id_clean:
+                    raise ValueError("invalid session cursor")
+                cursor_tuple = (ts_val, id_clean)
+            else:
+                with self._lock:
+                    cursor_row = self._connection.execute(
+                        "SELECT updated_at, session_id FROM agent_sessions WHERE session_id = ?",
+                        (raw_cursor,),
+                    ).fetchone()
+                if cursor_row is None:
+                    raise ValueError("invalid session cursor")
+                cursor_tuple = (float(cursor_row["updated_at"]), str(cursor_row["session_id"]))
+
+        query = "SELECT * FROM agent_sessions WHERE 1=1"
         params: list[Any] = []
         if principal_id is not None:
-            query += " WHERE principal_id = ?"
+            query += " AND principal_id = ?"
             params.append(str(principal_id))
-        query += " ORDER BY updated_at DESC, session_id DESC LIMIT ?"
-        params.append(page_limit)
+        if status is not None and str(status).strip():
+            query += " AND status = ?"
+            params.append(SessionStatus(str(status).strip()).value)
+        query += " ORDER BY updated_at DESC, session_id DESC"
         with self._lock:
             rows = self._connection.execute(query, params).fetchall()
-        return [self._session(row) for row in rows]
+
+        clean_search = str(search or "").strip().lower()
+        clean_workspace = str(workspace or "").strip() if workspace is not None else None
+        clean_parent = str(parent_session_id or "").strip() if parent_session_id is not None else None
+        clean_kind = str(session_kind or "").strip() if session_kind is not None else None
+
+        matched: list[AgentSession] = []
+        for row in rows:
+            session = self._session(row)
+            if cursor_tuple is not None and (session.updated_at, session.session_id) >= cursor_tuple:
+                continue
+            st = dict(session.state) if isinstance(session.state, Mapping) else {}
+            is_pinned = bool(st.get("pinned", False))
+            is_archived = bool(st.get("archived", False))
+            if pinned is not None and is_pinned != bool(pinned):
+                continue
+            if archived is not None and is_archived != bool(archived):
+                continue
+            if clean_workspace is not None and str(st.get("workspace") or "") != clean_workspace:
+                continue
+            if clean_parent is not None and str(st.get("parent_session_id") or "") != clean_parent:
+                continue
+            if clean_kind is not None and str(st.get("session_kind") or "primary") != clean_kind:
+                continue
+            if clean_search:
+                haystack = " ".join([
+                    session.session_id,
+                    session.agent_id,
+                    str(st.get("title") or ""),
+                    str(st.get("workspace") or ""),
+                    str(st.get("branch") or ""),
+                    str(st.get("notes") or ""),
+                ]).lower()
+                if clean_search not in haystack:
+                    continue
+            matched.append(session)
+            if len(matched) > page_limit:
+                break
+
+        has_more = len(matched) > page_limit
+        visible = matched[:page_limit]
+        next_cursor = (
+            f"{visible[-1].updated_at!r}|{visible[-1].session_id}"
+            if visible and has_more
+            else None
+        )
+        return visible, next_cursor, has_more
+
+    def list_sessions(
+        self,
+        *,
+        principal_id: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+        search: str | None = None,
+        status: SessionStatus | str | None = None,
+        workspace: str | None = None,
+        pinned: bool | None = None,
+        archived: bool | None = None,
+        parent_session_id: str | None = None,
+        session_kind: str | None = None,
+    ) -> list[AgentSession]:
+        """Return bounded session metadata, newest activity first."""
+        sessions, _next_cursor, _has_more = self.list_sessions_page(
+            principal_id=principal_id,
+            limit=limit,
+            cursor=cursor,
+            search=search,
+            status=status,
+            workspace=workspace,
+            pinned=pinned,
+            archived=archived,
+            parent_session_id=parent_session_id,
+            session_kind=session_kind,
+        )
+        return sessions
 
     def create_approval(
         self,
@@ -1341,6 +1528,7 @@ class AgentSessionStore:
         principal_id: str,
         ttl_seconds: float = 300.0,
         approval_id: str | None = None,
+        preview: Mapping[str, Any] | None = None,
     ) -> Approval:
         """Persist one exact side-effect decision request, reusing a pending duplicate."""
         clean_tool = str(tool_id or "").strip()
@@ -1351,9 +1539,10 @@ class AgentSessionStore:
             raise ValueError("tool_id, call_id and principal_id are required")
         if not re.fullmatch(r"[A-Fa-f0-9]{64}", clean_digest):
             raise ValueError("arguments_digest must be a SHA-256 digest")
+        redacted_preview = _redact(dict(preview or {}), max_string=512)
         expires_at = _now() + min(max(float(ttl_seconds), 1.0), 3600.0)
         with self._transaction() as connection:
-            session = self._require_session(connection, str(session_id))
+            self._require_session(connection, str(session_id))
             if turn_id is not None:
                 turn = self._require_turn(connection, str(turn_id))
                 if str(turn["session_id"]) != str(session_id):
@@ -1372,8 +1561,8 @@ class AgentSessionStore:
             connection.execute(
                 """INSERT INTO agent_approvals
                    (approval_id, session_id, turn_id, tool_id, call_id, arguments_digest,
-                    principal_id, status, expires_at, created_at, resolved_at, resolution_reason)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, '')""",
+                    principal_id, status, expires_at, created_at, resolved_at, resolution_reason, preview_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, '', ?)""",
                 (
                     clean_id,
                     str(session_id),
@@ -1385,6 +1574,7 @@ class AgentSessionStore:
                     ApprovalStatus.PENDING.value,
                     expires_at,
                     created_at,
+                    _json(redacted_preview),
                 ),
             )
             self._append_event(connection, str(session_id), "approval.required", {
@@ -1393,6 +1583,7 @@ class AgentSessionStore:
                 "call_id": clean_call,
                 "arguments_digest": clean_digest,
                 "expires_at": expires_at,
+                "preview": redacted_preview,
             }, turn_id=turn_id)
             row = connection.execute("SELECT * FROM agent_approvals WHERE approval_id = ?", (clean_id,)).fetchone()
             assert row is not None
@@ -1571,32 +1762,57 @@ class AgentSessionStore:
         turn_id: str | None = None,
         priority: int = 0,
         deadline_at: float | None = None,
+        expected_version: int | None = None,
+        idempotency_key: str | None = None,
+        allow_queue: bool = False,
     ) -> AgentTurn:
         items = _items(input_items)
         turn_id = str(turn_id or _new_id("turn"))
         clean_priority, clean_deadline = self._validate_turn_schedule(priority, deadline_at)
+        clean_idem = self._validate_idempotency_key(idempotency_key)
         timestamp = _now()
         with self._transaction() as connection:
             session = self._require_session(connection, str(session_id))
+            if clean_idem:
+                existing_turn = connection.execute(
+                    "SELECT * FROM agent_turns WHERE session_id = ? AND idempotency_key = ?",
+                    (str(session_id), clean_idem),
+                ).fetchone()
+                if existing_turn is not None:
+                    return self._turn(existing_turn)
+            if expected_version is not None and int(session["version"]) != int(expected_version):
+                raise SessionStateConflict("session version changed")
             status = SessionStatus(str(session["status"]))
-            if status is not SessionStatus.READY:
-                raise SessionStateConflict(f"session is not ready for a new turn: {status.value}")
-            active_statuses = tuple(_ACTIVE_TURN_STATUSES)
-            active_turn = connection.execute(
-                """SELECT turn_id FROM agent_turns
-                   WHERE session_id = ? AND status IN ("""
-                + ",".join("?" for _ in active_statuses)
-                + ") LIMIT 1",
-                (str(session_id), *(turn_status.value for turn_status in active_statuses)),
-            ).fetchone()
-            if active_turn is not None:
-                raise SessionStateConflict("session already has an active turn")
+            if allow_queue:
+                queueable_statuses = {
+                    SessionStatus.READY,
+                    SessionStatus.RUNNING,
+                    SessionStatus.WAITING_FOR_TOOL,
+                    SessionStatus.WAITING_FOR_APPROVAL,
+                    SessionStatus.WAITING_FOR_SUBAGENTS,
+                    SessionStatus.COMPACTING,
+                }
+                if status not in queueable_statuses:
+                    raise SessionStateConflict(f"session cannot queue a turn in state: {status.value}")
+            else:
+                if status is not SessionStatus.READY:
+                    raise SessionStateConflict(f"session is not ready for a new turn: {status.value}")
+                active_statuses = tuple(_ACTIVE_TURN_STATUSES)
+                active_turn = connection.execute(
+                    """SELECT turn_id FROM agent_turns
+                       WHERE session_id = ? AND status IN ("""
+                    + ",".join("?" for _ in active_statuses)
+                    + ") LIMIT 1",
+                    (str(session_id), *(turn_status.value for turn_status in active_statuses)),
+                ).fetchone()
+                if active_turn is not None:
+                    raise SessionStateConflict("session already has an active turn")
             try:
                 connection.execute(
                     """INSERT INTO agent_turns
                        (turn_id, session_id, status, version, error, created_at, updated_at,
-                        priority, deadline_at)
-                       VALUES (?, ?, ?, 1, '', ?, ?, ?, ?)""",
+                        priority, deadline_at, idempotency_key)
+                       VALUES (?, ?, ?, 1, '', ?, ?, ?, ?, ?)""",
                     (
                         turn_id,
                         str(session_id),
@@ -1605,18 +1821,26 @@ class AgentSessionStore:
                         timestamp,
                         clean_priority,
                         clean_deadline,
+                        clean_idem,
                     ),
                 )
             except sqlite3.IntegrityError as exc:
                 raise SessionStateConflict(f"turn already exists: {turn_id}") from exc
             for item in items:
                 self._append_item(connection, str(session_id), turn_id, "input", item)
-            self._set_session_status(connection, session, SessionStatus.RUNNING, reason="turn_started")
+            if status is SessionStatus.READY:
+                self._set_session_status(connection, session, SessionStatus.RUNNING, reason="turn_started")
+            else:
+                connection.execute(
+                    "UPDATE agent_sessions SET version = version + 1, updated_at = ? WHERE session_id = ?",
+                    (timestamp, str(session_id)),
+                )
             self._append_event(connection, str(session_id), "turn.created", {
                 "turn_id": turn_id,
                 "item_count": len(items),
                 "priority": clean_priority,
                 "deadline_at": clean_deadline,
+                "queued": bool(allow_queue and status is not SessionStatus.READY),
             }, turn_id=turn_id)
             row = self._require_turn(connection, turn_id)
             return self._turn(row)
@@ -1626,19 +1850,51 @@ class AgentSessionStore:
         session_id: str,
         turn_id: str,
         input_items: str | Mapping[str, Any] | Sequence[Mapping[str, Any]],
+        *,
+        expected_version: int | None = None,
+        idempotency_key: str | None = None,
     ) -> AgentItem:
         items = _items(input_items)
         if len(items) != 1:
             raise ValueError("steering accepts exactly one item")
+        clean_idem = self._validate_idempotency_key(idempotency_key)
         with self._transaction() as connection:
-            session = self._require_session(connection, str(session_id))
+            self._require_session(connection, str(session_id))
             turn = self._require_turn(connection, str(turn_id))
             if str(turn["session_id"]) != str(session_id):
                 raise SessionStateConflict("turn belongs to a different session")
+            if clean_idem:
+                existing_item = connection.execute(
+                    "SELECT * FROM agent_items WHERE session_id = ? AND idempotency_key = ?",
+                    (str(session_id), clean_idem),
+                ).fetchone()
+                if existing_item is not None:
+                    return AgentItem(
+                        str(existing_item["item_id"]),
+                        str(existing_item["session_id"]),
+                        str(existing_item["turn_id"]),
+                        str(existing_item["kind"]),
+                        json.loads(str(existing_item["content_json"])),
+                        int(existing_item["sequence"]),
+                        float(existing_item["created_at"]),
+                    )
+            if expected_version is not None and int(turn["version"]) != int(expected_version):
+                raise SessionStateConflict("turn version changed")
             turn_status = TurnStatus(str(turn["status"]))
             if turn_status not in _ACTIVE_TURN_STATUSES - {TurnStatus.QUEUED}:
                 raise SessionStateConflict(f"turn cannot be steered in state: {turn_status.value}")
-            item = self._append_item(connection, str(session_id), str(turn_id), "steering", items[0])
+            item = self._append_item(
+                connection,
+                str(session_id),
+                str(turn_id),
+                "steering",
+                items[0],
+                idempotency_key=clean_idem,
+            )
+            connection.execute(
+                "UPDATE agent_turns SET version = version + 1, updated_at = ? WHERE turn_id = ?",
+                (_now(), str(turn_id)),
+            )
             self._append_event(connection, str(session_id), "turn.steered", {
                 "turn_id": str(turn_id),
                 "item_id": item.item_id,
@@ -1794,15 +2050,41 @@ class AgentSessionStore:
             })
             return self._session(self._require_session(connection, str(session_id)))
 
-    def update_metadata(self, session_id: str, updates: Mapping[str, Any]) -> AgentSession:
+    def update_metadata(
+        self,
+        session_id: str,
+        updates: Mapping[str, Any],
+        *,
+        expected_version: int | None = None,
+    ) -> AgentSession:
         """Atomically update safe session metadata like title, pinned, archived, workspace, branch."""
-        allowed_keys = {"title", "pinned", "archived", "workspace", "branch", "model", "tags", "notes"}
+        allowed_keys = {
+            "title",
+            "pinned",
+            "archived",
+            "workspace",
+            "branch",
+            "worktree",
+            "model",
+            "reasoning_effort",
+            "mode",
+            "tags",
+            "notes",
+        }
         clean_updates = {str(k): v for k, v in updates.items() if str(k) in allowed_keys}
         if not clean_updates:
+            if expected_version is not None:
+                session = self.get_session(session_id)
+                if session.version != int(expected_version):
+                    raise SessionStateConflict("session version changed")
+                return session
             return self.get_session(session_id)
         with self._transaction() as connection:
             row = self._require_session(connection, str(session_id))
+            if expected_version is not None and int(row["version"]) != int(expected_version):
+                raise SessionStateConflict("session version changed")
             state = json.loads(str(row["state_json"]))
+            was_archived = bool(state.get("archived", False))
             state.update(clean_updates)
             timestamp = _now()
             connection.execute(
@@ -1810,7 +2092,181 @@ class AgentSessionStore:
                 (_json(state), timestamp, str(session_id)),
             )
             self._append_event(connection, str(session_id), "session.metadata_updated", clean_updates)
+            if was_archived and not bool(state.get("archived", False)):
+                self._append_event(connection, str(session_id), "session.restored", {"from_archived": True})
             return self._session(self._require_session(connection, str(session_id)))
+
+    def fork_session(
+        self,
+        source_session_id: str,
+        *,
+        principal_id: str | None = None,
+        is_admin: bool = False,
+        up_to_sequence: int | None = None,
+        title: str | None = None,
+        session_id: str | None = None,
+    ) -> AgentSession:
+        """Create a forked session preserving items up to ``up_to_sequence`` without mutating the source."""
+        with self._transaction() as connection:
+            source_row = self._require_session(connection, str(source_session_id))
+            if str(source_row["principal_id"] or ""):
+                self._authorize_control(source_row, principal_id=principal_id, is_admin=is_admin)
+            source_state = json.loads(str(source_row["state_json"]))
+            item_query = "SELECT * FROM agent_items WHERE session_id = ?"
+            item_params: list[Any] = [str(source_session_id)]
+            if up_to_sequence is not None:
+                item_query += " AND sequence <= ?"
+                item_params.append(max(0, int(up_to_sequence)))
+            item_query += " ORDER BY sequence"
+            source_items = connection.execute(item_query, item_params).fetchall()
+            fork_seq = int(source_items[-1]["sequence"]) if source_items else 0
+
+            source_title = str(source_state.get("title") or source_session_id)
+            clean_title = str(title or f"Fork: {source_title}").strip()[:200]
+            fork_state: dict[str, Any] = {
+                key: source_state[key]
+                for key in ("model", "workspace", "branch", "worktree", "reasoning_effort", "mode", "tenant_id", "routing")
+                if key in source_state
+            }
+            fork_state.update({
+                "title": clean_title,
+                "parent_session_id": str(source_session_id),
+                "fork_from_sequence": fork_seq,
+                "session_kind": "fork",
+                "pinned": False,
+                "archived": False,
+            })
+            new_session_id = str(session_id or _new_id("sess"))
+            timestamp = _now()
+            try:
+                connection.execute(
+                    """INSERT INTO agent_sessions
+                       (session_id, agent_id, agent_version, status, principal_id,
+                        environment_type, state_json, version, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+                    (
+                        new_session_id,
+                        str(source_row["agent_id"]),
+                        str(source_row["agent_version"]),
+                        SessionStatus.READY.value,
+                        str(source_row["principal_id"]),
+                        str(source_row["environment_type"]),
+                        _json(fork_state),
+                        timestamp,
+                        timestamp,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise SessionStateConflict(f"session already exists: {new_session_id}") from exc
+
+            self._append_event(connection, new_session_id, "session.created", {
+                "agent_id": str(source_row["agent_id"]),
+                "agent_version": str(source_row["agent_version"]),
+                "environment_type": str(source_row["environment_type"]),
+                "parent_session_id": str(source_session_id),
+                "session_kind": "fork",
+                "fork_from_sequence": fork_seq,
+            })
+            if source_items:
+                snapshot_turn_id = _new_id("turn")
+                connection.execute(
+                    """INSERT INTO agent_turns
+                       (turn_id, session_id, status, version, error, created_at, updated_at,
+                        priority, deadline_at, idempotency_key)
+                       VALUES (?, ?, ?, 1, '', ?, ?, 0, NULL, '')""",
+                    (
+                        snapshot_turn_id,
+                        new_session_id,
+                        TurnStatus.COMPLETED.value,
+                        timestamp,
+                        timestamp,
+                    ),
+                )
+                for row in source_items:
+                    self._append_item(
+                        connection,
+                        new_session_id,
+                        snapshot_turn_id,
+                        str(row["kind"]),
+                        json.loads(str(row["content_json"])),
+                    )
+            self._append_event(connection, str(source_session_id), "session.forked", {
+                "fork_session_id": new_session_id,
+                "fork_from_sequence": fork_seq,
+            })
+            return self._session(self._require_session(connection, new_session_id))
+
+    def create_side_chat(
+        self,
+        parent_session_id: str,
+        *,
+        principal_id: str | None = None,
+        is_admin: bool = False,
+        context_turn_id: str | None = None,
+        title: str | None = None,
+        session_id: str | None = None,
+    ) -> AgentSession:
+        """Create a side-chat session linked to ``parent_session_id`` without interrupting the parent."""
+        with self._transaction() as connection:
+            parent_row = self._require_session(connection, str(parent_session_id))
+            if str(parent_row["principal_id"] or ""):
+                self._authorize_control(parent_row, principal_id=principal_id, is_admin=is_admin)
+            if context_turn_id is not None:
+                turn_row = self._require_turn(connection, str(context_turn_id))
+                if str(turn_row["session_id"]) != str(parent_session_id):
+                    raise SessionStateConflict("context turn belongs to a different session")
+            parent_state = json.loads(str(parent_row["state_json"]))
+            parent_title = str(parent_state.get("title") or parent_session_id)
+            clean_title = str(title or f"Side chat: {parent_title}").strip()[:200]
+            side_state: dict[str, Any] = {
+                key: parent_state[key]
+                for key in ("model", "workspace", "branch", "worktree", "reasoning_effort", "mode", "tenant_id", "routing")
+                if key in parent_state
+            }
+            side_state.update({
+                "title": clean_title,
+                "parent_session_id": str(parent_session_id),
+                "session_kind": "side_chat",
+                "pinned": False,
+                "archived": False,
+            })
+            if context_turn_id is not None:
+                side_state["context_turn_id"] = str(context_turn_id)
+            new_session_id = str(session_id or _new_id("sess"))
+            timestamp = _now()
+            try:
+                connection.execute(
+                    """INSERT INTO agent_sessions
+                       (session_id, agent_id, agent_version, status, principal_id,
+                        environment_type, state_json, version, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+                    (
+                        new_session_id,
+                        str(parent_row["agent_id"]),
+                        str(parent_row["agent_version"]),
+                        SessionStatus.READY.value,
+                        str(parent_row["principal_id"]),
+                        str(parent_row["environment_type"]),
+                        _json(side_state),
+                        timestamp,
+                        timestamp,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise SessionStateConflict(f"session already exists: {new_session_id}") from exc
+            self._append_event(connection, new_session_id, "session.created", {
+                "agent_id": str(parent_row["agent_id"]),
+                "agent_version": str(parent_row["agent_version"]),
+                "environment_type": str(parent_row["environment_type"]),
+                "parent_session_id": str(parent_session_id),
+                "session_kind": "side_chat",
+                "context_turn_id": str(context_turn_id) if context_turn_id is not None else None,
+            })
+            self._append_event(connection, str(parent_session_id), "session.side_chat_created", {
+                "side_chat_session_id": new_session_id,
+                "context_turn_id": str(context_turn_id) if context_turn_id is not None else None,
+            })
+            return self._session(self._require_session(connection, new_session_id))
 
     def recover_interrupted(self) -> list[str]:
         """Pause work left active after a process restart; never replay it blindly."""
@@ -1842,13 +2298,23 @@ class AgentSessionStore:
                 recovered.append(turn_id)
         return recovered
 
-    def list_items(self, session_id: str, *, turn_id: str | None = None) -> list[AgentItem]:
-        query = "SELECT * FROM agent_items WHERE session_id = ?"
-        params: list[Any] = [str(session_id)]
+    def list_items(
+        self,
+        session_id: str,
+        *,
+        turn_id: str | None = None,
+        after_sequence: int = 0,
+        limit: int | None = None,
+    ) -> list[AgentItem]:
+        query = "SELECT * FROM agent_items WHERE session_id = ? AND sequence > ?"
+        params: list[Any] = [str(session_id), max(0, int(after_sequence))]
         if turn_id is not None:
             query += " AND turn_id = ?"
             params.append(str(turn_id))
         query += " ORDER BY sequence"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(max(1, min(int(limit), 1000)))
         with self._lock:
             rows = self._connection.execute(query, params).fetchall()
         return [
@@ -1874,6 +2340,14 @@ class AgentSessionStore:
             ).fetchall()
         return [self._event(row) for row in rows]
 
+    def latest_event_sequence(self, session_id: str) -> int:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT COALESCE(MAX(sequence), 0) FROM agent_events WHERE session_id = ?",
+                (str(session_id),),
+            ).fetchone()
+        return int(row[0]) if row is not None else 0
+
     def read_event_page(
         self,
         session_id: str,
@@ -1895,9 +2369,25 @@ class AgentSessionStore:
         while True:
             events = self.list_events(session_id, after_sequence=cursor, limit=page_limit + 1)
             if events or time.monotonic() >= deadline:
+                latest_seq = self.latest_event_sequence(session_id)
                 visible = tuple(events[:page_limit])
                 next_sequence = visible[-1].sequence if visible else cursor
-                return EventPage(visible, next_sequence, len(events) > page_limit)
+                cursor_gap = False
+                gap_reason = ""
+                if cursor > latest_seq:
+                    cursor_gap = True
+                    gap_reason = "cursor_ahead_of_head"
+                elif visible and cursor > 0 and visible[0].sequence > cursor + 1:
+                    cursor_gap = True
+                    gap_reason = "missing_sequences"
+                return EventPage(
+                    visible,
+                    next_sequence,
+                    len(events) > page_limit,
+                    cursor_gap=cursor_gap,
+                    latest_sequence=latest_seq,
+                    gap_reason=gap_reason,
+                )
             time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
 
     def pending_events(self, *, limit: int = 100) -> list[SessionEvent]:
@@ -2021,8 +2511,8 @@ class AgentSessionStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> AgentSessionStore:
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()

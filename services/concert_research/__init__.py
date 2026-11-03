@@ -5,16 +5,11 @@ performed through ComputeMesh inference only; ordinary web/search sources are
 used as data inputs.
 """
 
-# `crawler.py` retains its small reference fetcher for compatibility, but all
-# normal package imports install the hardened redirect-validating implementation
-# before any ConcertCrawler instance is constructed. Keeping the hardened
-# transport separate also makes it independently testable.
-from . import crawler as _crawler
-from .http_client import HardenedSafeFetcher
-
-_crawler.SafeFetcher = HardenedSafeFetcher
-
+# The crawler now uses the redirect-validating fetcher directly, including for
+# imports that bypass this package's top-level namespace. No monkeypatching.
+from .crawler import SafeFetcher as SafeFetcher
 from .engine import ConcertResearchEngine
+from .http_client import HardenedSafeFetcher as HardenedSafeFetcher
 from .models import ResearchRequest
 
 __all__ = ["ConcertResearchEngine", "ResearchRequest"]

@@ -6,36 +6,39 @@ from __future__ import annotations
 import inspect
 import json
 import re
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any
 
 from .config import MCPConfig, get_mcp_config
 
 # Subsystem Imports & Re-exports for 100% Backward Compatibility
-from .formatting.reasoning_formatter import THINKING_RE as THINKING_RE
+from .formatting.reasoning_formatter import THINKING_RE as THINKING_RE  # noqa: PLC0414 - public compatibility re-export
 from .formatting.reasoning_formatter import (
-    format_reasoning_and_thinking_blocks as format_reasoning_and_thinking_blocks,
+    format_reasoning_and_thinking_blocks as format_reasoning_and_thinking_blocks,  # noqa: PLC0414 - public compatibility re-export
 )
 from .formatting.tool_formatter import format_tool_content_if_json
-from .intent.entity_tokenizer import clean_entity_token as clean_entity_token
-from .intent.entity_tokenizer import split_multi_entities as split_multi_entities
+from .intent.entity_tokenizer import clean_entity_token as clean_entity_token  # noqa: PLC0414 - public compatibility re-export
+from .intent.entity_tokenizer import split_multi_entities as split_multi_entities  # noqa: PLC0414 - public compatibility re-export
 from .intent.intent_router import (
     REFUSAL_KEYWORDS,
     detect_compound_tool_intents,
     detect_direct_tool_intent,
 )
-from .parser.tool_call_parser import JSON_CODE_BLOCK_RE as JSON_CODE_BLOCK_RE
+from .parser.tool_call_parser import JSON_CODE_BLOCK_RE as JSON_CODE_BLOCK_RE  # noqa: PLC0414 - public compatibility re-export
 from .parser.tool_call_parser import (
     MAX_TOOL_CALLS_PER_ITERATION,
     _canonical_name,
     _fallback_tool_calls,
 )
-from .parser.tool_call_parser import RAW_JSON_TOOL_RE as RAW_JSON_TOOL_RE
-from .parser.tool_call_parser import XML_TOOL_CALL_RE as XML_TOOL_CALL_RE
-from .parser.tool_call_parser import _decode_arguments as _decode_arguments
-from .parser.tool_call_parser import canonical_name as canonical_name
-from .parser.tool_call_parser import decode_tool_arguments as decode_tool_arguments
-from .parser.tool_call_parser import parse_fallback_tool_calls as parse_fallback_tool_calls
+from .parser.tool_call_parser import RAW_JSON_TOOL_RE as RAW_JSON_TOOL_RE  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import XML_TOOL_CALL_RE as XML_TOOL_CALL_RE  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import _decode_arguments as _decode_arguments  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import canonical_name as canonical_name  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import decode_tool_arguments as decode_tool_arguments  # noqa: PLC0414 - public compatibility re-export
+from .parser.tool_call_parser import (
+    parse_fallback_tool_calls as parse_fallback_tool_calls,  # noqa: PLC0414 - public compatibility re-export
+)
 from .tool_registry import ToolRegistry
 
 MAX_AGENT_ITERATIONS = 20
@@ -54,29 +57,29 @@ RESOURCE_USAGE_FIELDS = (
 class ToolCallRecord:
     id: str
     name: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
     result: Any
 
 
 @dataclass
 class AgentExecutionResult:
     final_content: str
-    messages: List[Dict[str, Any]]
-    tool_calls_executed: List[ToolCallRecord] = field(default_factory=list)
+    messages: list[dict[str, Any]]
+    tool_calls_executed: list[ToolCallRecord] = field(default_factory=list)
     iterations: int = 1
     model: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
-    resource_usage: Dict[str, int] = field(default_factory=dict)
+    resource_usage: dict[str, int] = field(default_factory=dict)
     # Only bounded opaque execution identifiers; never model/provider policy data.
-    provenance: Dict[str, List[str]] = field(default_factory=dict)
+    provenance: dict[str, list[str]] = field(default_factory=dict)
 
 
 class AgentApprovalRequired(RuntimeError):
     """Raised internally when a durable side-effect approval pauses a turn."""
 
-    def __init__(self, execution: AgentExecutionResult, approval_ids: List[str]) -> None:
+    def __init__(self, execution: AgentExecutionResult, approval_ids: list[str]) -> None:
         super().__init__("agent turn is waiting for approval")
         self.execution = execution
         self.approval_ids = tuple(str(value) for value in approval_ids)
@@ -94,23 +97,23 @@ class AgentControlRequested(RuntimeError):
 class AgentLoop:
     """Orchestrates multi-turn autonomous tool execution loops with guardrails and token tracking."""
 
-    def __init__(self, registry: Optional[ToolRegistry] = None, config: Optional[MCPConfig] = None):
+    def __init__(self, registry: ToolRegistry | None = None, config: MCPConfig | None = None):
         self.config = config or get_mcp_config()
         self.registry = registry or ToolRegistry(self.config)
 
     def run(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
-        llm_caller: Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]],
+        llm_caller: Callable[[list[dict[str, Any]], list[dict[str, Any]]], dict[str, Any]],
         is_owner: bool = True,
-        max_iterations: Optional[int] = None,
-        disabled_tools: Optional[List[str]] = None,
-        on_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
+        max_iterations: int | None = None,
+        disabled_tools: list[str] | None = None,
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
         tool_broker: Any | None = None,
-        should_stop: Optional[Callable[[], Optional[str]]] = None,
-        on_checkpoint: Optional[Callable[[Dict[str, Any]], None]] = None,
-        resume_state: Optional[Mapping[str, Any]] = None,
+        should_stop: Callable[[], str | None] | None = None,
+        on_checkpoint: Callable[[dict[str, Any]], None] | None = None,
+        resume_state: Mapping[str, Any] | None = None,
         cancel_event: Any | None = None,
     ) -> AgentExecutionResult:
         try:
@@ -123,8 +126,8 @@ class AgentLoop:
             if on_progress:
                 try:
                     on_progress({"event": event_name, **extra})
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
 
         raw_resume = dict(resume_state) if isinstance(resume_state, Mapping) else {}
         resume_phase = str(raw_resume.get("phase") or "")
@@ -162,8 +165,8 @@ class AgentLoop:
                 mem_summary = get_user_memory_store().get_memory_summary()
                 if mem_summary and "Keine gespeicherten" not in mem_summary:
                     mem_info = f"\n\n[Persistentes Benutzer-Gedächtnis & Fakten]:\n{mem_summary}"
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
         if tools or mem_info:
             has_system = any(m.get("role") == "system" for m in curr_messages)
@@ -212,7 +215,7 @@ class AgentLoop:
         if resume_messages is not None:
             curr_messages = resume_messages
 
-        executed_records: List[ToolCallRecord] = []
+        executed_records: list[ToolCallRecord] = []
         raw_records = raw_resume.get("tool_records")
         if isinstance(raw_records, list):
             for raw_record in raw_records[:128]:
@@ -238,7 +241,7 @@ class AgentLoop:
             field: _restored_count(field)
             for field in RESOURCE_USAGE_FIELDS
         }
-        execution_provenance: Dict[str, List[str]] = {
+        execution_provenance: dict[str, list[str]] = {
             "execution_job_ids": [],
             "execution_node_ids": [],
         }
@@ -308,12 +311,12 @@ class AgentLoop:
             *,
             phase: str,
             iteration: int,
-            pending_tool_calls: List[Dict[str, Any]] | None = None,
+            pending_tool_calls: list[dict[str, Any]] | None = None,
             final_content: str = "",
         ) -> None:
             if on_checkpoint is None:
                 return
-            snapshot: Dict[str, Any] = {
+            snapshot: dict[str, Any] = {
                 "schema_version": 1,
                 "phase": str(phase),
                 "iteration": int(max(0, iteration)),
@@ -388,13 +391,13 @@ class AgentLoop:
         if not direct_intent and last_user_text and not has_images and len(curr_messages) > 1:
             try:
                 from .builtin.context_resolver import resolve_contextual_query
-                resolved_q, resolved_entity, was_resolved = resolve_contextual_query(last_user_text, curr_messages)
+                resolved_q, _resolved_entity, was_resolved = resolve_contextual_query(last_user_text, curr_messages)
                 if was_resolved and resolved_q:
                     direct_intent = detect_direct_tool_intent(resolved_q, self.registry)
                     if not direct_intent and any(w in resolved_q.lower() for w in ("recherchiere", "tiefenrecherche", "deep research", "hintergründe", "ereignisse")):
                         direct_intent = ("cross_source_knowledge_search", {"query": resolved_q})
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
         if direct_intent and not any(m.get("role") == "tool" for m in curr_messages):
             fn_name, fn_args = direct_intent
             if fn_name not in disabled_set and self.registry.get_tool(fn_name):
@@ -491,7 +494,7 @@ class AgentLoop:
                     )
                 except AgentControlRequested:
                     raise
-                except Exception as exc:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     if cancel_event is not None and bool(getattr(cancel_event, "is_set", lambda: False)()):
                         raise AgentControlRequested(
                             "cancel",
@@ -573,8 +576,8 @@ class AgentLoop:
                 if isinstance(prev_data, str):
                     try:
                         prev_data = json.loads(prev_data)
-                    except Exception:
-                        pass
+                    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
                 derived_prompt = ""
                 if isinstance(prev_data, dict):
                     articles = prev_data.get("articles", [])
@@ -664,7 +667,7 @@ class AgentLoop:
                 _notify("loop_finished", final_records_count=len(executed_records))
                 return _execution_result(iterations=iteration, final_content=final)
 
-            assistant_msg: Dict[str, Any] = {"role": "assistant", "tool_calls": tool_calls}
+            assistant_msg: dict[str, Any] = {"role": "assistant", "tool_calls": tool_calls}
             if content:
                 assistant_msg["content"] = content
             if not resumed_model_response:

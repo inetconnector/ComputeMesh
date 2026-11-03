@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 from urllib.parse import urlparse
 
 from cryptography import x509

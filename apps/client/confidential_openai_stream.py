@@ -7,7 +7,8 @@ authenticated ciphertext and are checked locally before SSE emission.
 from __future__ import annotations
 
 import json
-from typing import Any, Iterator, Mapping
+from collections.abc import Iterator, Mapping
+from typing import Any
 from urllib import error as urlerror
 from urllib import request as urlrequest
 
@@ -15,10 +16,12 @@ from apps.client.confidential_openai import (
     ConfidentialOpenAIBridge,
     ConfidentialOpenAIError,
     HttpProtectedTransport,
-    MAX_OPENAI_BODY_BYTES,
     prepare_openai_chat_request,
 )
-from protocol.confidential_envelope import ConfidentialBinding, create_confidential_request
+from protocol.confidential_envelope import (
+    ConfidentialBinding,
+    create_confidential_request,
+)
 from protocol.confidential_request_contract import (
     ConfidentialRequestContractError,
     verify_committed_attestation_nonce,
@@ -28,7 +31,6 @@ from protocol.confidential_stream import (
     decrypt_stream_event,
     openai_sse_bytes,
 )
-
 
 INTERNAL_STREAM_PATH = "/internal/v1/confidential/chat/completions/stream"
 MAX_INTERNAL_STREAM_LINE_BYTES = 2 * 1024 * 1024

@@ -7,16 +7,16 @@ SSH key distribution or manual port-forwarding setups.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import ipaddress
 import logging
-from pathlib import Path
 import socket
 import ssl
 import sys
 import threading
 import time
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from cryptography import x509
@@ -69,8 +69,8 @@ def generate_mesh_ca(temp_dir: Path) -> MeshCACredentials:
         .issuer_name(issuer)
         .public_key(ca_key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.now(timezone.utc) - timedelta(minutes=5))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=365))
+        .not_valid_before(datetime.now(UTC) - timedelta(minutes=5))
+        .not_valid_after(datetime.now(UTC) + timedelta(days=365))
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), critical=False)
         .add_extension(
@@ -138,8 +138,8 @@ def generate_node_tls_credentials(
         .issuer_name(ca_cert.subject)
         .public_key(private_key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.now(timezone.utc) - timedelta(minutes=5))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=365))
+        .not_valid_before(datetime.now(UTC) - timedelta(minutes=5))
+        .not_valid_after(datetime.now(UTC) + timedelta(days=365))
         .add_extension(
             x509.SubjectAlternativeName([
                 x509.DNSName("localhost"),
@@ -264,15 +264,16 @@ class MeshTunnelServer:
         if self._server_sock:
             try:
                 self._server_sock.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
 
     def _accept_loop(self) -> None:
         while self._running:
             try:
                 client_raw, _ = self._server_sock.accept()
                 threading.Thread(target=self._handle_client, args=(client_raw,), daemon=True).start()
-            except Exception:
+            except OSError as exc:
+                logger.debug("mTLS accept loop stopped: %s", exc)
                 break
 
     def _handle_client(self, client_raw: socket.socket) -> None:
@@ -299,32 +300,40 @@ class MeshTunnelServer:
             t2 = threading.Thread(target=self._pipe, args=(target_sock, client_ssl, "t2c", stop_event), daemon=True)
             t1.start()
             t2.start()
+            # A clean half-close must not discard the reverse response.
+            # Bound draining to two seconds; terminate promptly on transport error.
+            drain_deadline = None
             while self._running and not stop_event.is_set():
-                t1.join(timeout=0.2)
-                t2.join(timeout=0.2)
-                if not t1.is_alive() or not t2.is_alive():
-                    stop_event.set()
+                t1.join(timeout=0.05)
+                t2.join(timeout=0.05)
+                if not t1.is_alive() and not t2.is_alive():
                     break
+                if not t1.is_alive() or not t2.is_alive():
+                    if drain_deadline is None:
+                        drain_deadline = time.monotonic() + 2.0
+                    elif time.monotonic() >= drain_deadline:
+                        break
+            stop_event.set()
             t1.join(timeout=1.0)
             t2.join(timeout=1.0)
-        except Exception as e:
+        except (OSError, ssl.SSLError, ValueError, RuntimeError) as e:
             logger.debug(f"mTLS client session error: {e}")
         finally:
             if client_ssl:
                 try:
                     client_ssl.close()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    logger.debug("mTLS transport socket close failed: %s", exc)
             else:
                 try:
                     client_raw.close()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    logger.debug("mTLS transport socket close failed: %s", exc)
             if target_sock:
                 try:
                     target_sock.close()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    logger.debug("mTLS transport socket close failed: %s", exc)
 
     def _pipe(self, src: socket.socket, dst: socket.socket, direction: str, stop_event: threading.Event) -> None:
         buf = bytearray(64 * 1024)
@@ -333,9 +342,10 @@ class MeshTunnelServer:
             while self._running and not stop_event.is_set():
                 try:
                     n = src.recv_into(buf)
-                except (socket.timeout, TimeoutError):
+                except TimeoutError:
                     continue
                 except OSError:
+                    stop_event.set()  # A transport failure terminates both directions.
                     break
                 if n == 0:
                     break
@@ -344,15 +354,20 @@ class MeshTunnelServer:
                     self.total_bytes_received += n
                 else:
                     self.total_bytes_sent += n
-        except Exception:
-            pass
+        except OSError as exc:
+            logger.debug("mTLS transport pipe interrupted: %s", exc)
+            stop_event.set()  # Fail closed on forwarding errors.
         finally:
-            stop_event.set()
+            # Abort peer forwarding when an unexpected exception is propagating.
+            # A clean EOF has no active exception and still permits reverse drain.
+            if sys.exc_info()[0] is not None:
+                stop_event.set()
+            # On graceful EOF, half-close plain TCP; keep TLS reverse traffic alive.
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
 
 
 class MeshTunnelClient:
@@ -398,15 +413,16 @@ class MeshTunnelClient:
         if self._server_sock:
             try:
                 self._server_sock.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
 
     def _accept_loop(self) -> None:
         while self._running:
             try:
                 app_sock, _ = self._server_sock.accept()
                 threading.Thread(target=self._handle_app, args=(app_sock,), daemon=True).start()
-            except Exception:
+            except OSError as exc:
+                logger.debug("mTLS accept loop stopped: %s", exc)
                 break
 
     def _handle_app(self, app_sock: socket.socket) -> None:
@@ -437,26 +453,34 @@ class MeshTunnelClient:
             t2 = threading.Thread(target=self._pipe, args=(ssl_sock, app_sock, "s2a", stop_event), daemon=True)
             t1.start()
             t2.start()
+            # A clean half-close must not discard the reverse response.
+            # Bound draining to two seconds; terminate promptly on transport error.
+            drain_deadline = None
             while self._running and not stop_event.is_set():
-                t1.join(timeout=0.2)
-                t2.join(timeout=0.2)
-                if not t1.is_alive() or not t2.is_alive():
-                    stop_event.set()
+                t1.join(timeout=0.05)
+                t2.join(timeout=0.05)
+                if not t1.is_alive() and not t2.is_alive():
                     break
+                if not t1.is_alive() or not t2.is_alive():
+                    if drain_deadline is None:
+                        drain_deadline = time.monotonic() + 2.0
+                    elif time.monotonic() >= drain_deadline:
+                        break
+            stop_event.set()
             t1.join(timeout=1.0)
             t2.join(timeout=1.0)
-        except Exception as e:
+        except (OSError, ssl.SSLError, ValueError, RuntimeError) as e:
             logger.debug(f"mTLS app tunnel error: {e}")
         finally:
             try:
                 app_sock.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
             if ssl_sock:
                 try:
                     ssl_sock.close()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    logger.debug("mTLS transport socket close failed: %s", exc)
 
     def _pipe(self, src: socket.socket, dst: socket.socket, direction: str, stop_event: threading.Event) -> None:
         buf = bytearray(64 * 1024)
@@ -465,9 +489,10 @@ class MeshTunnelClient:
             while self._running and not stop_event.is_set():
                 try:
                     n = src.recv_into(buf)
-                except (socket.timeout, TimeoutError):
+                except TimeoutError:
                     continue
                 except OSError:
+                    stop_event.set()  # A transport failure terminates both directions.
                     break
                 if n == 0:
                     break
@@ -476,12 +501,17 @@ class MeshTunnelClient:
                     self.total_bytes_sent += n
                 else:
                     self.total_bytes_received += n
-        except Exception:
-            pass
+        except OSError as exc:
+            logger.debug("mTLS transport pipe interrupted: %s", exc)
+            stop_event.set()  # Fail closed on forwarding errors.
         finally:
-            stop_event.set()
+            # Abort peer forwarding when an unexpected exception is propagating.
+            # A clean EOF has no active exception and still permits reverse drain.
+            if sys.exc_info()[0] is not None:
+                stop_event.set()
+            # On graceful EOF, half-close plain TCP; keep TLS reverse traffic alive.
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)

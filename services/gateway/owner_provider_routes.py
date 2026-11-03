@@ -5,7 +5,7 @@ from http import HTTPStatus
 from typing import Any
 
 from services.billing.accounting import AccountingStoreError
-from services.billing.ledger import BillingError, MICRO_UNIT_SCALE
+from services.billing.ledger import MICRO_UNIT_SCALE, BillingError
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
 from services.billing.owner_settlement import OwnerSettlementExecutor
@@ -226,7 +226,7 @@ class UnifiedOwnerProviderRoutesHandler(ProviderRoutesHandler):
             if "amount_micro_units" in body:
                 amount_micro = int(body["amount_micro_units"])
             elif "amount_usd" in body:
-                amount_micro = int(round(float(body["amount_usd"]) * MICRO_UNIT_SCALE))
+                amount_micro = round(float(body["amount_usd"]) * MICRO_UNIT_SCALE)
             if amount_micro is not None and amount_micro <= 0:
                 raise ValueError("withdrawal amount must be positive")
             settlement = executor.run_owner_settlement(
@@ -261,7 +261,7 @@ class UnifiedOwnerProviderRoutesHandler(ProviderRoutesHandler):
             if "amount_micro_units" in body:
                 amount_micro = int(body["amount_micro_units"])
             elif "amount_usd" in body:
-                amount_micro = int(round(float(body["amount_usd"]) * MICRO_UNIT_SCALE))
+                amount_micro = round(float(body["amount_usd"]) * MICRO_UNIT_SCALE)
             settlement = executor.run_owner_settlement(
                 owner_id=owner_id,
                 amount_micro_units=amount_micro,

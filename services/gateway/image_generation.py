@@ -6,15 +6,13 @@ provenance metadata and audit-safe reason codes are always applied.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import base64
 import hashlib
-import json
-from typing import Any, Protocol
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any, ClassVar, Protocol
 
 from services.gateway.image_safety import (
-    ImageSafetyError,
     ImageSafetyOrchestrator,
     SafetyAction,
     SafetyDecision,
@@ -58,7 +56,7 @@ class ImageGenerationRejected(RuntimeError):
 
 class ImageGenerationService:
     MAX_IMAGES = 4
-    ALLOWED_SIZES = {"512x512", "768x768", "1024x1024", "1024x1536", "1536x1024"}
+    ALLOWED_SIZES: ClassVar[set[str]] = {"512x512", "768x768", "1024x1024", "1024x1536", "1536x1024"}
 
     def __init__(self, *, backend: ImageBackend, safety: ImageSafetyOrchestrator) -> None:
         if backend is None:
@@ -81,7 +79,7 @@ class ImageGenerationService:
         # Machine-readable provenance returned with every image. This is kept
         # provider-neutral; deployments can additionally embed C2PA credentials
         # in the image file when a signing implementation is configured.
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         return {
             "generated_by_ai": True,
             "generator": "ComputeMesh",
@@ -147,7 +145,7 @@ class ImageGenerationService:
             ))
 
         return ImageGenerationResult(
-            created=int(datetime.now(timezone.utc).timestamp()),
+            created=int(datetime.now(UTC).timestamp()),
             model=model,
             images=tuple(images),
             moderation={

@@ -12,14 +12,12 @@ import json
 import secrets
 import subprocess
 import sys
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Sequence
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from cm_project_bootstrap import REPO_ROOT
 
 from setup.evidence_transfer import (
     EvidenceTransferError,
@@ -41,7 +39,7 @@ class LabConfig:
 
 
 def _utc_stamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%d-%H%M%SZ")
 
 
 def new_node_id() -> str:

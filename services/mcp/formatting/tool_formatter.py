@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json
+import math
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
+from urllib.parse import quote, urlsplit
 
 from .reasoning_formatter import format_reasoning_and_thinking_blocks
 
@@ -42,16 +44,56 @@ def _convert_data_uris_to_static_files(text: str) -> str:
                 try:
                     td.mkdir(parents=True, exist_ok=True)
                     (td / fname).write_bytes(img_bytes)
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
             url = f"/generated/{fname}"
             cache[b64_data] = url
             return f"{prefix}{url}{suffix}"
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return match.group(0)
 
     pattern = re.compile(r'(\!?\[.*?\]\(|href=["\']|src=["\'])data:image/([a-zA-Z0-9\+\-]+);base64,([a-zA-Z0-9\+/=\r\n]+)([\) "\'])')
     return pattern.sub(_replacer, text)
+
+
+def _safe_unverified_snippet_link(value: Any, label: str = "Suchtreffer") -> str | None:
+    """Accept only explicit HTTPS DNS hostnames for unverified snippet links.
+
+    Never make localhost/private-IP/credential URLs clickable. Purely textual
+    checks do not prove the remote host is safe; no network request is made.
+    """
+    if not isinstance(value, str) or not value or value != value.strip():
+        return None
+    if len(value) > 4096 or "\\" in value or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        return None
+    try:
+        target = urlsplit(value)
+        host = target.hostname
+        port = target.port
+    except ValueError:
+        return None
+    if (target.scheme != "https" or not host
+            or target.username is not None or target.password is not None
+            or port not in (None, 443)):
+        return None
+    hostname = host.lower().rstrip(".")
+    if hostname != host.lower() or len(hostname) > 253:
+        return None
+    if not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", hostname):
+        return None
+    labels = hostname.split(".")
+    if any(label.startswith("-") or label.endswith("-") or len(label) > 63 for label in labels):
+        return None
+    if all(label.isdecimal() for label in labels):
+        return None  # Dotted numeric IPs are not merchant DNS names.
+    if hostname.endswith((
+        ".localhost", ".local", ".internal", ".lan", ".home.arpa",
+        ".corp", ".cluster.local", ".localdomain", ".onion",
+        ".test", ".invalid", ".example",
+    )):
+        return None
+    # Escape Markdown delimiters in path/query rather than trusting snippets.
+    return f"[{label}]({quote(value, safe='/:?&=%#@+,-._~')})"
 
 
 def format_tool_content_if_json(content: str) -> str:
@@ -102,17 +144,79 @@ def format_tool_content_if_json(content: str) -> str:
             )
             return res.strip()
 
+        # Unverified search snippets must never use the "best price" or
+        # "purchase recommendation" formatter for verified merchant offers.
+        # Treat product names, errors and merchant snippets as untrusted Markdown.
+        def safe_cell(value: Any) -> str:
+            plain = " ".join(str(value).splitlines())
+            for mark in ("\\", "|", "`", "*", "_", "[", "]", "<", ">"):
+                plain = plain.replace(mark, "\\" + mark)
+            return plain
+
+        if data.get("data_quality") == "no_live_offers":
+            name = safe_cell(data.get("product_name") or data.get("query", "Produkt"))
+            if data.get("status") in ("invalid_query", "invalid_argument", "unsupported"):
+                reason = safe_cell(data.get("error") or "Ungültige oder nicht unterstützte Anfrage.")
+                return f"### 🛍️ Preisrecherche: {name}\n\n{reason}"
+            return (
+                f"### 🛍️ Preisrecherche: {name}\n\n"
+                "Keine aktuellen Preisangaben gefunden. Es wurden **keine** "
+                "Händlerangebote, Preise, Verfügbarkeiten oder Bewertungen erfunden."
+            )
+
+        if data.get("data_quality") == "search_snippet_unverified":
+            name = safe_cell(data.get("product_name") or data.get("query", "Produkt"))
+            lines = [
+                f"### 🛍️ Suchtreffer mit Preis-Hinweisen: {name}\n",
+                "**Nicht verifiziert:** Die Angaben stammen aus Suchtreffern, "
+                "nicht aus bestätigten Händlerangeboten. Versand und Verfügbarkeit "
+                "können abweichen. **Keine Kaufempfehlung oder bestätigter Bestpreis.**\n",
+                "| Händler laut Suchtreffer | Preis-Hinweis (ohne unbekannten Versand) | Versand | Verfügbarkeit | Quelle |",
+                "| :--- | ---: | :--- | :--- | :--- |",
+            ]
+            candidate_offers = data.get("offers")
+            for offer in candidate_offers if isinstance(candidate_offers, list) else []:
+                if not isinstance(offer, dict):
+                    continue
+                raw_price = offer.get("price")
+                if isinstance(raw_price, bool) or not isinstance(raw_price, (int, float)):
+                    continue
+                try:
+                    price = float(raw_price)
+                except (OverflowError, ValueError):
+                    continue
+                # Mirror the validated extraction interval even for JSON that
+                # did not pass through the product engine first.
+                if not math.isfinite(price) or not 5.0 <= price <= 25_000.0:
+                    continue
+                merchant = safe_cell(offer.get("merchant") or "Unbekannt")
+                # The formatter is a second trust boundary: arbitrary upstream
+                # JSON must not relabel an unverified snippet as in-stock or
+                # invent confirmed delivery fees.
+                shipping = ("0,00 € (laut Suchtreffer)"
+                            if offer.get("shipping") == "0,00 € (laut Suchtreffer)"
+                            else "Unbekannt")
+                available = "Nicht verifiziert"
+                url = offer.get("url")
+                # Only render a link when the hostname is unambiguously
+                # public-looking. This is display safety, NOT DNS or SSRF
+                # authorization for fetching the unverified result.
+                link = _safe_unverified_snippet_link(url) or "Keine Quelle"
+                lines.append(f"| {merchant} | {price:,.2f} € | {shipping} | {available} | {link} |")
+            return "\n".join(lines).strip()
+
         if "price_comparison" in data or ("best_price" in data and "offers" in data and isinstance(data.get("offers"), list)):
-            p_name = data.get("product_name") or data.get("product") or data.get("query", "Produkt")
+            p_name = safe_cell(data.get("product_name") or data.get("product") or data.get("query", "Produkt"))
             best_p = data.get("best_price", 0.0)
-            best_m = data.get("best_merchant") or (data.get("best_deal", {}).get("merchant") if isinstance(data.get("best_deal"), dict) else "Online-Händler")
+            best_m = safe_cell(data.get("best_merchant") or (data.get("best_deal", {}).get("merchant") if isinstance(data.get("best_deal"), dict) else "Online-Händler"))
             avg_p = data.get("average_price", 0.0)
-            max_p = data.get("max_price", 0.0)
             curr = data.get("currency", "EUR")
-            curr_sym = "€" if curr == "EUR" else ("$" if curr == "USD" else curr)
+            curr_sym = safe_cell("€" if curr == "EUR" else ("$" if curr == "USD" else curr))
             sav_val = data.get("max_savings_val") if data.get("max_savings_val") is not None else data.get("savings_max", 0.0)
             sav_pct = data.get("max_savings_percent") if data.get("max_savings_percent") is not None else data.get("savings_percent", 0.0)
             offers = data.get("offers", [])
+            if not isinstance(offers, list):
+                offers = []
 
             lines = [
                 f"### 🛍️ **Preisvergleich: {p_name}**\n",
@@ -123,16 +227,19 @@ def format_tool_content_if_json(content: str) -> str:
 
             medals = ["🥇", "🥈", "🥉"]
             for idx, off in enumerate(offers):
-                m_name = off.get("merchant", "Händler")
+                if not isinstance(off, dict):
+                    continue
+                m_name = safe_cell(off.get("merchant", "Händler"))
                 badge = medals[idx] if idx < len(medals) else "🔹"
                 p_val = off.get("price", 0.0)
-                ship_str = off.get("shipping", "0,00 €")
-                avail_str = off.get("availability", "🟢 Auf Lager")
+                ship_str = safe_cell(off.get("shipping", "Unbekannt"))
+                avail_str = safe_cell(off.get("availability", "Nicht verifiziert"))
                 u = off.get("url", "#")
+                link = _safe_unverified_snippet_link(u, "👉 Zum Angebot") or "Keine Quelle"
                 
                 is_best = (idx == 0)
                 p_fmt = f"**`{p_val:,.2f} {curr_sym}`** ⭐" if is_best else f"`{p_val:,.2f} {curr_sym}`"
-                lines.append(f"| {badge} **{m_name}** | {p_fmt} | `{ship_str}` | {avail_str} | [👉 Zum Angebot]({u}) |")
+                lines.append(f"| {badge} **{m_name}** | {p_fmt} | `{ship_str}` | {avail_str} | {link} |")
 
             if sav_val > 0:
                 lines.append(f"\n💡 **Kaufempfehlung:** Der Bestpreis liegt aktuell bei **{best_p:,.2f} {curr_sym}** bei **{best_m}** (eine Ersparnis von **{sav_val:,.2f} {curr_sym}** gegenüber dem Höchstpreis/UVP).")
@@ -380,7 +487,7 @@ def format_tool_content_if_json(content: str) -> str:
             return res.strip()
 
         if "profile" in data and "updated" in data:
-            return f"✅ **Benutzerprofil aktualisiert:** Präferenzen und Fakten wurden dauerhaft im Langzeitgedächtnis gespeichert."
+            return "✅ **Benutzerprofil aktualisiert:** Präferenzen und Fakten wurden dauerhaft im Langzeitgedächtnis gespeichert."
 
         if "profile" in data and isinstance(data.get("profile"), dict):
             prof = data["profile"]
@@ -667,7 +774,7 @@ def format_tool_content_if_json(content: str) -> str:
                 auth = iss.get("author", "")
                 comments = iss.get("comments_count", 0)
                 labels = iss.get("labels", [])
-                label_str = " " + " ".join(f"`{l}`" for l in labels) if labels else ""
+                label_str = " " + " ".join(f"`{label}`" for label in labels) if labels else ""
                 res += f"- {st_icon} [#{num} {title}]({i_url}){label_str} *(von @{auth}, 💬 {comments})*\n"
             return res.strip()
 
@@ -783,7 +890,7 @@ def format_tool_content_if_json(content: str) -> str:
             res = f"### 🛡️ Quarantäne-Staging aktiv (`{txn}`, {cnt} Dateien isoliert)\n\n"
             for fn, d_text in diffs.items():
                 res += f"#### 📄 `{fn}`\n```diff\n{d_text.strip()[:3000]}\n```\n\n"
-            res += f"*Verwende `quarantine_commit` zur Bestätigung oder `quarantine_rollback` zum Verwerfen.*"
+            res += "*Verwende `quarantine_commit` zur Bestätigung oder `quarantine_rollback` zum Verwerfen.*"
             return res.strip()
 
         if "total_committed" in data and "committed_files" in data:
@@ -925,7 +1032,7 @@ def format_tool_content_if_json(content: str) -> str:
             res = f"### 🚀 WebApp Bereitgestellt: **{title}**\n\n"
             res += f"- **📱 Interaktive WebApp / Spiel:** [🎮 **Jetzt Live Starten: {title}**]({full_u})\n"
             res += f"- **🌐 Lokaler Pfad:** `{url_p}` *({sz:,} Bytes)*\n\n"
-            res += f"> 💡 **Tipp:** Du kannst die Anwendung direkt im Browser oder auf deinem Smartphone (Samsung Galaxy S25) / Mobilgerät öffnen. Volle Touch-, On-Screen D-Pad und Tastatur-Steuerung ist aktiv!"
+            res += "> 💡 **Tipp:** Du kannst die Anwendung direkt im Browser oder auf deinem Smartphone (Samsung Galaxy S25) / Mobilgerät öffnen. Volle Touch-, On-Screen D-Pad und Tastatur-Steuerung ist aktiv!"
             return res.strip()
 
         if "total_apps" in data and "apps" in data and isinstance(data.get("apps"), list):
@@ -1241,8 +1348,8 @@ def format_tool_content_if_json(content: str) -> str:
                                 res_str += f"   *{clean_snip}*\n\n"
                         res_str += "\n"
                     return res_str.strip()
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
             return f"Für **{city}** konnten im aktuellen Zeitraum keine passenden Veranstaltungen gefunden werden."
 
@@ -1571,8 +1678,7 @@ def format_tool_content_if_json(content: str) -> str:
             if q:
                 return f"ℹ️ Für **'{q}'** konnten keine direkten Daten ermittelt werden ({err_msg})."
             return f"ℹ️ {err_msg}"
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return str(content or "")
-
 

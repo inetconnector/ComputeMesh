@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import os
 import unittest
@@ -39,9 +38,8 @@ class InferenceBackendTests(unittest.TestCase):
             backend.complete(model_id="model", messages=[])
 
     def test_synthetic_requires_explicit_double_opt_in(self) -> None:
-        with patch.dict(os.environ, {"COMPUTEMESH_INFERENCE_BACKEND": "synthetic"}, clear=True):
-            with self.assertRaises(InferenceBackendError):
-                build_inference_backend_from_env()
+        with patch.dict(os.environ, {"COMPUTEMESH_INFERENCE_BACKEND": "synthetic"}, clear=True), self.assertRaises(InferenceBackendError):
+            build_inference_backend_from_env()
 
         env = {
             "COMPUTEMESH_INFERENCE_BACKEND": "synthetic",
@@ -106,9 +104,8 @@ class InferenceBackendTests(unittest.TestCase):
         with patch(
             "services.gateway.inference_backend.request.urlopen",
             return_value=_FakeResponse({"choices": []}),
-        ):
-            with self.assertRaises(InferenceBackendError):
-                backend.complete(model_id="test-model", messages=[])
+        ), self.assertRaises(InferenceBackendError):
+            backend.complete(model_id="test-model", messages=[])
 
     def test_invalid_url_is_rejected(self) -> None:
         with self.assertRaises(ValueError):

@@ -9,7 +9,7 @@ import queue
 import subprocess
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
 DEFAULT_RPC_TIMEOUT_SECONDS = 15.0
@@ -22,8 +22,8 @@ class MCPStdioClient:
         self,
         name: str,
         command: str,
-        args: Optional[List[str]] = None,
-        env: Optional[Dict[str, str]] = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
         rpc_timeout_seconds: float = DEFAULT_RPC_TIMEOUT_SECONDS,
     ):
         self.name = name
@@ -31,7 +31,7 @@ class MCPStdioClient:
         self.args = list(args or [])
         self.env = dict(env or {}) if env else None
         self.rpc_timeout_seconds = max(0.1, min(120.0, float(rpc_timeout_seconds)))
-        self.process: Optional[subprocess.Popen] = None
+        self.process: subprocess.Popen | None = None
         self._next_id = 1
         self._lifecycle_lock = threading.RLock()
         self._rpc_lock = threading.Lock()
@@ -71,11 +71,11 @@ class MCPStdioClient:
                     "clientInfo": {"name": "ComputeMesh-MCP", "version": "1.2"},
                 })
                 if not isinstance(init_res, dict):
-                    raise RuntimeError("Ungültige initialize-Antwort des MCP-Servers")
+                    raise TypeError("Ungültige initialize-Antwort des MCP-Servers")
                 self._send_notification("notifications/initialized", {})
                 self._is_initialized = True
                 return True
-            except Exception:
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._terminate_process_locked()
                 return False
 
@@ -89,41 +89,41 @@ class MCPStdioClient:
             if process.poll() is None:
                 process.terminate()
                 process.wait(timeout=2.0)
-        except Exception:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             try:
                 process.kill()
                 process.wait(timeout=1.0)
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
         for stream_name in ("stdin", "stdout"):
             stream = getattr(process, stream_name, None)
             try:
                 if stream:
                     stream.close()
-            except Exception:
-                pass
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     def stop(self) -> None:
         with self._lifecycle_lock:
             self._terminate_process_locked()
 
-    def list_tools(self) -> List[Dict[str, Any]]:
+    def list_tools(self) -> list[dict[str, Any]]:
         if not self._is_initialized and not self.start():
             return []
         try:
             res = self._send_rpc("tools/list", {})
-        except Exception:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self.stop()
             return []
         tools = res.get("tools") if isinstance(res, dict) else None
         return tools if isinstance(tools, list) else []
 
-    def call_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
+    def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         if not self._is_initialized and not self.start():
             return {"error": f"MCP-Server '{self.name}' nicht gestartet"}
         try:
             return self._send_rpc("tools/call", {"name": name, "arguments": arguments})
-        except Exception as exc:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             self.stop()
             return {"error": f"MCP-Server '{self.name}' RPC fehlgeschlagen: {exc}"}
 
@@ -134,7 +134,7 @@ class MCPStdioClient:
         def reader() -> None:
             try:
                 result_queue.put((True, stream.readline()))
-            except Exception as exc:
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 result_queue.put((False, exc))
 
         thread = threading.Thread(target=reader, name="mcp-stdio-read", daemon=True)
@@ -147,7 +147,7 @@ class MCPStdioClient:
             raise RuntimeError(f"MCP-stdout konnte nicht gelesen werden: {value}")
         return str(value)
 
-    def _send_rpc(self, method: str, params: Dict[str, Any]) -> Any:
+    def _send_rpc(self, method: str, params: dict[str, Any]) -> Any:
         with self._rpc_lock:
             process = self.process
             if not process or process.poll() is not None or not process.stdin or not process.stdout:
@@ -164,7 +164,7 @@ class MCPStdioClient:
             try:
                 process.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
                 process.stdin.flush()
-            except Exception as exc:
+            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 raise RuntimeError(f"MCP-Request konnte nicht gesendet werden: {exc}") from exc
 
             deadline = time.monotonic() + self.rpc_timeout_seconds
@@ -194,7 +194,7 @@ class MCPStdioClient:
                     raise RuntimeError(f"MCP RPC Error: {data['error']}")
                 return data.get("result")
 
-    def _send_notification(self, method: str, params: Dict[str, Any]) -> None:
+    def _send_notification(self, method: str, params: dict[str, Any]) -> None:
         process = self.process
         if not process or process.poll() is not None or not process.stdin:
             return
@@ -202,8 +202,8 @@ class MCPStdioClient:
         try:
             process.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
             process.stdin.flush()
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
 
 class MCPClient:
@@ -211,14 +211,14 @@ class MCPClient:
 
     def __init__(self, config_path: str = ""):
         self.config_path = config_path
-        self.servers: Dict[str, MCPStdioClient] = {}
+        self.servers: dict[str, MCPStdioClient] = {}
 
     def add_stdio_server(
         self,
         name: str,
         command: str,
-        args: Optional[List[str]] = None,
-        env: Optional[Dict[str, str]] = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
         rpc_timeout_seconds: float = DEFAULT_RPC_TIMEOUT_SECONDS,
     ) -> None:
         if not str(name or "").strip() or not str(command or "").strip():
@@ -235,7 +235,7 @@ class MCPClient:
         self,
         name: str,
         url: str,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         timeout_seconds: float = DEFAULT_RPC_TIMEOUT_SECONDS,
     ) -> None:
         if not str(name or "").strip() or not str(url or "").strip():

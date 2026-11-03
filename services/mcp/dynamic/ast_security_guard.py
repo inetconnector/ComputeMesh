@@ -8,18 +8,17 @@ banning code-execution/introspections builtins, and blocking dunder escapes.
 from __future__ import annotations
 
 import ast
-from typing import Set
+from typing import ClassVar
 
 
 class SecurityASTViolation(Exception):
     """Raised when dynamically generated code violates security policies."""
-    pass
 
 
 class SecurityASTVisitor(ast.NodeVisitor):
     """Recursively validates Python AST against Zero-Trust security rules."""
 
-    ALLOWED_MODULES: Set[str] = {
+    ALLOWED_MODULES: ClassVar[set[str]] = {
         "math", "cmath", "random", "re", "json", "datetime", "time",
         "itertools", "functools", "collections", "scipy", "numpy",
         "pandas", "shapely", "networkx", "sympy", "urllib.parse",
@@ -27,13 +26,13 @@ class SecurityASTVisitor(ast.NodeVisitor):
         "statistics", "decimal", "fractions", "bisect", "heapq"
     }
 
-    FORBIDDEN_BUILTINS: Set[str] = {
+    FORBIDDEN_BUILTINS: ClassVar[set[str]] = {
         "eval", "exec", "compile", "open", "getattr", "setattr", "delattr",
         "globals", "locals", "vars", "__import__", "breakpoint", "memoryview",
         "input", "help", "exit", "quit", "super"
     }
 
-    FORBIDDEN_ATTRIBUTES: Set[str] = {
+    FORBIDDEN_ATTRIBUTES: ClassVar[set[str]] = {
         "__subclasses__", "__bases__", "__mro__", "__code__", "__globals__",
         "__dict__", "__class__", "__closure__", "__builtins__", "__import__",
         "__qualname__", "__module__", "__wrapped__", "__reduce__", "__reduce_ex__",
@@ -71,11 +70,10 @@ class SecurityASTVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         # Check direct call to forbidden builtins (e.g. eval(), open())
-        if isinstance(node.func, ast.Name):
-            if node.func.id in self.FORBIDDEN_BUILTINS:
-                raise SecurityASTViolation(
-                    f"Aufruf der verbotenen Builtin-Funktion '{node.func.id}' ist strikt untersagt."
-                )
+        if isinstance(node.func, ast.Name) and node.func.id in self.FORBIDDEN_BUILTINS:
+            raise SecurityASTViolation(
+                f"Aufruf der verbotenen Builtin-Funktion '{node.func.id}' ist strikt untersagt."
+            )
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:

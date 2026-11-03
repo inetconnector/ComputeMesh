@@ -6,10 +6,10 @@ accidentally exposing an unmoderated image model.
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 import base64
 import json
 import os
+from http import HTTPStatus
 from typing import Any
 from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError
@@ -52,7 +52,8 @@ def _post_json(url: str, payload: dict[str, Any], *, api_key: str = "", timeout:
     except Exception as exc:
         raise RuntimeError("configured image service returned malformed JSON") from exc
     if not isinstance(obj, dict):
-        raise RuntimeError("configured image service returned invalid response")
+        err = RuntimeError("configured image service returned invalid response")
+        raise err
     return obj
 
 
@@ -140,7 +141,8 @@ class OpenAICompatibleImageBackend:
         data = _post_json(self.url, payload, api_key=self.api_key, timeout=180.0)
         items = data.get("data")
         if not isinstance(items, list):
-            raise RuntimeError("image backend response missing data array")
+            err = RuntimeError("image backend response missing data array")
+            raise err
         result: list[tuple[bytes, str]] = []
         for item in items:
             if not isinstance(item, dict) or not item.get("b64_json"):
@@ -230,7 +232,7 @@ def install_image_generation_routes(base_handler_cls):
             length_header = self.headers.get("Content-Length", "")
             try:
                 length = int(length_header)
-            except Exception:
+            except (ValueError, TypeError):
                 self._send_error_response("Valid Content-Length required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
             if length < 2 or length > 256 * 1024:
@@ -239,7 +241,7 @@ def install_image_generation_routes(base_handler_cls):
 
             try:
                 body = json.loads(self.rfile.read(length).decode("utf-8"))
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._send_error_response("Malformed JSON request body", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
 
@@ -254,7 +256,7 @@ def install_image_generation_routes(base_handler_cls):
 
             try:
                 service = type(self)._get_image_service()
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._send_error_response(
                     "Image generation is not safely configured on this gateway",
                     "service_unavailable",
@@ -284,7 +286,7 @@ def install_image_generation_routes(base_handler_cls):
             except ValueError as exc:
                 self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
-            except Exception:
+            except (OSError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._send_error_response(
                     "Image generation failed",
                     "image_generation_error",

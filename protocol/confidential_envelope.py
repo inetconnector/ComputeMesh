@@ -12,19 +12,23 @@ isolation are separate mandatory P0 controls.
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass, field
+import contextlib
 import json
 import secrets
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import Any, Self
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import (
+    X25519PrivateKey,
+    X25519PublicKey,
+)
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from services.common.secure_memory import secure_zero_memory
-
 
 SCHEMA_VERSION = 2
 REQUEST_ALGORITHM = "X25519-HKDF-SHA256-AES-256-GCM"
@@ -86,7 +90,7 @@ class ConfidentialBinding:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ConfidentialBinding":
+    def from_dict(cls, value: Mapping[str, Any]) -> ConfidentialBinding:
         if not isinstance(value, Mapping) or set(value) != {
             "account_id",
             "job_id",
@@ -136,7 +140,7 @@ class ConfidentialEnvelope:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ConfidentialEnvelope":
+    def from_dict(cls, value: Mapping[str, Any]) -> ConfidentialEnvelope:
         if not isinstance(value, Mapping):
             raise ConfidentialEnvelopeError("envelope must be an object")
         required = {
@@ -206,7 +210,7 @@ class ConfidentialResponseEnvelope:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ConfidentialResponseEnvelope":
+    def from_dict(cls, value: Mapping[str, Any]) -> ConfidentialResponseEnvelope:
         if not isinstance(value, Mapping) or set(value) != {
             "schema_version",
             "algorithm",
@@ -265,7 +269,7 @@ class ConfidentialClientContext:
             secure_zero_memory(self._response_key)
             self._closed = True
 
-    def __enter__(self) -> "ConfidentialClientContext":
+    def __enter__(self) -> Self:
         if self._closed:
             raise ConfidentialEnvelopeError("confidential client context is closed")
         return self
@@ -274,10 +278,8 @@ class ConfidentialClientContext:
         self.close()
 
     def __del__(self) -> None:
-        try:
+        with contextlib.suppress(AttributeError, OSError, ValueError, TypeError, BufferError, RuntimeError):
             self.close()
-        except Exception:
-            pass
 
 
 def _validate_hex_id(value: Any, label: str) -> None:

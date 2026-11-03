@@ -1,7 +1,7 @@
 """Tests for unified owner earned/purchased/promo credit accounting."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.ledger import DuplicateEventError, InsufficientBalanceError
 from services.billing.owner_credits import (

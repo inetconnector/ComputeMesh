@@ -7,13 +7,14 @@ the complete content-free session boundary, not merely model/token limits.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from protocol.confidential_request_contract import (
-    ConfidentialRequestContractError,
     SESSION_ATTESTATION_NONCE_PREFIX,
+    ConfidentialRequestContractError,
     verify_committed_session_attestation_nonce,
 )
 
@@ -46,7 +47,7 @@ def _timestamp(value: Any, label: str) -> datetime:
     if not isinstance(value, str):
         raise ConfidentialAttestationError(f"{label} must be a timestamp string")
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise ConfidentialAttestationError(f"{label} is not RFC3339") from exc
     if parsed.tzinfo is None:
@@ -119,6 +120,6 @@ def verify_confidential_attestation(
         return AttestationVerification(False, technology, "no concrete verifier registered")
     try:
         ok = verifier(record) is True
-    except Exception:
+    except (ValueError, TypeError, KeyError, RuntimeError, OSError, LookupError):
         ok = False
     return AttestationVerification(ok, technology, "verified" if ok else "technology verification failed")

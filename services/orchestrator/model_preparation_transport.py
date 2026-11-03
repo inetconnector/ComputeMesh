@@ -1,8 +1,9 @@
 """Authenticated NodeOS transport for authorization-gated model preparation."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Mapping
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import Any
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
@@ -47,7 +48,7 @@ class AuthenticatedModelPreparationClient:
         if session.state is not NodeSessionState.READY:
             raise ModelPreparationTransportError("node session is not ready for model preparation")
         expires = session.credential_expires_at
-        if expires <= datetime.now(timezone.utc):
+        if expires <= datetime.now(UTC):
             raise ModelPreparationTransportError("node session credential has expired")
 
     def __call__(self, node: Any, request: Mapping[str, Any]) -> Mapping[str, Any]:

@@ -8,15 +8,15 @@ backend.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import glob
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import threading
-from typing import Any, TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from tools.appliance.hardware_detector import RigInventory
@@ -161,7 +161,7 @@ def _apply_nvidia_settings(gpu_index: int, mode: str, target: int) -> tuple[bool
         command = ["nvidia-settings", "-c", display]
         for value in values:
             command.extend(["-a", value])
-        result = subprocess.run(command, capture_output=True, text=True, timeout=8, **_flags())
+        result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=8, **_flags())
         if result.returncode != 0:
             return False, (result.stderr or result.stdout or "nvidia-settings fehlgeschlagen").strip()[-300:]
         return True, "NVIDIA-Lüfterprofil angewendet"
@@ -196,7 +196,7 @@ def apply_fan_policy(inventory: RigInventory, mode: str, target_percent: int) ->
         try:
             from tools.appliance.hardware_detector import read_all_thermals
             temperatures = {item.gpu_index: item.temperature_celsius for item in read_all_thermals(inventory)}
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             temperatures = {}
     results: list[dict[str, Any]] = []
     for gpu in inventory.gpus:
@@ -244,6 +244,6 @@ class FanSafetyController:
                 mode = str(getattr(self.config, "fan_control_mode", "safe_auto") or "safe_auto")
                 if mode == "safe_auto":
                     apply_fan_policy(self.inventory, "safe_auto", 25)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
             self._stop.wait(self.interval_seconds)

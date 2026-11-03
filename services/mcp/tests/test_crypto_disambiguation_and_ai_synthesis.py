@@ -5,13 +5,14 @@ and AI Synthesis in ComputeMesh MCP subsystem.
 """
 
 import unittest
+
+from services.mcp.formatting.tool_formatter import format_tool_content_if_json
 from services.mcp.intent.intent_router import (
-    detect_direct_tool_intent,
     detect_compound_tool_intents,
+    detect_direct_tool_intent,
     is_compound_multi_step_query,
 )
 from services.mcp.tool_registry import ToolRegistry
-from services.mcp.formatting.tool_formatter import format_tool_content_if_json
 
 
 class TestCryptoDisambiguationAndSynthesis(unittest.TestCase):

@@ -8,13 +8,13 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.mission_journal")
 MISSIONS_DIR_NAME = os.path.join(".computemesh", "missions")
 
 
-def _get_missions_dir(workspace_root: Optional[str] = None) -> str:
+def _get_missions_dir(workspace_root: str | None = None) -> str:
     root = os.path.abspath(workspace_root or ".")
     m_dir = os.path.join(root, MISSIONS_DIR_NAME)
     os.makedirs(m_dir, exist_ok=True)
@@ -23,10 +23,10 @@ def _get_missions_dir(workspace_root: Optional[str] = None) -> str:
 
 def mission_start(
     objective: str,
-    constraints: Optional[List[str]] = None,
-    success_criteria: Optional[List[str]] = None,
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    constraints: list[str] | None = None,
+    success_criteria: list[str] | None = None,
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Starts and persists a structured agent mission journal."""
     clean_obj = str(objective or "").strip()
     if not clean_obj:
@@ -74,8 +74,8 @@ def mission_log_step(
     action: str,
     evidence: str = "",
     status: str = "done",
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Appends an execution step or evidence checkpoint to the mission journal."""
     root = os.path.abspath(workspace_root or ".")
     m_path = os.path.join(_get_missions_dir(root), f"{mission_id}.json")
@@ -107,9 +107,9 @@ def mission_log_step(
 
 def mission_verify_postconditions(
     mission_id: str,
-    checks: List[Dict[str, Any]],
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    checks: list[dict[str, Any]],
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Validates mission completion against success criteria."""
     root = os.path.abspath(workspace_root or ".")
     m_path = os.path.join(_get_missions_dir(root), f"{mission_id}.json")
@@ -146,7 +146,7 @@ def mission_verify_postconditions(
     }
 
 
-def mission_get_summary(mission_id: str, workspace_root: Optional[str] = None) -> Dict[str, Any]:
+def mission_get_summary(mission_id: str, workspace_root: str | None = None) -> dict[str, Any]:
     """Retrieves full journal history and completion state for a mission."""
     root = os.path.abspath(workspace_root or ".")
     m_path = os.path.join(_get_missions_dir(root), f"{mission_id}.json")
@@ -161,11 +161,11 @@ def mission_get_summary(mission_id: str, workspace_root: Optional[str] = None) -
 
 def checkpoint_save(
     checkpoint_id: str,
-    data: Optional[Dict[str, Any]] = None,
-    artifacts: Optional[List[str]] = None,
+    data: dict[str, Any] | None = None,
+    artifacts: list[str] | None = None,
     notes: str = "",
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Saves a named/numbered state checkpoint (e.g. 'CP01', 'CP19') to ensure zero-loss resumption."""
     clean_id = str(checkpoint_id or "").strip()
     if not clean_id:
@@ -198,9 +198,9 @@ def checkpoint_save(
 
 
 def checkpoint_resume(
-    checkpoint_id: Optional[str] = None,
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    checkpoint_id: str | None = None,
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Resumes work by loading the specified or most recent saved checkpoint."""
     root = os.path.abspath(workspace_root or ".")
     cp_dir = os.path.join(root, ".computemesh", "checkpoints")
@@ -235,7 +235,7 @@ def checkpoint_resume(
     }
 
 
-def checkpoint_list(workspace_root: Optional[str] = None) -> Dict[str, Any]:
+def checkpoint_list(workspace_root: str | None = None) -> dict[str, Any]:
     """Lists all available checkpoints in chronological order for review and resumption."""
     root = os.path.abspath(workspace_root or ".")
     cp_dir = os.path.join(root, ".computemesh", "checkpoints")
@@ -255,7 +255,8 @@ def checkpoint_list(workspace_root: Optional[str] = None) -> Dict[str, Any]:
                     "notes": data.get("notes", ""),
                     "artifacts": data.get("artifacts", []),
                 })
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
             continue
 
     return {

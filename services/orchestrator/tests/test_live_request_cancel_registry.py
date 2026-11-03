@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 import threading
-import time
 import unittest
+from pathlib import Path
 
 from services.gateway.inference_backend import InferenceBackendError
 from services.orchestrator.live_shared_backend import LiveSharedInferenceBackend
@@ -43,7 +42,7 @@ class LiveRequestCancelRegistryTests(unittest.TestCase):
                     model_id="model",
                     messages=[{"role": "user", "content": "x"}],
                 )
-            except Exception as exc:
+            except (InferenceBackendError, OSError, ValueError, TypeError, RuntimeError) as exc:
                 errors.append(exc)
 
         thread = threading.Thread(target=run)

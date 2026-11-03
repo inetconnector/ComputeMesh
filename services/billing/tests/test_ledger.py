@@ -1,16 +1,12 @@
 """Unit tests for ComputeMesh Double-Entry Billing & Settlement Ledger."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.ledger import (
-    BillingError,
     DuplicateEventError,
     InsufficientBalanceError,
     Ledger,
-    LedgerReconciliationError,
-    Posting,
-    Transaction,
 )
 
 
@@ -159,7 +155,7 @@ class TestBillingLedger(unittest.TestCase):
         self.assertGreaterEqual(provider_bal, 25_000_000)
 
         # Trigger settlement payout
-        tx, summary = self.ledger.create_provider_payout(
+        _tx, summary = self.ledger.create_provider_payout(
             provider_node_id="miner_node_top",
             wallet_address="0x71a9f02c4b8e6d0123456789abcdef0123456789",
         )

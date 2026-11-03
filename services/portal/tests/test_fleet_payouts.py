@@ -1,27 +1,32 @@
 """Comprehensive Unit and Integration Tests for Fleet Payouts & Stripe Connect System."""
-from datetime import datetime, timezone
-from http import HTTPStatus
-from http.server import ThreadingHTTPServer
 import json
-from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import MagicMock, patch
 import urllib.error
 import urllib.request
+from http import HTTPStatus
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+from unittest.mock import MagicMock
 
-from services.billing.accounting import AccountingStore, SettlementRecord
-from services.billing.ledger import Ledger, MICRO_UNIT_SCALE, MINIMUM_PAYOUT_MICRO_UNITS
+import services.gateway.server as gateway_server_module
+from services.billing.accounting import AccountingStore
+from services.billing.ledger import MICRO_UNIT_SCALE
 from services.billing.owner_credits import owner_bucket_account
-from services.billing.owner_settlement import OwnerPayoutProfile, OwnerPayoutProfileStore, PayoutCapableOwnerLedger
-from services.billing.stripe_connect import AccountLinkResult, ConnectedAccountResult, StripeConnectService
-from services.portal.routes_payouts import PortalPayoutsHandler
-from services.portal.server import PortalHandler
+from services.billing.owner_settlement import (
+    PayoutCapableOwnerLedger,
+)
+from services.billing.stripe_connect import (
+    AccountLinkResult,
+    ConnectedAccountResult,
+    StripeConnectService,
+)
 from services.portal import passkey_routes
 from services.portal.fleet_accounts import FleetAccountStore
-import services.gateway.server as gateway_server_module
+from services.portal.routes_payouts import PortalPayoutsHandler
+from services.portal.server import PortalHandler
 
 
 class TestFleetPayoutsSubsystem(unittest.TestCase):
@@ -108,7 +113,7 @@ class TestFleetPayoutsSubsystem(unittest.TestCase):
 
     def test_settlement_rejected_when_payouts_not_enabled(self) -> None:
         # Give $50 earned balance
-        earned_account = owner_bucket_account("owner_test_123", "earned")
+        _earned_account = owner_bucket_account("owner_test_123", "earned")
         self.ledger.credit_owner_earned_credits(
             owner_id="owner_test_123",
             amount_micro_units=50 * MICRO_UNIT_SCALE,

@@ -1,18 +1,21 @@
 """Authenticated HTTP routes for local NodeOS model management."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
-from typing import Any
 import urllib.parse
+from http import HTTPStatus
+from typing import Any
 
-from services.appliance_dashboard.model_manager import ModelManagerError, get_model_manager
+from services.appliance_dashboard.model_manager import (
+    ModelManagerError,
+    get_model_manager,
+)
 
 
 class ModelManagerHandler:
     @staticmethod
     def handles(req_path: str) -> bool:
-        return req_path == "/api/models/manage" or req_path.startswith("/api/models/hf/") or req_path.startswith("/api/models/action/")
+        return req_path == "/api/models/manage" or req_path.startswith(("/api/models/hf/", "/api/models/action/"))
 
     @staticmethod
     def handle_get(handler: Any, req_path: str, query: str = "") -> bool:

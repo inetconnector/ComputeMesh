@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import json
 import logging
-import urllib.request
 import urllib.error
-from typing import Any, Dict, List, Optional, Tuple
+import urllib.request
+from typing import Any
 
 from .block import LedgerBlock, ProofOfExecutionReceipt
+from .compact_chain import GENESIS_PREV_HASH, CompactLedger, get_compact_ledger
 from .merkle_tree import MerkleTree
-from .compact_chain import CompactLedger, get_compact_ledger, GENESIS_PREV_HASH
 
 logger = logging.getLogger("ComputeMesh.MCP.LedgerSync")
 
@@ -22,10 +22,10 @@ logger = logging.getLogger("ComputeMesh.MCP.LedgerSync")
 class LedgerSyncEngine:
     """Orchestrates block replication, cryptographic validation, and broadcast across fleet nodes."""
 
-    def __init__(self, ledger: Optional[CompactLedger] = None) -> None:
+    def __init__(self, ledger: CompactLedger | None = None) -> None:
         self.ledger = ledger or get_compact_ledger()
 
-    def get_blocks_since(self, since_index: int = -1, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_blocks_since(self, since_index: int = -1, limit: int = 50) -> list[dict[str, Any]]:
         """Extracts sequential blocks and their receipts starting immediately after since_index."""
         safe_limit = max(1, min(100, limit))
         with self.ledger._db_session() as conn:
@@ -93,9 +93,9 @@ class LedgerSyncEngine:
 
     def ingest_remote_block(
         self,
-        block_data: Dict[str, Any],
-        receipts_data: List[Dict[str, Any]],
-    ) -> Tuple[bool, str]:
+        block_data: dict[str, Any],
+        receipts_data: list[dict[str, Any]],
+    ) -> tuple[bool, str]:
         """Validates the cryptographic integrity of an incoming remote block and writes it to the local chain."""
         try:
             block = LedgerBlock(
@@ -128,8 +128,8 @@ class LedgerSyncEngine:
                     return False, "Genesis Block hat ungültigen prev_hash."
 
             # Reconstruct Receipts and verify leaf hashes
-            reconstructed_receipts: List[ProofOfExecutionReceipt] = []
-            leaf_hashes: List[str] = []
+            reconstructed_receipts: list[ProofOfExecutionReceipt] = []
+            leaf_hashes: list[str] = []
             for rd in receipts_data:
                 r_obj = ProofOfExecutionReceipt(
                     receipt_id=rd["receipt_id"],
@@ -166,16 +166,16 @@ class LedgerSyncEngine:
             logger.info(f"Erfolgreich Remote-Block #{block.index} ({block.block_hash[:16]}) synchronisiert.")
             return True, f"Block #{block.index} erfolgreich verifiziert und synchronisiert."
 
-        except Exception as exc:
-            logger.error(f"Fehler bei Ingestion von Remote-Block: {exc}", exc_info=True)
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            logger.exception("Fehler bei Ingestion von Remote-Block")
             return False, f"Ausnahmefehler bei Block-Ingestion: {exc}"
 
     def sync_from_peer(
         self,
         peer_url: str,
-        auth_token: Optional[str] = None,
+        auth_token: str | None = None,
         timeout: float = 8.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetches and applies missing blocks sequentially from a peer node."""
         clean_url = peer_url.rstrip("/")
         stats = self.ledger.get_stats()
@@ -225,16 +225,16 @@ class LedgerSyncEngine:
 
         except urllib.error.URLError as exc:
             return {"success": False, "error": f"Verbindungsfehler zu Peer '{peer_url}': {exc}", "peer_url": peer_url}
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"success": False, "error": f"Synchronisationsfehler: {exc}", "peer_url": peer_url}
 
     def broadcast_block(
         self,
         block: LedgerBlock,
-        receipts: List[ProofOfExecutionReceipt],
-        peer_urls: List[str],
+        receipts: list[ProofOfExecutionReceipt],
+        peer_urls: list[str],
         timeout: float = 3.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Broadcasts a newly sealed block and its receipts to peer cluster nodes."""
         payload = json.dumps({
             "block": block.to_dict(),
@@ -251,13 +251,13 @@ class LedgerSyncEngine:
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     results[peer] = {"status": resp.status, "ok": resp.status == 200}
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 results[peer] = {"status": 0, "ok": False, "error": str(exc)}
 
         return {"broadcast_count": len(peer_urls), "results": results}
 
 
-_global_sync_engine: Optional[LedgerSyncEngine] = None
+_global_sync_engine: LedgerSyncEngine | None = None
 
 
 def get_ledger_sync_engine() -> LedgerSyncEngine:

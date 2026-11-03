@@ -7,14 +7,14 @@ only a signed content-free usage receipt is persisted before ledger capture.
 """
 from __future__ import annotations
 
-from collections.abc import Iterator
+import json
+import sqlite3
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import json
 from pathlib import Path
-import sqlite3
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 
 from protocol.confidential_metering import ConfidentialUsageReceipt
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
@@ -387,7 +387,7 @@ def _timestamp(value: str) -> datetime:
     if not isinstance(value, str):
         raise ConfidentialSessionError("invalid confidential session timestamp")
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise ConfidentialSessionError("invalid confidential session timestamp") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:

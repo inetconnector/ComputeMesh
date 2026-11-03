@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from http import HTTPStatus
 import unittest
+from http import HTTPStatus
 
 from runtime.confidential.execution_gate import ProtectedExecutionEvidence
 from services.compliance.mesh_policy import ExecutionPrivacyClass

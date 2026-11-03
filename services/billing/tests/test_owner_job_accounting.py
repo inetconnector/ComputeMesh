@@ -1,7 +1,7 @@
 """Tests for owner-aware marketplace/self-compute settlement math."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.owner_credits import OwnerCreditLedger
 from services.billing.owner_job_accounting import (

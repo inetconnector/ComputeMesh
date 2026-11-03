@@ -1,8 +1,7 @@
 """Privacy-by-design regression tests for public portal HTML."""
 
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 PORTAL_DIR = Path(__file__).resolve().parents[3] / "portal"
 FORBIDDEN_BROWSER_ORIGINS = (

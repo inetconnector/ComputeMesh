@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
 from protocol.control import (
     ControlEnvelope,
@@ -80,12 +81,12 @@ def _fingerprint(env: ControlEnvelope) -> str:
 def _parse_lease(env: ControlEnvelope) -> datetime:
     raw = env.payload["lease_expires_at"]
     try:
-        value = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        value = datetime.fromisoformat(str(raw))
     except ValueError as exc:
         raise _bad_payload(env, "lease_expires_at must be RFC3339 date-time") from exc
     if value.tzinfo is None:
         raise _bad_payload(env, "lease_expires_at must include timezone")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 _MESSAGE_VALIDATOR = MessageContractValidator()

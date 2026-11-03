@@ -8,27 +8,24 @@ enforcement of the core invariants defined in ARCHITECTURE.md:
 """
 from __future__ import annotations
 
-import time
 import threading
-from typing import Any, Callable, TypeVar, Generic, Optional
+import time
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 T = TypeVar('T')
 
 class HardeningError(RuntimeError):
     """Base exception for architecture hardening violations."""
-    pass
 
 class CircuitBreakerOpenError(HardeningError):
     """Raised when an operation is rejected because the circuit breaker is open."""
-    pass
 
 class IdempotencyViolationError(HardeningError):
     """Raised when an idempotency key is reused inappropriately."""
-    pass
 
 class WorkloadAdmissionError(HardeningError):
     """Raised when workload admission invariants are violated."""
-    pass
 
 
 class MeshCircuitBreaker:
@@ -85,9 +82,9 @@ class MeshCircuitBreaker:
             result = func()
             self.record_success()
             return result
-        except Exception as e:
+        except Exception:
             self.record_failure()
-            raise e
+            raise
 
 
 class IdempotencyEnforcer:
@@ -132,12 +129,12 @@ class IdempotencyEnforcer:
         # We are the first to execute this
         try:
             result = func()
-        except Exception as e:
+        except Exception:
             with self._lock:
                 del self._seen_keys[idempotency_key]
                 event = self._in_progress_events.pop(idempotency_key)
                 event.set()
-            raise e
+            raise
 
         with self._lock:
             self._seen_keys[idempotency_key] = (time.time(), result)

@@ -8,7 +8,7 @@ import logging
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.http_client")
 
@@ -23,7 +23,7 @@ class MCPHttpClient:
         self,
         name: str,
         url: str,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         timeout_seconds: float = DEFAULT_HTTP_TIMEOUT,
     ):
         self.name = str(name).strip()
@@ -33,7 +33,7 @@ class MCPHttpClient:
         self._next_id = 1
         self._is_initialized = False
 
-    def _send_rpc(self, method: str, params: Dict[str, Any]) -> Any:
+    def _send_rpc(self, method: str, params: dict[str, Any]) -> Any:
         req_id = self._next_id
         self._next_id += 1
         payload = {
@@ -57,7 +57,7 @@ class MCPHttpClient:
         except urllib.error.HTTPError as err:
             err_body = err.read().decode("utf-8", errors="ignore")
             raise RuntimeError(f"HTTP {err.code}: {err_body or err.reason}")
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             raise RuntimeError(f"Verbindungsfehler zu MCP-Server '{self.name}': {exc}")
 
         # If response is SSE event stream, find data line
@@ -90,25 +90,25 @@ class MCPHttpClient:
             if isinstance(res, dict):
                 self._is_initialized = True
                 return True
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             log.warning(f"MCP-Server '{self.name}' Initialisierung fehlgeschlagen: {exc}")
         return False
 
-    def list_tools(self) -> List[Dict[str, Any]]:
+    def list_tools(self) -> list[dict[str, Any]]:
         if not self._is_initialized and not self.initialize():
             return []
         try:
             res = self._send_rpc("tools/list", {})
             if isinstance(res, dict) and isinstance(res.get("tools"), list):
                 return res["tools"]
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             log.warning(f"tools/list auf '{self.name}' fehlgeschlagen: {exc}")
         return []
 
-    def call_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
+    def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         if not self._is_initialized and not self.initialize():
             return {"error": f"MCP-Server '{self.name}' nicht initialisiert"}
         try:
             return self._send_rpc("tools/call", {"name": name, "arguments": arguments})
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"MCP-Server '{self.name}' Aufruf fehlgeschlagen: {exc}"}

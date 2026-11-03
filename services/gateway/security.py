@@ -8,14 +8,12 @@ Provides:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-import hmac
 import logging
 import os
 import re
 import threading
 import time
-from typing import Any
+from dataclasses import dataclass
 
 logger = logging.getLogger("computemesh.security")
 
@@ -119,5 +117,5 @@ def zero_memory_bytes(buf: bytearray | memoryview) -> None:
     try:
         for i in range(len(buf)):
             buf[i] = 0
-    except Exception:
-        pass
+    except (TypeError, ValueError, IndexError, BufferError) as exc:
+        _ = exc

@@ -11,9 +11,10 @@ import json
 import sqlite3
 import threading
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 
 class AgentDefinitionError(ValueError):

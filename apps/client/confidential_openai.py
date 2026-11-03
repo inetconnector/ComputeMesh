@@ -15,11 +15,12 @@ This module deliberately contains no prompt/output logging.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import ssl
-from typing import Any, Mapping, Protocol
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Protocol
 from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
@@ -47,7 +48,6 @@ from services.attestation.nvidia_gpu_cc import (
 )
 from services.attestation.pinned_verifier_process import PinnedVerifierProcess
 from services.common.secure_memory import secure_zero_memory
-
 
 MAX_OPENAI_BODY_BYTES = 8 * 1024 * 1024
 DEFAULT_MAX_COMPLETION_TOKENS = 1024

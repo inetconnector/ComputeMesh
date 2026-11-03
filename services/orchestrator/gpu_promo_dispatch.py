@@ -142,7 +142,7 @@ class _GpuPromoDispatchHandler(BaseHTTPRequestHandler):
                 raise ValueError("invalid request size")
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             if not isinstance(body, dict):
-                raise ValueError("request root must be an object")
+                raise TypeError("request root must be an object")
             if self.path == _SESSION_PATH:
                 result = self.service.session_identity(
                     body=body,

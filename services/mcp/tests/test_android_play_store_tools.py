@@ -2,15 +2,13 @@
 """Unit and regression tests for android_play_store_tools MCP module."""
 
 import json
-import os
 import unittest
 from pathlib import Path
 
 from services.mcp.builtin.android_play_store_tools import (
-    validate_store_listing,
-    validate_store_graphics,
     inspect_android_manifest_or_bundle,
     sync_play_console_metadata,
+    validate_store_listing,
 )
 from services.mcp.tool_registry import ToolRegistry
 
@@ -27,15 +25,15 @@ class TestAndroidPlayStoreTools(unittest.TestCase):
                 if f.is_file():
                     try:
                         f.unlink()
-                    except Exception:
-                        pass
+                    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                        _ = suppressed_exc
             try:
                 for d in sorted(self.temp_dir.glob("**/*"), reverse=True):
                     if d.is_dir():
                         d.rmdir()
                 self.temp_dir.rmdir()
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     def test_validate_store_listing_valid(self):
         title = "English News Kiosk Pro"

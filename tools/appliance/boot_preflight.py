@@ -4,12 +4,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
-from protocol.session_contracts import SessionMessageContractError, SessionMessageContractValidator
+from protocol.session_contracts import (
+    SessionMessageContractError,
+    SessionMessageContractValidator,
+)
 from tools.security.node_key_storage import load_node_private_key
 
 
@@ -206,7 +209,7 @@ def run_preflight(
         raise PreflightError("provider control port is invalid")
     try:
         load_node_private_key(paths[0])
-    except Exception as exc:  # noqa: BLE001 - convert to one safe diagnostic
+    except Exception as exc:
         raise PreflightError("persistent node private key is unavailable") from exc
     if paths[1].is_symlink() or not paths[1].is_file():
         raise PreflightError("control-plane CA file is unavailable")

@@ -1,11 +1,11 @@
-from io import BytesIO
 import hashlib
 import json
-from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
+from io import BytesIO
+from pathlib import Path
 from unittest.mock import patch
 
 from services.appliance_dashboard.model_manager import (
@@ -88,19 +88,18 @@ class TestModelManager(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             manager = ModelManager(Path(tmp), engine=FakeEngine())
             body = b"GGUF" + b"payload"
-            with patch("services.appliance_dashboard.model_manager.urllib.request.urlopen", return_value=FakeResponse(body)):
-                with self.assertRaisesRegex(ModelManagerError, "SHA-256"):
-                    manager.install_from_hugging_face(
-                        model_id="org/model-q4",
-                        repo_id="org/model-gguf",
-                        filename="model-q4.gguf",
-                        revision="a" * 40,
-                        sha256="0" * 64,
-                        size_bytes=len(body),
-                        layer_count=32,
-                        quantization="Q4_K_M",
-                        license_id="apache-2.0",
-                    )
+            with patch("services.appliance_dashboard.model_manager.urllib.request.urlopen", return_value=FakeResponse(body)), self.assertRaisesRegex(ModelManagerError, "SHA-256"):
+                manager.install_from_hugging_face(
+                    model_id="org/model-q4",
+                    repo_id="org/model-gguf",
+                    filename="model-q4.gguf",
+                    revision="a" * 40,
+                    sha256="0" * 64,
+                    size_bytes=len(body),
+                    layer_count=32,
+                    quantization="Q4_K_M",
+                    license_id="apache-2.0",
+                )
             self.assertFalse((Path(tmp) / "model-q4.gguf").exists())
             self.assertFalse((Path(tmp) / "model-q4.gguf.part").exists())
 
@@ -134,19 +133,18 @@ class TestModelManager(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             manager = ModelManager(Path(tmp), engine=FakeEngine())
             usage = type("Usage", (), {"total": 10 * 1024**3, "used": 9 * 1024**3, "free": 2 * 1024**3})()
-            with patch("services.appliance_dashboard.model_manager.shutil.disk_usage", return_value=usage):
-                with self.assertRaisesRegex(ModelManagerError, "available.*required"):
-                    manager.install_from_hugging_face(
-                        model_id="org/model-q4",
-                        repo_id="org/model-gguf",
-                        filename="model-q4.gguf",
-                        revision="a" * 40,
-                        sha256="0" * 64,
-                        size_bytes=2 * 1024**3,
-                        layer_count=32,
-                        quantization="Q4_K_M",
-                        license_id="apache-2.0",
-                    )
+            with patch("services.appliance_dashboard.model_manager.shutil.disk_usage", return_value=usage), self.assertRaisesRegex(ModelManagerError, "available.*required"):
+                manager.install_from_hugging_face(
+                    model_id="org/model-q4",
+                    repo_id="org/model-gguf",
+                    filename="model-q4.gguf",
+                    revision="a" * 40,
+                    sha256="0" * 64,
+                    size_bytes=2 * 1024**3,
+                    layer_count=32,
+                    quantization="Q4_K_M",
+                    license_id="apache-2.0",
+                )
 
     def test_partial_download_resumes_with_range_and_is_verified(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

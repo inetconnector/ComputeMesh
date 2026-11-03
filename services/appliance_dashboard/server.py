@@ -5,27 +5,38 @@ Clean, modular HTTP server delegating to specialized routers and sub-handlers.
 from __future__ import annotations
 
 import argparse
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import ipaddress
 import hmac
 import io
+import ipaddress
 import json
 import logging
 import os
-from pathlib import Path
 import secrets
 import sys
 import threading
 import time
-from typing import Any
 import urllib.parse
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, ClassVar
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from cm_project_bootstrap import REPO_ROOT
 
 from config import CONFIG
+from services.appliance_dashboard import tunnel_relay as _tunnel_relay
+from services.appliance_dashboard.fan_control_handler import FanControlHandler
+from services.appliance_dashboard.inference_router import InferenceRouter
+from services.appliance_dashboard.killswitch_actions import KillswitchHandler
+from services.appliance_dashboard.mesh_aggregator import (
+    GLOBAL_MESH_AGGREGATOR,
+)
+from services.appliance_dashboard.mesh_sharding_handler import MeshShardingHandler
+from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
+from services.appliance_dashboard.system_actions import SystemActionsHandler
+from services.appliance_dashboard.telemetry_handler import TelemetryHandler
+from services.appliance_dashboard.template_loader import get_dashboard_html
+from services.appliance_dashboard.webapp_handler import WebAppsHandler
 from tools.appliance.appliance_config import (
     ApplianceConfig,
     load_appliance_config,
@@ -38,26 +49,6 @@ from tools.appliance.node_identity import (
     read_enrolled_node_id,
     resolve_node_id,
 )
-from services.appliance_dashboard.template_loader import get_dashboard_html
-from services.appliance_dashboard.mesh_aggregator import (
-    MeshRegistryAggregator,
-    GLOBAL_MESH_AGGREGATOR,
-)
-from services.appliance_dashboard.tunnel_relay import (
-    get_or_create_node_auth_token,
-    CloudTunnelRelay,
-    CLOUD_TUNNEL_RELAY,
-    rotate_node_auth_token,
-)
-from services.appliance_dashboard import tunnel_relay as _tunnel_relay
-from services.appliance_dashboard.inference_router import InferenceRouter
-from services.appliance_dashboard.fan_control_handler import FanControlHandler
-from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
-from services.appliance_dashboard.system_actions import SystemActionsHandler
-from services.appliance_dashboard.killswitch_actions import KillswitchHandler
-from services.appliance_dashboard.telemetry_handler import TelemetryHandler
-from services.appliance_dashboard.webapp_handler import WebAppsHandler
-from services.appliance_dashboard.mesh_sharding_handler import MeshShardingHandler
 
 log = logging.getLogger("computemesh.appliance.server")
 APPLIANCE_VERSION = CONFIG.appliance_version
@@ -103,7 +94,8 @@ def _safe_resolve_portal_file(filename: str) -> Path | None:
             resolved = c.resolve()
             if resolved.is_file():
                 return resolved
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            log.debug("Candidate path resolution skipped: %s", exc)
             continue
     return None
 
@@ -121,7 +113,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     tokens_served: int = 0
     earnings_cm: float = 0.0
     _qr_rate_lock = threading.Lock()
-    _qr_rate_windows: dict[str, list[float]] = {}
+    _qr_rate_windows: ClassVar[dict[str, list[float]]] = {}
 
     def _current_node_id(self) -> str:
         enrolled = read_enrolled_node_id()
@@ -147,12 +139,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     supplied_token = value.strip()
                     break
 
-        if supplied_token and (
-            hmac.compare_digest(supplied_token.strip(), _tunnel_relay.NODE_AUTH_TOKEN.strip())
-            or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())
-        ):
-            return True
-        return False
+        return bool(supplied_token and (hmac.compare_digest(supplied_token.strip(), _tunnel_relay.NODE_AUTH_TOKEN.strip()) or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())))
 
     def _send_cors_headers(self) -> None:
         """Allow only the known portal origins to call authenticated APIs."""
@@ -263,7 +250,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             output = io.BytesIO()
             image.save(output)
             payload = output.getvalue()
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
             log.warning("Local QR generation unavailable: %s", exc)
             self._send_json(
                 {"error": {"message": "Local QR generation is unavailable", "code": 503}},
@@ -380,7 +367,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
                 return
 
-        if req_path.startswith("/_app/") or req_path.startswith("/workbox-") or req_path in ("/sw.js", "/build.json", "/manifest.webmanifest"):
+        if req_path.startswith(("/_app/", "/workbox-")) or req_path in ("/sw.js", "/build.json", "/manifest.webmanifest"):
             sub_rel = req_path.lstrip("/")
             target_f = _safe_resolve_portal_file(f"webui/{sub_rel}")
             if target_f and target_f.exists():
@@ -533,7 +520,7 @@ def create_dashboard_server(
         from tools.appliance.fan_control import FanSafetyController
         FAN_SAFETY_CONTROLLER = FanSafetyController(inventory, config)
         FAN_SAFETY_CONTROLLER.start()
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
         log.warning("Fan safety controller unavailable: %s", exc)
 
     # The dashboard is a UI/HTTP surface, not a heartbeat owner.  The
@@ -564,17 +551,19 @@ def create_dashboard_server(
             actual_port = server_inst.server_address[1]
 
     try:
-        from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+        from tools.appliance.lan_discovery_responder import (
+            start_lan_discovery_responder,
+        )
         gpu_name = inventory.gpus[0].model_name if getattr(inventory, "gpus", None) else "ComputeMesh AI Node"
         start_lan_discovery_responder(node_id=effective_node_id, port=actual_port, gpu_summary=gpu_name)
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+        log.debug("LAN discovery responder start skipped: %s", exc)
 
     if _mesh_poller_enabled():
         try:
             GLOBAL_MESH_AGGREGATOR.start()
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            log.debug("Mesh aggregator start skipped: %s", exc)
 
     return server_inst, actual_port
 
@@ -592,18 +581,18 @@ def run_dashboard_server(
     try:
         if sys.stdout is not None:
             print(f"ComputeMesh Appliance Dashboard running at http://{host}:{actual_port}")
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        log.debug("Dashboard banner print skipped: %s", exc)
 
     try:
         server.serve_forever()
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        log.debug("Dashboard serve_forever exited: %s", exc)
     finally:
         try:
             server.server_close()
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            log.debug("Dashboard server_close error ignored: %s", exc)
     return actual_port
 
 

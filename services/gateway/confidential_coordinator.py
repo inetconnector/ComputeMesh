@@ -7,8 +7,8 @@ injected so private ranking logic remains outside the public repository.
 """
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Protocol
 
 from protocol.confidential_metering import (
@@ -28,15 +28,20 @@ from runtime.confidential.session import (
     _timestamp,
 )
 from services.billing.confidential_escrow import ConfidentialCreditSettlement
-from services.billing.confidential_owner_ledger import PayoutCapableConfidentialOwnerLedger
+from services.billing.confidential_owner_ledger import (
+    PayoutCapableConfidentialOwnerLedger,
+)
 from services.billing.ledger import BillingError
 from services.billing.owner_job_accounting import (
-    ProviderOwnerShare,
     OwnerJobQuote,
+    ProviderOwnerShare,
     quote_destinations,
     quote_owner_job,
 )
-from services.common.pricing import calculate_max_charge_micro, calculate_token_charge_micro
+from services.common.pricing import (
+    calculate_max_charge_micro,
+    calculate_token_charge_micro,
+)
 
 
 class ConfidentialCoordinatorError(RuntimeError):
@@ -183,8 +188,8 @@ class ConfidentialInferenceCoordinator:
         except Exception:
             try:
                 self.session_store.finish(job_id=provision.job_id, target="FAILED")
-            except Exception:
-                pass
+            except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as cleanup_exc:
+                _ = cleanup_exc
             raise
         return ConfidentialAdmission(session=session, provision=provision, max_quote=max_quote)
 

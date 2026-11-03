@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from services.billing.confidential_escrow import (
     OWNER_CONFIDENTIAL_RESERVATION,
@@ -12,9 +12,6 @@ from services.billing.confidential_escrow import (
 )
 from services.billing.ledger import BillingError, InsufficientBalanceError
 from services.billing.owner_credits import (
-    OWNER_EARNED,
-    OWNER_PROMO,
-    OWNER_PURCHASED,
     CreditDestination,
     owner_bucket_account,
 )

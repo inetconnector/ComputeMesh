@@ -3,14 +3,13 @@
 
 from __future__ import annotations
 
-import json
 import re
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..tool_registry import ToolRegistry
 
-from .entity_tokenizer import split_multi_entities, clean_entity_token
+
 
 def is_compound_multi_step_query(text: str) -> bool:
     """Checks if a user query has multiple compound actions, steps, or multi-hop requirements."""
@@ -63,7 +62,7 @@ def is_compound_multi_step_query(text: str) -> bool:
     return False
 
 
-def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None, allow_compound: bool = False) -> Optional[tuple[str, dict[str, Any]]]:
+def detect_direct_tool_intent(text: str, registry: ToolRegistry | None = None, allow_compound: bool = False) -> tuple[str, dict[str, Any]] | None:
     """Detects direct tool calling intent from user query with high precision."""
     cleaned = text.strip()
     if not cleaned:
@@ -96,7 +95,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
 
         # 2. Check if weather context
         if re.search(r"(?:wetter\w*|regen\w*|temperatur\w*|weather\w*|klima|sonne\w*)", full_text):
-            m_c = re.search(r"(?:wetter\s+(?:in|für|fuer|von|bei)|weather\s+in|\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+))", cleaned, re.IGNORECASE)
+            _m_c = re.search(r"(?:wetter\s+(?:in|für|fuer|von|bei)|weather\s+in|\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+))", cleaned, re.IGNORECASE)
             city = "Berlin"
             m_city = re.search(r"\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
             if m_city:
@@ -648,7 +647,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         matched_portal = next((p for p in KNOWN_NEWS_PORTALS if p in target_portal), None)
         if matched_portal or any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "top news", "artikel", "titel")):
             return ("get_live_news", {"topic": matched_portal or target_portal})
-        elif target_portal.startswith("http://") or target_portal.startswith("https://") or any(target_portal.endswith(tld) for tld in (".de", ".com", ".org", ".net", ".io", ".ai", ".eu")):
+        elif target_portal.startswith(("http://", "https://")) or any(target_portal.endswith(tld) for tld in (".de", ".com", ".org", ".net", ".io", ".ai", ".eu")):
             return ("fetch_web_page", {"url": target_portal if target_portal.startswith("http") else f"https://{target_portal}"})
 
     m_portal_news = re.search(
@@ -1111,7 +1110,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if sp_target and len(sp_target) >= 2 and not any(w in sp_target.lower() for w in ("wetter", "uhr", "tag", "heute")):
             return ("get_sports_data", {"query": sp_target, "mode": "teams"})
 
-def detect_compound_tool_intents(text: str, registry: Optional[ToolRegistry] = None) -> list[tuple[str, dict[str, Any]]]:
+def detect_compound_tool_intents(text: str, registry: ToolRegistry | None = None) -> list[tuple[str, dict[str, Any]]]:
     """Extracts multiple tool calling intents from compound / multi-domain user queries."""
     cleaned = text.strip()
     if not cleaned:
@@ -1137,15 +1136,14 @@ def detect_compound_tool_intents(text: str, registry: Optional[ToolRegistry] = N
 
     # Fallback multi-domain scanner if segmentation missed sub-clauses
     lower = cleaned.lower()
-    if "get_current_weather" not in seen_names and "get_weather_forecast" not in seen_names:
-        if any(w in lower for w in ("wetter", "weather", "temperatur", "regenwahrscheinlichkeit", "regen")):
-            w_res = detect_direct_tool_intent(cleaned, registry, allow_compound=True)
-            if w_res and w_res[0] in ("get_current_weather", "get_weather_forecast"):
-                _add_intent(w_res[0], w_res[1])
-            else:
-                m_city = re.search(r"\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
-                city = m_city.group(1).strip().capitalize() if m_city else "Berlin"
-                _add_intent("get_current_weather", {"city": city})
+    if "get_current_weather" not in seen_names and "get_weather_forecast" not in seen_names and any(w in lower for w in ("wetter", "weather", "temperatur", "regenwahrscheinlichkeit", "regen")):
+        w_res = detect_direct_tool_intent(cleaned, registry, allow_compound=True)
+        if w_res and w_res[0] in ("get_current_weather", "get_weather_forecast"):
+            _add_intent(w_res[0], w_res[1])
+        else:
+            m_city = re.search(r"\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
+            city = m_city.group(1).strip().capitalize() if m_city else "Berlin"
+            _add_intent("get_current_weather", {"city": city})
 
     if "get_live_news" not in seen_names:
         has_news_kw = any(w in lower for w in ("nachrichten", "news", "schlagzeilen", "tagesschau", "heise", "spiegel", "headlines", "presseschau", "tagesgeschehen", "breaking news")) or bool(re.search(r"\baktuelle\s+(?:nachrichten|news|schlagzeilen|meldungen|berichte)\b", lower))
@@ -1156,33 +1154,32 @@ def detect_compound_tool_intents(text: str, registry: Optional[ToolRegistry] = N
         if has_news_kw and not is_other_single_domain:
             _add_intent("get_live_news", {"topic": "allgemein"})
 
-    if "get_market_quote" not in seen_names:
-        if any(w in lower for w in ("bitcoin", "btc", "eth", "ethereum", "solana", "sol", "aktie", "aktienkurs", "dax", "nasdaq", "krypto", "crypto", "ripple", "xrp", "doge", "cardano", "ada")):
-            found_coins = []
-            if re.search(r"\b(?:btc|bitcoin)\b", cleaned, re.IGNORECASE):
-                found_coins.append("BTC")
-            if re.search(r"\b(?:eth|ethereum)\b", cleaned, re.IGNORECASE):
-                found_coins.append("ETH")
-            if re.search(r"\b(?:sol|solana)\b", cleaned, re.IGNORECASE):
-                found_coins.append("SOL")
-            if re.search(r"\b(?:xrp|ripple)\b", cleaned, re.IGNORECASE):
-                found_coins.append("XRP")
-            if re.search(r"\b(?:ada|cardano)\b", cleaned, re.IGNORECASE):
-                found_coins.append("ADA")
-            if re.search(r"\b(?:doge|dogecoin)\b", cleaned, re.IGNORECASE):
-                found_coins.append("DOGE")
-            if re.search(r"\b(?:nvda|nvidia)\b", cleaned, re.IGNORECASE):
-                found_coins.append("NVDA")
-            if re.search(r"\b(?:tsla|tesla)\b", cleaned, re.IGNORECASE):
-                found_coins.append("TSLA")
-            if re.search(r"\b(?:aapl|apple)\b", cleaned, re.IGNORECASE):
-                found_coins.append("AAPL")
-            if re.search(r"\b(?:msft|microsoft)\b", cleaned, re.IGNORECASE):
-                found_coins.append("MSFT")
-            if found_coins:
-                _add_intent("get_market_quote", {"symbol": " und ".join(found_coins)})
-            else:
-                _add_intent("get_market_quote", {"symbol": "BTC"})
+    if "get_market_quote" not in seen_names and any(w in lower for w in ("bitcoin", "btc", "eth", "ethereum", "solana", "sol", "aktie", "aktienkurs", "dax", "nasdaq", "krypto", "crypto", "ripple", "xrp", "doge", "cardano", "ada")):
+        found_coins = []
+        if re.search(r"\b(?:btc|bitcoin)\b", cleaned, re.IGNORECASE):
+            found_coins.append("BTC")
+        if re.search(r"\b(?:eth|ethereum)\b", cleaned, re.IGNORECASE):
+            found_coins.append("ETH")
+        if re.search(r"\b(?:sol|solana)\b", cleaned, re.IGNORECASE):
+            found_coins.append("SOL")
+        if re.search(r"\b(?:xrp|ripple)\b", cleaned, re.IGNORECASE):
+            found_coins.append("XRP")
+        if re.search(r"\b(?:ada|cardano)\b", cleaned, re.IGNORECASE):
+            found_coins.append("ADA")
+        if re.search(r"\b(?:doge|dogecoin)\b", cleaned, re.IGNORECASE):
+            found_coins.append("DOGE")
+        if re.search(r"\b(?:nvda|nvidia)\b", cleaned, re.IGNORECASE):
+            found_coins.append("NVDA")
+        if re.search(r"\b(?:tsla|tesla)\b", cleaned, re.IGNORECASE):
+            found_coins.append("TSLA")
+        if re.search(r"\b(?:aapl|apple)\b", cleaned, re.IGNORECASE):
+            found_coins.append("AAPL")
+        if re.search(r"\b(?:msft|microsoft)\b", cleaned, re.IGNORECASE):
+            found_coins.append("MSFT")
+        if found_coins:
+            _add_intent("get_market_quote", {"symbol": " und ".join(found_coins)})
+        else:
+            _add_intent("get_market_quote", {"symbol": "BTC"})
 
     return intents
 

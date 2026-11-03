@@ -7,10 +7,8 @@ mixed-capacity GPU clusters.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-import json
 import math
-from pathlib import Path
+from dataclasses import asdict, dataclass
 from typing import Any
 
 
@@ -108,7 +106,7 @@ def plan_multi_gpu_rig(
     current_layer_idx = 0
 
     for i, dev in enumerate(devices):
-        dev_usable_vram = int(dev.vram_bytes * usable_memory_fraction)
+        _dev_usable_vram = int(dev.vram_bytes * usable_memory_fraction)
         split_ratio = dev.vram_bytes / total_rig_vram
         tensor_splits.append(round(split_ratio, 4))
 
@@ -116,7 +114,7 @@ def plan_multi_gpu_rig(
             # Assign remainder to the last device
             layer_count = total_layers - assigned_layers
         else:
-            layer_count = int(math.floor(total_layers * (dev.vram_bytes / total_rig_vram)))
+            layer_count = math.floor(total_layers * (dev.vram_bytes / total_rig_vram))
             # Ensure at least 1 layer if device has capacity and layers remain
             if layer_count == 0 and (total_layers - assigned_layers) > (len(devices) - i):
                 layer_count = 1

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 
+import services.gateway.catalog
 from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.inference_backend import BackendResult
-import services.gateway.catalog
-from dataclasses import replace
 from services.orchestrator.settlement_recovery import (
     acknowledge_job_settlement,
     reconcile_completed_settlements,
@@ -34,6 +34,7 @@ class _BillingLedger(_LedgerView):
 
     def create_hold(self, *, account_id, amount_micro_units, model_id, ttl_seconds=300):
         import time
+
         from services.billing.ledger import CreditHold
         self._hold_seq += 1
         hold_id = f"hold_{self._hold_seq}"

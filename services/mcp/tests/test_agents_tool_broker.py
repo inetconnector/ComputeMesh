@@ -8,7 +8,10 @@ from pathlib import Path
 from services.mcp.platform.contracts import SideEffectLevel, ToolManifest
 from services.mcp.platform.session import AgentSessionStore
 from services.mcp.platform.tool_broker import AgentToolBroker
-from services.mcp.platform.tool_execution import SafeToolExecutor, ToolCapabilityRegistry
+from services.mcp.platform.tool_execution import (
+    SafeToolExecutor,
+    ToolCapabilityRegistry,
+)
 
 
 class _Tool:

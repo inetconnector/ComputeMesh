@@ -12,8 +12,14 @@ from protocol.session_contracts import SessionMessageContractValidator
 from protocol.session_wire import BenchmarkAcceptancePolicy, NodeSessionWireHandler
 from runtime.llama.rpc_spike import RpcEndpoint
 from services.mcp.platform.node_registry import NodeRegistry
-from services.mcp.platform.node_transport import AuthenticatedNodeRegistrySync, NodeSyncResult
-from services.orchestrator.live_shared_runtime import LiveNodeState, LiveSharedRuntimeRegistry
+from services.mcp.platform.node_transport import (
+    AuthenticatedNodeRegistrySync,
+    NodeSyncResult,
+)
+from services.orchestrator.live_shared_runtime import (
+    LiveNodeState,
+    LiveSharedRuntimeRegistry,
+)
 from services.orchestrator.persistent_control_channel import (
     AcceptedProviderSession,
     PersistentControlChannelError,
@@ -47,7 +53,7 @@ class LiveProviderRegistration:
         self,
         registry: LiveSharedRuntimeRegistry,
         *,
-        agent_node_admission: "LiveAgentNodeAdmission | None" = None,
+        agent_node_admission: LiveAgentNodeAdmission | None = None,
     ) -> None:
         self.registry = registry
         self.agent_node_admission = agent_node_admission
@@ -163,7 +169,7 @@ class LiveProviderRegistration:
                     },
                 )
                 self.agent_admission_errors.pop(node_id, None)
-            except Exception as exc:
+            except (PersistentControlChannelError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                 # Shared serving remains available while Agent admission fails
                 # closed until the inventory is complete and authenticated.
                 self.agent_admission_errors[node_id] = f"{type(exc).__name__}: {str(exc)[:240]}"
@@ -252,7 +258,7 @@ class LivePersistentNodeConnection(PersistentNodeConnection):
                 self.session = snapshot
                 self.registration.consume(envelope, snapshot)
                 send_frame(self.sock, {"kind": "session_ack", "state": snapshot.state.value, "revision": snapshot.revision}, lock=self._write_lock)
-        except Exception:
+        except (PersistentControlChannelError, OSError, ValueError, TypeError, KeyError, RuntimeError):
             self.close()
 
 

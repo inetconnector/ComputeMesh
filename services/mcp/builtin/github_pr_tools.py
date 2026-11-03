@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .github_client import execute_github_request
 from .github_repo_tools import _resolve_owner_repo
@@ -13,16 +13,16 @@ log = logging.getLogger("computemesh.mcp.github_pr_tools")
 
 
 def github_list_pull_requests(
-    repo: Optional[str] = None,
-    owner: Optional[str] = None,
+    repo: str | None = None,
+    owner: str | None = None,
     state: str = "open",
     limit: int = 20,
     per_page: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lists pull requests for a repository with branch info, review status, and draft status."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "pull_requests": []}
 
     count = min(30, max(1, limit or per_page))
@@ -37,7 +37,7 @@ def github_list_pull_requests(
     if not isinstance(raw_items, list):
         return {"error": "Unerwartetes Antwortformat.", "pull_requests": []}
 
-    prs: List[Dict[str, Any]] = []
+    prs: list[dict[str, Any]] = []
     for it in raw_items:
         prs.append({
             "number": it.get("number"),
@@ -60,11 +60,11 @@ def github_list_pull_requests(
     }
 
 
-def github_get_pull_request(pull_number: int, repo: Optional[str] = None, owner: Optional[str] = None) -> Dict[str, Any]:
+def github_get_pull_request(pull_number: int, repo: str | None = None, owner: str | None = None) -> dict[str, Any]:
     """Retrieves full details of a pull request including mergeable state, commits count, and stats."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}/pulls/{pull_number}")
@@ -93,11 +93,11 @@ def github_get_pull_request(pull_number: int, repo: Optional[str] = None, owner:
     }
 
 
-def github_get_pull_request_diff(pull_number: int, repo: Optional[str] = None, owner: Optional[str] = None) -> Dict[str, Any]:
+def github_get_pull_request_diff(pull_number: int, repo: str | None = None, owner: str | None = None) -> dict[str, Any]:
     """Retrieves the unified diff of a pull request."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(
@@ -117,11 +117,11 @@ def github_get_pull_request_diff(pull_number: int, repo: Optional[str] = None, o
     }
 
 
-def github_get_pull_request_files(pull_number: int, repo: Optional[str] = None, owner: Optional[str] = None) -> Dict[str, Any]:
+def github_get_pull_request_files(pull_number: int, repo: str | None = None, owner: str | None = None) -> dict[str, Any]:
     """Lists files changed in a pull request with additions, deletions, and status."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "files": []}
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}/pulls/{pull_number}/files", params={"per_page": 50})
@@ -129,7 +129,7 @@ def github_get_pull_request_files(pull_number: int, repo: Optional[str] = None, 
         return {"error": resp.get("error", "Dateiliste konnte nicht geladen werden."), "files": []}
 
     raw_files = resp.get("data", [])
-    files: List[Dict[str, Any]] = []
+    files: list[dict[str, Any]] = []
     adds = 0
     dels = 0
     if isinstance(raw_files, list):

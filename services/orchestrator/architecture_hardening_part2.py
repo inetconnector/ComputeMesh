@@ -11,31 +11,26 @@ enforcement of the core invariants defined in ARCHITECTURE.md:
 from __future__ import annotations
 
 import hashlib
-import time
 import threading
-from typing import Any, Callable, TypeVar, Optional, Dict, List
+import time
+from typing import Any, TypeVar
 
 T = TypeVar('T')
 
 class HardeningPart2Error(RuntimeError):
     """Base exception for architecture hardening Part 2 violations."""
-    pass
 
 class NodeDrainingError(HardeningPart2Error):
     """Raised when a node that is draining attempts to accept new work."""
-    pass
 
 class StateRecoveryError(HardeningPart2Error):
     """Raised when recovery encounters unverified or ambiguous state."""
-    pass
 
 class PrivacyConstraintError(HardeningPart2Error):
     """Raised when a privacy policy placement constraint is violated."""
-    pass
 
 class ImmutableArtifactError(HardeningPart2Error):
     """Raised when model artifact immutability or content-addressing is violated."""
-    pass
 
 
 class NodeLifecycleManager:
@@ -83,7 +78,7 @@ class NodeLifecycleManager:
 class StrictStateRecovery:
     """Enforces that recovery MUST never silently continue from unverified or ambiguous state."""
     def __init__(self):
-        self._verified_checkpoints: Dict[str, bytes] = {}
+        self._verified_checkpoints: dict[str, bytes] = {}
         self._lock = threading.Lock()
 
     def save_checkpoint(self, state_id: str, state_data: bytes) -> None:
@@ -112,7 +107,7 @@ class PrivacyConstraintEvaluator:
     def __init__(self):
         pass
 
-    def evaluate_placement(self, provider_capabilities: List[str], required_privacy_policies: List[str]) -> bool:
+    def evaluate_placement(self, provider_capabilities: list[str], required_privacy_policies: list[str]) -> bool:
         """Evaluates if a provider meets all required privacy policies."""
         provider_caps_set = set(provider_capabilities)
         for policy in required_privacy_policies:
@@ -124,7 +119,7 @@ class PrivacyConstraintEvaluator:
 class ContentAddressedArtifactRegistry:
     """Enforces that model artifacts MUST be immutable and content-addressed."""
     def __init__(self):
-        self._artifacts: Dict[str, bytes] = {}
+        self._artifacts: dict[str, bytes] = {}
         self._lock = threading.Lock()
 
     def register_artifact(self, artifact_data: bytes) -> str:
@@ -153,17 +148,15 @@ class ContentAddressedArtifactRegistry:
 class PrivacyPreservingTelemetry:
     """Enforces that Telemetry MUST avoid prompt/output content by default."""
     def __init__(self):
-        self._telemetry_log: List[Dict[str, Any]] = []
+        self._telemetry_log: list[dict[str, Any]] = []
         self._lock = threading.Lock()
 
-    def record_event(self, event_type: str, duration_ms: float, metadata: Dict[str, Any], raw_prompt: Optional[str] = None, raw_output: Optional[str] = None) -> None:
+    def record_event(self, event_type: str, duration_ms: float, metadata: dict[str, Any], raw_prompt: str | None = None, raw_output: str | None = None) -> None:
         """Records a telemetry event while strictly stripping raw prompt/output content."""
         safe_metadata = dict(metadata)
         # Ensure we never leak prompt or output content into telemetry
-        if "prompt" in safe_metadata:
-            del safe_metadata["prompt"]
-        if "output" in safe_metadata:
-            del safe_metadata["output"]
+        safe_metadata.pop("prompt", None)
+        safe_metadata.pop("output", None)
 
         event = {
             "type": event_type,
@@ -177,6 +170,6 @@ class PrivacyPreservingTelemetry:
         with self._lock:
             self._telemetry_log.append(event)
 
-    def get_logs(self) -> List[Dict[str, Any]]:
+    def get_logs(self) -> list[dict[str, Any]]:
         with self._lock:
             return list(self._telemetry_log)

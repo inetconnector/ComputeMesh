@@ -1,9 +1,9 @@
 """HTTP endpoints for safe GPU fan policy inspection and application."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
 import os
+from http import HTTPStatus
 from typing import Any
 
 from tools.appliance.appliance_config import ApplianceConfig, save_system_config
@@ -46,6 +46,6 @@ class FanControlHandler:
             handler._send_json({"status": "ok" if result["applied"] else "unsupported", **result}, status)
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             handler._send_json({"status": "error", "message": str(exc)}, HTTPStatus.BAD_REQUEST)
-        except Exception as exc:
+        except (OSError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             handler._send_json({"status": "error", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
         return True

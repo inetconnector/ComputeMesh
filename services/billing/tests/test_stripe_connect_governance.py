@@ -1,19 +1,20 @@
-from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock
 
-from services.billing.accounting import AccountingStore, ProviderAccount, SettlementRecord
-from services.billing.ledger import Ledger, MINIMUM_PAYOUT_MICRO_UNITS
-from services.billing.stripe_connect import AccountLinkResult, ConnectedAccountResult, StripeConnectService
-from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
+from services.billing.accounting import AccountingStore
+from services.billing.ledger import MINIMUM_PAYOUT_MICRO_UNITS, Ledger
+from services.billing.stripe_connect import (
+    StripeConnectService,
+)
+from services.compliance.dsa_policy import (
+    PlatformEnterpriseSize,
+    PlatformOperatorLegalProfile,
+)
 from services.compliance.fleet_gatekeeper import FleetGatekeeper
 from services.compliance.provider_identity import (
-    CustomerAudience,
     EntityType,
-    IdentityVerificationState,
-    MarketplaceMode,
-    ProviderIdentity,
     StructuredAddress,
 )
 from services.compliance.provider_identity_store import ProviderIdentityStore
@@ -89,7 +90,7 @@ class TestStripeConnectGovernance(unittest.TestCase):
         )
 
         # Gatekeeper permits B2B marketplace
-        allowed, reason, missing = self.gatekeeper.can_operate_b2b_marketplace(
+        allowed, _reason, _missing = self.gatekeeper.can_operate_b2b_marketplace(
             account_id="acc_owner_99",
             fleet_id="flt_alpha_1",
         )

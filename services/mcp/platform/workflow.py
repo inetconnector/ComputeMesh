@@ -7,16 +7,17 @@ processes cannot claim the same side-effecting node at the same time.
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import threading
 import time
-from typing import Any, Callable, Mapping, Sequence
 import uuid
+from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -303,7 +304,7 @@ class DAGWorkflowEngine:
                     return None
                 self._conn.commit()
                 return lease_id, attempts
-            except Exception:
+            except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 self._conn.rollback()
                 raise
 
@@ -519,7 +520,7 @@ class DAGWorkflowEngine:
                             validator = validators.get(node.node_id)
                             if validator is not None and not validator(result):
                                 raise ValueError("node result validation failed")
-                        except Exception as exc:
+                        except (sqlite3.Error, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                             stop.set()
                             heartbeat.join(timeout=1.0)
                             if attempts < node.max_attempts:

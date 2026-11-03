@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
 
-from runtime.llama.shared_request import SharedRequestError, build_shared_request_evidence
+from runtime.llama.shared_request import (
+    SharedRequestError,
+    build_shared_request_evidence,
+)
 
 
 class SharedRequestEvidenceTests(unittest.TestCase):

@@ -6,22 +6,21 @@ from __future__ import annotations
 import csv
 import io
 import json
-import math
 import statistics
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def analyze_data_table(
     data: str,
-    delimiter: Optional[str] = None,
+    delimiter: str | None = None,
     max_sample_rows: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Analyzes a CSV string or JSON dataset and computes statistical column summaries."""
     raw = str(data or "").strip()
     if not raw:
         return {"error": "Keine Daten zur Analyse übergeben."}
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
 
     # 1. Try parsing JSON array of objects
     if (raw.startswith("[") and raw.endswith("]")) or (raw.startswith("{") and raw.endswith("}")):
@@ -35,8 +34,8 @@ def analyze_data_table(
                     rows = [r for r in parsed["data"] if isinstance(r, dict)]
                 else:
                     rows = [parsed]
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     # 2. Try parsing CSV
     if not rows:
@@ -44,7 +43,7 @@ def analyze_data_table(
             delim = delimiter or (";" if ";" in raw and "," not in raw else ",")
             reader = csv.DictReader(io.StringIO(raw), delimiter=delim)
             rows = [dict(r) for r in reader if any(v for v in r.values())]
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Daten konnten weder als CSV noch als JSON geparst werden: {exc}"}
 
     if not rows:
@@ -53,13 +52,13 @@ def analyze_data_table(
     total_rows = len(rows)
     all_columns = list(rows[0].keys())
 
-    column_summaries: Dict[str, Any] = {}
+    column_summaries: dict[str, Any] = {}
     for col in all_columns:
         vals = [r.get(col) for r in rows if r.get(col) is not None and str(r.get(col)).strip() != ""]
         null_count = total_rows - len(vals)
 
         # Check numeric conversion
-        num_vals: List[float] = []
+        num_vals: list[float] = []
         for v in vals:
             try:
                 num_vals.append(float(str(v).replace(",", ".").replace("%", "").strip()))
@@ -102,8 +101,8 @@ def analyze_data_table(
     }
 
 
-def collections_counter(items: List[str]) -> List[tuple[str, int]]:
-    counts: Dict[str, int] = {}
+def collections_counter(items: list[str]) -> list[tuple[str, int]]:
+    counts: dict[str, int] = {}
     for item in items:
         counts[item] = counts.get(item, 0) + 1
     return sorted(counts.items(), key=lambda x: x[1], reverse=True)

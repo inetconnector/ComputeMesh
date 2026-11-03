@@ -1,16 +1,17 @@
 """Versioned canonical project-state store with atomic checkpoints."""
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import tempfile
 import time
-from typing import Any, Mapping
 import uuid
+from collections.abc import Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 class StaleStateError(RuntimeError):
@@ -188,7 +189,7 @@ class ProjectStateStore:
             raise FileNotFoundError(self.state_path)
         data = json.loads(self.state_path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
-            raise ValueError("project state root must be an object")
+            raise TypeError("project state root must be an object")
         version = int(data.get("project_state_version", 0))
         if version < 1:
             raise ValueError("invalid project_state_version")
@@ -321,7 +322,7 @@ class ProjectStateStore:
         path = self.checkpoint_dir / f"{checkpoint_id}.json"
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
-            raise ValueError("checkpoint is invalid")
+            raise TypeError("checkpoint is invalid")
         data["previous_checkpoint"] = checkpoint_id
         return self.save(
             data,

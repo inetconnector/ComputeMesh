@@ -5,16 +5,20 @@ usage receipt.  It never decrypts OpenAI stream chunks.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import contextlib
 import hashlib
 import hmac
 import http.client
 import json
 import ssl
-from typing import Iterator
+from collections.abc import Iterator
+from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialResponseEnvelope
+from protocol.confidential_envelope import (
+    ConfidentialEnvelope,
+    ConfidentialResponseEnvelope,
+)
 from protocol.confidential_metering import ConfidentialUsageReceipt
 from runtime.confidential.data_plane import (
     AttestedConfidentialEndpoint,
@@ -22,7 +26,6 @@ from runtime.confidential.data_plane import (
     ConnectionFactory,
     _default_connection_factory,
 )
-
 
 MAX_STREAM_LINE_BYTES = 2 * 1024 * 1024
 MAX_STREAM_EVENTS = 10_000_001
@@ -46,8 +49,7 @@ class PinnedHttpsConfidentialStreamDataPlane:
         if not 0.1 <= timeout_seconds <= 600.0:
             raise ValueError("confidential stream timeout must be between 0.1 and 600 seconds")
         context = ssl_context or ssl.create_default_context()
-        if context.minimum_version < ssl.TLSVersion.TLSv1_3:
-            context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.minimum_version = max(context.minimum_version, ssl.TLSVersion.TLSv1_3)
         self.ssl_context = context
         self.timeout_seconds = timeout_seconds
         self.connection_factory = connection_factory
@@ -129,10 +131,8 @@ class PinnedHttpsConfidentialStreamDataPlane:
         except (OSError, ssl.SSLError, http.client.HTTPException, TimeoutError) as exc:
             raise ConfidentialDataPlaneError("confidential streaming transport failed") from exc
         finally:
-            try:
+            with contextlib.suppress(OSError, http.client.HTTPException, ValueError):
                 connection.close()
-            except Exception:
-                pass
 
     @staticmethod
     def _parse_event(

@@ -2,18 +2,18 @@
 from __future__ import annotations
 
 import json
+import unittest
 from http import HTTPStatus
 from pathlib import Path
-import sys
-import unittest
 from unittest.mock import patch
 
+from services.appliance_dashboard.inference_router import (
+    InferenceRouter,
+    _ollama_message,
+)
+
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from services.appliance_dashboard.inference_router import InferenceRouter, _ollama_message
-
 
 class _Response:
     def __init__(self, payload: dict) -> None:

@@ -5,7 +5,6 @@ model alias resolution for OpenAI and Ollama formats, and provider share distrib
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import json
 import logging
 import os
@@ -14,17 +13,23 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass, replace
 
 from services.common.pricing import (
-    DEFAULT_NETWORK_FEE_BPS,
     DEFAULT_PRICE_TIERS,
-    DEFAULT_PROVIDER_PERCENTAGE,
     ModelPriceTier,
-    calculate_max_charge_micro,
-    calculate_token_charge_micro,
-    get_price_tier,
 )
-from services.gateway.registry_client import ModelRegistryClient, RegistryClientError, RegistryModel, build_registry_client_from_env
+from services.common.pricing import (
+    calculate_max_charge_micro as calculate_max_charge_micro,  # noqa: PLC0414 - public compatibility re-export
+)
+from services.common.pricing import (
+    calculate_token_charge_micro as calculate_token_charge_micro,  # noqa: PLC0414 - public compatibility re-export
+)
+from services.gateway.registry_client import (
+    RegistryClientError,
+    RegistryModel,
+    build_registry_client_from_env,
+)
 
 logger = logging.getLogger("computemesh.catalog")
 
@@ -193,7 +198,7 @@ def _runtime_models_from_env() -> list[ModelSpec] | None:
             payload = json.loads(response.read(2 * 1024 * 1024 + 1).decode("utf-8"))
         raw_models = payload.get("models") if isinstance(payload, dict) else None
         if not isinstance(raw_models, list):
-            raise ValueError("invalid Ollama model list")
+            raise TypeError("invalid Ollama model list")
         discovered: list[ModelSpec] = []
         for raw in raw_models:
             if not isinstance(raw, dict):
@@ -206,8 +211,7 @@ def _runtime_models_from_env() -> list[ModelSpec] | None:
             if not re.fullmatch(r"[0-9a-f]{64}", digest):
                 digest = ""
             size = int(raw.get("size", 0) or 0)
-            if size < 0:
-                size = 0
+            size = max(size, 0)
             lower_id = model_id.lower()
             modalities = ("text", "vision") if any(part in lower_id for part in ("-vl", "vision", "llava")) else ("text",)
             discovered.append(ModelSpec(

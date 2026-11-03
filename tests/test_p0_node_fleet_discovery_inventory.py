@@ -14,16 +14,15 @@ import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
+import services.gateway.server as gateway_server
+from services.appliance_dashboard.mesh_aggregator import MeshRegistryAggregator
 from services.billing.owner_accounts import OwnerAccountStore
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
-import services.gateway.server as gateway_server
 from services.gateway.server import (
     _build_fleet_payload,
     owner_id_for_key,
 )
-from services.appliance_dashboard.mesh_aggregator import MeshRegistryAggregator
 
 
 class TestP0NodeFleetDiscoveryInventory(unittest.TestCase):

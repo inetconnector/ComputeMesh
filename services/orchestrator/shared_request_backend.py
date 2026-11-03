@@ -1,25 +1,22 @@
 """Direct orchestrated two-node llama.cpp request with signed settlement evidence."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import contextlib
 import hashlib
 import json
-from pathlib import Path
 import secrets
-from typing import Any, Callable
-from services.orchestrator.architecture_hardening_part12 import (
-    StaleProviderResponseEnforcer,
-    UserCancellationPropagator,
-    ExecutionEvidenceEnforcer,
-    RecoveryStateEnforcer
-)
-from services.orchestrator.architecture_hardening_part5 import AutomaticCapacityRelease, AgentExecutionPolicy, RelayPolicyEnforcer, CryptographicProofClaimVerifier
-from services.orchestrator.architecture_hardening_part7 import StatefulIdempotentCommandEnforcer, StatefulCapacityLeaseManager
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any, Self
 
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_request import SharedRequestResult, run_shared_request
 from runtime.llama.shared_request_live import SharedRequestCancelled
-from services.gateway.execution_attestation import VerificationKeyResolver, verify_execution_attestations
+from services.gateway.execution_attestation import (
+    VerificationKeyResolver,
+    verify_execution_attestations,
+)
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.gateway.placement_selection import PlacementSelection
 from services.gateway.shared_request_evidence import (
@@ -27,7 +24,23 @@ from services.gateway.shared_request_evidence import (
     VerifiedSharedRequestEvidence,
     verify_shared_request_evidence,
 )
-from services.orchestrator.attestation_collection import NodeAttestationTransport, collect_execution_attestations
+from services.orchestrator.architecture_hardening_part5 import (
+    AgentExecutionPolicy,
+    AutomaticCapacityRelease,
+    CryptographicProofClaimVerifier,
+    RelayPolicyEnforcer,
+)
+from services.orchestrator.architecture_hardening_part7 import (
+    StatefulCapacityLeaseManager,
+    StatefulIdempotentCommandEnforcer,
+)
+from services.orchestrator.architecture_hardening_part12 import (
+    ExecutionEvidenceEnforcer,
+)
+from services.orchestrator.attestation_collection import (
+    NodeAttestationTransport,
+    collect_execution_attestations,
+)
 from services.orchestrator.evidence_store import ExecutionEvidenceStore
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.state_machine import JobState, ReservationState
@@ -143,7 +156,7 @@ class SharedRequestOrchestratedBackend:
     def close(self) -> None:
         self.evidence_store.close()
 
-    def __enter__(self) -> "SharedRequestOrchestratedBackend":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -163,7 +176,7 @@ class SharedRequestOrchestratedBackend:
         return [f"{job_id}:capacity:{index}:{node}" for index, node in enumerate(self.placement.provider_node_ids)]
 
     def _reserve(self, job_id: str) -> list[str]:
-        expires = datetime.now(timezone.utc) + timedelta(seconds=self.lease_seconds)
+        expires = datetime.now(UTC) + timedelta(seconds=self.lease_seconds)
         ids = self._reservation_ids(job_id)
         for index, (reservation_id, node_id) in enumerate(zip(ids, self.placement.provider_node_ids)):
             self.store.ensure_reservation(reservation_id)
@@ -204,29 +217,25 @@ class SharedRequestOrchestratedBackend:
                 )
                 acquired.append((node_id, lease_id))
             return acquired
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError):
             for node_id, lease_id in acquired:
-                try:
+                with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
                     self.capacity_transport.release_capacity(node_id=node_id, job_id=job_id, lease_id=lease_id)
-                except Exception:
-                    pass
             raise SharedRequestSettlementError("provider-side capacity reservation failed")
 
     def _release_provider_capacity(self, job_id: str, reservations: list[tuple[str, str]]) -> None:
         if self.capacity_transport is None:
             return
         for node_id, lease_id in reservations:
-            try:
+            # The private lease/evidence path still records the failure; a
+            # provider TTL prevents a lost release from lasting forever.
+            with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
                 self.capacity_transport.release_capacity(node_id=node_id, job_id=job_id, lease_id=lease_id)
-            except Exception:
-                # The private lease/evidence path still records the failure; a
-                # provider TTL prevents a lost release from lasting forever.
-                pass
 
     def _activate(self, job_id: str, ids: list[str]) -> None:
         for index, reservation_id in enumerate(ids):
             current = self.store.get_reservation(reservation_id)
-            if current.state != ReservationState.COMMITTED or current.lease_expires_at is None or current.lease_expires_at <= datetime.now(timezone.utc):
+            if current.state != ReservationState.COMMITTED or current.lease_expires_at is None or current.lease_expires_at <= datetime.now(UTC):
                 raise SharedRequestSettlementError("capacity reservation is not dispatchable")
             self.store.transition_reservation(
                 reservation_id,
@@ -252,7 +261,7 @@ class SharedRequestOrchestratedBackend:
                 )
 
     def _terminal(self, job_id: str, target: JobState, fingerprint: str) -> None:
-        try:
+        with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
             current = self.store.get_job(job_id)
             if current.state not in {JobState.FAILED, JobState.CANCELLED, JobState.COMPLETED, JobState.SETTLED}:
                 self.store.transition_job(
@@ -262,8 +271,6 @@ class SharedRequestOrchestratedBackend:
                     target=target,
                     request_fingerprint=fingerprint,
                 )
-        except Exception:
-            pass
 
     def _fail(self, job_id: str, exc: Exception) -> None:
         self._terminal(job_id, JobState.FAILED, f"shared-request-failure:{type(exc).__name__}")
@@ -311,7 +318,7 @@ class SharedRequestOrchestratedBackend:
                 self._advance(job_id, JobState.PREPARING)
                 self._activate(job_id, reservations)
                 self._advance(job_id, JobState.RUNNING)
-                started = datetime.now(timezone.utc)
+                started = datetime.now(UTC)
                 prompt = self.prompt_renderer(messages)
                 work_dir = self.work_root / job_id
                 runtime_result = self.runner(
@@ -394,10 +401,8 @@ class SharedRequestOrchestratedBackend:
                 self._release(job_id, reservations)
                 self._release_provider_capacity(job_id, provider_reservations)
                 if lease_id:
-                    try:
+                    with contextlib.suppress(OSError, ValueError, TypeError, KeyError, RuntimeError):
                         self.capacity_lease_manager.release_lease(lease_id)
-                    except Exception:
-                        pass
 
         result_dict = self.idempotent_enforcer.execute_command(command, execute_job)
         return BackendResult(

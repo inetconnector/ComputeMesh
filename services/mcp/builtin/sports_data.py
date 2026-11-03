@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-from datetime import date as date_type
 import os
 import urllib.parse
-from typing import Any, Dict
+from datetime import date as date_type
+from typing import Any
 
 from .http_json import ProviderError, fetch_json
 
@@ -18,7 +18,7 @@ def _api_key() -> str:
     return os.getenv("COMPUTEMESH_THESPORTSDB_API_KEY", FREE_API_KEY).strip() or FREE_API_KEY
 
 
-def _normalize_event(item: Any) -> Dict[str, Any] | None:
+def _normalize_event(item: Any) -> dict[str, Any] | None:
     if not isinstance(item, dict):
         return None
     return {
@@ -40,7 +40,7 @@ def _normalize_event(item: Any) -> Dict[str, Any] | None:
     }
 
 
-def _normalize_team(item: Any) -> Dict[str, Any] | None:
+def _normalize_team(item: Any) -> dict[str, Any] | None:
     if not isinstance(item, dict):
         return None
     return {
@@ -66,7 +66,7 @@ def get_sports_data(
     league_id: str = "",
     max_results: int = 5,
     timeout: float = 8.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return team search or current/past/future sports schedule data.
 
     Modes:

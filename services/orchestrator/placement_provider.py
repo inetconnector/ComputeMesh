@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import base64
 import binascii
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
 import json
 import ssl
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from urllib import error as urlerror
 from urllib import request as urlrequest
@@ -142,8 +142,8 @@ def _verify_envelope(value: dict[str, Any], *, verification_key_b64u: str, expec
     except (InvalidSignature, ValueError) as exc:
         raise PlacementProviderError("private placement signature verification failed on Handoff-Envelope") from exc
     try:
-        issued = datetime.fromisoformat(str(value["issued_at"]).replace("Z", "+00:00"))
-        expires = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00"))
+        issued = datetime.fromisoformat(str(value["issued_at"]))
+        expires = datetime.fromisoformat(str(value["expires_at"]))
     except (KeyError, ValueError) as exc:
         raise PlacementProviderError("private placement timestamps are invalid") from exc
     if issued.tzinfo is None or expires.tzinfo is None:

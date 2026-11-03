@@ -1,4 +1,5 @@
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -25,42 +26,67 @@ SHARED_DIRECT = [
     REPO / "setup" / "SHARED-WORKER.sh",
     REPO / "setup" / "SHARED-PROOF.sh",
 ]
+IS_WINDOWS = os.name == "nt"
 BASH = shutil.which("bash")
+WSL = shutil.which("wsl.exe") if IS_WINDOWS else None
 
 
-@unittest.skipUnless(BASH, "bash is required for Linux setup tests")
+def _posix_path(path: Path) -> str:
+    """Map a Windows checkout path into the WSL mount namespace."""
+    resolved = path.resolve()
+    drive = resolved.drive.rstrip(":").lower()
+    return f"/mnt/{drive}{resolved.as_posix()[2:]}"
+
+
+def _bash_command(*args: str) -> list[str]:
+    if IS_WINDOWS:
+        return [WSL, "-d", "Ubuntu", "--", "bash", *args]
+    return [BASH, *args]
+
+
+def _bash_path(path: Path) -> str:
+    return _posix_path(path) if IS_WINDOWS else str(path)
+
+
+@unittest.skipUnless(BASH and (not IS_WINDOWS or WSL), "bash or Ubuntu WSL is required for Linux setup tests")
 class LinuxSetupTests(unittest.TestCase):
     def run_bash(self, script: str, *, input_text: str | None = None):
+        if IS_WINDOWS:
+            script = f"cd {shlex.quote(_posix_path(REPO))} && {script}"
         return subprocess.run(
-            [BASH, "-lc", script],
+            _bash_command("-lc", script),
             input=input_text,
             text=True,
             capture_output=True,
-            cwd=REPO,
+            cwd=None if IS_WINDOWS else REPO,
             check=True,
         )
 
     def test_shell_syntax(self):
         subprocess.run(
-            [
-                BASH,
+            _bash_command(
                 "-n",
-                str(SETUP),
-                str(LINUX),
-                *(str(x) for x in DIRECT),
-                *(str(x) for x in EVIDENCE_DIRECT),
-                *(str(x) for x in SHARED_DIRECT),
-            ],
+                _bash_path(SETUP),
+                _bash_path(LINUX),
+                *(_bash_path(x) for x in DIRECT),
+                *(_bash_path(x) for x in EVIDENCE_DIRECT),
+                *(_bash_path(x) for x in SHARED_DIRECT),
+            ),
             check=True,
         )
 
     def test_help_entrypoint(self):
-        out = subprocess.run([BASH, str(SETUP), "--help"], text=True, capture_output=True, check=True).stdout
+        out = subprocess.run(
+            _bash_command(_bash_path(SETUP), "--help"),
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout
         self.assertIn("Usage: ./setup.sh", out)
 
     def test_private_ipv4_filter(self):
-        py = shlex.quote(sys.executable)
-        linux = shlex.quote(str(LINUX))
+        py = shlex.quote("python3" if IS_WINDOWS else sys.executable)
+        linux = shlex.quote(_bash_path(LINUX))
         script = (
             f"source {linux}; VENV_PY={py}; "
             "is_private_ipv4 10.1.2.3; is_private_ipv4 172.20.1.2; is_private_ipv4 192.168.1.2; "
@@ -81,9 +107,9 @@ class LinuxSetupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             p = Path(td) / "release.json"
             p.write_text(json.dumps(fixture), encoding="utf-8")
-            py = shlex.quote(sys.executable)
-            linux = shlex.quote(str(LINUX))
-            path = shlex.quote(str(p))
+            py = shlex.quote("python3" if IS_WINDOWS else sys.executable)
+            linux = shlex.quote(_bash_path(LINUX))
+            path = shlex.quote(_bash_path(p))
             for backend, arch, expected in [
                 ("vulkan", "x86_64", "vulkan-x64"),
                 ("rocm", "x86_64", "rocm-7.2-x64"),

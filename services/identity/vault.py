@@ -10,10 +10,9 @@ import base64
 import hashlib
 import hmac
 import os
-from pathlib import Path
 import re
 import secrets
-from typing import Any
+from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -35,7 +34,7 @@ class EncryptedVault:
             if len(key_bytes) != 32:
                 raise VaultError("Vault key must be exactly 32 bytes (256-bit)")
             self._key = key_bytes
-        elif key_env in os.environ and os.environ[key_env]:
+        elif os.environ.get(key_env):
             env_val = os.environ[key_env].strip()
             try:
                 decoded = base64.b64decode(env_val)
@@ -43,7 +42,7 @@ class EncryptedVault:
                     self._key = decoded
                 else:
                     self._key = env_val.encode("utf-8")[:32].ljust(32, b"\0")
-            except Exception:
+            except (ValueError, TypeError):
                 self._key = env_val.encode("utf-8")[:32].ljust(32, b"\0")
         elif key_file is not None and key_file.exists():
             content = key_file.read_bytes().strip()
@@ -119,7 +118,7 @@ class EncryptedVault:
     def fingerprint(self, value: str | None, *, purpose: str = "lookup") -> str:
         """Return a keyed opaque lookup value without storing sensitive plaintext."""
         clean = str(value or "").strip().lower()
-        return hmac.new(self._key, f"{purpose}:{clean}".encode("utf-8"), hashlib.sha256).hexdigest()
+        return hmac.new(self._key, f"{purpose}:{clean}".encode(), hashlib.sha256).hexdigest()
 
 
 # Global singleton vault instance

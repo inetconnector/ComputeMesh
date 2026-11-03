@@ -8,18 +8,16 @@ for ComputeMesh inference provider nodes and mixed-vendor mining rigs.
 from __future__ import annotations
 
 import argparse
-from ctypes import CDLL, POINTER, Structure, byref, c_char, c_char_p, c_uint32, c_void_p
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 import glob
 import json
-import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
 import time
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 1
@@ -122,9 +120,8 @@ def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
         return True
 
     # 3. If Intel vendor and not a discrete Arc/Data Center GPU -> It is an integrated CPU GPU!
-    if v == "intel" or "8086:" in m or "ven_8086" in m:
-        if not any(arc in m for arc in ("arc", "dg1", "flex", "max", "battlemage", "a770", "a750", "a580", "a380", "a310", "b580", "b570")):
-            return True
+    if (v == "intel" or "8086:" in m or "ven_8086" in m) and not any(arc in m for arc in ("arc", "dg1", "flex", "max", "battlemage", "a770", "a750", "a580", "a380", "a310", "b580", "b570")):
+        return True
 
     for prefix in ("vga compatible controller:", "3d controller:", "display controller:"):
         if prefix in m:
@@ -138,9 +135,7 @@ def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
     if (v == "amd" or "1002:" in m) and any(marker in m for marker in ("radeon", "polaris", "navi", "instinct", "mi25", "mi50", "mi100", "mi200", "mi300", "vega 56", "vega 64", "vega 10", "vega 20", "rx 4", "rx 5", "rx 6", "rx 7", "rx 570", "rx 580", "rx 590", "w6800", "w7900")):
         return False
 
-    if "integrated" in m and "graphics" in m:
-        return True
-    return False
+    return bool("integrated" in m and "graphics" in m)
 
 
 def read_pci_resource_vram_bytes(slot: str) -> int:
@@ -163,10 +158,9 @@ def read_pci_resource_vram_bytes(slot: str) -> int:
                 if end > start:
                     size = end - start + 1
                     if (flags & 0x20000 or flags & 0x200) and size >= MIN_PROVIDER_VRAM_BYTES:
-                        if size > max_size:
-                            max_size = size
+                        max_size = max(max_size, size)
         return max_size
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return 0
 
 
@@ -253,7 +247,7 @@ def read_lspci_prefetchable_memory_bytes(slot: str) -> int:
             timeout=8,
             **_get_subprocess_flags(),
         )
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return 0
 
     sizes: list[int] = []
@@ -301,13 +295,13 @@ def collect_hardware_debug() -> dict[str, Any]:
                 file_path = card_path / name
                 if file_path.exists():
                     entry[name] = file_path.read_text(errors="replace").strip()
-            except Exception as exc:
+            except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 entry[f"{name}_error"] = str(exc)
         try:
             uevent = card_path / "uevent"
             if uevent.exists():
                 entry["uevent"] = uevent.read_text(errors="replace").strip().splitlines()
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             entry["uevent_error"] = str(exc)
         debug["drm_devices"].append(entry)
 
@@ -342,14 +336,14 @@ def collect_hardware_debug() -> dict[str, Any]:
                                 **_get_subprocess_flags(),
                             )
                             controller["memory_lines"] = [
-                                l.strip()
-                                for l in verbose.stdout.splitlines()
-                                if "Memory at" in l or "[size=" in l
+                                line.strip()
+                                for line in verbose.stdout.splitlines()
+                                if "Memory at" in line or "[size=" in line
                             ][:20]
-                        except Exception as exc:
+                        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                             controller["verbose_error"] = str(exc)
                     debug["lspci_controllers"].append(controller)
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             debug["lspci_error"] = str(exc)
 
     return debug
@@ -399,8 +393,8 @@ def detect_nvidia_gpus() -> list[GpuDevice]:
                     healthy=True,
                 )
             )
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     return devices
 
 
@@ -436,8 +430,8 @@ def read_nvidia_thermals() -> list[GpuThermalMetrics]:
                     power_watts=power,
                 )
             )
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     return thermals
 
 
@@ -491,8 +485,8 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
                         vram_bytes = int(vram_file.read_text().strip())
                         if vram_bytes > 0:
                             break
-                    except Exception:
-                        pass
+                    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
 
             if vram_bytes <= 0:
                 vram_bytes = read_pci_resource_vram_bytes(pci_slot)
@@ -508,8 +502,8 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
             if width_file.exists():
                 try:
                     pcie_width = int(width_file.read_text().strip())
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
             speed_file = Path(card) / "current_link_speed"
             if speed_file.exists():
                 try:
@@ -520,8 +514,8 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
                         pcie_gen = 3
                     elif "16.0" in speed_str:
                         pcie_gen = 4
-                except Exception:
-                    pass
+                except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             device = GpuDevice(
                 index=current_index,
@@ -539,7 +533,8 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
                 continue
             devices.append(device)
             current_index += 1
-        except Exception:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
             continue
 
     return devices
@@ -570,16 +565,16 @@ def read_amd_thermals(start_index: int = 0) -> list[GpuThermalMetrics]:
                 if temp_input.exists():
                     try:
                         temp_c = int(int(temp_input.read_text().strip()) / 1000)
-                    except Exception:
-                        pass
+                    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
 
                 fan_input = Path(hw) / "pwm1"
                 if fan_input.exists():
                     try:
                         pwm = int(fan_input.read_text().strip())
                         fan_pct = int((pwm / 255.0) * 100)
-                    except Exception:
-                        pass
+                    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
 
                 # pwm1 is the requested duty cycle, not proof that the fan
                 # rotor is moving. Read the tachometer separately when the
@@ -589,15 +584,15 @@ def read_amd_thermals(start_index: int = 0) -> list[GpuThermalMetrics]:
                 if rpm_input.exists():
                     try:
                         fan_rpm = max(0, int(rpm_input.read_text().strip()))
-                    except Exception:
-                        pass
+                    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
 
                 power_input = Path(hw) / "power1_average"
                 if power_input.exists():
                     try:
                         power_w = int(int(power_input.read_text().strip()) / 1000000)
-                    except Exception:
-                        pass
+                    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
 
             thermals.append(
                 GpuThermalMetrics(
@@ -610,7 +605,8 @@ def read_amd_thermals(start_index: int = 0) -> list[GpuThermalMetrics]:
                 )
             )
             current_index += 1
-        except Exception:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
             continue
 
     return thermals
@@ -675,8 +671,8 @@ def detect_windows_wmi_gpus(existing_devices: list[GpuDevice]) -> list[GpuDevice
                 continue
             devices.append(device)
             start_index += 1
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
         
     return devices
 
@@ -714,8 +710,8 @@ def scan_rig_hardware() -> RigInventory:
                 **_get_subprocess_flags(),
             )
             gpu_lines = [
-                l for l in res.stdout.splitlines()
-                if "VGA compatible controller" in l or "3D controller" in l or "Display controller" in l
+                line for line in res.stdout.splitlines()
+                if "VGA compatible controller" in line or "3D controller" in line or "Display controller" in line
             ]
             for line in gpu_lines:
                 slot_match = re.match(r"^([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9a-fA-F])", line)
@@ -752,8 +748,8 @@ def scan_rig_hardware() -> RigInventory:
                 all_gpus.append(device)
                 if slot:
                     existing_slots.add(slot.lower())
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     total_vram = sum(g.vram_bytes for g in all_gpus)
     riser_warning = any(g.pcie_width == 1 for g in all_gpus)
@@ -764,7 +760,7 @@ def scan_rig_hardware() -> RigInventory:
 
     return RigInventory(
         schema_version=SCHEMA_VERSION,
-        captured_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        captured_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         host_architecture=sys.platform,
         total_gpus=len(all_gpus),
         total_vram_bytes=total_vram,

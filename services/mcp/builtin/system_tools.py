@@ -7,12 +7,12 @@ import os
 import platform
 import subprocess
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
-def execute_system_info() -> Dict[str, Any]:
+def execute_system_info() -> dict[str, Any]:
     """Returns detailed OS, CPU, Memory, and Disk telemetry."""
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "os": platform.system(),
         "release": platform.release(),
         "machine": platform.machine(),
@@ -34,8 +34,8 @@ def execute_system_info() -> Dict[str, Any]:
             info["ram_available_gb"] = avail_ram_gb
             info["ram_used_gb"] = round(total_ram_gb - avail_ram_gb, 2)
             info["ram_usage_percent"] = round(((total_ram_gb - avail_ram_gb) / total_ram_gb) * 100, 1)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     # Disk usage for current drive
     try:
@@ -45,15 +45,15 @@ def execute_system_info() -> Dict[str, Any]:
         info["disk_used_gb"] = round(used / (1024 ** 3), 2)
         info["disk_free_gb"] = round(free / (1024 ** 3), 2)
         info["disk_usage_percent"] = round((used / total) * 100, 1)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     return info
 
 
-def execute_gpu_telemetry() -> Dict[str, Any]:
+def execute_gpu_telemetry() -> dict[str, Any]:
     """Detects NVIDIA CUDA & AMD ROCm GPU devices, VRAM usage, temperature and compute status."""
-    gpus: List[Dict[str, Any]] = []
+    gpus: list[dict[str, Any]] = []
 
     # 1. Try nvidia-smi CLI
     try:
@@ -79,8 +79,8 @@ def execute_gpu_telemetry() -> Dict[str, Any]:
                     "compute_utilization_percent": float(util),
                     "healthy": True,
                 })
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     # 2. Try rocm-smi if no NVIDIA found
     if not gpus:
@@ -101,8 +101,8 @@ def execute_gpu_telemetry() -> Dict[str, Any]:
                         "temperature_celsius": float(c_data.get("Temperature (Sensor edge) (C)", 0)),
                         "healthy": True,
                     })
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     return {
         "gpu_count": len(gpus),
@@ -112,7 +112,7 @@ def execute_gpu_telemetry() -> Dict[str, Any]:
     }
 
 
-def execute_process_summary(top_n: int = 5) -> Dict[str, Any]:
+def execute_process_summary(top_n: int = 5) -> dict[str, Any]:
     """Returns active ComputeMesh processes and basic execution environment stats."""
     return {
         "pid": os.getpid(),

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+import contextlib
 import hashlib
-from pathlib import Path
 import secrets
 import sqlite3
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Self
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
@@ -55,13 +58,13 @@ class NodeKeyState:
 def _utc_text(value: datetime) -> str:
     if value.tzinfo is None:
         raise ValueError("datetime must be timezone-aware")
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _parse_utc(value: str | None) -> datetime | None:
     if value is None:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+    return datetime.fromisoformat(value).astimezone(UTC)
 
 
 def _token_hash(token: str) -> str:
@@ -105,15 +108,13 @@ class SQLiteIdentityStore:
 
     def _notify_revocation(self, target_type: str, target_id: str) -> None:
         for listener in list(self._revocation_listeners):
-            try:
+            with contextlib.suppress(OSError, ValueError, TypeError, RuntimeError):
                 listener(target_type, target_id)
-            except Exception:
-                pass
 
     def close(self) -> None:
         self._db.close()
 
-    def __enter__(self) -> "SQLiteIdentityStore":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -177,11 +178,11 @@ class SQLiteIdentityStore:
     ) -> str:
         if not (1 <= len(principal_id) <= 256):
             raise ValueError("principal_id must be 1..256 characters")
-        now_value = now or datetime.now(timezone.utc)
+        now_value = now or datetime.now(UTC)
         if now_value.tzinfo is None or expires_at.tzinfo is None:
             raise ValueError("enrollment token times must be timezone-aware")
-        now_utc = now_value.astimezone(timezone.utc)
-        expiry = expires_at.astimezone(timezone.utc)
+        now_utc = now_value.astimezone(UTC)
+        expiry = expires_at.astimezone(UTC)
         if expiry <= now_utc:
             raise ValueError("enrollment token expiry must be in the future")
         if expiry - now_utc > MAX_ENROLLMENT_TOKEN_TTL:
@@ -204,7 +205,7 @@ class SQLiteIdentityStore:
         if not isinstance(token, str) or not (1 <= len(token) <= 256):
             raise EnrollmentTokenInvalid("invalid enrollment token")
         public_key = _validate_public_key(public_key)
-        now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_utc = (now or datetime.now(UTC)).astimezone(UTC)
         token_hash = _token_hash(token)
         pub_hash = _public_key_hash(public_key)
 
@@ -285,7 +286,7 @@ class SQLiteIdentityStore:
         now: datetime | None = None,
     ) -> NodeKeyState:
         public_key = _validate_public_key(public_key)
-        now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_utc = (now or datetime.now(UTC)).astimezone(UTC)
         key_id = key_id_from_public_key(public_key)
         self._db.execute("BEGIN IMMEDIATE")
         try:
@@ -335,7 +336,7 @@ class SQLiteIdentityStore:
         *,
         now: datetime | None = None,
     ) -> NodeKeyState:
-        now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_utc = (now or datetime.now(UTC)).astimezone(UTC)
         self._require_node_principal(node_id, principal_id)
         row = self._db.execute(
             "SELECT * FROM node_key WHERE node_id=? AND key_id=?", (node_id, key_id)
@@ -357,7 +358,7 @@ class SQLiteIdentityStore:
         *,
         now: datetime | None = None,
     ) -> None:
-        now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_utc = (now or datetime.now(UTC)).astimezone(UTC)
         self._require_node_principal(node_id, principal_id)
         now_text = _utc_text(now_utc)
         self._db.execute("BEGIN IMMEDIATE")

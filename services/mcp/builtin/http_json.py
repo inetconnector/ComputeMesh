@@ -8,11 +8,11 @@ User supplied URLs belong to the web-fetch/network-tool security path instead.
 from __future__ import annotations
 
 import json
-import socket
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 USER_AGENT = "ComputeMesh/1.2 (+https://mesh.inetconnector.com)"
 DEFAULT_MAX_BYTES = 2 * 1024 * 1024
@@ -69,7 +69,7 @@ def fetch_json(
             raw = response.read(max_bytes + 1)
     except urllib.error.HTTPError as exc:
         raise ProviderError(f"Provider antwortete mit HTTP {exc.code}.") from exc
-    except (urllib.error.URLError, TimeoutError, socket.timeout, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
         reason = getattr(exc, "reason", exc)
         raise ProviderError(f"Provider nicht erreichbar: {reason}") from exc
 

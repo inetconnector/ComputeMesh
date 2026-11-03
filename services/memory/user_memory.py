@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
 log = logging.getLogger("computemesh.memory")
 
@@ -20,14 +20,14 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "memory"
 class UserProfile:
     name: str = ""
     preferred_language: str = "Deutsch"
-    preferences: List[str] = field(default_factory=list)
-    facts: List[str] = field(default_factory=list)
+    preferences: list[str] = field(default_factory=list)
+    facts: list[str] = field(default_factory=list)
 
 
 class UserMemoryStore:
     """Thread-safe persistent key-value and fact store for cross-session user personalization."""
 
-    def __init__(self, persist_dir: Optional[Path | str] = None, storage_path: Optional[Path | str] = None):
+    def __init__(self, persist_dir: Path | str | None = None, storage_path: Path | str | None = None):
         if storage_path:
             self.persist_file = Path(storage_path)
             self.persist_dir = self.persist_file.parent
@@ -36,7 +36,7 @@ class UserMemoryStore:
             self.persist_file = self.persist_dir / "user_profile.json"
         self.persist_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._memories: Dict[str, Dict[str, Any]] = {}
+        self._memories: dict[str, dict[str, Any]] = {}
         self._profile = UserProfile()
         self._load()
 
@@ -57,7 +57,7 @@ class UserMemoryStore:
                                 facts=prof.get("facts", []),
                             )
                     log.info(f"Loaded {len(self._memories)} persistent memory facts")
-                except Exception as exc:
+                except (OSError, ValueError, TypeError, KeyError) as exc:
                     log.warning(f"Error loading user memory: {exc}")
                     self._memories = {}
                     self._profile = UserProfile()
@@ -79,15 +79,15 @@ class UserMemoryStore:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
                 if temp_file.exists():
                     temp_file.replace(self.persist_file)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError) as exc:
                 log.error(f"Error saving user memory: {exc}")
 
     def update_profile(
         self,
         name: str = "",
         preferred_language: str = "",
-        preferences: Optional[List[str]] = None,
-        facts: Optional[List[str]] = None,
+        preferences: list[str] | None = None,
+        facts: list[str] | None = None,
     ) -> UserProfile:
         with self._lock:
             if name:
@@ -106,7 +106,7 @@ class UserMemoryStore:
             return self._profile
 
 
-    def update_memory(self, key: str, value: str, category: str = "general") -> Dict[str, Any]:
+    def update_memory(self, key: str, value: str, category: str = "general") -> dict[str, Any]:
         """Stores or updates a persistent user memory fact."""
         clean_key = str(key or "").strip().lower().replace(" ", "_")
         clean_val = str(value or "").strip()
@@ -130,11 +130,11 @@ class UserMemoryStore:
             "message": f"Erinnerung '{clean_key}' erfolgreich gespeichert.",
         }
 
-    def get_memory(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_memory(self, key: str) -> dict[str, Any] | None:
         with self._lock:
             return self._memories.get(key.strip().lower().replace(" ", "_"))
 
-    def delete_memory(self, key: str) -> Dict[str, Any]:
+    def delete_memory(self, key: str) -> dict[str, Any]:
         clean_key = str(key or "").strip().lower().replace(" ", "_")
         with self._lock:
             if clean_key in self._memories:
@@ -143,7 +143,7 @@ class UserMemoryStore:
                 return {"success": True, "message": f"Erinnerung '{clean_key}' gelöscht."}
             return {"error": f"Erinnerung '{clean_key}' nicht gefunden", "success": False}
 
-    def get_all_memories(self) -> Dict[str, Any]:
+    def get_all_memories(self) -> dict[str, Any]:
         with self._lock:
             return {
                 "total": len(self._memories),
@@ -186,7 +186,7 @@ def get_user_memory_store() -> UserMemoryStore:
     return _GLOBAL_MEMORY
 
 
-def get_user_memory(key: Optional[str] = None) -> Dict[str, Any]:
+def get_user_memory(key: str | None = None) -> dict[str, Any]:
     """Retrieves all or a specific user memory fact."""
     store = get_user_memory_store()
     if key:
@@ -195,13 +195,13 @@ def get_user_memory(key: Optional[str] = None) -> Dict[str, Any]:
     return store.get_all_memories()
 
 
-def update_user_memory(key: str, value: str, category: str = "general") -> Dict[str, Any]:
+def update_user_memory(key: str, value: str, category: str = "general") -> dict[str, Any]:
     """Saves or updates a user fact or preference in persistent long-term memory."""
     store = get_user_memory_store()
     return store.update_memory(key=key, value=value, category=category)
 
 
-def delete_user_memory(key: str) -> Dict[str, Any]:
+def delete_user_memory(key: str) -> dict[str, Any]:
     """Removes a user memory fact."""
     store = get_user_memory_store()
     return store.delete_memory(key=key)

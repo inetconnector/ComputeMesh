@@ -1,15 +1,15 @@
 """Contract tests for the Universal Skill Execution System."""
 from __future__ import annotations
 
+import tempfile
 import unittest
 from pathlib import Path
-import tempfile
 
 from services.mcp.skill_execution import (
+    UNIVERSAL_SKILL,
     SkillExecutionEngine,
     SkillRegistry,
     SkillSpec,
-    UNIVERSAL_SKILL,
     build_skill_engine,
 )
 from services.mcp.tool_registry import ToolRegistry

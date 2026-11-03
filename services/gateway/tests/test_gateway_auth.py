@@ -1,25 +1,21 @@
 """Unit tests for ComputeMesh Gateway Authentication & Entitlement Manager."""
-from http import HTTPStatus
+import json
 import os
-from pathlib import Path
-import sys
 import tempfile
 import unittest
-import json
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from http import HTTPStatus
+from pathlib import Path
 
 from services.billing.ledger import Ledger
 from services.gateway.auth import (
-    AuthResult,
     GatewayAuthManager,
     extract_bearer_token,
     resolve_client_ip,
 )
 from services.gateway.teaser import TeaserQuotaManager
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestGatewayAuth(unittest.TestCase):
     def setUp(self) -> None:
@@ -48,10 +44,16 @@ class TestGatewayAuth(unittest.TestCase):
 
     def test_resolve_client_ip(self) -> None:
         headers_forwarded = {"X-Forwarded-For": "203.0.113.195, 70.41.3.18"}
-        self.assertEqual(resolve_client_ip(headers_forwarded), "203.0.113.195")
+        self.assertEqual(
+            resolve_client_ip(headers_forwarded, client_address=("127.0.0.1", 8080)),
+            "203.0.113.195",
+        )
 
         headers_real_ip = {"X-Real-IP": "198.51.100.42"}
-        self.assertEqual(resolve_client_ip(headers_real_ip), "198.51.100.42")
+        self.assertEqual(
+            resolve_client_ip(headers_real_ip, client_address=("127.0.0.1", 8080)),
+            "198.51.100.42",
+        )
 
         self.assertEqual(resolve_client_ip({}, client_address=("10.0.0.5", 48123)), "10.0.0.5")
         self.assertEqual(resolve_client_ip({}), "127.0.0.1")
@@ -122,7 +124,9 @@ class TestGatewayAuth(unittest.TestCase):
 
     def test_authenticate_teaser_playground(self) -> None:
         headers = {"X-Forwarded-For": "198.51.100.77"}
-        auth = self.auth_manager.authenticate_request(headers, allow_teaser=True)
+        auth = self.auth_manager.authenticate_request(
+            headers, client_address=("127.0.0.1", 8000), allow_teaser=True,
+        )
         self.assertTrue(auth.is_authenticated)
         self.assertEqual(auth.account_id, "teaser_198_51_100_77")
         self.assertTrue(auth.is_teaser)
@@ -138,7 +142,9 @@ class TestGatewayAuth(unittest.TestCase):
         for _ in range(5):
             self.teaser_manager.record_usage(client_ip)
 
-        auth = self.auth_manager.authenticate_request(headers, allow_teaser=True)
+        auth = self.auth_manager.authenticate_request(
+            headers, client_address=("127.0.0.1", 8000), allow_teaser=True,
+        )
         self.assertTrue(auth.is_authenticated)
         self.assertTrue(auth.is_teaser)
         self.assertTrue(auth.is_quota_exceeded)

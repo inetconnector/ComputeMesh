@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from services.billing.crypto_payments import CryptoPaymentError, CryptoPaymentService
@@ -52,9 +52,8 @@ class CompliancePolicyTests(unittest.TestCase):
             ProviderComplianceRegistry.from_path(self._registry(country="US")).require_eligible("node-a")
 
     def test_launch_gate_is_fail_closed_in_production(self) -> None:
-        with patch.dict(os.environ, {"COMPUTEMESH_PRODUCTION_MODE": "1"}, clear=True):
-            with self.assertRaises(ProductionComplianceError):
-                assert_production_launch_gate()
+        with patch.dict(os.environ, {"COMPUTEMESH_PRODUCTION_MODE": "1"}, clear=True), self.assertRaises(ProductionComplianceError):
+            assert_production_launch_gate()
 
     def test_launch_gate_accepts_complete_control_set(self) -> None:
         registry = self._registry()
@@ -83,9 +82,8 @@ class CompliancePolicyTests(unittest.TestCase):
             )
 
     def test_direct_crypto_crediting_is_disabled_in_production(self) -> None:
-        with patch.dict(os.environ, {"COMPUTEMESH_PRODUCTION_MODE": "1"}, clear=True):
-            with self.assertRaises(CryptoPaymentError):
-                CryptoPaymentService(Ledger())
+        with patch.dict(os.environ, {"COMPUTEMESH_PRODUCTION_MODE": "1"}, clear=True), self.assertRaises(CryptoPaymentError):
+            CryptoPaymentService(Ledger())
 
 
 if __name__ == "__main__":

@@ -7,14 +7,14 @@ attestation state rather than replaying protected ciphertext.
 """
 from __future__ import annotations
 
+import hashlib
+import json
+import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
-import hashlib
-import json
+from datetime import UTC, datetime
 from pathlib import Path
-import sqlite3
 from typing import Protocol
 
 from protocol.confidential_envelope import ConfidentialEnvelope
@@ -133,10 +133,10 @@ class SQLiteConfidentialReplayStore:
         if binding.operation != expected_operation:
             raise ConfidentialReplayBindingError("confidential envelope operation binding mismatch")
 
-        instant = now or datetime.now(timezone.utc)
+        instant = now or datetime.now(UTC)
         if instant.tzinfo is None or instant.utcoffset() is None:
             raise ValueError("replay claim timestamp must be timezone-aware")
-        claimed_at = instant.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        claimed_at = instant.astimezone(UTC).isoformat().replace("+00:00", "Z")
         digest = self._binding_digest(envelope)
         claim = ReplayClaim(
             envelope_id=envelope.envelope_id,
@@ -197,7 +197,7 @@ class SQLiteConfidentialReplayStore:
         """Operator maintenance only; retention must exceed max attestation/retry horizon."""
         if cutoff.tzinfo is None or cutoff.utcoffset() is None:
             raise ValueError("replay purge cutoff must be timezone-aware")
-        cutoff_text = cutoff.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        cutoff_text = cutoff.astimezone(UTC).isoformat().replace("+00:00", "Z")
         with self._connect() as connection:
             cursor = connection.execute(
                 "DELETE FROM confidential_replay_claims WHERE claimed_at < ?",

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, ClassVar
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -21,7 +22,7 @@ class ContractValidationError(ValueError):
 class ContractValidator:
     """Load and validate the versioned M0 JSON Schema contracts."""
 
-    _FILES = {
+    _FILES: ClassVar[dict[str, str]] = {
         "node_profile": "node_profile.schema.json",
         "benchmark_result": "benchmark_result.schema.json",
         "model_manifest": "model_manifest.schema.json",

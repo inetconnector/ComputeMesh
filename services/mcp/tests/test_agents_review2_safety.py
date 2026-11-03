@@ -1,8 +1,9 @@
 """Second-pass safety tests for write retries and emergency-stop enforcement."""
 from __future__ import annotations
 
-from unittest.mock import patch
 import unittest
+from typing import ClassVar
+from unittest.mock import patch
 
 from services.mcp.config import MCPConfig
 from services.mcp.platform.contracts import (
@@ -13,7 +14,10 @@ from services.mcp.platform.contracts import (
     ToolMode,
 )
 from services.mcp.platform.runtime import AgentsPlatformRuntime
-from services.mcp.platform.tool_execution import SafeToolExecutor, ToolCapabilityRegistry
+from services.mcp.platform.tool_execution import (
+    SafeToolExecutor,
+    ToolCapabilityRegistry,
+)
 from services.mcp.tool_registry import ToolRegistry
 
 
@@ -39,7 +43,7 @@ class OwnerCaptureRegistry:
     class _Tool:
         name = "read_tool"
         description = "read"
-        parameters = {"type": "object", "properties": {}}
+        parameters: ClassVar[dict[str, object]] = {"type": "object", "properties": {}}
         owner_only = False
         source = "test"
 

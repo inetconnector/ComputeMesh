@@ -14,8 +14,6 @@ Units:
 from __future__ import annotations
 
 from dataclasses import dataclass
-import time
-
 
 MICRO_UNITS_PER_USD: int = 1_000_000
 DEFAULT_PROVIDER_PERCENTAGE: float = 0.75

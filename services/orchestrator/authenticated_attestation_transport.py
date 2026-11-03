@@ -7,7 +7,7 @@ not treated as node identity unless a future PKI explicitly makes them so.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
@@ -60,7 +60,7 @@ class SessionAuthenticatedAttestationTransport(NodeAttestationTransport):
             raise AuthenticatedAttestationTransportError(
                 f"node {node_id} session is not authorized for control-plane requests"
             )
-        if session.credential_expires_at is None or session.credential_expires_at <= datetime.now(timezone.utc):
+        if session.credential_expires_at is None or session.credential_expires_at <= datetime.now(UTC):
             raise AuthenticatedAttestationTransportError(f"node {node_id} authentication has expired")
         if ATTESTATION_CAPABILITY not in session.negotiated_capabilities:
             raise AuthenticatedAttestationTransportError(
@@ -112,7 +112,7 @@ class SessionAuthenticatedAttestationTransport(NodeAttestationTransport):
         return session
 
     def reserve_capacity(self, *, node_id: str, job_id: str, lease_id: str, ttl_seconds: int, device_id: str = "default", memory_mb: int = 0, timeout_seconds: float = 15.0) -> dict[str, Any]:
-        session = self._require_capacity_session(node_id)
+        _session = self._require_capacity_session(node_id)
         response = self.client.request(
             node_id=node_id,
             message_type="CapacityReserveRequest",
@@ -124,7 +124,7 @@ class SessionAuthenticatedAttestationTransport(NodeAttestationTransport):
         return response
 
     def release_capacity(self, *, node_id: str, job_id: str, lease_id: str, timeout_seconds: float = 15.0) -> bool:
-        session = self._require_capacity_session(node_id)
+        _session = self._require_capacity_session(node_id)
         response = self.client.request(
             node_id=node_id,
             message_type="CapacityReleaseRequest",

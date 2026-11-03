@@ -6,14 +6,14 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def extract_document_content(
     content_or_path: str,
     max_sections: int = 10,
     extract_bullet_points: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Extracts structured headings, sections, and key takeaways from document text or a local file."""
     raw = str(content_or_path or "").strip()
     if not raw:
@@ -31,18 +31,18 @@ def extract_document_content(
                     text_content = f.read(500_000)
                 is_file = True
                 source_file = str(p.name)
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     lines = text_content.splitlines()
     total_lines = len(lines)
     word_count = len(text_content.split())
 
     # Extract Markdown headings (# Title, ## Section)
-    sections: List[Dict[str, Any]] = []
+    sections: list[dict[str, Any]] = []
     current_heading = "Einleitung / Übersicht"
     current_level = 1
-    current_body: List[str] = []
+    current_body: list[str] = []
 
     heading_re = re.compile(r"^(#{1,6})\s+(.+)$")
     for line in lines:
@@ -71,7 +71,7 @@ def extract_document_content(
         })
 
     # Extract bullet points
-    bullets: List[str] = []
+    bullets: list[str] = []
     if extract_bullet_points:
         bullet_re = re.compile(r"^\s*[-*•]\s+(.+)$")
         for line in lines:

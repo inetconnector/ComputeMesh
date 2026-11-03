@@ -9,10 +9,10 @@ and deletion/anonymization actions in strict compliance with:
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 
 
 class RetentionCategory(str, Enum):
@@ -51,21 +51,21 @@ class RetentionRule:
     def is_expired(self, trigger_timestamp_iso: str, now: datetime | None = None) -> bool:
         if self.duration_days is None or self.duration_days <= 0:
             return True
-        current_time = now or datetime.now(timezone.utc)
+        current_time = now or datetime.now(UTC)
         try:
             cleaned = trigger_timestamp_iso.replace("Z", "+00:00")
             dt = datetime.fromisoformat(cleaned)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             return (current_time - dt) > timedelta(days=self.duration_days)
-        except Exception:
+        except (ValueError, TypeError, OverflowError, AttributeError):
             return False
 
 
 class RetentionEngine:
     """Manages statutory and security retention rules across ComputeMesh data categories."""
 
-    DEFAULT_RULES: dict[RetentionCategory, RetentionRule] = {
+    DEFAULT_RULES: ClassVar[dict[RetentionCategory, RetentionRule]] = {
         RetentionCategory.PROMPT_INFERENCE_DATA: RetentionRule(
             category=RetentionCategory.PROMPT_INFERENCE_DATA,
             legal_basis="GDPR Art. 5(1)(e) - Privacy by Design & Zero-Disk volatile processing",

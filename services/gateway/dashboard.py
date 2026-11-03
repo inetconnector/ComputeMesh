@@ -4,15 +4,14 @@ Provides authenticated web-based remote telemetry viewing for edge nodes and clu
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import html
 import ipaddress
 import json
 import os
-from pathlib import Path
 import sys
-import tempfile
 import threading
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from services.common.config import CONFIG
@@ -25,7 +24,7 @@ def _resolve_registry_file() -> Path:
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return Path("/tmp/computemesh_node_registry.json")
 
 
@@ -38,8 +37,8 @@ def _load_registry() -> dict[str, dict[str, Any]]:
         try:
             if REGISTRY_FILE.exists():
                 return json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         return {}
 
 
@@ -54,8 +53,8 @@ def save_node_telemetry_registry(registry: dict[str, dict[str, Any]]) -> None:
             if registry is not NODE_TELEMETRY_REGISTRY:
                 NODE_TELEMETRY_REGISTRY.clear()
                 NODE_TELEMETRY_REGISTRY.update(registry)
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
 
 # Persistent registry for dynamic node heartbeats and telemetry
@@ -64,7 +63,7 @@ NODE_TELEMETRY_REGISTRY: dict[str, dict[str, Any]] = _load_registry()
 
 def fresh_node_telemetry_entries(max_age_seconds: int = 45, *, include_peer_relays: bool = False) -> list[dict[str, Any]]:
     """Return only recently refreshed node telemetry entries for live capacity views."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     entries: list[dict[str, Any]] = []
     for node_data in NODE_TELEMETRY_REGISTRY.values():
         if not include_peer_relays and node_data.get("is_peer_relay", False):
@@ -73,8 +72,9 @@ def fresh_node_telemetry_entries(max_age_seconds: int = 45, *, include_peer_rela
         if not updated_at:
             continue
         try:
-            timestamp = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-        except Exception:
+            timestamp = datetime.fromisoformat(updated_at)
+        except (ValueError, TypeError) as exc:
+            _ = exc
             continue
         if (now - timestamp).total_seconds() <= max_age_seconds:
             entries.append(node_data)
@@ -136,8 +136,8 @@ def _extract_candidate_local_urls(node_data: dict[str, Any]) -> list[str]:
                 if u not in seen:
                     seen.add(u)
                     urls.append(u)
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     for loopback in [f"http://localhost:{port}", f"http://127.0.0.1:{port}"]:
         if loopback not in seen:
@@ -150,7 +150,7 @@ def _extract_candidate_local_urls(node_data: dict[str, Any]) -> list[str]:
 def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: dict[str, Any]) -> str:
     """Renders a responsive, modern dark-mode dashboard for node monitoring with strict XSS escaping."""
     safe_node_id = html.escape(str(node_id))
-    safe_auth_token = html.escape(str(auth_token))
+    _safe_auth_token = html.escape(str(auth_token))
 
     inventory = node_data.get("inventory", {})
     telemetry = node_data.get("telemetry", {})

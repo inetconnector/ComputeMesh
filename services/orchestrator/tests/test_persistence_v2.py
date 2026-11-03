@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
 import sqlite3
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from services.orchestrator.persistence import SQLiteStateStore
@@ -12,7 +12,7 @@ class SQLiteStateStoreV2Tests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.path = Path(self.tmp.name) / "state.db"
-        self.now = datetime.now(timezone.utc)
+        self.now = datetime.now(UTC)
 
     def tearDown(self):
         self.tmp.cleanup()

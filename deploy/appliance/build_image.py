@@ -7,13 +7,9 @@ USB flash drives or SSDs using Rufus, BalenaEtcher, Raspberry Pi Imager, or dd.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
-import os
+from datetime import UTC, datetime
 from pathlib import Path
-import shutil
-import subprocess
-import sys
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -77,7 +73,7 @@ def build_appliance_package(output_dir: Path, image_name: str = "computemesh-nod
         "appliance_name": "ComputeMesh NodeOS",
         "version": "1.0.0",
         "architecture": "x86_64",
-        "build_date": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "build_date": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "supported_gpus": [
             "NVIDIA Pascal (GTX 1060/1070/1080/Ti, P106, P104, P102)",
             "NVIDIA Turing (GTX 1660, RTX 2060/2070/2080, CMP 30HX/40HX/50HX)",
@@ -105,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Building ComputeMesh NodeOS appliance artifacts in {args.output_dir}...")
     manifest = build_appliance_package(args.output_dir, args.image_name)
-    print(f"Appliance package generated successfully:")
+    print("Appliance package generated successfully:")
     print(json.dumps(manifest, indent=2))
     return 0
 

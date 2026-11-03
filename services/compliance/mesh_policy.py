@@ -6,10 +6,10 @@ available provider.
 """
 from __future__ import annotations
 
+import os
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-import os
-from typing import FrozenSet, Iterable
 
 
 class ProviderTrustTier(str, Enum):
@@ -39,7 +39,7 @@ class MeshFeatureFlags:
     crypto_private_execution: bool = False
 
     @classmethod
-    def from_env(cls) -> "MeshFeatureFlags":
+    def from_env(cls) -> MeshFeatureFlags:
         return cls(
             confidential_execution=os.environ.get(
                 "COMPUTEMESH_CONFIDENTIAL_EXECUTION_ENABLED", ""
@@ -54,8 +54,8 @@ class MeshFeatureFlags:
 class JobRoutingPolicy:
     privacy_class: ExecutionPrivacyClass
     minimum_trust_tier: ProviderTrustTier = ProviderTrustTier.OPEN
-    allowed_regions: FrozenSet[str] = field(default_factory=frozenset)
-    required_crypto_capabilities: FrozenSet[str] = field(default_factory=frozenset)
+    allowed_regions: frozenset[str] = field(default_factory=frozenset)
+    required_crypto_capabilities: frozenset[str] = field(default_factory=frozenset)
 
     @classmethod
     def public(
@@ -63,7 +63,7 @@ class JobRoutingPolicy:
         *,
         minimum_trust_tier: ProviderTrustTier = ProviderTrustTier.OPEN,
         allowed_regions: Iterable[str] = (),
-    ) -> "JobRoutingPolicy":
+    ) -> JobRoutingPolicy:
         return cls(
             privacy_class=ExecutionPrivacyClass.PUBLIC,
             minimum_trust_tier=minimum_trust_tier,
@@ -83,7 +83,7 @@ class ProviderRoutingCapabilities:
     confidential_technology: str | None = None
     attestation_verified: bool = False
     attestation_fresh: bool = False
-    crypto_private_capabilities: FrozenSet[str] = field(default_factory=frozenset)
+    crypto_private_capabilities: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)

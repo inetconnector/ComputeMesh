@@ -1,4 +1,20 @@
 <resources>
+    <string name="app_name">ComputeMesh</string>
+    <string name="app_description">Dezentrale KI auf dem Gerät und verteiltes Rechennetz für Android</string>
+    <string name="service_name">ComputeMesh-Knotendienst</string>
+    <string name="service_desc">Hintergrunddienst für lokale KI-Inferenz und Flottentelemetrie</string>
+    <string name="channel_name">ComputeMesh-Knotenstatus</string>
+    <string name="channel_desc">Zeigt Knotenstatus, Berechnungen und Akkuschutz an</string>
+    <string name="tab_chat">MiniCPM-KI</string>
+    <string name="tab_node">Rechenknoten</string>
+    <string name="tab_mesh">P2P-Netzwerk</string>
+    <string name="tab_settings">Einrichtung</string>
+    <string name="status_ready">Bereit für MiniCPM5-2B-Aufträge</string>
+    <string name="status_paused">Pausiert</string>
+    <string name="status_active">🟢 Aktiv</string>
+    <string name="status_standby">🟡 Bereitschaft</string>
+    <string name="privacy_badge">100 % privat – nur auf dem Gerät oder im LAN</string>
+    <string name="privacy_subtext">Keine LLM-Anfragen werden an zentrale Server gesendet. Modellgewichte werden direkt aus dem Hugging-Face-CDN geladen.</string>
     <string name="enrollment_failed_http">Enrollment fehlgeschlagen: HTTP %1$d</string>
     <string name="owner_key_missing">Die Enrollment-Antwort enthält keinen Owner-Key.</string>
     <string name="pairing_succeeded">✓ Sicher mit ComputeMesh gekoppelt</string>

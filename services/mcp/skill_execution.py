@@ -7,12 +7,13 @@ tool was run when it was not.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import hashlib
 import json
-from pathlib import Path
 import re
-from typing import Any, Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -276,7 +277,7 @@ class SkillExecutionEngine:
             try:
                 result = self.tool_router(name, args)  # type: ignore[misc]
                 results.append({"tool": name, "status": "completed", "result": result})
-            except Exception as exc:  # tool failures become structured state, never fabricated success
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 results.append({"tool": name, "status": "failed", "error_class": "TOOL_ERROR", "error": str(exc)})
         plan["status"] = "completed" if all(r["status"] == "completed" for r in results) else "partial_failure"
         plan["results"] = results

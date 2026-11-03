@@ -10,11 +10,11 @@ import json
 import re
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
 
-COUNTRY_NAME_TO_ISO3: Dict[str, str] = {
+COUNTRY_NAME_TO_ISO3: dict[str, str] = {
     "deutschland": "DEU",
     "germany": "DEU",
     "de": "DEU",
@@ -136,7 +136,7 @@ COUNTRY_NAME_TO_ISO3: Dict[str, str] = {
     "ua": "UKR",
 }
 
-GERMAN_COUNTRY_NAMES: Dict[str, str] = {
+GERMAN_COUNTRY_NAMES: dict[str, str] = {
     "DEU": "Deutschland",
     "AUT": "Österreich",
     "CHE": "Schweiz",
@@ -179,7 +179,7 @@ GERMAN_COUNTRY_NAMES: Dict[str, str] = {
 }
 
 
-def _lookup_single_country(search_term: str, timeout: float = 6.0) -> Dict[str, Any]:
+def _lookup_single_country(search_term: str, timeout: float = 6.0) -> dict[str, Any]:
     """Fetches verified geographic & demographic data for a single country."""
     clean_term = search_term.strip().lower()
     clean_term = re.sub(r'^(?:über|ueber|von|in|zu|fakten\s+über|fakten\s+zu|daten\s+zu|infos\s+zu|info\s+über|land|das\s+land)\s+', '', clean_term, flags=re.IGNORECASE).strip()
@@ -242,8 +242,8 @@ def _lookup_single_country(search_term: str, timeout: float = 6.0) -> Dict[str, 
                         if p_rec.get("value") is not None:
                             population = int(p_rec["value"])
                             break
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
         summary_lines = [
             f"### 🏛️ **{country_name_de}** ({country_name_en}, ISO: `{iso3}`)",
@@ -269,8 +269,8 @@ def _lookup_single_country(search_term: str, timeout: float = 6.0) -> Dict[str, 
             "summary": "\n".join(summary_lines),
             "source": "World Bank Open Data",
         }
-    except Exception as e:
-        return {"error": f"Länderdaten-Abfrage für '{search_term}' fehlgeschlagen: {str(e)}"}
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
+        return {"error": f"Länderdaten-Abfrage für '{search_term}' fehlgeschlagen: {e!s}"}
 
 
 def lookup_country_data(
@@ -278,7 +278,7 @@ def lookup_country_data(
     name: str = "",
     query: str = "",
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetches verified geographical, demographic, and political data for any country worldwide.
     Supports multi-country comparisons (e.g. 'Deutschland, Frankreich, Japan und Brasilien').

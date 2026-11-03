@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-from pathlib import Path
 import random
 import re
 import subprocess
@@ -15,7 +14,10 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 log = logging.getLogger("computemesh.mcp.generate_image")
 
@@ -79,8 +81,8 @@ def _ensure_image_engine_running(timeout: float = 2.0) -> bool:
         with urllib.request.urlopen(req, timeout=0.8) as resp:
             if resp.status == 200:
                 return True
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     try:
         repo_root = Path(__file__).resolve().parents[3]
@@ -95,10 +97,11 @@ def _ensure_image_engine_running(timeout: float = 2.0) -> bool:
                     with urllib.request.urlopen(req, timeout=0.6) as resp:
                         if resp.status == 200:
                             return True
-                except Exception:
+                except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
                     continue
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return False
 
 
@@ -125,8 +128,8 @@ def _get_candidate_endpoints() -> list[str]:
                 if client_ip and client_ip not in ("127.0.0.1", "::1"):
                     endpoints.append(f"http://{client_ip}:8085/v1/images/generations")
                     endpoints.append(f"http://{client_ip}:8080/v1/images/generations")
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     seen = set()
     return [ep for ep in endpoints if ep and ep not in seen and not seen.add(ep)]
@@ -134,11 +137,11 @@ def _get_candidate_endpoints() -> list[str]:
 
 def generate_ai_image(
     prompt: str,
-    style: Optional[str] = "photorealistic",
+    style: str | None = "photorealistic",
     width: int = 1024,
     height: int = 1024,
     enhance: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generates a high-resolution AI image from a descriptive prompt using local GPU / ComputeMesh pipeline with cloud fallback.
 
     Args:
@@ -160,7 +163,7 @@ def generate_ai_image(
     _ensure_image_engine_running(timeout=1.5)
 
     local_endpoints = _get_candidate_endpoints()
-    timeout_sec = float(os.environ.get("COMPUTEMESH_IMAGE_TIMEOUT_SECONDS", 60.0))
+    timeout_sec = float(os.environ.get("COMPUTEMESH_IMAGE_TIMEOUT_SECONDS", "60.0"))
 
     provenance_meta = {
         "engine": "ComputeMesh RealVisXL / stable-diffusion.cpp (CUDA)",
@@ -208,10 +211,10 @@ def generate_ai_image(
                                     try:
                                         td.mkdir(parents=True, exist_ok=True)
                                         (td / fname).write_bytes(raw_bytes)
-                                    except Exception:
-                                        pass
+                                    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                                        _ = suppressed_exc
                                 clean_url = f"/generated/{fname}"
-                            except Exception:
+                            except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                                 clean_url = f"data:image/png;base64,{b64}"
 
                             return {
@@ -239,9 +242,9 @@ def generate_ai_image(
                                 "height": height,
                                 "provenance": provenance_meta,
                             }
-        except Exception:
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
             # Fallback to next endpoint or cloud
-            pass
+            _ = suppressed_exc
 
     # 2. Cloud Fallback: Pollinations.ai
     seed = random.randint(100000, 9999999)

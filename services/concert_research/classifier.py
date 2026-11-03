@@ -5,11 +5,9 @@ genre tagging, and quality/recommendation scoring for universal event discovery.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-import json
 import re
+from dataclasses import dataclass, field
 from typing import Any
-
 
 PRIMARY_CATEGORIES: set[str] = {
     "concert",           # Konzerte, Livebands, Live-Musik, Tourneen, klassische Konzerte, Singer/Songwriter
@@ -98,97 +96,97 @@ class EventClassification:
 
 # Explicit Party/Club patterns that must NEVER be classified as pure concert
 PARTY_PATTERNS = [
-    re.compile(r"\b(students?\s+night|m[aä]delsabend|thirsty\s+thursday|mittwochs?\s+double|donnerstags?disko|freitags?disko|samstags?disko)\b", re.I),
-    re.compile(r"\b(disco|disko|clubnacht|club\s+night|dj\s+night|dj\s+set|partyformat|tanzparty|\u00fc30|\u00fc40|afterwork|happy\s+hour)\b", re.I),
-    re.compile(r"\b(that\s+escalated\s+quickly|resident\s+dj|all\s+night\s+long|keller\s+der\s+liebe|partyreihe)\b", re.I),
-    re.compile(r"\b(electronic\s+beats|black\s+music\s+party|90er\s+party|2000er\s+party|apres\s+ski|clubbing)\b", re.I),
+    re.compile(r"\b(students?\s+night|m[aä]delsabend|thirsty\s+thursday|mittwochs?\s+double|donnerstags?disko|freitags?disko|samstags?disko)\b", re.IGNORECASE),
+    re.compile(r"\b(disco|disko|clubnacht|club\s+night|dj\s+night|dj\s+set|partyformat|tanzparty|\u00fc30|\u00fc40|afterwork|happy\s+hour)\b", re.IGNORECASE),
+    re.compile(r"\b(that\s+escalated\s+quickly|resident\s+dj|all\s+night\s+long|keller\s+der\s+liebe|partyreihe)\b", re.IGNORECASE),
+    re.compile(r"\b(electronic\s+beats|black\s+music\s+party|90er\s+party|2000er\s+party|apres\s+ski|clubbing)\b", re.IGNORECASE),
 ]
 
 # Explicit Fitness & Course patterns
 FITNESS_PATTERNS = [
-    re.compile(r"\b(yoga|vinyasa|jivamukti|ashtanga|yin\s+yoga|hatha|pilates|qigong|meditation)\b", re.I),
-    re.compile(r"\b(lauftreff|laufen\s+macht|joggen|marathon\s+training|fitnesskurs|tanzkurs|salsa\s+tanzkurs|bachata\s+kurs|hip\s*hop\s+tanzkurs|zumba)\b", re.I),
-    re.compile(r"\b(workout|crossfit|rueckenschule|r\u00fcckenschule|aerobic|gymnastik)\b", re.I),
+    re.compile(r"\b(yoga|vinyasa|jivamukti|ashtanga|yin\s+yoga|hatha|pilates|qigong|meditation)\b", re.IGNORECASE),
+    re.compile(r"\b(lauftreff|laufen\s+macht|joggen|marathon\s+training|fitnesskurs|tanzkurs|salsa\s+tanzkurs|bachata\s+kurs|hip\s*hop\s+tanzkurs|zumba)\b", re.IGNORECASE),
+    re.compile(r"\b(workout|crossfit|rueckenschule|r\u00fcckenschule|aerobic|gymnastik)\b", re.IGNORECASE),
 ]
 
 # Comedy & Cabaret patterns
 COMEDY_PATTERNS = [
-    re.compile(r"\b(kabarett|cabaret|comedy|stand-?up|satire|humor|kleinkunst|impro-?theater|poetry\s+slam|slam)\b", re.I),
+    re.compile(r"\b(kabarett|cabaret|comedy|stand-?up|satire|humor|kleinkunst|impro-?theater|poetry\s+slam|slam)\b", re.IGNORECASE),
 ]
 
 # Theater & Stage patterns
 THEATER_PATTERNS = [
-    re.compile(r"\b(theater|schauspiel|b\u00fchne|oper|operette|musical|ballett|tanztheater|drama|inszenierung)\b", re.I),
+    re.compile(r"\b(theater|schauspiel|b\u00fchne|oper|operette|musical|ballett|tanztheater|drama|inszenierung)\b", re.IGNORECASE),
 ]
 
 # Exhibition & Art patterns
 EXHIBITION_PATTERNS = [
-    re.compile(r"\b(ausstellung|vernissage|finissage|galerie|museum|skulptur|fotografie|zeitgen\u00f6ssische\s+kunst|werkausstellung)\b", re.I),
-    re.compile(r"\b(bilderwelten|malerei|exhibition|kunstsammlung)\b", re.I),
+    re.compile(r"\b(ausstellung|vernissage|finissage|galerie|museum|skulptur|fotografie|zeitgen\u00f6ssische\s+kunst|werkausstellung)\b", re.IGNORECASE),
+    re.compile(r"\b(bilderwelten|malerei|exhibition|kunstsammlung)\b", re.IGNORECASE),
 ]
 
 # Cinema patterns
 CINEMA_PATTERNS = [
-    re.compile(r"\b(kino|filmvorf\u00fchrung|open-?air-?kino|kinofilm|kurzfilm|sneak\s+preview|lichtspiele|filmnacht)\b", re.I),
+    re.compile(r"\b(kino|filmvorf\u00fchrung|open-?air-?kino|kinofilm|kurzfilm|sneak\s+preview|lichtspiele|filmnacht)\b", re.IGNORECASE),
 ]
 
 # Lecture, Readings & Science
 LECTURE_PATTERNS = [
-    re.compile(r"\b(lesung|vortrag|autorenlesung|buchvorstellung|podiumsdiskussion|symposium|kolloquium|ringvorlesung|philosophisches\s+cafe)\b", re.I),
+    re.compile(r"\b(lesung|vortrag|autorenlesung|buchvorstellung|podiumsdiskussion|symposium|kolloquium|ringvorlesung|philosophisches\s+cafe)\b", re.IGNORECASE),
 ]
 
 # Politics, Civic & Climate
 POLITICS_PATTERNS = [
-    re.compile(r"\b(partei|volt|cdu|spd|gr\u00fcne|fdp|die\s+linke|b\u00fcrgerversammlung|stadtrat|klimagespr\u00e4che|klimagespraeche|kundgebung|demo|plenum)\b", re.I),
+    re.compile(r"\b(partei|volt|cdu|spd|gr\u00fcne|fdp|die\s+linke|b\u00fcrgerversammlung|stadtrat|klimagespr\u00e4che|klimagespraeche|kundgebung|demo|plenum)\b", re.IGNORECASE),
 ]
 
 # Food & Wine
 FOOD_WINE_PATTERNS = [
-    re.compile(r"\b(weinfest|weinparade|weindorf|weinprobe|tasting|bierprobe|craft\s+beer|oktoberfest|o\s*zapft|bierabend|weissbierdonnerstag|wei\u00dfbier|pilsmittwoch|burgertag|cocktail\s*abend|grillabend|brunch|brotzeit|schlemmen)\b", re.I),
-    re.compile(r"\b(wine\s+tasting|gin\s+tasting|street\s+food|dinner|kulinarisch|kochkurs)\b", re.I),
+    re.compile(r"\b(weinfest|weinparade|weindorf|weinprobe|tasting|bierprobe|craft\s+beer|oktoberfest|o\s*zapft|bierabend|weissbierdonnerstag|wei\u00dfbier|pilsmittwoch|burgertag|cocktail\s*abend|grillabend|brunch|brotzeit|schlemmen)\b", re.IGNORECASE),
+    re.compile(r"\b(wine\s+tasting|gin\s+tasting|street\s+food|dinner|kulinarisch|kochkurs)\b", re.IGNORECASE),
 ]
 
 # Community & Social
 COMMUNITY_PATTERNS = [
-    re.compile(r"\b(meet\s*&\s*greet|stammtisch|treffen|vereinstreffen|spieleabend|kickerturnier|schachturnier|reparaturchafe|repair\s+cafe)\b", re.I),
+    re.compile(r"\b(meet\s*&\s*greet|stammtisch|treffen|vereinstreffen|spieleabend|kickerturnier|schachturnier|reparaturchafe|repair\s+cafe)\b", re.IGNORECASE),
 ]
 
 # Sports
 SPORTS_PATTERNS = [
-    re.compile(r"\b(fussball|fu\u00dfball|bundesliga|basketball|handball|volleyball|turnier|stadtlauf|marathon|triathlon|sportfest)\b", re.I),
+    re.compile(r"\b(fussball|fu\u00dfball|bundesliga|basketball|handball|volleyball|turnier|stadtlauf|marathon|triathlon|sportfest)\b", re.IGNORECASE),
 ]
 
 # Markets & Fairs
 MARKET_PATTERNS = [
-    re.compile(r"\b(flohmarkt|tr\u00f6delmarkt|wochenmarkt|t\u00f6pfermarkt|handwerkermarkt|messe|kunsthandwerk)\b", re.I),
+    re.compile(r"\b(flohmarkt|tr\u00f6delmarkt|wochenmarkt|t\u00f6pfermarkt|handwerkermarkt|messe|kunsthandwerk)\b", re.IGNORECASE),
 ]
 
 # Family & Children
 FAMILY_PATTERNS = [
-    re.compile(r"\b(kindertheater|f\u00fcr\s+kinder|familienfest|puppenb\u00fchne|puppentheater|kasperle|kinderfest|jugend)\b", re.I),
+    re.compile(r"\b(kindertheater|f\u00fcr\s+kinder|familienfest|puppenb\u00fchne|puppentheater|kasperle|kinderfest|jugend)\b", re.IGNORECASE),
 ]
 
 # Guided Tours
 TOUR_PATTERNS = [
-    re.compile(r"\b(stadtf\u00fchrung|museumsf\u00fchrung|rundgang|nachtw\u00e4chterf\u00fchrung|werksf\u00fchrung|architekturf\u00fchrung)\b", re.I),
+    re.compile(r"\b(stadtf\u00fchrung|museumsf\u00fchrung|rundgang|nachtw\u00e4chterf\u00fchrung|werksf\u00fchrung|architekturf\u00fchrung)\b", re.IGNORECASE),
 ]
 
 # Workshops & Seminars
 WORKSHOP_PATTERNS = [
-    re.compile(r"\b(workshop|seminar|schulung|kurs|fortbildung|webinar|masterclass|hands-?on)\b", re.I),
+    re.compile(r"\b(workshop|seminar|schulung|kurs|fortbildung|webinar|masterclass|hands-?on)\b", re.IGNORECASE),
 ]
 
 # Festivals
 FESTIVAL_PATTERNS = [
-    re.compile(r"\b(festival|open\s*air|hafensommer|umsonst\s*&\s*drau\u00dfen|africa\s+festival|festungsflimmern|mozartfest)\b", re.I),
+    re.compile(r"\b(festival|open\s*air|hafensommer|umsonst\s*&\s*drau\u00dfen|africa\s+festival|festungsflimmern|mozartfest)\b", re.IGNORECASE),
 ]
 
 # Explicit Live-Music indicators
 LIVE_MUSIC_POSITIVE_PATTERNS = [
-    re.compile(r"\b(live\s+in\s+concert|live-?konzert|live-?musik|live-?band|on\s+tour|tour\s+202\d|support\s*:|special\s+guest)\b", re.I),
-    re.compile(r"\b(trio|quartett|quintett|orchester|philharmonie|sinfonie|kammerorchester|ensemble|big\s+band|chor|choir)\b", re.I),
-    re.compile(r"\b(singer-?songwriter|akustik-?set|unplugged|recital|solokonzert|klavierabend|orgelkonzert|band\s+live)\b", re.I),
-    re.compile(r"\b(headliner|einlass\s*:\s*\d{1,2}|doors\s*:\s*\d{1,2}|vvk\s*:|ak\s*:|vorverkauf|abendkasse)\b", re.I),
+    re.compile(r"\b(live\s+in\s+concert|live-?konzert|live-?musik|live-?band|on\s+tour|tour\s+202\d|support\s*:|special\s+guest)\b", re.IGNORECASE),
+    re.compile(r"\b(trio|quartett|quintett|orchester|philharmonie|sinfonie|kammerorchester|ensemble|big\s+band|chor|choir)\b", re.IGNORECASE),
+    re.compile(r"\b(singer-?songwriter|akustik-?set|unplugged|recital|solokonzert|klavierabend|orgelkonzert|band\s+live)\b", re.IGNORECASE),
+    re.compile(r"\b(headliner|einlass\s*:\s*\d{1,2}|doors\s*:\s*\d{1,2}|vvk\s*:|ak\s*:|vorverkauf|abendkasse)\b", re.IGNORECASE),
 ]
 
 # Genre keywords mapping
@@ -261,9 +259,8 @@ def classify_live_music(
         return (True, 0.90)
 
     # Known live music venues
-    if any(k in venue.lower() for k in ("b-hof", "posthalle", "cairo", "immerhin", "zauberberg", "keller z87", "disharmonie")):
-        if not any(p.search(title) for p in PARTY_PATTERNS):
-            return (True, 0.82)
+    if any(k in venue.lower() for k in ("b-hof", "posthalle", "cairo", "immerhin", "zauberberg", "keller z87", "disharmonie")) and not any(p.search(title) for p in PARTY_PATTERNS):
+        return (True, 0.82)
 
     if primary_category == "concert":
         return (True, 0.85)

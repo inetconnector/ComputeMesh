@@ -1,8 +1,8 @@
 import base64
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -11,7 +11,10 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from services.gateway.inference_backend import InferenceBackendError
 from services.gateway.live_bootstrap import build_live_shared_backend_from_env
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
-from services.orchestrator.placement_provider import ReferencePlacementProvider, RemotePlacementProvider
+from services.orchestrator.placement_provider import (
+    ReferencePlacementProvider,
+    RemotePlacementProvider,
+)
 from services.orchestrator.private_feedback import PrivateOutcomeFeedback
 
 
@@ -44,17 +47,15 @@ class LiveBootstrapTests(unittest.TestCase):
     def test_defaults_to_remote_and_fails_closed_without_control_plane_config(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             root = Path(tmp)
-            with patch.dict(os.environ, self._base_env(root), clear=True):
-                with self.assertRaises(InferenceBackendError):
-                    build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
+            with patch.dict(os.environ, self._base_env(root), clear=True), self.assertRaises(InferenceBackendError):
+                build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
 
     def test_reference_mode_requires_explicit_experimental_opt_in(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             root = Path(tmp)
             env = self._base_env(root) | {"COMPUTEMESH_PLACEMENT_MODE": "reference"}
-            with patch.dict(os.environ, env, clear=True):
-                with self.assertRaises(InferenceBackendError):
-                    build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
+            with patch.dict(os.environ, env, clear=True), self.assertRaises(InferenceBackendError):
+                build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
 
     def test_remote_mode_requires_private_feedback_outbox_and_internal_endpoint(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
@@ -66,9 +67,8 @@ class LiveBootstrapTests(unittest.TestCase):
                 "COMPUTEMESH_CONTROL_PLANE_SIGNING_PUBLIC_KEY": _public_key_b64u(),
                 "COMPUTEMESH_CONTROL_PLANE_SIGNING_KEY_ID": "placement-signing-v1",
             }
-            with patch.dict(os.environ, env, clear=True):
-                with self.assertRaises(InferenceBackendError):
-                    build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
+            with patch.dict(os.environ, env, clear=True), self.assertRaises(InferenceBackendError):
+                build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
 
     def test_remote_mode_installs_private_provider_and_durable_feedback(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
@@ -90,9 +90,8 @@ class LiveBootstrapTests(unittest.TestCase):
                 "COMPUTEMESH_ALLOW_EXPERIMENTAL_SHARED_PLACEMENT": "1",
                 "COMPUTEMESH_ORCHESTRATOR_PLACEMENT_DECISION": str(root / "placement.json"),
             }
-            with patch.dict(os.environ, env, clear=True):
-                with self.assertRaises(InferenceBackendError):
-                    build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
+            with patch.dict(os.environ, env, clear=True), self.assertRaises(InferenceBackendError):
+                build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
 
     def test_reference_mode_builds_only_with_explicit_opt_in(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:

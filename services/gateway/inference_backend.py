@@ -10,13 +10,14 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Protocol
+from datetime import UTC, datetime, timedelta
+from typing import Any, Protocol, Self
 from urllib import error, request
 from urllib.parse import urlparse
 
-from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
 from services.gateway.execution_attestation import (
     ExecutionAttestationError,
     VerificationKeyResolver,
@@ -263,8 +264,8 @@ class OpenAICompatibleHTTPBackend:
                     schema = response_format.get("json_schema", {}).get("schema", {})
                     if schema:
                         payload_data["grammar"] = compile_json_schema_to_gbnf(schema)
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
         if grammar and "grammar" not in payload_data:
             payload_data["grammar"] = grammar
         payload = json.dumps(payload_data, separators=(",", ":")).encode("utf-8")
@@ -447,8 +448,8 @@ class OllamaHTTPBackend:
                     try:
                         from services.grammar import compile_json_schema_to_gbnf
                         options["grammar"] = compile_json_schema_to_gbnf(schema)
-                    except Exception:
-                        pass
+                    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
         grammar = kwargs.get("grammar")
         if grammar and "grammar" not in options:
             options["grammar"] = grammar
@@ -552,7 +553,7 @@ class OrchestratedInferenceBackend:
         if self.evidence_store is not None:
             self.evidence_store.close()
 
-    def __enter__(self) -> "OrchestratedInferenceBackend":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -579,7 +580,7 @@ class OrchestratedInferenceBackend:
         ]
 
     def _reserve_capacity(self, job_id: str) -> list[str]:
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.lease_seconds)
+        expires_at = datetime.now(UTC) + timedelta(seconds=self.lease_seconds)
         reservation_ids = self._reservation_ids(job_id)
         for index, (reservation_id, node_id) in enumerate(
             zip(reservation_ids, self.provider_node_ids)
@@ -608,7 +609,7 @@ class OrchestratedInferenceBackend:
             record = self.store.get_reservation(reservation_id)
             if record.state != ReservationState.COMMITTED:
                 raise InferenceBackendError("capacity reservation is not committed")
-            if record.lease_expires_at is None or record.lease_expires_at <= datetime.now(timezone.utc):
+            if record.lease_expires_at is None or record.lease_expires_at <= datetime.now(UTC):
                 self.store.transition_reservation(
                     reservation_id,
                     request_id=f"{job_id}:expire:{index}",
@@ -659,8 +660,8 @@ class OrchestratedInferenceBackend:
                     target=JobState.FAILED,
                     request_fingerprint=f"runtime-failure:{type(exc).__name__}",
                 )
-        except Exception:
-            pass
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as transition_exc:
+            _ = transition_exc
 
     def _verify_and_bind_evidence(
         self,
@@ -740,7 +741,7 @@ class OrchestratedInferenceBackend:
             self._advance_job(job_id, JobState.PREPARING)
             self._activate(job_id, reservation_ids)
             self._advance_job(job_id, JobState.RUNNING)
-            execution_started_at = datetime.now(timezone.utc)
+            execution_started_at = datetime.now(UTC)
             try:
                 result = self.delegate.complete(model_id=model_id, messages=messages, max_tokens=max_tokens)
             except TypeError:

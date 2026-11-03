@@ -8,11 +8,12 @@ import sqlite3
 import threading
 import time
 import uuid
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, Self
 
 from .node_registry import NodeLifecycle, NodeRegistry
 
@@ -295,8 +296,8 @@ class NodeLeaseStore:
         with self._lock:
             self._connection.close()
 
-    def __enter__(self) -> "NodeLeaseStore":
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()

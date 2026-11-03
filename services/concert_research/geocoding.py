@@ -8,9 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import re
-from typing import Any
 from urllib import error, parse, request
 
 logger = logging.getLogger("concert_geocoding")
@@ -1227,7 +1225,6 @@ KNOWN_CITY_COORDINATES: dict[str, tuple[float, float]] = {
     "warschau": (52.2297, 21.0122),
     "budapest": (47.4979, 19.0402),
     "vienna": (48.2082, 16.3738),
-    "wien": (48.2082, 16.3738),
     "lisbon": (38.7223, -9.1393),
     "lissabon": (38.7223, -9.1393),
     "athens": (37.9838, 23.7275),
@@ -1358,7 +1355,7 @@ def geocode_city(
                     lat = float(first_res["latitude"])
                     lon = float(first_res["longitude"])
                     return (lat, lon)
-    except Exception as exc:
+    except (error.URLError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
         logger.debug("Open-Meteo geocoding fallback failed for %r: %s", city, exc)
 
     # 2. Optional remote OSM Nominatim fallback
@@ -1373,7 +1370,7 @@ def geocode_city(
                     lat = float(data[0]["lat"])
                     lon = float(data[0]["lon"])
                     return (lat, lon)
-    except Exception as exc:
+    except (error.URLError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
         logger.debug("Nominatim geocoding failed for %r: %s", city, exc)
 
     return (None, None)

@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from .node_registry import NodeLifecycle, NodeRecord, NodeRegistry
 
@@ -99,7 +100,7 @@ class ModelPreparationCoordinator:
 
     @staticmethod
     def _key(node_id: str, model: ModelArtifactSpec) -> str:
-        raw = f"{node_id}\0{model.model_id}\0{model.artifact_digest.lower()}".encode("utf-8")
+        raw = f"{node_id}\0{model.model_id}\0{model.artifact_digest.lower()}".encode()
         return f"modelprep_{hashlib.sha256(raw).hexdigest()}"
 
     def plan(self, node_id: str, model: ModelArtifactSpec) -> ModelPreparationPlan:
@@ -135,7 +136,7 @@ class ModelPreparationCoordinator:
         }
         try:
             response = self.transport(node, request)
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return ModelPreparationResult(
                 ModelPreparationPlan(plan.node_id, plan.model, "failed", "preparation_transport_failed", plan.idempotency_key, plan.node_status)
             )

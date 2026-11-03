@@ -7,16 +7,19 @@ Ed25519 public key must itself be bound into the verified confidential attestati
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
-from datetime import UTC, datetime
 import json
 import secrets
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 
 RECEIPT_SCHEMA_VERSION = 1
 MAX_TOKENS_PER_SIDE = 10_000_000
@@ -96,7 +99,7 @@ class ConfidentialUsageReceipt:
         _decode_b64(self.signature, expected_len=64, label="metering signature")
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ConfidentialUsageReceipt":
+    def from_dict(cls, value: Mapping[str, Any]) -> ConfidentialUsageReceipt:
         expected = {
             "schema_version",
             "receipt_id",
@@ -258,7 +261,7 @@ def _parse_timestamp(value: Any) -> datetime:
     if not isinstance(value, str):
         raise ConfidentialMeteringError("invalid metering timestamp")
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise ConfidentialMeteringError("invalid metering timestamp") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:

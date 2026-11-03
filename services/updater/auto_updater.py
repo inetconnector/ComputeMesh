@@ -7,27 +7,31 @@ public key, verifies SHA-256 artifact hashes, and applies seamless updates.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import contextlib
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import shutil
 import sys
 import tempfile
 import time
-from typing import Any, Callable
 import urllib.request
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+from pathlib import Path
+
+from cm_project_bootstrap import REPO_ROOT as REPO_ROOT
 
 from config import CONFIG
 from tools.security.ed25519_verify import verify_ed25519_signature
-from tools.security.signing_keys import OFFICIAL_RELEASE_PUBLIC_KEY_HEX, TRUSTED_RELEASE_PUBLIC_KEYS_HEX
+from tools.security.signing_keys import (
+    OFFICIAL_RELEASE_PUBLIC_KEY_HEX,
+    TRUSTED_RELEASE_PUBLIC_KEYS_HEX,
+)
 
 DEFAULT_UPDATE_URL = CONFIG.endpoints.update_manifest_url
 
@@ -136,7 +140,7 @@ class AutoUpdater:
                 is_newer=is_newer,
             )
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError, SignatureVerificationError):
             # Network failure or signature error
             return None
 
@@ -256,7 +260,7 @@ start "" "%DST%"
         updater_bat.write_text(bat_content, encoding="utf-8")
         clean_env = os.environ.copy()
         for k in list(clean_env.keys()):
-            if k.startswith("_MEI") or k.startswith("_PYI") or k.startswith("PYINSTALLER"):
+            if k.startswith(("_MEI", "_PYI", "PYINSTALLER")):
                 clean_env.pop(k, None)
         subprocess.Popen(["cmd.exe", "/c", str(updater_bat)], creationflags=0x08000000, env=clean_env)
         # sys.exit() only unwinds the calling thread: apply_windows_update()
@@ -274,7 +278,7 @@ start "" "%DST%"
             for target_dir in self._linux_update_targets():
                 p = Path(target_dir)
                 if p.exists():
-                    try:
+                    with contextlib.suppress(OSError, shutil.Error, ValueError):
                         shutil.unpack_archive(str(downloaded_pkg), str(p))
                         nested = p / "computemesh"
                         if nested.exists():
@@ -284,8 +288,6 @@ start "" "%DST%"
                                     shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
                                 else:
                                     shutil.copy2(str(item), str(dest))
-                    except Exception:
-                        pass
 
             # Restart only explicitly configured, validated ComputeMesh units.
             subprocess.Popen(
@@ -297,7 +299,7 @@ start "" "%DST%"
 
 def main() -> int:
     import argparse
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     parser = argparse.ArgumentParser(description="ComputeMesh Automated Cryptographic Updater")
     parser.add_argument("--check-and-apply", action="store_true", help="Check and apply update if available")
@@ -314,15 +316,15 @@ def main() -> int:
             try:
                 info = updater.check_for_updates()
                 if info and info.is_newer:
-                    print(f"[{datetime.now(timezone.utc).isoformat()}] New signed release v{info.version} detected! Downloading...")
+                    print(f"[{datetime.now(UTC).isoformat()}] New signed release v{info.version} detected! Downloading...")
                     pkg = updater.download_and_verify(info)
-                    print(f"[{datetime.now(timezone.utc).isoformat()}] Cryptographic verification PASSED. Applying update...")
+                    print(f"[{datetime.now(UTC).isoformat()}] Cryptographic verification PASSED. Applying update...")
                     updater.apply_linux_update(pkg)
                     updater.current_version = info.version
                 else:
-                    print(f"[{datetime.now(timezone.utc).isoformat()}] System is up to date (running v{updater.current_version}).")
-            except Exception as e:
-                print(f"[{datetime.now(timezone.utc).isoformat()}] Update check error: {e}")
+                    print(f"[{datetime.now(UTC).isoformat()}] System is up to date (running v{updater.current_version}).")
+            except (OSError, ValueError, TypeError, KeyError, ChecksumMismatchError, SignatureVerificationError, RuntimeError) as e:
+                print(f"[{datetime.now(UTC).isoformat()}] Update check error: {e}")
             time.sleep(args.interval)
 
     elif args.check_and_apply:

@@ -1,10 +1,11 @@
 """TLS listener for persistent provider control channels."""
 from __future__ import annotations
 
+import contextlib
 import socket
 import ssl
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from protocol.node_identity import Ed25519ChallengeVerifier
 from protocol.session_wire import BenchmarkAcceptancePolicy
@@ -88,7 +89,7 @@ class PersistentControlPlaneListener:
         while not self._stop.is_set():
             try:
                 raw, _ = self._listener.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break
@@ -100,20 +101,19 @@ class PersistentControlPlaneListener:
         wrapped: ssl.SSLSocket | None = None
         transferred = False
         try:
-            wrapped = self._context.wrap_socket(raw, server_side=True)
-            accepted = accept_authenticated_provider(
-                sock=wrapped,
-                verifier=self.verifier,
-                benchmark_policy=self.benchmark_policy,
-                control_client=self.client,
-                control_plane_id=self.control_plane_id,
-                control_plane_capabilities=self.capabilities,
-            )
-            transferred = True
-            if self.on_session is not None:
-                self.on_session(accepted)
-        except Exception:
-            pass
+            with contextlib.suppress(OSError, ssl.SSLError, ValueError, TypeError, KeyError, RuntimeError):
+                wrapped = self._context.wrap_socket(raw, server_side=True)
+                accepted = accept_authenticated_provider(
+                    sock=wrapped,
+                    verifier=self.verifier,
+                    benchmark_policy=self.benchmark_policy,
+                    control_client=self.client,
+                    control_plane_id=self.control_plane_id,
+                    control_plane_capabilities=self.capabilities,
+                )
+                transferred = True
+                if self.on_session is not None:
+                    self.on_session(accepted)
         finally:
             if not transferred:
                 try:

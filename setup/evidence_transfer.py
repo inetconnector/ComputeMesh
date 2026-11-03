@@ -11,18 +11,18 @@ repository JSON-schema dependency.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
 import tempfile
-from typing import Any
 import zipfile
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path, PurePosixPath
+from typing import Any
 
 EXPORT_SCHEMA_VERSION = 1
 EXPORT_MANIFEST_NAME = "computemesh-lab-export.json"
@@ -89,10 +89,10 @@ class _LocalDocument:
 
 
 def _utc_now(now: datetime | None = None) -> datetime:
-    value = now or datetime.now(timezone.utc)
+    value = now or datetime.now(UTC)
     if value.tzinfo is None:
         raise EvidenceTransferError("timestamp must be timezone-aware")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -378,7 +378,7 @@ def _validate_manifest(value: Any) -> dict[str, Any]:
     if isinstance(revision, bool) or not isinstance(revision, int) or revision <= 0:
         raise EvidenceTransferError("profile_revision must be a positive integer")
     try:
-        captured = datetime.fromisoformat(str(value["created_at"]).replace("Z", "+00:00"))
+        captured = datetime.fromisoformat(str(value["created_at"]))
     except ValueError as exc:
         raise EvidenceTransferError("created_at must be RFC3339 date-time") from exc
     if captured.tzinfo is None:

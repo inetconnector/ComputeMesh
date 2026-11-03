@@ -1,10 +1,12 @@
 """Live gateway with cancellation and fail-closed encrypted protected execution."""
 from __future__ import annotations
 
+import json
+import sqlite3
+from collections.abc import Callable
 from contextlib import nullcontext
 from http import HTTPStatus
-import json
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urlparse
 
 from protocol.confidential_envelope import (
@@ -29,9 +31,8 @@ from runtime.confidential.replay_store import (
 )
 from services.compliance.mesh_policy import ExecutionPrivacyClass
 from services.gateway.cancellable_inference import CancellableInferenceEngine
-from services.gateway.server import GatewayHandler
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
-
+from services.gateway.server import GatewayHandler
 
 ProtectedEvidenceResolver = Callable[
     [ExecutionPrivacyClass, dict[str, Any]],
@@ -74,7 +75,8 @@ class LiveGatewayHandler(GatewayHandler):
         if isinstance(value, dict):
             value = value.get("class", ExecutionPrivacyClass.PUBLIC.value)
         if not isinstance(value, str):
-            raise ValueError("computemesh_privacy must be PUBLIC, CONFIDENTIAL or CRYPTO_PRIVATE")
+            err = ValueError("computemesh_privacy must be PUBLIC, CONFIDENTIAL or CRYPTO_PRIVATE")
+            raise err
         try:
             return ExecutionPrivacyClass(value.strip().upper())
         except ValueError as exc:
@@ -111,7 +113,7 @@ class LiveGatewayHandler(GatewayHandler):
                 HTTPStatus.SERVICE_UNAVAILABLE,
             )
             return False
-        except Exception:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response(
                 "Protected execution evidence could not be verified",
                 "confidential_execution_unavailable",
@@ -272,7 +274,7 @@ class LiveGatewayHandler(GatewayHandler):
         try:
             endpoint = endpoint_resolver(privacy_class, envelope)
             endpoint.assert_matches(envelope)
-        except Exception:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response(
                 "Attested confidential endpoint could not be resolved",
                 "confidential_execution_unavailable",
@@ -315,7 +317,7 @@ class LiveGatewayHandler(GatewayHandler):
                 HTTPStatus.BAD_REQUEST,
             )
             return
-        except Exception:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response(
                 "Confidential replay protection is unavailable",
                 "confidential_execution_unavailable",
@@ -332,7 +334,7 @@ class LiveGatewayHandler(GatewayHandler):
                 HTTPStatus.BAD_GATEWAY,
             )
             return
-        except Exception:
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             self._send_error_response(
                 "Confidential execution failed",
                 "confidential_execution_failed",

@@ -8,18 +8,17 @@ drop. It never inspects or persists payload contents.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass, replace
-from datetime import datetime, timezone
 import ipaddress
 import json
-from pathlib import Path
 import queue
 import random
 import socket
-import sys
 import threading
 import time
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, replace
+from datetime import UTC, datetime
+from pathlib import Path
 
 RFC1918 = tuple(
     ipaddress.ip_network(value)
@@ -52,7 +51,7 @@ class PrivateEndpoint:
             raise ValueError("endpoint port must be 1..65535")
 
     @classmethod
-    def parse(cls, value: str) -> "PrivateEndpoint":
+    def parse(cls, value: str) -> PrivateEndpoint:
         if not isinstance(value, str) or value.count(":") != 1:
             raise ValueError("endpoint must use IPv4:port")
         host, raw_port = value.rsplit(":", 1)
@@ -91,7 +90,7 @@ class RelayConfig:
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= float(value) <= maximum:
                 raise ValueError(f"{name} must be between 0 and {maximum:g}")
         if isinstance(self.seed, bool) or not isinstance(self.seed, int):
-            raise ValueError("seed must be an integer")
+            raise TypeError("seed must be an integer")
         if isinstance(self.chunk_bytes, bool) or not isinstance(self.chunk_bytes, int) or not 1024 <= self.chunk_bytes <= 1024 * 1024:
             raise ValueError("chunk_bytes must be 1 KiB..1 MiB")
         if (
@@ -184,7 +183,7 @@ class _SessionController:
             if self.connection_count >= self.max_connections:
                 return False
             if self.connected_wall is None:
-                self.connected_wall = datetime.now(timezone.utc)
+                self.connected_wall = datetime.now(UTC)
                 self.connected_mono = time.monotonic()
             self.connection_count += 1
             self.active_connections += 1
@@ -352,7 +351,7 @@ def _build_metrics(
     error_type: str | None,
     error_message: str | None,
 ) -> RelayMetrics:
-    ended_wall = datetime.now(timezone.utc)
+    ended_wall = datetime.now(UTC)
     ended_mono = time.monotonic()
     total_elapsed_ms = max(0.0, (ended_mono - started_mono) * 1000.0)
     if connected_mono is None:
@@ -474,7 +473,7 @@ def run_relay(
     stop_event: threading.Event | None = None,
 ) -> RelayMetrics:
     """Relay TCP connections and return content-free traffic metrics."""
-    started_wall = datetime.now(timezone.utc)
+    started_wall = datetime.now(UTC)
     started_mono = time.monotonic()
     controller = _SessionController(
         disconnect_after_bytes=config.disconnect_after_bytes,
@@ -500,10 +499,9 @@ def run_relay(
             on_ready(actual_endpoint)
 
         while not controller.stop_event.is_set():
-            if config.disconnect_after_seconds is not None and controller.connected_mono is not None:
-                if time.monotonic() >= controller.connected_mono + float(config.disconnect_after_seconds):
-                    controller.stop("disconnect_after_seconds")
-                    break
+            if config.disconnect_after_seconds is not None and controller.connected_mono is not None and time.monotonic() >= controller.connected_mono + float(config.disconnect_after_seconds):
+                controller.stop("disconnect_after_seconds")
+                break
 
             with controller.lock:
                 active_count = controller.active_connections
@@ -530,7 +528,7 @@ def run_relay(
 
             try:
                 coordinator, _ = listener.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break
@@ -663,7 +661,7 @@ def main(argv: list[str] | None = None) -> int:
         metrics = run_relay(config, on_ready=announce, metrics_path=args.metrics)
     except KeyboardInterrupt:
         return 130
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         print(f"relay failed: {type(exc).__name__}", flush=True)
         return 2
     print(json.dumps(metrics.to_dict(), sort_keys=True))

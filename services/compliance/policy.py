@@ -5,9 +5,9 @@ research paths remain available unless COMPUTEMESH_PRODUCTION_MODE=1 is set.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -77,7 +77,7 @@ class ProviderComplianceRegistry:
         self._records = records
 
     @classmethod
-    def from_path(cls, path: Path) -> "ProviderComplianceRegistry":
+    def from_path(cls, path: Path) -> ProviderComplianceRegistry:
         if path.is_symlink() or not path.is_file():
             raise ProductionComplianceError("provider compliance registry must be a regular file")
         try:

@@ -16,7 +16,10 @@ from pathlib import Path
 from typing import Any
 
 from services.billing.ledger import BillingError, Ledger
-from services.common.pricing import calculate_max_charge_micro, calculate_token_charge_micro
+from services.common.pricing import (
+    calculate_max_charge_micro,
+    calculate_token_charge_micro,
+)
 
 
 class AgentBillingError(BillingError):
@@ -182,10 +185,10 @@ class GatewayAgentBilling:
         if self.evidence_store is not None:
             try:
                 self.evidence_store.clear_turn(turn_id)
-            except Exception:
+            except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 # Financial settlement is authoritative; cleanup must not turn
                 # a captured hold into a worker failure.
-                pass
+                _ = exc
 
     def observe(self, result: Any) -> None:
         """Capture private, verified backend evidence before public conversion."""

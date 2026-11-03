@@ -11,16 +11,12 @@ ComputeMesh LAN nodes, Mobile Apps, and Miner Nodes.
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import os
 import platform
-from pathlib import Path
 import subprocess
 import sys
-import time
 import urllib.request
-from typing import Optional
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,7 +57,7 @@ FAST_MODELS = {
 }
 
 
-def find_sd_server_binary() -> Optional[Path]:
+def find_sd_server_binary() -> Path | None:
     """Locate the compiled sd-server binary on Windows or Linux."""
     system_ext = ".exe" if platform.system() == "Windows" else ""
     candidates = [
@@ -119,7 +115,7 @@ def ensure_model(model_key: str = "realvisxl-lightning") -> Path:
 def start_server(
     host: str = "0.0.0.0",
     port: int = 8085,
-    model_path: Optional[Path] = None,
+    model_path: Path | None = None,
     threads: int = 8,
 ):
     """Start the sd-server HTTP daemon with OpenAI compatibility."""

@@ -16,8 +16,9 @@ import json
 import secrets
 import threading
 import time
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
-from typing import Any, Mapping
+from typing import Any
 
 from .artifacts import ArtifactStore
 from .environment import (
@@ -133,7 +134,7 @@ class LocalWorkspaceTransport:
 
     def _idempotency_digest(self, request: EnvironmentRequest) -> str:
         encoded = json.dumps(dict(request.payload), ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
-        return hashlib.sha256(f"{request.operation.value}\0{encoded}".encode("utf-8")).hexdigest()
+        return hashlib.sha256(f"{request.operation.value}\0{encoded}".encode()).hexdigest()
 
     def _replay_idempotent(self, lease: EnvironmentLease, request: EnvironmentRequest) -> dict[str, Any] | None:
         if not request.idempotency_key:

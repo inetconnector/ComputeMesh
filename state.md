@@ -4757,3 +4757,283 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
   was added; the explicit targeted suites and `run_all_tests.py` are the
   supported local evidence paths.
 ## 2026-10-26 P0 abschließende Integrationshärtung: Auth, Placement, NodeOS und Enrollment
+## 2026-11-02 — PR-139 release-gate follow-up
+
+The public PR-139 candidate is at exact commit
+`32eef045b6158020aa4733e4ef9f95f0fe98be7f` on the existing draft branch
+`release/portal-platform-sync-20261028`. This commit restores the already
+reviewed v1.2.189 Ed25519 signature and adds explicit isolated Android APK/AAB
+fixture bytes to `tools/release/tests/test_signed_portal_bundle.py`. No private
+release key was copied, committed or exposed.
+
+Verification performed against this exact candidate:
+
+- Independent Ed25519 verification of `portal/updates/version.json`: passed;
+  trusted public-key membership: passed.
+- Focused release/security tests with global Python and
+  `--import-mode=prepend`: `8 passed`.
+- Full local PR checkout run with the same import mode: `2069 passed, 20
+  skipped, 69 subtests, 7 failed`. The remaining failures are three stale
+  OpenAI parity expectations against the intentionally disabled fail-closed
+  Python executor and three Windows `bash.exe` path-translation failures in
+  Linux setup tests. The seventh failure was the invalid manifest signature and
+  is fixed by this commit; the focused post-fix rerun passed.
+- `compileall` and `git diff --check` passed before commit.
+
+This is not an independent TrustedBridge receipt and does not prove Android
+Gradle/lint, APK certificate identity, physical QR pairing, WAN/hardware
+behavior, complete release artifacts, staging/rollback, or production approval.
+The PR remains draft and the release decision is **RELEASE_NO_GO**.
+
+After this run, `services/mcp/tests/test_openai_parity_suite.py` was corrected
+to assert the documented fail-closed Python-executor contract rather than
+expecting unsafe in-process execution. The parity plus disabled-sandbox group
+passes with `19 passed, 9 subtests`. The Linux setup scripts were independently
+checked in the installed Ubuntu WSL distribution: `bash -n` over all setup
+entrypoints and `bash setup.sh --help` both exited 0. The Windows full-suite
+failures therefore remain a harness/path portability issue, not a claim that
+the Linux scripts failed their native shell checks.
+
+The Windows harness was then corrected in `setup/tests/test_linux_setup.py` to
+use the installed Ubuntu WSL distribution with `/mnt/<drive>/...` paths while
+leaving native Unix execution unchanged. The exact setup test file now passes
+with `10 passed` on this Windows host.
+
+Final exact-head public verification after the harness and config-sync fixes:
+
+- `python -m pytest -q --import-mode=prepend`: `2076 passed, 20 skipped, 69
+  subtests`, exit 0, in 307.34 seconds.
+- `python -m compileall -q services tools apps protocol deploy tests setup`:
+  exit 0.
+- `git diff --check`: exit 0.
+- Full `ruff check .`: exit 1 with `4372` findings; the PR diff alone has `226`
+  findings. No Ruff suppression or partial-rule waiver was introduced.
+
+The complete automated Python suite is therefore green on this Windows host,
+but the repository is not release-ready while full Ruff, protected source-bound
+receipts, complete artifacts, Android identity/device, physical WAN/hardware
+and operator approval remain open.
+
+## 2026-11-02 — PR-139 quality and release-gate continuation
+
+The existing PR-139 branch was advanced in place through exact commit
+`9fbd5246d4998889ec0573f3cf638f106a4f3b28`; no competing PR, merge, tag or
+release was created. The candidate worktree is clean and detached at that
+commit. The private canonical repository remains dirty and was not modified.
+
+Quality batches were committed and pushed separately: `6d771d9` cleared the
+selected safe historic Ruff batch (4,146 to 2,700 findings), `eabf549` removed
+historic unused imports with public re-export contracts preserved, `9820aad`
+annotated mutable class contracts with `ClassVar`, `d9ee62f` applied safe
+control-flow/import simplifications, `817dd64` applied targeted `Self`,
+`capture_output` and compatibility-reexport fixes, `aea3afb` repaired twelve
+real `F821` undefined-name defects, and `9fbd524` applied targeted data and
+subprocess cleanups. The PR-diff Ruff inventory was initially captured as
+`4372` total / `226` PR-diff findings. The latest full machine-readable
+inventory is `C:\Users\frede\AppData\Local\Temp\computemesh-ruff-all-after-f541-c408-perf102.json`
+with `1488` findings; the current `origin/main...HEAD` changed-file view has
+`1435` findings because the historical cleanup touched many files. Dominant
+remaining rules are `BLE001=699`, `S110=293`, `RUF059=65`, `PIE790=48`,
+`SIM117=45`, `TRY004=44`, `PLW1510=36`, `F841=32`, `SIM102=30` and
+`FURB162=26`. Unsafe fixes were not applied repository-wide. Eight
+`SIM118` cases retain local, justified exceptions because `sqlite3.Row`
+membership checks values rather than column names.
+
+The latest complete public regression on the exact head passed:
+`python -m pytest -q --import-mode=prepend` = `2076 passed, 20 skipped, 69
+subtests passed` in `287.15s`; compileall over
+`services tools apps protocol deploy tests setup` and `git diff --check` also
+passed. Targeted regressions included `80 passed` for Android-adjacent
+backend/identity/concert/MCP changes, `75 passed, 10 subtests` for identity,
+URL-security and audit fixes, and `88 passed, 1 skipped, 2 subtests` for
+protocol/gateway/scheduler/placement changes.
+
+Android evidence is real but non-production: `apps/android/gradlew.bat
+:app:testDebugUnitTest :app:lintDebug --no-daemon` completed successfully;
+the JUnit XML reports `4 tests, 0 failures, 0 errors, 0 skipped`, and debug
+Lint reports `0` issues. The production `:app:assembleRelease` build reached
+CMake, R8 and LintVital but failed closed at packaging because
+`CM_ANDROID_KEYSTORE_PATH`, `CM_ANDROID_KEYSTORE_PASSWORD`,
+`CM_ANDROID_KEY_ALIAS` and `CM_ANDROID_KEY_PASSWORD` were absent. It produced
+only an unsigned intermediate APK. The current ComputeMesh APK in the old
+`portal_inetconnector` tree is debug-signed with certificate SHA-256
+`cd90e375a2c69f09e39c9f31e09e69ed1f6fd16513ca1843fd7f3caa4e81b2cc`; it is
+not a production certificate. Existing archived documentation records the
+authorized historical production certificate fingerprint
+`649a7ec870a7d18e5af0af12f0ac63b27f15db864e28feca9da5fcf94ab8ec0f`, but the
+corresponding DiskStation signing setup was not available to this run. No
+replacement signing key or certificate was generated.
+
+The current v1.2.189 manifest still lists five entries: Windows, Linux,
+NodeOS ISO, NodeOS IMG.XZ and `install.sh`. The old public `ComputeMesh`
+submodule under the private checkout contains byte-for-byte matches for all
+five manifest hashes, but those artifacts are not proven to be built from
+`9fbd524`; they were not promoted or signed. A fresh Windows PyInstaller build
+from this candidate produced an unsigned local `dist/ComputeMesh-Setup-x64.exe`
+of `110664970` bytes, SHA-256
+`6d20eb573b5a5e7b0dc8695ece6e1928f3d8972c195072aa6cc56cbf75c1243a`. The
+current Linux tarball build produced `7328841` bytes, SHA-256
+`3ac263183484702be0c18ff027045a95001be3a8fed28dc599f33854f429d88f`. The
+NodeOS ISO/IMG pair could not be rebuilt because this Windows host lacks the
+required Linux `debootstrap`/`xorriso` environment. The five-entry manifest
+also omits the verifier's mandatory NodeOS runtime and Android APK/AAB/JSON
+entries; no manifest rewrite or signature was attempted.
+
+The mapped DiskStation path is currently not reachable as
+`\\diskstation\Dani\ComputeMesh`; the only available `Y:` mount is a backup
+share whose `mifcom-s` tree contains VM backup files, not directly verifiable
+release artifacts or the release-key directory. No private key was copied,
+read into the worktree, logged or exposed. No final manifest was signed, and
+the existing signature was not reused for newly built artifacts.
+
+Release gates remain open: current full Ruff, source-bound complete artifact
+set, production Android signing/certificate verification, NodeOS build,
+independent protected TrustedBridge receipt for this immutable head, physical
+QR/device/WAN/BFT acceptance, staging/rollback and operator approval. The
+state is explicitly **RELEASE_NO_GO**.
+
+GitHub hosted preflight `41426359584` completed successfully on the exact
+source head `9f8c84c1a01ac94517ff3888792359a387149cd2`: targeted isolated
+security/portal `51 passed, 5 skipped, 9 subtests`, critical syntax/Ruff checks
+passed, and the separate networkless public `tests/` snapshot passed `181
+passed, 13 skipped`. This is independent hosted automation, not the protected
+TrustedBridge receipt requested for the final source, and it does not prove
+Android production signing, physical QR/WAN/BFT behavior or operator approval.
+
+The tested product-code head is `dc387b29a51e7879118f0d81df52749fe5e8f895`.
+The documentation head `c8e78af33ad66a8e5efe5d7417375efd637fcf93` carried that
+code unchanged; hosted run `41428140205` passed on that exact SHA with
+`51 passed, 5 skipped, 9 subtests` and `181 passed, 13 skipped`.
+
+The independent manifest check was re-run from the candidate worktree:
+`tools.security.release_signer.verify_manifest()` returned `True` for the
+existing v1.2.189 signature and the public-key fingerprint was
+`28be75e3c8229362239f896da07f27ead6764ef9482fd474f433dc33176e2656`.
+The targeted artifact-integrity regression initially failed as designed when
+the locally rebuilt Windows executable was placed in `portal/downloads`:
+the actual SHA-256 was
+`6d20eb573b5a5e7b0dc8695ece6e1928f3d8972c195072aa6cc56cbf75c1243a`, while
+the historical manifest claims `3cb5547d24c6ae95d63e7bd42d1f292f1963f3ebe53e5440d870d8239ba99a71`.
+The generated Windows and Linux files were moved to the external evidence
+directory `C:\Users\frede\AppData\Local\Temp\computemesh-artifact-evidence-20261102`,
+not committed or signed; the same targeted regression then passed `1 passed,
+21 deselected`. This confirms that no locally rebuilt artifact was silently
+accepted as the historical release payload.
+
+Quality batch `9967d0d4003aa6439d5b056f750bcc0c28663a3d` removed all `48`
+`PIE790` findings from 17 reviewed files, plus one trailing-blank-line fix.
+The affected regression block passed `96 passed`; the required repeat then
+passed compileall, diff-check, full Ruff with `1440` findings, and the full
+public suite `2076 passed, 20 skipped, 69 subtests passed` in `295.11s`.
+
+Quality batch `dc6031a2cb136068232395897d6535393a707169` manually renamed
+eight clearly unused production bindings identified by `RUF059`; no unsafe
+Ruff fix option was used. The affected MCP/orchestrator regression set passed
+`219 passed` in `18.27s`, compileall and diff-check passed, and the repeated
+full public suite passed `2076 passed, 20 skipped, 69 subtests passed` in
+`315.01s`. The full inventory is now `1431` findings with `RUF059=56`.
+
+Quality/test batch `d115978dec2d82cbaf766fec2c131e55a4a94324` removed the
+remaining `56` RUF059 findings from reviewed regression tests. The benchmark
+fixture now explicitly opts into the synthetic backend and static model
+catalog; its previous `500`/zero-success failures were a missing test
+precondition, not a production fallback. RUF059 is now `0`; compileall and
+diff-check passed, the affected tests passed including the benchmark's
+`2 passed`, and the repeated full public suite passed `2076 passed, 20
+skipped, 69 subtests passed` in `303.00s`. Full Ruff is now `1375` findings.
+
+Quality/test batch `dc387b29a51e7879118f0d81df52749fe5e8f895` removed six
+clearly unused test assignments identified by `F841`; the affected tests
+passed `57 passed` and Ruff/compileall/diff-check passed. The repeated full
+public suite passed `2076 passed, 20 skipped, 69 subtests passed` in
+`300.46s`. Full Ruff is now `1369` findings with `F841=26` remaining.
+
+Quality batch `fa1b13f` manually cleared the remaining `26` F841 findings
+without unsafe autofixes or rule suppressions. The changes cover only unused
+bindings/assignments and preserve the executed behavior; the affected
+deployment, appliance, billing, compliance, gateway, MCP, orchestrator,
+scheduler, updater, disk-clone and security-audit regression group passed
+`297 passed, 13 subtests passed` in `17.69s`. The required repeat checks
+`ruff check --select F841 .`, `python -m compileall -q services tools runtime
+protocol deploy tests` and `git diff --check` all exited 0. The full Ruff
+inventory is now `1343` findings; the largest remaining groups are
+`BLE001=699`, `S110=293`, `FURB167=56`, `SIM117=45`, `TRY004=44`,
+`PLW1510=36`, `SIM102=30` and `FURB162=26`. The complete machine-readable
+post-batch inventory is at
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-f841-fa1b13f.json`.
+
+The complete public suite was then rerun on exact commit `fa1b13f` with
+`python -m pytest -q --import-mode=prepend`: `2076 passed, 20 skipped, 69
+subtests passed` in `290.93s`. This quality batch is pushed to the existing
+PR-139 branch as `fa1b13f`; no merge, tag, release or deployment was done.
+The overall release decision remains **RELEASE_NO_GO** because the complete
+source-bound nine-artifact set, production Android signer, NodeOS build,
+protected exact-head TrustedBridge receipt, physical QR/WAN/mTLS/BFT tests,
+staging/canary/rollback and operator approval are still absent.
+
+Quality batch `b8ebd47ee1718dc3c511acc44ab029cd63aebcff` removed all `56`
+`FURB167` regex flag aliases in nine reviewed Concert Research/MCP files using
+the rule's safe fix only; no unsafe-fix mode or suppression was used. The
+affected tests passed `55 passed, 10 subtests passed` in `2.80s`. The required
+full Ruff check is now `1287` findings, with `FURB167=0`; compileall over
+`services tools runtime protocol deploy tests` and `git diff --check` exited 0.
+The complete public suite was rerun on exact code head `b8ebd47` and passed
+`2076 passed, 20 skipped, 69 subtests passed` in `302.27s`. The machine-readable
+post-charge inventory is at
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-furb167.json`.
+The code commit is pushed to the existing PR-139 branch; the next docs-only
+commit records hosted run `41441718994` on exact code head `b8ebd47`: isolated
+security/portal `51 passed, 5 skipped, 9 subtests`, critical syntax/selected
+Ruff passed, and offline public `tests/` snapshot `181 passed, 13 skipped`.
+Release status remains **RELEASE_NO_GO**.
+
+Runtime resource batch `33f3da4` removed all four `SIM115` findings without
+suppression: test temporary files now use context managers, ArtifactStore
+closes its temporary file before atomic replacement, and the Unix tray
+single-instance lock retains a controlled descriptor returned by `os.open`.
+Affected tests passed `12 passed`; SIM115 Ruff, compileall and diff-check
+passed. The exact-head full suite passed `2090 passed, 20 skipped, 69
+subtests passed` in `307.00s`; full Ruff is now `1270` findings. Inventory:
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-sim115.json`.
+Hosted run `41448235651` passed on exact code head with isolated
+security/portal `59 passed, 5 skipped, 9 subtests`, critical syntax/selected
+Ruff passed, and offline public `tests/` snapshot `194 passed, 13 skipped`.
+Release status remains **RELEASE_NO_GO**.
+
+Remote release-hardening commits integrated without taking over dirty worktrees:
+`2590bf2` rejects missing/empty/mismatched NodeOS kernel/initramfs files and
+requires checked download permission commands; `faef738` requires an approved
+Android certificate SHA-256 pin and verifies APK/AAB signatures before
+packaging; `0393f4e` restricts stable Android publishing to manual `main`
+workflow runs with an operator-approved exact SHA; `59f64ed` rejects signed
+stale Android inventory versions and adds the release checks to the hosted
+preflight; and `e767520` installs real Git in the isolated fixture image for
+ephemeral signed-tag tests. The Windows-path correction in `30cfc64` and the
+preceding SIM117 fixes are also present in the current tree.
+
+The direct exact-head verification on `b9e8076` passed the complete public suite:
+`2090 passed, 20 skipped, 69 subtests passed` in `294.97s`. Exact-head full
+Ruff is `1282` findings with the machine-readable inventory at
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-b9e8076.json`; compileall
+over `services tools runtime protocol deploy tests` and `git diff --check`
+passed. The exact-head hosted run `41445060446` passed with isolated
+security/portal `59 passed, 5 skipped, 9 subtests`, critical syntax/selected
+Ruff passed, and offline public `tests/` snapshot `194 passed, 13 skipped`.
+The full Ruff gate is still open; remaining largest groups are
+`BLE001=699`, `S110=293`, `TRY004=44`, `SIM117=42`, `PLW1510=34`,
+`SIM102=30` and `FURB162=26`.
+
+Quality batch `c32bcc3` removed four I001 import-order findings and four SIM114
+duplicate-branch findings using the targeted safe fixer, with a manual
+readability pass for the resulting boolean expressions. Affected compliance,
+MCP calculation, portal, orchestrator and security-audit tests passed
+`136 passed, 9 subtests passed` in `11.61s`; targeted Ruff, compileall and
+diff-check passed. The complete public suite on the exact code head passed
+`2090 passed, 20 skipped, 69 subtests passed` in `300.72s`. Full Ruff is now
+`1274` findings; inventory:
+`C:\Users\frede\AppData\Local\Temp\computemesh-ruff-after-i001-sim114.json`.
+Hosted run `41447029822` passed on exact head with isolated security/portal
+`59 passed, 5 skipped, 9 subtests`, critical syntax/selected Ruff passed, and
+offline public `tests/` snapshot `194 passed, 13 skipped`. Release status
+remains **RELEASE_NO_GO**.
+

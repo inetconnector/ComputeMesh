@@ -1,10 +1,12 @@
 """Tests for ComputeMesh Architecture Hardening & Fault Tolerance Engine (Part 4)."""
 
 import unittest
+
 from services.orchestrator.architecture_hardening_part4 import (
+    SplitPhaseModelingError,
     SplitPhasePerformanceModel,
-    SplitPhaseModelingError
 )
+
 
 class TestArchitectureHardeningPart4(unittest.TestCase):
     """Exhaustive tests for Part 4 invariants ensuring 100% real implementation (Rule 7)."""

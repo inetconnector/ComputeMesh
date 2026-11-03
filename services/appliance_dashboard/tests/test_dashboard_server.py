@@ -4,10 +4,10 @@ import threading
 import time
 import unittest
 import urllib.request
-from urllib.error import HTTPError
 from unittest.mock import patch
+from urllib.error import HTTPError
 
-from services.appliance_dashboard.server import DashboardHandler, run_dashboard_server
+from services.appliance_dashboard.server import DashboardHandler
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import GpuDevice, RigInventory
@@ -167,8 +167,8 @@ class TestDashboardServer(unittest.TestCase):
             pcie_riser_warning=False,
         )
 
-        from http.server import ThreadingHTTPServer
         import urllib.error
+        from http.server import ThreadingHTTPServer
         DashboardHandler.config = mock_config
         DashboardHandler.inventory = mock_inventory
         DashboardHandler.node_id = "win-test-node"
@@ -247,9 +247,8 @@ class TestDashboardServer(unittest.TestCase):
             }).encode("utf-8")
             req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json", "X-Node-Auth-Token": NODE_AUTH_TOKEN}, method="POST")
             before = DashboardHandler.tokens_served
-            with patch.dict("os.environ", {"OLLAMA_HOST": "http://127.0.0.1:9"}):
-                with self.assertRaises(urllib.error.HTTPError) as ctx:
-                    urllib.request.urlopen(req, timeout=25)
+            with patch.dict("os.environ", {"OLLAMA_HOST": "http://127.0.0.1:9"}), self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=25)
             self.assertEqual(ctx.exception.code, 503)
             data = json.loads(ctx.exception.read().decode("utf-8"))
             self.assertEqual(data["error"]["code"], "model_catalog_unavailable")
@@ -259,8 +258,8 @@ class TestDashboardServer(unittest.TestCase):
             server.server_close()
 
     def test_cors_options_preflight_and_private_network(self) -> None:
-        from http.server import ThreadingHTTPServer
         from http.client import HTTPConnection
+        from http.server import ThreadingHTTPServer
         server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
         th = threading.Thread(target=server.serve_forever, daemon=True)
         th.start()

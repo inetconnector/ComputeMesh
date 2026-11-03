@@ -9,10 +9,11 @@ from __future__ import annotations
 import re
 import time
 import uuid
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import PurePosixPath
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Protocol
 
 
 class EnvironmentError(RuntimeError):
@@ -171,15 +172,14 @@ class EnvironmentRequest:
             raise ValueError("invalid environment request_id")
         object.__setattr__(self, "operation", EnvironmentOperation(self.operation))
         if not isinstance(self.payload, Mapping):
-            raise ValueError("environment request payload must be an object")
+            raise TypeError("environment request payload must be an object")
         if len(str(self.payload)) > 256_000:
             raise ValueError("environment request payload is too large")
         forbidden = _FORBIDDEN_PAYLOAD_KEYS & {str(key).lower() for key in self.payload}
         if forbidden:
             raise EnvironmentPolicyDenied("generic shell/command payloads are not supported")
-        if self.operation.requires_idempotency:
-            if not self.idempotency_key or not _IDENTIFIER.fullmatch(str(self.idempotency_key)):
-                raise EnvironmentPolicyDenied("side-effecting environment requests require an idempotency key")
+        if self.operation.requires_idempotency and (not self.idempotency_key or not _IDENTIFIER.fullmatch(str(self.idempotency_key))):
+            raise EnvironmentPolicyDenied("side-effecting environment requests require an idempotency key")
 
 
 class EnvironmentTransport(Protocol):

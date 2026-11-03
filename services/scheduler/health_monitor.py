@@ -8,15 +8,8 @@ mining rigs experience hardware degradation or unexpected disconnects.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-import math
+from datetime import UTC, datetime
 from pathlib import Path
-import sys
-from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.scheduler.multi_gpu_planner import (
     GpuDeviceSpec,
@@ -24,6 +17,8 @@ from services.scheduler.multi_gpu_planner import (
     plan_multi_gpu_rig,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class HealthMonitorError(RuntimeError):
     """Raised on unrecoverable cluster-wide health failures."""
@@ -60,7 +55,7 @@ class NodeHealthMonitor:
         memory_free_bytes: int = 0,
         now_utc: float | None = None,
     ) -> NodeHealthRecord:
-        now = now_utc if now_utc is not None else datetime.now(timezone.utc).timestamp()
+        now = now_utc if now_utc is not None else datetime.now(UTC).timestamp()
         temps = gpu_temperatures_c or []
 
         # Evaluate thermal status
@@ -101,7 +96,7 @@ class NodeHealthMonitor:
 
     def evaluate_cluster_health(self, now_utc: float | None = None) -> dict[str, str]:
         """Evaluates and updates status for all registered nodes."""
-        now = now_utc if now_utc is not None else datetime.now(timezone.utc).timestamp()
+        now = now_utc if now_utc is not None else datetime.now(UTC).timestamp()
         states = {}
         for nid, rec in self._nodes.items():
             silence = now - rec.last_heartbeat_utc

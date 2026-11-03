@@ -8,13 +8,13 @@ marks production_scheduling=false.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import time
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from runtime.llama.rpc_spike import (
@@ -85,7 +85,7 @@ def build_shared_request_evidence(
     if not isinstance(job_id, str) or not (1 <= len(job_id) <= 256):
         raise ValueError("job_id must be 1..256 characters")
     if not isinstance(content, str):
-        raise ValueError("content must be text")
+        raise TypeError("content must be text")
     required_timings = {
         "prompt_n",
         "predicted_n",
@@ -108,7 +108,7 @@ def build_shared_request_evidence(
         performance["model_ready_ms"] = float(timings["model_ready_ms"])
     evidence = {
         "schema_version": 1,
-        "captured_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "scope": "shared_request_execution",
         "job_id": job_id,
         "placement_decision_id": plan.placement_decision_id,

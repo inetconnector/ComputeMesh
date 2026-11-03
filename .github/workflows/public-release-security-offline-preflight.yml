@@ -1,0 +1,87 @@
+name: Public release security and regression offline preflight
+
+on:
+  push:
+    branches:
+      - release/portal-platform-sync-20261028
+      - codex/consolidate-public-20261103
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/public-release-security-offline-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-security-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build pinned dependency-only test image
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/Dockerfile.cm" <<'EOF'
+          FROM python:3.11.18-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+          # Release fixture tests create real ephemeral Git tags and commits.
+          # Runtime remains read-only, non-root and networkless; Git is image-only.
+          RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+          RUN python -m pip install --no-cache-dir pytest==9.0.2 cryptography==46.0.4 requests==2.32.5 beautifulsoup4==4.14.2 Pillow==12.0.0 pydantic==2.12.4 jsonschema==4.25.1 numpy==2.3.4 ruff==0.14.4 webauthn==2.5.0
+          ENV PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+          USER 10001:10001
+          EOF
+          docker build --pull --file "$RUNNER_TEMP/Dockerfile.cm" --tag cm-release-preflight:ci "$RUNNER_TEMP"
+          docker image inspect cm-release-preflight:ci --format 'Preflight image ID {{.Id}}'
+          printf 'Exact source SHA: %s\n' "$GITHUB_SHA"
+      - name: Run isolated security and portal static regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 3g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=128m \
+            --tmpfs /work:rw,nosuid,nodev,mode=1777,size=1024m \
+            --user 10001:10001 --env HOME=/tmp \
+            --env COMPUTEMESH_NODE_AUTH_TOKEN_PATH=/tmp/ci-node-token.txt \
+            --env COMPUTEMESH_ACCOUNTING_DB_PATH=/tmp/cm-accounting.db \
+            --env COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH=/tmp/cm-fleet.db \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
+            --workdir /work cm-release-preflight:ci \
+            sh -ec 'cp -R /src/. /work/; python -m pytest -q -p no:cacheprovider services/mcp/tests/test_python_sandbox_disabled.py tests/test_exhaustive_functional_audit.py tests/test_portal_pages_browser.py tests/test_immediate_config_sync.py tools/release/tests/test_signed_portal_bundle.py tools/security/tests/test_release_signer.py'
+      - name: Python syntax and critical Ruff checks on changed security files
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 3g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=128m \
+            --user 10001:10001 --env HOME=/tmp --env PYTHONPYCACHEPREFIX=/tmp/pycache \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
+            --workdir /src cm-release-preflight:ci \
+            sh -ec 'python -m py_compile services/mcp/builtin/python_sandbox.py services/billing/owner_accounts.py services/gateway/server.py tests/test_p0_node_reboot_reconnect.py tests/test_llamacpp_webui_gateway.py tests/test_exhaustive_functional_audit.py tests/test_portal_pages_browser.py services/mcp/tests/test_python_sandbox_disabled.py; ruff check --no-cache --select E9,F63,F7,F82 services/mcp/builtin/python_sandbox.py services/billing/owner_accounts.py services/gateway/server.py tests/test_p0_node_reboot_reconnect.py tests/test_llamacpp_webui_gateway.py tests/test_exhaustive_functional_audit.py tests/test_portal_pages_browser.py services/mcp/tests/test_python_sandbox_disabled.py'
+      - name: Run full public test directory in separate offline snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 --memory 3g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=128m \
+            --tmpfs /work:rw,nosuid,nodev,mode=1777,size=1024m \
+            --user 10001:10001 --env HOME=/tmp \
+            --env COMPUTEMESH_NODE_AUTH_TOKEN_PATH=/tmp/ci-node-token.txt \
+            --env COMPUTEMESH_ACCOUNTING_DB_PATH=/tmp/cm-accounting.db \
+            --env COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH=/tmp/cm-fleet.db \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
+            --workdir /work cm-release-preflight:ci \
+            sh -ec 'cp -R /src/. /work/; python -m pytest -q -p no:cacheprovider tests'

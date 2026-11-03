@@ -7,21 +7,18 @@ from __future__ import annotations
 
 import os
 import shutil
-import sys
 import threading
 import unittest
 from base64 import b64decode
 from pathlib import Path
 from unittest.mock import patch
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.appliance_dashboard.server import create_dashboard_server
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(os.environ.get("COMPUTEMESH_BROWSER_E2E") == "1", "browser E2E opt-in")
 class TestWebUIAttachmentBrowser(unittest.TestCase):
@@ -267,12 +264,16 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
                 page = context.new_page()
                 completions = []
 
-                def respond(route):
+                def respond(
+                    route,
+                    _completions=completions,
+                    _failure=failure,
+                ):
                     url = route.request.url
                     if "chat/completions" in url and "peer.test" in url:
                         route.abort()
                     elif "chat/completions" in url:
-                        completions.append(route.request.post_data_json)
+                        _completions.append(route.request.post_data_json)
                         route.fulfill(json={"choices": []})
                     elif url == "https://gateway.test/webui/":
                         route.fulfill(content_type="text/html", body="<html><body></body></html>")
@@ -281,14 +282,14 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
                             {"id": "qwen2.5:3b", "available": True},
                             {"id": "qwen2.5:1.5b", "available": True},
                         ]})
-                    elif url.endswith("/v1/models") and failure == "completion":
+                    elif url.endswith("/v1/models") and _failure == "completion":
                         route.fulfill(json={"data": [{"id": "peer:7b", "available": True}]})
                     elif "/fleet" in url:
                         nodes = [{"is_online": True, "endpoint": "https://peer.test"}]
                         route.fulfill(json={
-                            "nodes": nodes if failure in ("peer", "completion") else [],
+                            "nodes": nodes if _failure in ("peer", "completion") else [],
                         })
-                    elif url.endswith("/slots") and failure != "slots":
+                    elif url.endswith("/slots") and _failure != "slots":
                         route.fulfill(json=[])
                     else:
                         route.abort()

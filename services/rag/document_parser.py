@@ -4,17 +4,14 @@
 from __future__ import annotations
 
 import csv
-import io
-import json
 import logging
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.rag.parser")
 
 
-def extract_text_from_file(file_path: str | Path) -> Dict[str, Any]:
+def extract_text_from_file(file_path: str | Path) -> dict[str, Any]:
     """Extracts plain text and structured metadata from a file on disk.
 
     Supports PDF, DOCX, TXT, Markdown, CSV, JSON, and source code files.
@@ -72,7 +69,7 @@ def extract_text_from_file(file_path: str | Path) -> Dict[str, Any]:
                     "text": full_text,
                     "metadata": {"type": "pdf", "pages": len(reader.pages)},
                 }
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, RuntimeError):
                 # Fallback: simple binary text extraction
                 with open(path, "rb") as f:
                     raw_data = f.read()
@@ -101,8 +98,8 @@ def extract_text_from_file(file_path: str | Path) -> Dict[str, Any]:
                     "text": "\n\n".join(paras),
                     "metadata": {"type": "docx", "paragraphs": len(paras)},
                 }
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
+                log.debug("DOCX extraction fallback for %s: %s", file_name, exc)
 
         # Fallback binary text read
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -116,7 +113,7 @@ def extract_text_from_file(file_path: str | Path) -> Dict[str, Any]:
             "metadata": {"type": "fallback_text"},
         }
 
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
         return {
             "error": f"Fehler beim Einlesen von '{file_name}': {exc}",
             "file_name": file_name,
@@ -125,7 +122,7 @@ def extract_text_from_file(file_path: str | Path) -> Dict[str, Any]:
         }
 
 
-def parse_document_content(content: str, filename: str = "document.txt") -> Dict[str, Any]:
+def parse_document_content(content: str, filename: str = "document.txt") -> dict[str, Any]:
     """Parses raw text or string content into a document representation."""
     return {
         "file_name": filename,

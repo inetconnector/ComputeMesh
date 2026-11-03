@@ -11,19 +11,21 @@ It remains trusted-private-lab tooling. It does not authenticate upstream RPC.
 from __future__ import annotations
 
 import argparse
-from collections import deque
-from dataclasses import dataclass
-from datetime import datetime, timezone
+import contextlib
 import json
 import math
-from pathlib import Path
 import queue
 import re
 import subprocess
 import sys
 import threading
 import time
-from typing import Any, Callable, Sequence
+from collections import deque
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -116,12 +118,12 @@ def _read_bundle(path: Path) -> dict[str, Any]:
 
 def _parse_time(value: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise SharedTrialError("bundle captured_at is invalid") from exc
     if parsed.tzinfo is None:
         raise SharedTrialError("bundle captured_at must include a timezone")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _current_profile_age_ok(bundle: dict[str, Any], now: datetime) -> None:
@@ -167,10 +169,10 @@ def _selected_candidate(bundle: dict[str, Any]) -> dict[str, Any]:
 
 def load_trial_plan(bundle_path: Path, model_path: Path, *, now: datetime | None = None) -> TrialPlan:
     bundle = _read_bundle(bundle_path)
-    current = now or datetime.now(timezone.utc)
+    current = now or datetime.now(UTC)
     if current.tzinfo is None:
         raise ValueError("now must be timezone-aware")
-    _current_profile_age_ok(bundle, current.astimezone(timezone.utc))
+    _current_profile_age_ok(bundle, current.astimezone(UTC))
     candidate = _selected_candidate(bundle)
     placement = bundle["placement_decision"]
     coordinator = placement["nodes"]["coordinator"]
@@ -425,10 +427,8 @@ def _relay_reader(stream: Any, ready: queue.Queue[str], diagnostics: deque[str])
                 except queue.Full:
                     pass
     finally:
-        try:
+        with contextlib.suppress(OSError, ValueError, RuntimeError):
             stream.close()
-        except Exception:
-            pass
 
 
 def start_measurement_relay(
@@ -527,7 +527,7 @@ def _write_failure(root: Path, phase: str, exc: BaseException) -> None:
     message = (str(exc) or type(exc).__name__)[:MAX_FAILURE_MESSAGE]
     record = {
         "schema_version": 1,
-        "captured_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "phase": phase[:64],
         "error_type": type(exc).__name__[:128],
         "message": message,
@@ -662,10 +662,8 @@ def run_shared_trial(
     except Exception as exc:
         if relay is not None:
             stop_relay(relay)
-        try:
+        with contextlib.suppress(OSError, ValueError, TypeError, RuntimeError):
             _write_failure(output_dir, phase, exc)
-        except Exception:
-            pass
         raise
 
 
@@ -707,7 +705,7 @@ def main(argv: list[str] | None = None) -> int:
             startup_timeout=args.startup_timeout,
             request_timeout=args.request_timeout,
         )
-    except Exception as exc:
+    except (SharedTrialError, OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError) as exc:
         print(f"shared trial failed: {type(exc).__name__}: {str(exc)[:MAX_FAILURE_MESSAGE]}", file=sys.stderr)
         return 2
     print(proof)

@@ -11,8 +11,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 from .url_security import (
     BLOCKED_HOST_SUFFIXES,
@@ -31,7 +31,7 @@ def _is_ip_blocked(ip_str: str) -> bool:
     return is_ip_blocked(ip_str)
 
 
-def _sanitize_and_validate_host(target: str) -> Tuple[Optional[str], Optional[str]]:
+def _sanitize_and_validate_host(target: str) -> tuple[str | None, str | None]:
     """Normalize a hostname/IP and reject obvious internal hostnames."""
     raw = str(target or "").strip()
     if not raw:
@@ -69,14 +69,14 @@ def _sanitize_and_validate_host(target: str) -> Tuple[Optional[str], Optional[st
     return host, None
 
 
-def _check_dns(host: str) -> Dict[str, Any]:
+def _check_dns(host: str) -> dict[str, Any]:
     """Resolve all addresses and fail if any address is not globally routable."""
     try:
         resolved = resolve_public_host(host, 443)
     except UnsafeTargetError as exc:
         return {"error": str(exc)}
 
-    result: Dict[str, Any] = {"host": host, "ipv4": [], "ipv6": [], "status": "ok"}
+    result: dict[str, Any] = {"host": host, "ipv4": [], "ipv6": [], "status": "ok"}
     for value in resolved.addresses:
         try:
             ip = ipaddress.ip_address(value)
@@ -87,7 +87,7 @@ def _check_dns(host: str) -> Dict[str, Any]:
     return result
 
 
-def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> Dict[str, Any]:
+def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> dict[str, Any]:
     """Validate the TLS certificate while connecting to a prevalidated public IP."""
     context = ssl.create_default_context()
     context.check_hostname = True
@@ -98,16 +98,17 @@ def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> Dict[str, An
         # Connecting to the already resolved public address reduces DNS-rebinding
         # exposure; TLS still verifies the original hostname via SNI.
         address = resolved.addresses[0]
-        with socket.create_connection((address, port), timeout=timeout) as sock:
-            with context.wrap_socket(sock, server_hostname=host) as ssock:
+        with socket.create_connection((address, port), timeout=timeout) as sock, context.wrap_socket(
+            sock, server_hostname=host
+        ) as ssock:
                 cert = ssock.getpeercert()
                 if not cert:
                     return {"status": "no_cert", "error": "Kein SSL-Zertifikat empfangen"}
 
                 not_after_str = cert.get("notAfter", "")
                 not_before_str = cert.get("notBefore", "")
-                expire_dt = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
-                days_left = (expire_dt - datetime.now(timezone.utc)).days
+                expire_dt = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=UTC)
+                days_left = (expire_dt - datetime.now(UTC)).days
                 subject_dict = dict(x[0] for x in cert.get("subject", ()))
                 issuer_dict = dict(x[0] for x in cert.get("issuer", ()))
                 return {
@@ -123,13 +124,13 @@ def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> Dict[str, An
         return {"valid": False, "error": str(exc)}
     except ssl.SSLCertVerificationError as exc:
         return {"valid": False, "error": f"Zertifikatsvalidierung fehlgeschlagen: {exc.verify_message}"}
-    except Exception as exc:
+    except (OSError, ValueError, IndexError) as exc:
         return {"valid": False, "error": f"SSL-Verbindung fehlgeschlagen: {exc}"}
 
 
-def _check_http(host: str, timeout: float = 3.5) -> Dict[str, Any]:
+def _check_http(host: str, timeout: float = 3.5) -> dict[str, Any]:
     """Probe HTTP(S), validating initial targets and every redirect hop."""
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     opener = build_safe_public_opener()
     for proto in ("https", "http"):
         url = f"{proto}://{host}/"
@@ -163,7 +164,7 @@ def _check_http(host: str, timeout: float = 3.5) -> Dict[str, Any]:
                 "latency_ms": elapsed_ms,
                 "server": exc.headers.get("Server", "Unbekannt") if exc.headers else "Unbekannt",
             }
-        except Exception as exc:
+        except (urllib.error.URLError, OSError, ValueError, TimeoutError) as exc:
             results[proto] = {"error": str(exc)}
     return results
 
@@ -174,7 +175,7 @@ def lookup_network_host(
     domain: str = "",
     check_type: str = "all",
     timeout: float = 5.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Inspect DNS, HTTP(S), and TLS for an explicitly public host."""
     raw_host = host or target or domain or ""
     clean_host, err = _sanitize_and_validate_host(raw_host)
@@ -196,10 +197,10 @@ def lookup_network_host(
     if check_mode not in {"all", "dns_only", "http", "ssl"}:
         return {"error": "check_type muss all, dns_only, http oder ssl sein."}
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "host": clean_host,
         "dns": dns_info,
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
     if check_mode == "dns_only":
         return result

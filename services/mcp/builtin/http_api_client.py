@@ -9,7 +9,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any
 
 log = logging.getLogger("computemesh.mcp.http_api_client")
 DEFAULT_USER_AGENT = "ComputeMesh-REST-Client/1.2"
@@ -29,15 +29,15 @@ PRIVATE_HOST_PATTERNS = [
 def execute_http_request(
     url: str,
     method: str = "GET",
-    headers: Optional[Dict[str, str]] = None,
-    params: Optional[Dict[str, Any]] = None,
-    body: Optional[str] = None,
-    json_body: Optional[Dict[str, Any]] = None,
+    headers: dict[str, str] | None = None,
+    params: dict[str, Any] | None = None,
+    body: str | None = None,
+    json_body: dict[str, Any] | None = None,
     timeout_seconds: float = 15.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Executes arbitrary HTTP REST API requests (GET, POST, PUT, DELETE, PATCH)."""
     clean_url = str(url or "").strip()
-    if not (clean_url.startswith("http://") or clean_url.startswith("https://")):
+    if not (clean_url.startswith(("http://", "https://"))):
         return {"error": "Ungültige URL: Muss mit http:// oder https:// beginnen.", "success": False}
 
     # SSRF / Private IP protection
@@ -51,8 +51,8 @@ def execute_http_request(
                     "success": False,
                     "status_code": 403,
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     if params:
         clean_params = {k: v for k, v in params.items() if v is not None}
@@ -85,7 +85,7 @@ def execute_http_request(
 
             try:
                 parsed_json = json.loads(raw.decode("utf-8", errors="replace"))
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 parsed_json = None
 
             text_body = raw.decode("utf-8", errors="replace")
@@ -114,5 +114,5 @@ def execute_http_request(
             "response_body": raw_err[:2000],
             "body_preview": raw_err[:2000],
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "url": clean_url, "error": f"Netzwerkfehler: {exc}"}

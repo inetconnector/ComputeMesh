@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta, timezone
 import importlib.util
 import sys
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,7 +67,7 @@ class SQLiteStateStoreTests(unittest.TestCase):
             b.close()
 
     def test_reservation_lease_persists_and_expires(self):
-        expiry = datetime.now(timezone.utc) + timedelta(seconds=1)
+        expiry = datetime.now(UTC) + timedelta(seconds=1)
         with p.SQLiteStateStore(self.path) as store:
             store.ensure_reservation("res-1")
             store.lease_reservation("res-1", request_id="lease", expected_revision=0, expires_at=expiry)
@@ -83,7 +83,7 @@ class SQLiteStateStoreTests(unittest.TestCase):
             self.assertIsNone(store.get_reservation("res-1").lease_expires_at)
 
     def test_commit_wins_before_expiry_then_expire_is_noop(self):
-        expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+        expiry = datetime.now(UTC) + timedelta(minutes=5)
         with p.SQLiteStateStore(self.path) as store:
             store.ensure_reservation("res-1")
             store.lease_reservation("res-1", request_id="lease", expected_revision=0, expires_at=expiry)

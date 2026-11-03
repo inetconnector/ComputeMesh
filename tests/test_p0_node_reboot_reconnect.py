@@ -10,44 +10,38 @@ Verifies:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
 import concurrent.futures
-from copy import deepcopy
-from http import HTTPStatus
-from http.server import ThreadingHTTPServer
 import json
-import os
-from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
 import urllib.error
 import urllib.request
+from copy import deepcopy
+from datetime import UTC, datetime, timedelta
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+import services.gateway.server as gateway_server
+from services.appliance_dashboard.tunnel_relay import (
+    NodeAuthTokenStorageError,
+    get_or_create_node_auth_token,
+)
 from services.billing.owner_accounts import OwnerAccountStore
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
-import services.gateway.server as gateway_server
 from services.gateway.server import (
     GatewayHandler,
     _build_fleet_payload,
     owner_id_for_key,
 )
-from tools.appliance.appliance_config import (
-    ApplianceConfig,
-    load_appliance_config,
-    save_system_config,
-)
-from services.appliance_dashboard.tunnel_relay import get_or_create_node_auth_token
-from services.appliance_dashboard.tunnel_relay import NodeAuthTokenStorageError
+from tools.appliance.appliance_config import ApplianceConfig, save_system_config
 from tools.security.node_key_storage import (
-    get_or_create_node_private_key,
     sign_node_heartbeat,
-    verify_node_heartbeat,
 )
 
 
@@ -142,9 +136,8 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
 
     def test_token_storage_failure_does_not_return_an_unpersisted_identity(self) -> None:
         token_file = self.temp_path / "unwritable" / "node_auth_token.txt"
-        with patch("services.appliance_dashboard.tunnel_relay._atomic_secure_text_write", side_effect=OSError("mount unavailable")):
-            with self.assertRaises(NodeAuthTokenStorageError):
-                get_or_create_node_auth_token(search_paths=[token_file])
+        with patch("services.appliance_dashboard.tunnel_relay._atomic_secure_text_write", side_effect=OSError("mount unavailable")), self.assertRaises(NodeAuthTokenStorageError):
+            get_or_create_node_auth_token(search_paths=[token_file])
         self.assertFalse(token_file.exists())
 
     def test_relay_does_not_continue_without_a_persistent_node_key(self) -> None:
@@ -162,7 +155,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         matching GPUs, and even matching client IP, but WITHOUT a cryptographic signature,
         is strictly rejected with 401 Unauthorized.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         client_ip = "192.168.1.27"
         valid_token = "valid_initial_token_xyz"
 
@@ -215,7 +208,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         """S5 Gate: Verify that an attacker presenting an Ed25519 signature from a DIFFERENT,
         unregistered keypair is rejected with 401 Unauthorized.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         client_ip = "192.168.1.27"
         valid_token = "valid_initial_token_xyz"
 
@@ -274,7 +267,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
 
     def test_negative_security_legacy_node_cannot_bind_attacker_key(self) -> None:
         """A legacy node without a stored key must not accept a caller-supplied key."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         client_ip = "192.168.1.27"
         legacy_token = "legacy_token_still_registered"
         NODE_TELEMETRY_REGISTRY[self.node_id] = {
@@ -337,7 +330,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
 
     def test_negative_security_unbound_legacy_node_rejects_foreign_owner_and_key(self) -> None:
         """A legacy registry row without owner/key state cannot be claimed by a caller."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         client_ip = "192.168.1.27"
         legacy_token = "legacy-token-without-owner-or-key"
         NODE_TELEMETRY_REGISTRY[self.node_id] = {
@@ -399,7 +392,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         """Verify anti-replay protection: a valid signature with an expired timestamp (>60s)
         is rejected with 401 Unauthorized.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         client_ip = "192.168.1.27"
         valid_token = "valid_initial_token_xyz"
 
@@ -452,6 +445,22 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_parallel_owner_bindings_are_idempotent_and_cannot_change_owner(self) -> None:
+        """Parallel heartbeats may bind the same owner/node, never another owner."""
+        store = gateway_server.OWNER_ACCOUNT_STORE
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(
+                lambda _item: store.bind_provider_node(self.owner_id, self.node_id),
+                range(24),
+            ))
+        self.assertEqual(store.owner_for_provider_node(self.node_id), self.owner_id)
+        another_owner = owner_id_for_key("cm_owner_parallel_conflict")
+        store.ensure_owner(another_owner)
+        from services.billing.owner_accounts import OwnerAccountStoreError
+        with self.assertRaises(OwnerAccountStoreError):
+            store.bind_provider_node(another_owner, self.node_id)
+        self.assertEqual(store.owner_for_provider_node(self.node_id), self.owner_id)
+
     def test_negative_security_parallel_replay_of_same_heartbeat_nonce_rejected(self) -> None:
         """Only one concurrent request may consume a signed heartbeat nonce."""
         old_token = "parallel-old-token"
@@ -462,7 +471,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             "auth_token": old_token,
             "public_key": self.node_public_key_hex,
             "owner_id": self.owner_id,
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
         timestamp = int(time.time())
         payload = {
@@ -515,7 +524,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             "node_id": self.node_id,
             "auth_token": old_token,
             "owner_id": self.owner_id,
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
@@ -546,7 +555,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         """S4/R1 Gate: Verify that a legitimate node reconnecting after a reboot with a new token
         is admitted upon presenting a valid Ed25519 cryptographic proof of possession.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         client_ip = "192.168.1.27"
         old_token = "pre_reboot_token_111"
 
@@ -684,7 +693,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             for cycle in range(1, 11):
                 # Simulate node being offline past the 300s stale timeout
                 NODE_TELEMETRY_REGISTRY[self.node_id]["updated_at"] = (
-                    datetime.now(timezone.utc) - timedelta(seconds=350)
+                    datetime.now(UTC) - timedelta(seconds=350)
                 ).isoformat().replace("+00:00", "Z")
 
                 # Verify offline status

@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import unittest
+
 from runtime.autonomous_failover_mesh import (
-    EndToEndLatencyOptimizer,
     AutonomousFailoverMeshFabric,
+    EndToEndLatencyOptimizer,
 )
+
 
 class TestAutonomousFailoverMesh(unittest.TestCase):
     def setUp(self) -> None:

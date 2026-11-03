@@ -4,8 +4,7 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 try:
     from PIL import Image, ImageEnhance, ImageOps
@@ -16,17 +15,17 @@ except ImportError:
 
 def enhance_and_crop_image(
     image_path: str,
-    output_path: Optional[str] = None,
-    crop_box: Optional[List[int]] = None,
-    rotate_degrees: Optional[float] = None,
-    contrast_factor: Optional[float] = None,
-    brightness_factor: Optional[float] = None,
-    sharpness_factor: Optional[float] = None,
+    output_path: str | None = None,
+    crop_box: list[int] | None = None,
+    rotate_degrees: float | None = None,
+    contrast_factor: float | None = None,
+    brightness_factor: float | None = None,
+    sharpness_factor: float | None = None,
     grayscale: bool = False,
     auto_contrast: bool = False,
-    max_dimension: Optional[int] = None,
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    max_dimension: int | None = None,
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Crops, rotates, enhances contrast/sharpness, or converts image scans for high-precision OCR / visual reading."""
     if not PIL_AVAILABLE:
         return {"error": "Pillow (PIL) ist in der Python-Umgebung nicht verfügbar.", "success": False}
@@ -40,7 +39,7 @@ def enhance_and_crop_image(
     try:
         img = Image.open(abs_input)
         orig_width, orig_height = img.size
-        orig_format = img.format or "PNG"
+        _orig_format = img.format or "PNG"
         
         # 1. Crop if specified: [left, upper, right, lower]
         if crop_box and len(crop_box) == 4:
@@ -88,7 +87,7 @@ def enhance_and_crop_image(
                 
         # Target output path
         if not output_path:
-            base, ext = os.path.splitext(abs_input)
+            base, _ext = os.path.splitext(abs_input)
             out_file = f"{base}_enhanced.png"
         else:
             out_file = os.path.abspath(os.path.join(root, output_path)) if not os.path.isabs(output_path) else output_path
@@ -109,23 +108,23 @@ def enhance_and_crop_image(
             "final_dimensions": [final_w, final_h],
             "output_size_bytes": os.path.getsize(out_file),
         }
-    except Exception as e:
-        return {"error": f"Fehler bei der Bildverarbeitung von '{image_path}': {str(e)}", "success": False}
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
+        return {"error": f"Fehler bei der Bildverarbeitung von '{image_path}': {e!s}", "success": False}
 
 
 def create_contact_sheet(
-    image_paths: List[str],
+    image_paths: list[str],
     output_path: str = "contact_sheet.png",
     columns: int = 3,
     thumb_size: int = 400,
-    workspace_root: Optional[str] = None,
-) -> Dict[str, Any]:
+    workspace_root: str | None = None,
+) -> dict[str, Any]:
     """Combines multiple document images/scans into a structured contact sheet for overview analysis."""
     if not PIL_AVAILABLE:
         return {"error": "Pillow (PIL) ist nicht verfügbar.", "success": False}
         
     root = os.path.abspath(workspace_root or ".")
-    valid_images: List[Image.Image] = []
+    valid_images: list[Image.Image] = []
     
     for ip in image_paths:
         abs_p = os.path.abspath(os.path.join(root, ip)) if not os.path.isabs(ip) else ip
@@ -134,7 +133,8 @@ def create_contact_sheet(
                 im = Image.open(abs_p)
                 im.thumbnail((thumb_size, thumb_size), Image.Resampling.LANCZOS)
                 valid_images.append(im)
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
                 continue
                 
     if not valid_images:

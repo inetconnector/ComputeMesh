@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+import contextlib
 import json
 import math
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from .classifier import RUBRIC_GROUPS
@@ -301,7 +302,7 @@ class ConcertResearchEngine:
         if req.latitude is not None and req.longitude is not None and max_rad and max_rad > 0:
             v_lat = row["venue_latitude"]
             v_lon = row["venue_longitude"]
-            if (v_lat is None or v_lon is None) and "venue_city_key" in row.keys() and row["venue_city_key"]:
+            if (v_lat is None or v_lon is None) and "venue_city_key" in row.keys() and row["venue_city_key"]:  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
                 v_city_key = row["venue_city_key"]
                 req_city_key = self.store.city_key(req.city)
                 if v_city_key == req_city_key:
@@ -317,14 +318,14 @@ class ConcertResearchEngine:
                     return None
             else:
                 req_city_key = self.store.city_key(req.city)
-                v_city_key = row["venue_city_key"] if "venue_city_key" in row.keys() else None
+                v_city_key = row["venue_city_key"] if "venue_city_key" in row.keys() else None  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
                 if v_city_key and v_city_key != req_city_key:
                     return None
 
         source_url = row["source_url"] or row["event_url"] or ""
         source_name = row["source_name"] or "ComputeMesh Event Index"
-        primary_cat = row["primary_category"] if "primary_category" in row.keys() else "other"
-        is_live = bool(row["is_live_music"]) if "is_live_music" in row.keys() else False
+        primary_cat = row["primary_category"] if "primary_category" in row.keys() else "other"  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
+        is_live = bool(row["is_live_music"]) if "is_live_music" in row.keys() else False  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
 
         why = "Verifizierter Live-Musik-Treffer" if is_live else "Verifizierter Veranstaltungstreffer"
         corroboration = int(row["corroboration_count"] or 0)
@@ -357,18 +358,14 @@ class ConcertResearchEngine:
             return base_event
 
         secondary_cats = []
-        if "secondary_categories_json" in row.keys() and row["secondary_categories_json"]:
-            try:
+        if "secondary_categories_json" in row.keys() and row["secondary_categories_json"]:  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
+            with contextlib.suppress(ValueError, TypeError):
                 secondary_cats = json.loads(row["secondary_categories_json"])
-            except Exception:
-                pass
 
         genres_list = []
-        if "genres_json" in row.keys() and row["genres_json"]:
-            try:
+        if "genres_json" in row.keys() and row["genres_json"]:  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
+            with contextlib.suppress(ValueError, TypeError):
                 genres_list = json.loads(row["genres_json"])
-            except Exception:
-                pass
 
         return {
             **base_event,
@@ -376,8 +373,8 @@ class ConcertResearchEngine:
             "primaryCategory": primary_cat,
             "secondaryCategories": secondary_cats,
             "isLiveMusic": is_live,
-            "qualityScore": float(row["quality_score"]) if "quality_score" in row.keys() and row["quality_score"] is not None else 50.0,
-            "recommendationScore": float(row["recommendation_score"]) if "recommendation_score" in row.keys() and row["recommendation_score"] is not None else 50.0,
+            "qualityScore": float(row["quality_score"]) if "quality_score" in row.keys() and row["quality_score"] is not None else 50.0,  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
+            "recommendationScore": float(row["recommendation_score"]) if "recommendation_score" in row.keys() and row["recommendation_score"] is not None else 50.0,  # noqa: SIM118 - sqlite3.Row membership checks values, not columns
             "distanceKm": calc_dist_km,
         }
 

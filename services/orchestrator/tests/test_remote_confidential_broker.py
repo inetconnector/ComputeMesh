@@ -1,8 +1,8 @@
 import base64
-from datetime import UTC, datetime, timedelta
 import json
-from types import SimpleNamespace
 import unittest
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey

@@ -9,22 +9,21 @@ Tests system robustness against:
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
 import socket
 import struct
 import threading
 import time
 import unittest
+from datetime import UTC, datetime, timedelta
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from services.orchestrator.persistent_control_channel import (
-    ChannelClosed,
     MAX_FRAME_BYTES,
+    ChannelClosed,
     PersistentControlChannelError,
     PersistentNodeConnection,
     PersistentNodeControlClient,
-    RequestTimeout,
     recv_frame,
     send_frame,
 )
@@ -40,7 +39,7 @@ def _ready_session(node_id: str = "node-adversary") -> SessionSnapshot:
         node_id=node_id,
         principal_id="provider-adv",
         auth_method="computemesh-ed25519-v1",
-        credential_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        credential_expires_at=datetime.now(UTC) + timedelta(minutes=10),
         negotiated_capabilities=frozenset({"execution_attestation_v1"}),
         profile_revision=1,
         drain_reason=None,

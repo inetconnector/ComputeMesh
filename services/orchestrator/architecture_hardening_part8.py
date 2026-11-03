@@ -5,28 +5,25 @@ Enforces invariants:
 - "A shard must declare: immutable digest; model version; byte size; tensor/layer/expert range; quantization; runtime compatibility; expected device memory; artifact signature metadata."
 """
 
-from typing import Any, Dict
+from typing import Any, ClassVar
 
 
 class HardeningPart8Error(RuntimeError):
     """Base exception for Part 8 invariant violations."""
-    pass
 
 
 class ModelManifestError(HardeningPart8Error):
     """Raised when a model manifest violates declaration invariants."""
-    pass
 
 
 class ShardManifestError(HardeningPart8Error):
     """Raised when a shard manifest violates declaration invariants."""
-    pass
 
 
 class ModelManifestEnforcer:
     """Enforces: A model version must declare at least: ..."""
 
-    REQUIRED_KEYS = [
+    REQUIRED_KEYS: ClassVar[list[str]] = [
         "model_id",
         "model_version",
         "upstream",  # source metadata
@@ -44,7 +41,7 @@ class ModelManifestEnforcer:
     ]
 
     @classmethod
-    def enforce(cls, manifest: Dict[str, Any]) -> None:
+    def enforce(cls, manifest: dict[str, Any]) -> None:
         """Validates that a model manifest contains all mandatory architectural fields."""
         if not isinstance(manifest, dict):
             raise ModelManifestError("Manifest must be a dictionary.")
@@ -73,7 +70,7 @@ class ModelManifestEnforcer:
 class ShardManifestEnforcer:
     """Enforces: A shard must declare: ..."""
 
-    REQUIRED_KEYS = [
+    REQUIRED_KEYS: ClassVar[list[str]] = [
         "digest", # immutable digest
         "model_version",
         "size_bytes", # byte size
@@ -85,7 +82,7 @@ class ShardManifestEnforcer:
     ]
 
     @classmethod
-    def enforce(cls, shard_manifest: Dict[str, Any]) -> None:
+    def enforce(cls, shard_manifest: dict[str, Any]) -> None:
         """Validates that a shard manifest contains all mandatory architectural fields."""
         if not isinstance(shard_manifest, dict):
             raise ShardManifestError("Shard manifest must be a dictionary.")

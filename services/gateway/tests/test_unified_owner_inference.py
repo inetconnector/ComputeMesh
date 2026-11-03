@@ -1,7 +1,7 @@
 """Tests for unified owner inference accounting."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.ledger import BillingError, InsufficientBalanceError
 from services.billing.owner_accounts import OwnerAccountStore
@@ -11,7 +11,6 @@ from services.gateway.inference_backend import BackendResult
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
 from services.gateway.teaser import TeaserQuotaManager
-
 
 MODEL = "qwen/qwen2.5-7b-instruct"
 

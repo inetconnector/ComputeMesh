@@ -10,7 +10,7 @@ import json
 import re
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2"
 
@@ -92,7 +92,7 @@ def _extract_candidates(location_name: str) -> list[str]:
     return deduped
 
 
-def geocode_location(location_name: str, timeout: float = 6.0) -> Optional[Dict[str, Any]]:
+def geocode_location(location_name: str, timeout: float = 6.0) -> dict[str, Any] | None:
     """Resolves city/place name to coordinates using Open-Meteo Geocoding API with multi-candidate fallback."""
     candidates = _extract_candidates(location_name)
     if not candidates:
@@ -119,12 +119,13 @@ def geocode_location(location_name: str, timeout: float = 6.0) -> Optional[Dict[
                     "country": top.get("country", ""),
                     "admin1": top.get("admin1", ""),
                 }
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
             continue
     return None
 
 
-def fetch_open_meteo_weather(lat: float, lon: float, location_meta: Dict[str, Any], timeout: float = 6.0) -> Optional[Dict[str, Any]]:
+def fetch_open_meteo_weather(lat: float, lon: float, location_meta: dict[str, Any], timeout: float = 6.0) -> dict[str, Any] | None:
     """Fetches real-time current weather metrics from Open-Meteo Forecast API."""
     url = (
         f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
@@ -152,11 +153,11 @@ def fetch_open_meteo_weather(lat: float, lon: float, location_meta: Dict[str, An
             "wind_speed_kmh": current.get("wind_speed_10m"),
             "source": "Open-Meteo",
         }
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
 
-def fetch_wttr_weather(location_name: str, timeout: float = 6.0) -> Optional[Dict[str, Any]]:
+def fetch_wttr_weather(location_name: str, timeout: float = 6.0) -> dict[str, Any] | None:
     """Fallback weather fetcher using wttr.in JSON API."""
     encoded = urllib.parse.quote(location_name.strip())
     url = f"https://wttr.in/{encoded}?format=j1"
@@ -181,7 +182,7 @@ def fetch_wttr_weather(location_name: str, timeout: float = 6.0) -> Optional[Dic
             "wind_speed_kmh": float(current_cond.get("windspeedKmph", 0)),
             "source": "wttr.in",
         }
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
 
@@ -192,7 +193,7 @@ def get_current_weather(
     query: Any = "",
     timeout: float = 8.0,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Returns real-time live weather information, temperature, humidity, wind, and conditions for any city or location worldwide.
     """

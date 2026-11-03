@@ -8,16 +8,18 @@ e-mail address, node name or local OS installation.
 """
 from __future__ import annotations
 
+import logging
+import sqlite3
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-import sqlite3
-
+from typing import Any
 
 SCHEMA_VERSION = 1
 PROMO_DEVICE = "device_onboarding"
 PROMO_GPU = "gpu_onboarding"
+logger = logging.getLogger(__name__)
 
 
 class OwnerAccountStoreError(Exception):
@@ -50,7 +52,7 @@ class PromoClaim:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _clean_identifier(value: str, *, field: str, max_len: int = 256) -> str:
@@ -226,20 +228,24 @@ class OwnerAccountStore:
         if self.get_owner(oid) is None:
             raise OwnerAccountStoreError(f"unknown owner {oid}")
         with self._connection() as conn:
+            # A SELECT followed by INSERT is not atomic across independent
+            # SQLite connections. Concurrent authenticated heartbeats binding
+            # the same node to the same owner must be idempotent; a competing
+            # owner must never be able to overwrite the existing binding.
+            conn.execute(
+                f"INSERT INTO {table}({key_column}, owner_id, created_at) "
+                "VALUES(?, ?, ?) "
+                f"ON CONFLICT({key_column}) DO NOTHING",
+                (resource_id, oid, utc_now()),
+            )
             row = conn.execute(
                 f"SELECT owner_id FROM {table} WHERE {key_column} = ?",
                 (resource_id,),
             ).fetchone()
-            if row is not None:
-                if row["owner_id"] != oid:
-                    raise OwnerAccountStoreError(
-                        f"{key_column} {resource_id!r} is already bound to another owner"
-                    )
-                return
-            conn.execute(
-                f"INSERT INTO {table}({key_column}, owner_id, created_at) VALUES(?, ?, ?)",
-                (resource_id, oid, utc_now()),
-            )
+            if row is None or row["owner_id"] != oid:
+                raise OwnerAccountStoreError(
+                    f"{key_column} {resource_id!r} is already bound to another owner"
+                )
 
     def bind_api_credential(self, owner_id: str, credential_id: str) -> None:
         self._bind_unique(
@@ -523,7 +529,7 @@ class OwnerAccountStore:
             try:
                 res = json.loads(row["disabled_tools"])
                 return list(res) if isinstance(res, list) else []
-            except Exception:
+            except (json.JSONDecodeError, TypeError, KeyError):
                 return []
 
     def set_mcp_disabled_tools(self, owner_id: str, disabled_tools: list[str]) -> None:
@@ -582,8 +588,8 @@ class OwnerAccountStore:
             from runtime.safety.dead_mans_switch import get_lease_guard
             guard = get_lease_guard()
             guard.trip_fleet(oid, reason=f"ADMIN_BANNED: {clean_reason}")
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError) as exc:
+            logger.debug("dead-man switch ban notification failed: %s", exc, exc_info=True)
 
         return {
             "owner_id": oid,
@@ -623,8 +629,8 @@ class OwnerAccountStore:
             from runtime.safety.dead_mans_switch import get_lease_guard
             guard = get_lease_guard()
             guard.reset_fleet(oid, reason=f"ADMIN_UNBANNED: {clean_reason}")
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError) as exc:
+            logger.debug("dead-man switch unban notification failed: %s", exc, exc_info=True)
 
         return affected
 

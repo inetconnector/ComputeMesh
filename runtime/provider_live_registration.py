@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Any, Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from protocol.control import ControlEnvelope
 from protocol.node_session import SessionSnapshot
@@ -17,7 +18,7 @@ class ProviderRegistrationError(RuntimeError):
 def _push_envelope(*, session: SessionSnapshot, control_plane_id: str, message_type: str, payload: dict[str, Any]) -> ControlEnvelope:
     if not session.node_id or session.protocol_major is None or session.protocol_minor is None:
         raise ProviderRegistrationError("provider session is not authenticated/negotiated")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return ControlEnvelope(
         protocol_major=session.protocol_major,
         protocol_minor=session.protocol_minor,

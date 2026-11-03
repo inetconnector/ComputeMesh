@@ -6,7 +6,6 @@ from urllib.parse import urlsplit
 
 import pytest
 
-
 PORTAL = Path(__file__).resolve().parents[1] / "portal"
 
 

@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
@@ -45,7 +45,7 @@ class OpenAIAgentsConfig:
                 raise ValueError(f"{field_name} must be positive")
 
     @classmethod
-    def from_env(cls) -> "OpenAIAgentsConfig":
+    def from_env(cls) -> OpenAIAgentsConfig:
         return cls(
             base_url=os.getenv("COMPUTEMESH_OPENAI_AGENTS_BASE_URL", cls.base_url),
             api_key_env=os.getenv("COMPUTEMESH_OPENAI_AGENTS_API_KEY_ENV", cls.api_key_env),
@@ -123,7 +123,7 @@ class OpenAIAgentsClient:
             try:
                 raw = exc.read(self.config.max_response_bytes + 1)
                 detail = json.loads(raw[: self.config.max_response_bytes].decode("utf-8")).get("error", {}).get("message", "")
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 detail = ""
             raise OpenAIAgentsProviderError(f"OpenAI Agents request failed ({exc.code})" + (f": {detail[:240]}" if detail else "")) from exc
         except (OSError, URLError, TimeoutError) as exc:
@@ -272,4 +272,4 @@ class OpenAIAgentsClient:
         return value
 
 
-__all__ = ["OpenAIAgentsConfig", "OpenAIAgentsClient", "OpenAIAgentsProviderError"]
+__all__ = ["OpenAIAgentsClient", "OpenAIAgentsConfig", "OpenAIAgentsProviderError"]

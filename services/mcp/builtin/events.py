@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from services.concert_research.engine import ConcertResearchEngine
 from services.concert_research.models import ResearchRequest
@@ -29,7 +29,7 @@ def search_events(
     sort: str = "recommended",
     force_refresh: bool = False,
     max_events: int = 50,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Search the existing ComputeMesh event index/crawler with category grouping."""
     target_city = str(city or "").strip()
     if not target_city:
@@ -74,7 +74,7 @@ def search_events(
     )
     try:
         result = _get_engine().research_events(request)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Event-Recherche fehlgeschlagen: {exc}"}
     if not isinstance(result, dict):
         return {"error": "Event-Recherche lieferte ein unerwartetes Antwortformat."}

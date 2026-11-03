@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+import contextlib
 import os
-from pathlib import Path
 import unittest
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from unittest.mock import Mock, patch
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from apps.node.provider_agent import (
     ProviderAgent,
@@ -14,8 +18,6 @@ from apps.node.provider_agent import (
     _optional_path,
     _runtime_document,
 )
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
 from runtime.capacity_guard import CapacityExceededError
@@ -80,10 +82,8 @@ def _write_key(path: Path) -> None:
             serialization.NoEncryption(),
         )
     )
-    try:
+    with contextlib.suppress(OSError, ValueError):
         path.chmod(0o600)
-    except Exception:
-        pass
 
 
 def _agent(
@@ -97,6 +97,8 @@ def _agent(
     inference_ready: bool | None = None,
 ) -> ProviderAgent:
     tmp_path.mkdir(parents=True, exist_ok=True)
+    if os.name == "posix":
+        tmp_path.chmod(0o700)  # Secure fixture directory; never weaken key storage.
     key_path = tmp_path / "node.pem"
     _write_key(key_path)
     advertised_ready = inference_executor is not None if inference_ready is None else inference_ready
@@ -309,9 +311,8 @@ class TestProviderAgentUnit(unittest.TestCase):
             with patch(
                 "services.appliance_dashboard.model_manager.get_model_manager",
                 return_value=Mock(engine=engine),
-            ):
-                with self.assertRaisesRegex(ProviderAgentError, "owned by NodeOS model engine"):
-                    _managed_model_cancel_callback("http://127.0.0.1:8082/v1/chat/completions")
+            ), self.assertRaisesRegex(ProviderAgentError, "owned by NodeOS model engine"):
+                _managed_model_cancel_callback("http://127.0.0.1:8082/v1/chat/completions")
         finally:
             if old_val is not None:
                 os.environ["COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL"] = old_val

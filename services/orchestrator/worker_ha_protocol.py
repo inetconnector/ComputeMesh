@@ -7,11 +7,12 @@ across distributed worker nodes.
 from __future__ import annotations
 
 import dataclasses
-from enum import Enum, auto
 import logging
 import threading
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from enum import Enum, auto
+from typing import Any
 
 logger = logging.getLogger("computemesh.worker_ha")
 
@@ -139,20 +140,19 @@ class WorkerHAClusterManager:
             if not cluster or w_id not in cluster:
                 raise WorkerHAConstraintError(f"Worker {w_id} is not registered in cluster {c_id}")
 
-            current_token, active_primary = self._cluster_tokens[c_id]
+            current_token, _active_primary = self._cluster_tokens[c_id]
             member = cluster[w_id]
 
             if member.lease_state == WorkerLeaseState.EJECTED:
                 raise WorkerHAConstraintError(f"Worker {w_id} has been EJECTED from cluster {c_id}")
 
             # Verify fence token if presented by primary
-            if member.role == WorkerRole.PRIMARY:
-                if fence_token is not None and fence_token < current_token:
-                    member.lease_state = WorkerLeaseState.EJECTED
-                    member.role = WorkerRole.OFFLINE
-                    raise WorkerHAConstraintError(
-                        f"Stale fence_token {fence_token} presented by primary {w_id} (current: {current_token})"
-                    )
+            if member.role == WorkerRole.PRIMARY and fence_token is not None and fence_token < current_token:
+                member.lease_state = WorkerLeaseState.EJECTED
+                member.role = WorkerRole.OFFLINE
+                raise WorkerHAConstraintError(
+                    f"Stale fence_token {fence_token} presented by primary {w_id} (current: {current_token})"
+                )
 
             member.last_heartbeat = now
             member.lease_state = WorkerLeaseState.ACTIVE
@@ -288,9 +288,9 @@ class WorkerHAClusterManager:
                         )
                         reassigned_count += 1
                         logger.info(f"Reassigned orphaned turn {turn.turn_id} from {e_w_id} to HA cluster primary {status.active_primary_id}")
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
                         logger.error(f"Failed to reassign turn {turn.turn_id}: {e}")
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
             logger.error(f"Error scanning orphaned turns for {e_w_id}: {exc}")
 
         return reassigned_count

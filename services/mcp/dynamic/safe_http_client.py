@@ -12,7 +12,7 @@ import json
 import socket
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional, Union
+from typing import Any, ClassVar
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh-DynamicRunner/1.0"
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB
@@ -21,14 +21,13 @@ DEFAULT_TIMEOUT_SECONDS = 5.0
 
 class SSRFBlockedException(Exception):
     """Raised when an HTTP request targets a blocked or internal IP/subnet."""
-    pass
 
 
 class SafeHttpClient:
     """Zero-Trust HTTP client with DNS pinning and strict SSRF egress firewall."""
 
     # Disallowed IP Networks
-    BLOCKED_NETWORKS = [
+    BLOCKED_NETWORKS: ClassVar[list[ipaddress.IPv4Network | ipaddress.IPv6Network]] = [
         ipaddress.ip_network("0.0.0.0/8"),          # Current network
         ipaddress.ip_network("10.0.0.0/8"),         # RFC1918 Private
         ipaddress.ip_network("100.64.0.0/10"),      # Carrier-grade NAT
@@ -73,11 +72,11 @@ class SafeHttpClient:
         cls,
         url: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Union[Dict[str, Any], str, bytes]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | str | bytes | None = None,
+        headers: dict[str, str] | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Executes an HTTP request with SSRF validation, DNS pinning, and size caps.
         Returns parsed JSON or text payload.
@@ -122,7 +121,7 @@ class SafeHttpClient:
         if headers:
             req_headers.update(headers)
 
-        payload_bytes: Optional[bytes] = None
+        payload_bytes: bytes | None = None
         if data is not None:
             if isinstance(data, dict):
                 payload_bytes = json.dumps(data).encode("utf-8")
@@ -163,4 +162,4 @@ class SafeHttpClient:
         except Exception as e:
             if isinstance(e, SSRFBlockedException):
                 raise
-            return {"error": f"HTTP-Anfrage fehlgeschlagen: {str(e)}", "status_code": getattr(e, "code", 500)}
+            return {"error": f"HTTP-Anfrage fehlgeschlagen: {e!s}", "status_code": getattr(e, "code", 500)}

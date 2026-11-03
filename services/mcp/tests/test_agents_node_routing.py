@@ -4,7 +4,10 @@ from __future__ import annotations
 import unittest
 
 from services.mcp.platform.node_registry import NodeLifecycle, NodeRecord
-from services.mcp.platform.node_routing import CapabilityAwareNodeRouter, NodeRouteRequirement
+from services.mcp.platform.node_routing import (
+    CapabilityAwareNodeRouter,
+    NodeRouteRequirement,
+)
 
 
 def _node(node_id: str, *, status=NodeLifecycle.READY, models=(), capabilities=("inference",), auth=True):

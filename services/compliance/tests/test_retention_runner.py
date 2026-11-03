@@ -4,10 +4,13 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from scripts.run_retention_lifecycle import run_retention_lifecycle
-from services.compliance.provider_identity import EntityType, IdentityVerificationState, ProviderIdentity, StructuredAddress
+from services.compliance.provider_identity import (
+    EntityType,
+    StructuredAddress,
+)
 from services.compliance.provider_identity_store import ProviderIdentityStore
 
 
@@ -47,7 +50,7 @@ class TestRetentionRunner(unittest.TestCase):
             email="draft@example.com",
         )
         # Set state to INCOMPLETE and created_at to old date (older than 90 days)
-        old_time = (datetime.now(timezone.utc) - timedelta(days=120)).isoformat().replace("+00:00", "Z")
+        old_time = (datetime.now(UTC) - timedelta(days=120)).isoformat().replace("+00:00", "Z")
         with self.store._connection() as conn:
             conn.execute(
                 "UPDATE provider_identities SET verification_state = 'INCOMPLETE', created_at = ? WHERE account_id = ?",

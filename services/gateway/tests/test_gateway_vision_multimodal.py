@@ -4,7 +4,6 @@ from __future__ import annotations
 import base64
 import io
 import json
-import sys
 import tempfile
 import threading
 import time
@@ -14,17 +13,17 @@ import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from PIL import Image
+
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
 from services.gateway.server import GatewayHandler
 from services.gateway.teaser import TeaserQuotaManager
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class TestGatewayVisionMultimodal(unittest.TestCase):

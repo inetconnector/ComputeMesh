@@ -4,6 +4,7 @@ import ssl
 import sys
 import urllib.request
 
+
 def main() -> int:
     ctx = ssl._create_unverified_context()
     endpoints = [
@@ -35,7 +36,7 @@ def main() -> int:
                 ct = resp.headers.get("Content-Type", "").split(";")[0]
                 length = resp.headers.get("Content-Length", "?")
                 print(f"  [OK]   /{ep:42} -> {status} OK  [{ct}, {length} bytes]")
-        except Exception as e:
+        except (urllib.error.URLError, OSError, ValueError, TypeError, RuntimeError) as e:
             print(f"  [FAIL] /{ep:42} -> FAILED: {e}")
             failed += 1
 
