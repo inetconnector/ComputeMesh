@@ -7,9 +7,9 @@ used as data inputs.
 
 # The crawler now uses the redirect-validating fetcher directly, including for
 # imports that bypass this package's top-level namespace. No monkeypatching.
-from .crawler import SafeFetcher
+from .crawler import SafeFetcher as SafeFetcher
 from .engine import ConcertResearchEngine
-from .http_client import HardenedSafeFetcher
+from .http_client import HardenedSafeFetcher as HardenedSafeFetcher
 from .models import ResearchRequest
 
 __all__ = ["ConcertResearchEngine", "ResearchRequest"]
