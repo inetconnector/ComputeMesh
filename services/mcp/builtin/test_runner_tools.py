@@ -107,5 +107,5 @@ def run_project_tests(
             "failed": 1,
             "failures": [{"test": "timeout", "message": f"Execution exceeded {timeout_seconds}s"}],
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "framework": clean_framework, "error": f"Test-Runner Fehler: {exc}"}

@@ -95,7 +95,7 @@ def search_arxiv_papers(
             "papers": papers,
             "source": "arXiv.org Open Access API",
         }
-    except Exception as e:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         return {"error": f"Fehler bei arXiv-Suche nach '{search_q}': {e!s}"}
 
 

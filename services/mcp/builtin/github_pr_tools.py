@@ -22,7 +22,7 @@ def github_list_pull_requests(
     """Lists pull requests for a repository with branch info, review status, and draft status."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "pull_requests": []}
 
     count = min(30, max(1, limit or per_page))
@@ -64,7 +64,7 @@ def github_get_pull_request(pull_number: int, repo: str | None = None, owner: st
     """Retrieves full details of a pull request including mergeable state, commits count, and stats."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}/pulls/{pull_number}")
@@ -97,7 +97,7 @@ def github_get_pull_request_diff(pull_number: int, repo: str | None = None, owne
     """Retrieves the unified diff of a pull request."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(
@@ -121,7 +121,7 @@ def github_get_pull_request_files(pull_number: int, repo: str | None = None, own
     """Lists files changed in a pull request with additions, deletions, and status."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "files": []}
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}/pulls/{pull_number}/files", params={"per_page": 50})

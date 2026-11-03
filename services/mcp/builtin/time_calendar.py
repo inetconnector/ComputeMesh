@@ -196,8 +196,8 @@ def _resolve_tz(tz_name: str) -> timezone:
     if zoneinfo is not None:
         try:
             return zoneinfo.ZoneInfo(tz_name)
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     if tz_name in FALLBACK_TIMEZONE_OFFSETS:
         offset_hours = FALLBACK_TIMEZONE_OFFSETS[tz_name]
@@ -256,8 +256,8 @@ def _get_single_time_and_calendar(
             diff_days = (t_date - now.date()).days
             result["target_date"] = str(t_date)
             result["days_until_target"] = diff_days
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     return result
 

@@ -74,7 +74,7 @@ def search_events(
     )
     try:
         result = _get_engine().research_events(request)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Event-Recherche fehlgeschlagen: {exc}"}
     if not isinstance(result, dict):
         return {"error": "Event-Recherche lieferte ein unerwartetes Antwortformat."}

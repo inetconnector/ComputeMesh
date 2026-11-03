@@ -73,7 +73,7 @@ def execute_github_request(
 
             try:
                 parsed_json = json.loads(raw_data.decode("utf-8", errors="replace"))
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 parsed_json = raw_data.decode("utf-8", errors="replace")
 
             return {
@@ -89,13 +89,13 @@ def execute_github_request(
             err_body = json.loads(exc.read().decode("utf-8", errors="replace"))
             if isinstance(err_body, dict) and "message" in err_body:
                 err_msg = f"GitHub API Fehler ({exc.code}): {err_body['message']}"
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
         return {
             "success": False,
             "status_code": exc.code,
             "error": err_msg,
             "rate_limit_remaining": int(exc.headers.get("X-RateLimit-Remaining", 0)) if exc.headers else 0,
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "status_code": 500, "error": f"Verbindungsfehler zu GitHub: {exc}"}

@@ -10,7 +10,11 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-from .url_security import UnsafeTargetError, build_safe_public_opener, validate_public_url
+from .url_security import (
+    UnsafeTargetError,
+    build_safe_public_opener,
+    validate_public_url,
+)
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2"
 MAX_RESPONSE_BYTES = 512 * 1024

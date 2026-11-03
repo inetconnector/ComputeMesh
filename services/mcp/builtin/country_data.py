@@ -242,8 +242,8 @@ def _lookup_single_country(search_term: str, timeout: float = 6.0) -> dict[str, 
                         if p_rec.get("value") is not None:
                             population = int(p_rec["value"])
                             break
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
         summary_lines = [
             f"### 🏛️ **{country_name_de}** ({country_name_en}, ISO: `{iso3}`)",
@@ -269,7 +269,7 @@ def _lookup_single_country(search_term: str, timeout: float = 6.0) -> dict[str, 
             "summary": "\n".join(summary_lines),
             "source": "World Bank Open Data",
         }
-    except Exception as e:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         return {"error": f"Länderdaten-Abfrage für '{search_term}' fehlgeschlagen: {e!s}"}
 
 

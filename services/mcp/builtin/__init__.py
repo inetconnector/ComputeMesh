@@ -28,7 +28,11 @@ from .document_reader import extract_document_content
 from .earthquake_feed import get_recent_earthquakes
 from .events import search_events
 from .fact_triangulation import verify_fact_multi_source
-from .file_system_tools import list_workspace_files, read_workspace_file, write_workspace_file
+from .file_system_tools import (
+    list_workspace_files,
+    read_workspace_file,
+    write_workspace_file,
+)
 from .finance_market import get_market_movers, get_market_quote
 from .food_products import lookup_food_product
 from .geo_routing import get_distance_route
@@ -79,7 +83,11 @@ from .places import search_places
 from .product_price_engine import search_product_prices
 from .python_calc import run_python_calc
 from .sports_data import get_sports_data
-from .system_tools import execute_gpu_telemetry, execute_process_summary, execute_system_info
+from .system_tools import (
+    execute_gpu_telemetry,
+    execute_process_summary,
+    execute_system_info,
+)
 from .terminal_runner import run_terminal_command
 from .test_runner_tools import run_project_tests
 from .time_calendar import get_time_and_calendar

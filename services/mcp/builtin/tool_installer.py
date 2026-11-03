@@ -98,5 +98,5 @@ def install_dev_tool(tool_name: str, package_manager: str | None = None) -> dict
             "stdout": proc.stdout[:2000] if proc.stdout else "",
             "stderr": proc.stderr[:2000] if proc.stderr else "",
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "tool_name": clean_name, "error": f"Installationsfehler: {exc}"}

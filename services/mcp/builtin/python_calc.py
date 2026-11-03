@@ -299,7 +299,7 @@ def _worker(raw_code: str, connection: Any) -> None:
             elif isinstance(statement, ast.Expr):
                 expression = statement.value
             else:
-                raise ValueError(f"Unzulässige Anweisung: {type(statement).__name__}")
+                raise TypeError(f"Unzulässige Anweisung: {type(statement).__name__}")
             expression_ast = ast.fix_missing_locations(ast.Expression(body=expression))
             compiled = compile(expression_ast, "<calculator>", "eval")
             expression_value = eval(compiled, safe_globals, local_scope)
@@ -311,7 +311,25 @@ def _worker(raw_code: str, connection: Any) -> None:
         else:
             value = local_scope.get("result", local_scope)
         connection.send({"ok": True, "result": _serialize_result(value)})
-    except BaseException as exc:
+    except (
+        ArithmeticError,
+        AssertionError,
+        AttributeError,
+        BufferError,
+        EOFError,
+        ImportError,
+        LookupError,
+        MemoryError,
+        NameError,
+        OSError,
+        ReferenceError,
+        RuntimeError,
+        StopIteration,
+        SyntaxError,
+        SystemError,
+        TypeError,
+        ValueError,
+    ) as exc:
         # User expressions and IPC errors must be reported without relying on
         # the worker process surviving after its parent has timed out.
         try:

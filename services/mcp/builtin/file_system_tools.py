@@ -72,7 +72,7 @@ def list_workspace_files(
                 p = curr_path / f
                 try:
                     sz = p.stat().st_size
-                except Exception:
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     sz = 0
                 entries.append({
                     "name": f,
@@ -80,7 +80,7 @@ def list_workspace_files(
                     "type": "file",
                     "size_bytes": sz,
                 })
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Fehler beim Auflisten von '{relative_path}': {exc}"}
 
     return {
@@ -127,7 +127,7 @@ def read_workspace_file(
             "lines_read": len(sliced),
             "content": content_text,
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Fehler beim Lesen der Datei '{relative_path}': {exc}"}
 
 
@@ -173,6 +173,6 @@ def write_workspace_file(
             "size_bytes": byte_size,
             "overwritten": already_exists,
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Fehler beim Schreiben der Datei '{relative_path}': {exc}", "success": False}
 

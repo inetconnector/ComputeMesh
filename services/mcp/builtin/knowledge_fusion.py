@@ -47,17 +47,17 @@ def cross_source_knowledge_search(
 
         try:
             wiki_data = f_wiki.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             wiki_data = None
 
         try:
             news_data = f_news.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             news_data = None
 
         try:
             web_results = f_web.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             web_results = []
 
     # Step 3: Format and triangulate unified knowledge blocks

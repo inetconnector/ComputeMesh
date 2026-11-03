@@ -34,8 +34,8 @@ def execute_system_info() -> dict[str, Any]:
             info["ram_available_gb"] = avail_ram_gb
             info["ram_used_gb"] = round(total_ram_gb - avail_ram_gb, 2)
             info["ram_usage_percent"] = round(((total_ram_gb - avail_ram_gb) / total_ram_gb) * 100, 1)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     # Disk usage for current drive
     try:
@@ -45,8 +45,8 @@ def execute_system_info() -> dict[str, Any]:
         info["disk_used_gb"] = round(used / (1024 ** 3), 2)
         info["disk_free_gb"] = round(free / (1024 ** 3), 2)
         info["disk_usage_percent"] = round((used / total) * 100, 1)
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     return info
 
@@ -79,8 +79,8 @@ def execute_gpu_telemetry() -> dict[str, Any]:
                     "compute_utilization_percent": float(util),
                     "healthy": True,
                 })
-    except Exception:
-        pass
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     # 2. Try rocm-smi if no NVIDIA found
     if not gpus:
@@ -101,8 +101,8 @@ def execute_gpu_telemetry() -> dict[str, Any]:
                         "temperature_celsius": float(c_data.get("Temperature (Sensor edge) (C)", 0)),
                         "healthy": True,
                     })
-        except Exception:
-            pass
+        except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     return {
         "gpu_count": len(gpus),

@@ -31,12 +31,12 @@ def fetch_recent_timeline(topic: str = "", query: str = "", max_events: int = 6,
 
         try:
             news_data = f_news.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             news_data = None
 
         try:
             web_results = f_web.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             web_results = []
 
     events: list[dict[str, str]] = []

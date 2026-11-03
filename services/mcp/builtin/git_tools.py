@@ -23,7 +23,7 @@ def _run_git_cmd(args: list[str], repo_path: str = ".", timeout: float = 10.0) -
             errors="replace",
         )
         return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return 1, "", str(exc)
 
 

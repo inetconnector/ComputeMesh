@@ -54,7 +54,8 @@ def grep_search_code(
                             })
                             if len(matches) >= max_results:
                                 break
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
                 continue
 
     return {
@@ -125,5 +126,5 @@ def extract_code_symbols(file_path: str) -> dict[str, Any]:
             "total_symbols": len(symbols),
             "symbols": symbols,
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Symbol-Extraktionsfehler: {exc}", "symbols": []}

@@ -132,8 +132,8 @@ def _fetch_frankfurter(amount: float, from_curr: str, to_curr: str, timeout: flo
                     "date": data.get("date", ""),
                     "source": "European Central Bank (Frankfurter)",
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -159,8 +159,8 @@ def _fetch_coingecko_crypto(symbol: str, target_curr: str = "USD", timeout: floa
                     "change_24h_percent": round(change_24h, 2) if change_24h is not None else None,
                     "source": "CoinGecko",
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 

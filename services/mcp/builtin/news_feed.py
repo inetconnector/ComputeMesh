@@ -113,8 +113,8 @@ def fetch_rss_news(rss_url: str, max_items: int = 5, timeout: float = 8.0) -> li
                     })
                 if len(items) >= max_items:
                     break
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return items
 
 

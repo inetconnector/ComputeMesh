@@ -47,7 +47,7 @@ def validate_code_syntax(code: str, language: str = "python") -> dict[str, Any]:
         try:
             import yaml
             yaml.safe_load(clean_code)
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             errors.append({"line": getattr(exc, "problem_mark", None) and exc.problem_mark.line + 1 or 1, "message": str(exc)})
     else:
         # General bracket & quote balancing validator for Go, Kotlin, JS, TS
@@ -107,8 +107,8 @@ def check_code_quality(code: str, language: str = "python") -> dict[str, Any]:
                             "type": "missing_docstring",
                             "message": f"Öffentliche Funktion '{node.name}' hat keinen Docstring.",
                         })
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     return {
         "language": lang,

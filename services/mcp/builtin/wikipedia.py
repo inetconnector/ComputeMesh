@@ -35,8 +35,8 @@ def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 
                 "url": data.get("content_urls", {}).get("desktop", {}).get("page", f"https://{lang}.wikipedia.org/wiki/{encoded_title}"),
                 "language": lang,
             }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -50,8 +50,8 @@ def _opensearch_wiki(query: str, lang: str = "de", timeout: float = 6.0) -> str 
         # data format: [query, [titles], [descriptions], [urls]]
         if len(data) >= 2 and data[1] and len(data[1]) > 0:
             return data[1][0]
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -129,8 +129,8 @@ def get_wikipedia_summary(
                 "url": web_res[0].get("url", ""),
                 "source": "Websuche",
             }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     return {
         "error": f"Kein passender Wikipedia- oder Web-Artikel für '{search_term}' gefunden.",

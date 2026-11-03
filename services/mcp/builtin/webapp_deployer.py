@@ -119,7 +119,7 @@ def deploy_local_webapp(
             "size_bytes": total_bytes,
             "message": f"WebApp '{title}' erfolgreich unter /apps/{slug}/index.html bereitgestellt!",
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         log.error(f"Error deploying webapp {slug}: {exc}")
         return {"error": f"Fehler bei Bereitstellung: {exc!s}", "success": False}
 
@@ -138,8 +138,8 @@ def list_deployed_webapps() -> dict[str, Any]:
                     data = json.loads(manifest_file.read_text(encoding="utf-8"))
                     apps.append(data)
                     continue
-                except Exception:
-                    pass
+                except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                    _ = suppressed_exc
             apps.append({
                 "app_name": app_folder.name,
                 "title": app_folder.name.replace("-", " ").title(),

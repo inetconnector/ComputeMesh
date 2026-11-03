@@ -66,7 +66,7 @@ def get_recent_earthquakes(
             "summary": "\n".join(summary_lines),
             "source": "USGS Earthquake Hazards Program",
         }
-    except Exception as e:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         return {"error": f"Fehler bei Abfrage des USGS-Erdbebenfeeds: {e!s}"}
 
 

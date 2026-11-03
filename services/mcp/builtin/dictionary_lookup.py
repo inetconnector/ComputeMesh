@@ -85,8 +85,8 @@ def _fetch_wiktionary_fallback(word_clean: str, timeout: float = 4.0) -> dict[st
                     "summary": "\n".join(summary_lines),
                     "source": "Wiktionary Open Access API",
                 }
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
     return None
 
 
@@ -141,8 +141,8 @@ def _fetch_single_word(search_word: str, timeout: float = 6.0) -> dict[str, Any]
                 "summary": "\n".join(summary_lines),
                 "source": "Free Dictionary Open API",
             }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     # Wiktionary fallback
     wiki_res = _fetch_wiktionary_fallback(word_clean, timeout=min(timeout, 3.5))

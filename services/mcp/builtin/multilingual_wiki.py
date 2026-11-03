@@ -37,8 +37,8 @@ def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 
                 "language": lang,
                 "thumbnail": data.get("thumbnail", {}).get("source") if isinstance(data.get("thumbnail"), dict) else None,
             }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -51,8 +51,8 @@ def _opensearch_wiki(query: str, lang: str = "de", timeout: float = 5.0) -> str 
             data = json.loads(resp.read().decode("utf-8"))
         if len(data) >= 2 and data[1] and len(data[1]) > 0:
             return str(data[1][0])
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -70,8 +70,8 @@ def _get_interlanguage_link(title: str, source_lang: str = "de", target_lang: st
                 target_title = langlinks[0].get("*")
                 if target_title:
                     return str(target_title)
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 

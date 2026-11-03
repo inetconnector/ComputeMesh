@@ -64,7 +64,7 @@ def unpack_archive(
                     tf.extractall(target_dir)
         else:
             return {"error": f"Nicht unterstütztes Archivformat für '{archive_path}'.", "success": False}
-    except Exception as e:
+    except (tarfile.TarError, zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         return {"error": f"Fehler beim Entpacken von '{archive_path}': {e!s}", "success": False}
         
     return {
@@ -116,7 +116,7 @@ def create_archive(
                         packed_count += 1
         else:
             return {"error": f"Nicht unterstützter Archivtyp '{archive_type}'.", "success": False}
-    except Exception as e:
+    except (tarfile.TarError, zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         return {"error": f"Fehler beim Erstellen des Archivs '{output_path}': {e!s}", "success": False}
         
     return {
@@ -201,5 +201,5 @@ def convert_structured_data(
             "target_format": fmt,
             "content_preview": target_content[:3000],
         }
-    except Exception as e:
+    except (tarfile.TarError, zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         return {"error": f"Fehler bei der Datenkonvertierung: {e!s}", "success": False}

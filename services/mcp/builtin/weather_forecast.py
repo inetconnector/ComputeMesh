@@ -32,7 +32,8 @@ def _geocode(location: str, timeout: float) -> dict[str, Any] | None:
                 top = payload["results"][0]
                 if isinstance(top, dict) and top.get("latitude") is not None and top.get("longitude") is not None:
                     return top
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
             continue
     return None
 

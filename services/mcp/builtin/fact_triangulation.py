@@ -33,17 +33,17 @@ def verify_fact_multi_source(claim: str, timeout: float = 7.0) -> dict[str, Any]
 
         try:
             wiki_res = f_wiki.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             wiki_res = None
 
         try:
             web_res = f_web.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             web_res = []
 
         try:
             news_res = f_news.result()
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             news_res = None
 
     corroborating_sources: list[dict[str, str]] = []

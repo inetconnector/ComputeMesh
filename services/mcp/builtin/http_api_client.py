@@ -51,8 +51,8 @@ def execute_http_request(
                     "success": False,
                     "status_code": 403,
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     if params:
         clean_params = {k: v for k, v in params.items() if v is not None}
@@ -85,7 +85,7 @@ def execute_http_request(
 
             try:
                 parsed_json = json.loads(raw.decode("utf-8", errors="replace"))
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 parsed_json = None
 
             text_body = raw.decode("utf-8", errors="replace")
@@ -114,5 +114,5 @@ def execute_http_request(
             "response_body": raw_err[:2000],
             "body_preview": raw_err[:2000],
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "url": clean_url, "error": f"Netzwerkfehler: {exc}"}

@@ -106,7 +106,7 @@ def fetch_yahoo_quote(symbol: str, timeout: float = 8.0) -> dict[str, Any] | Non
             "exchange": exchange,
             "market_state": meta.get("tradingPeriods", [[]])[0][0].get("state", "REGULAR") if meta.get("tradingPeriods") else "REGULAR",
         }
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
 
@@ -140,7 +140,7 @@ def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> dict[str, Any] 
             "change_24h_percent": round(change_24h, 2) if change_24h is not None else 0.0,
             "source": "coingecko",
         }
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
 
@@ -193,8 +193,8 @@ def get_market_movers(
                 res = future.result()
                 if res and isinstance(res, dict) and ("price" in res or "price_usd" in res) and res.get("change_percent") is not None:
                     quotes.append(res)
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     if not quotes:
         return {

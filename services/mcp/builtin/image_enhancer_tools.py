@@ -108,7 +108,7 @@ def enhance_and_crop_image(
             "final_dimensions": [final_w, final_h],
             "output_size_bytes": os.path.getsize(out_file),
         }
-    except Exception as e:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
         return {"error": f"Fehler bei der Bildverarbeitung von '{image_path}': {e!s}", "success": False}
 
 
@@ -133,7 +133,8 @@ def create_contact_sheet(
                 im = Image.open(abs_p)
                 im.thumbnail((thumb_size, thumb_size), Image.Resampling.LANCZOS)
                 valid_images.append(im)
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
                 continue
                 
     if not valid_images:

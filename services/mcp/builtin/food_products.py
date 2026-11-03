@@ -52,8 +52,8 @@ def _fetch_by_barcode(barcode: str, timeout: float = 6.0) -> dict[str, Any] | No
             data = json.loads(resp.read().decode("utf-8"))
             if data.get("status") == 1 and "product" in data:
                 return data["product"]
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -69,8 +69,8 @@ def _search_by_name(query: str, timeout: float = 6.0) -> dict[str, Any] | None:
             products = data.get("products", [])
             if products and len(products) > 0:
                 return products[0]
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 

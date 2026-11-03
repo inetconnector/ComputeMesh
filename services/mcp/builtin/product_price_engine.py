@@ -107,7 +107,7 @@ def extract_merchant_name(url: str, title: str = "", snippet: str = "") -> str:
     try:
         parsed = urllib.parse.urlparse(url)
         domain = parsed.netloc.lower()
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         domain = ""
 
     for key, name in MERCHANT_DOMAINS.items():
@@ -204,8 +204,8 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> list[dict[st
 
             if len(offers) >= 8:
                 break
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     return offers
 

@@ -34,8 +34,8 @@ def analyze_data_table(
                     rows = [r for r in parsed["data"] if isinstance(r, dict)]
                 else:
                     rows = [parsed]
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     # 2. Try parsing CSV
     if not rows:
@@ -43,7 +43,7 @@ def analyze_data_table(
             delim = delimiter or (";" if ";" in raw and "," not in raw else ",")
             reader = csv.DictReader(io.StringIO(raw), delimiter=delim)
             rows = [dict(r) for r in reader if any(v for v in r.values())]
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Daten konnten weder als CSV noch als JSON geparst werden: {exc}"}
 
     if not rows:

@@ -44,8 +44,8 @@ def _find_station_id(station_name: str, timeout: float = 3.0) -> dict[str, Any] 
                     "id": item.get("id"),
                     "name": item.get("name", station_name),
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -65,8 +65,8 @@ def _fallback_osm_station(station_name: str, timeout: float = 3.0) -> dict[str, 
                     "lat": float(item.get("lat", 0)),
                     "lon": float(item.get("lon", 0)),
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -124,8 +124,8 @@ def _fetch_single_station(station_query: str, max_results: int = 5, timeout: flo
                     "summary": "\n".join(summary_lines),
                     "source": "Deutsche Bahn / HAFAS (transport.rest API)",
                 }
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     # Fallback to OpenStreetMap + DB Live Abfahrtstafel Portal Link
     osm_info = _fallback_osm_station(clean_station, timeout=min(timeout / 2, 3.0))

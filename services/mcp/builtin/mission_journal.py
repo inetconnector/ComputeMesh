@@ -255,7 +255,8 @@ def checkpoint_list(workspace_root: str | None = None) -> dict[str, Any]:
                     "notes": data.get("notes", ""),
                     "artifacts": data.get("artifacts", []),
                 })
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
             continue
 
     return {

@@ -76,7 +76,7 @@ def replace_file_content(
             "diff": "".join(diff),
             "total_lines": len(new_text.splitlines()),
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Fehler beim Patchen der Datei: {exc}", "success": False}
 
 
@@ -150,5 +150,5 @@ def multi_replace_file_content(
             "diff": "".join(diff),
             "total_lines": len(current_text.splitlines()),
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": f"Fehler bei Multi-Chunk-Ersetzung: {exc}", "success": False}

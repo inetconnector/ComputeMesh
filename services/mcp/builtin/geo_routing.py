@@ -61,8 +61,8 @@ def _geocode_location(location_name: str, timeout: float = 4.0) -> dict[str, Any
                     "lon": float(item["lon"]),
                     "type": item.get("type", ""),
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -85,8 +85,8 @@ def _get_osrm_route(lat1: float, lon1: float, lat2: float, lon2: float, timeout:
                     "driving_duration_seconds": int(duration_sec),
                     "driving_duration_formatted": duration_str,
                 }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 

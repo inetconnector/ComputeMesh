@@ -50,8 +50,8 @@ def _fetch_pypi(package_name: str, timeout: float = 4.0) -> dict[str, Any] | Non
                 "requires_python": info.get("requires_python", ""),
                 "dependencies_count": len(info.get("requires_dist") or []),
             }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -76,8 +76,8 @@ def _fetch_npm(package_name: str, timeout: float = 4.0) -> dict[str, Any] | None
                 "home_page": latest_data.get("homepage", ""),
                 "dependencies_count": len(latest_data.get("dependencies", {})),
             }
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return None
 
 
@@ -109,7 +109,7 @@ def _check_osv_vulnerabilities(ecosystem: str, package_name: str, version: str =
                     "aliases": v.get("aliases", []),
                 })
             return results
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return []
 
 

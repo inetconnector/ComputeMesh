@@ -133,7 +133,7 @@ def quarantine_validate(txn_id: str, workspace_root: str | None = None) -> dict[
         elif clean_rel.endswith(".json"):
             try:
                 json.loads(code)
-            except Exception as exc:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 errors.append({"file": clean_rel, "message": f"Ungültiges JSON: {exc}"})
 
     is_valid = len(errors) == 0

@@ -63,7 +63,7 @@ def _get_image_dimensions_pure_python(file_path: Path) -> tuple[int, int] | None
                         if idx + 2 <= size:
                             length = struct.unpack(">H", full_data[idx : idx + 2])[0]
                             idx += length
-    except Exception as exc:
+    except (zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         log.debug("Image dimension extraction error for %s: %s", file_path, exc)
     return None
 
@@ -236,7 +236,7 @@ def inspect_android_manifest_or_bundle(file_path: str) -> dict[str, Any]:
             target_sdk = re.search(r'targetSdk(?:Version)?\s*=?\s*(\d+)', text)
             if target_sdk:
                 info["target_sdk"] = int(target_sdk.group(1))
-        except Exception as exc:
+        except (zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Failed to parse gradle file: {exc}", "success": False}
 
 
@@ -254,7 +254,7 @@ def inspect_android_manifest_or_bundle(file_path: str) -> dict[str, Any]:
             v_name = re.search(r'android:versionName\s*=\s*["\']([^"\']+)["\']', text)
             if v_name:
                 info["version_name"] = v_name.group(1)
-        except Exception as exc:
+        except (zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Failed to parse manifest: {exc}", "success": False}
 
     # Inspect ZIP / AAB structure
@@ -267,7 +267,7 @@ def inspect_android_manifest_or_bundle(file_path: str) -> dict[str, Any]:
                 info["has_base_manifest"] = any("AndroidManifest.xml" in n for n in names)
                 info["has_dex"] = any(n.endswith(".dex") for n in names)
                 info["has_resources"] = any("resources.pb" in n or "resources.arsc" in n for n in names)
-        except Exception as exc:
+        except (zipfile.BadZipFile, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Failed to inspect android archive: {exc}", "success": False}
 
     return info

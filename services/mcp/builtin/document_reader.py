@@ -31,8 +31,8 @@ def extract_document_content(
                     text_content = f.read(500_000)
                 is_file = True
                 source_file = str(p.name)
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
     lines = text_content.splitlines()
     total_lines = len(lines)

@@ -73,7 +73,7 @@ def adb_list_devices() -> dict[str, Any]:
             "total_devices": len(devices),
             "devices": devices,
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "error": f"ADB nicht verfügbar: {exc}", "devices": []}
 
 
@@ -105,7 +105,7 @@ def adb_capture_screenshot(
             "device_id": device_id or "default",
             "base64_preview": b64_preview,
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "error": f"Screenshot-Fehler: {exc}"}
 
 
@@ -126,7 +126,7 @@ def adb_install_app(apk_path: str, device_id: str | None = None) -> dict[str, An
             "device_id": device_id or "default",
             "output": out.strip(),
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "error": f"Installationsfehler: {exc}"}
 
 
@@ -151,5 +151,5 @@ def adb_get_system_log(
             "total_lines": len(log_lines),
             "log": "\n".join(log_lines[-lines:]),
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "error": f"Logcat-Fehler: {exc}"}

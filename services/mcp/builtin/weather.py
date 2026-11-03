@@ -119,7 +119,8 @@ def geocode_location(location_name: str, timeout: float = 6.0) -> dict[str, Any]
                     "country": top.get("country", ""),
                     "admin1": top.get("admin1", ""),
                 }
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
             continue
     return None
 
@@ -152,7 +153,7 @@ def fetch_open_meteo_weather(lat: float, lon: float, location_meta: dict[str, An
             "wind_speed_kmh": current.get("wind_speed_10m"),
             "source": "Open-Meteo",
         }
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
 
@@ -181,7 +182,7 @@ def fetch_wttr_weather(location_name: str, timeout: float = 6.0) -> dict[str, An
             "wind_speed_kmh": float(current_cond.get("windspeedKmph", 0)),
             "source": "wttr.in",
         }
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
 

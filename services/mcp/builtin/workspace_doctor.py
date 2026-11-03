@@ -26,7 +26,7 @@ def _check_command_version(cmd: str, version_flag: str = "--version", timeout: f
         latency = int((time.time() - t0) * 1000)
         out = (proc.stdout or "").strip().splitlines()[0] if proc.stdout else "Verfügbar"
         return proc.returncode == 0, out[:80], latency
-    except Exception:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         latency = int((time.time() - t0) * 1000)
         return False, "Nicht gefunden / Nicht im PATH", latency
 
@@ -83,7 +83,7 @@ def run_doctor_diagnostics(
 
         status_disk = "healthy" if disk_free_gb >= 5.0 else "warning"
         _add_item("Festplattenspeicher (Disk)", "hardware_resources", status_disk, f"{disk_free_gb:.1f} GB frei im Workspace")
-    except Exception:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         _add_item("System-Ressourcen", "hardware_resources", "healthy", "Ressourcencheck abgeschlossen")
 
     # 3. GPU Hardware Acceleration

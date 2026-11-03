@@ -23,7 +23,7 @@ def github_list_issues(
     """Lists issues for a GitHub repository with status, labels, and comment counts."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "issues": []}
 
     count = min(30, max(1, limit or per_page))
@@ -70,7 +70,7 @@ def github_get_issue(issue_number: int, repo: str | None = None, owner: str | No
     """Retrieves full body, comments, and metadata for a specific GitHub issue."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}/issues/{issue_number}")
@@ -115,7 +115,7 @@ def github_create_issue(
     """Creates a new issue in a GitHub repository."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     payload: dict[str, Any] = {"title": title.strip(), "body": body.strip()}
@@ -149,7 +149,7 @@ def github_add_issue_comment(
     """Adds a new comment to a GitHub issue or pull request."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(

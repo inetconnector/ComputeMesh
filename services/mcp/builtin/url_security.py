@@ -168,7 +168,7 @@ def check_url_safety(url: str) -> dict[str, Any]:
             "error": str(exc),
             "message": f"Sicherheitsrisiko erkannt: {exc}",
         }
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {
             "url": clean_url,
             "safe": False,

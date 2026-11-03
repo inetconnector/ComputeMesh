@@ -79,5 +79,5 @@ def run_terminal_command(
             "error": f"Befehl wurde nach {timeout_seconds}s abgebrochen (Timeout).",
             "exit_code": 124,
         }
-    except Exception as exc:
+    except (subprocess.SubprocessError, ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"success": False, "command": clean_cmd, "error": f"Ausführungsfehler: {exc}", "exit_code": 1}

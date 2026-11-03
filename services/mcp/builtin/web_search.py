@@ -69,8 +69,8 @@ def duckduckgo_search(query: str, max_results: int = 5, timeout: float = 8.0) ->
                 })
             if len(results) >= max_results:
                 break
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     return results
 
@@ -130,8 +130,8 @@ def google_news_search(query: str, max_results: int = 5, timeout: float = 6.0) -
                     "url": link,
                     "snippet": desc,
                 })
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return results
 
 
@@ -169,8 +169,8 @@ def bing_rss_search(query: str, max_results: int = 5, timeout: float = 8.0) -> l
                     })
                 if len(results) >= max_results:
                     break
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
 
     return results
 
@@ -194,8 +194,8 @@ def yahoo_search(query: str, max_results: int = 5, timeout: float = 6.0) -> list
                 results.append({"title": title, "url": raw_url, "snippet": ""})
             if len(results) >= max_results:
                 break
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+        _ = suppressed_exc
     return results
 
 
@@ -329,7 +329,8 @@ def deep_cultural_event_search(
                         "rubric_key": rubric_key,
                         "score": score,
                     })
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
                 continue
 
     # Sort candidates by cultural archetype priority score

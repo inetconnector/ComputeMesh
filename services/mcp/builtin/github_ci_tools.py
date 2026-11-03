@@ -21,7 +21,7 @@ def github_list_releases(
     """Lists recent releases and git tags for a repository."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "releases": []}
 
     count = min(30, max(1, limit or per_page))
@@ -57,7 +57,7 @@ def github_get_latest_release(repo: str | None = None, owner: str | None = None)
     """Retrieves full changelog, assets, and metadata for the latest release."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}/releases/latest")
@@ -96,7 +96,7 @@ def github_list_commits(
     """Retrieves commit history with commit SHA, author, date, and commit message."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "commits": []}
 
     count = min(30, max(1, limit or per_page))
@@ -141,7 +141,7 @@ def github_get_workflow_runs(
     """Retrieves recent GitHub Actions CI/CD workflow runs."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "workflow_runs": []}
 
     count = min(30, max(1, limit or per_page))

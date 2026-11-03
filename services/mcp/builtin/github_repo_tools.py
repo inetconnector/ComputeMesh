@@ -29,7 +29,7 @@ def github_get_repo(repo: str | None = None, owner: str | None = None) -> dict[s
     """Retrieves full repository metadata, stars, forks, language, topics, and default branch."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}")
@@ -93,7 +93,7 @@ def github_get_file_contents(path: str, repo: str | None = None, owner: str | No
     """Fetches and decodes the raw text content of a file directly from a GitHub repository."""
     try:
         r_owner, r_name = _resolve_owner_repo(repo=repo, owner=owner)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         return {"error": str(exc), "success": False}
 
     clean_path = path.strip().lstrip("/")
@@ -117,7 +117,7 @@ def github_get_file_contents(path: str, repo: str | None = None, owner: str | No
     if encoding == "base64" and content_raw:
         try:
             decoded_text = base64.b64decode(content_raw).decode("utf-8", errors="replace")
-        except Exception:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             decoded_text = content_raw
     else:
         decoded_text = content_raw

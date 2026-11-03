@@ -33,8 +33,8 @@ def _convert_to_table_rows(data: Any) -> tuple[list[str], list[dict[str, Any]]]:
         if (cleaned.startswith("[") and cleaned.endswith("]")) or (cleaned.startswith("{") and cleaned.endswith("}")):
             try:
                 data = json.loads(cleaned)
-            except Exception:
-                pass
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+                _ = suppressed_exc
 
         if isinstance(data, str):
             # Parse as CSV
@@ -44,7 +44,7 @@ def _convert_to_table_rows(data: Any) -> tuple[list[str], list[dict[str, Any]]]:
                 rows = [dict(r) for r in reader if any(v for v in r.values())]
                 cols = list(rows[0].keys()) if rows else []
                 return cols, rows
-            except Exception:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 return ["Inhalt"], [{"Inhalt": cleaned}]
 
     # 2. Dict with 'rows' / 'columns' or 'data' or 'locations' or 'articles'
@@ -128,8 +128,8 @@ def convert_data_to_markdown_table(
                 except (ValueError, TypeError):
                     return str(v).lower()
             rows.sort(key=_sort_key, reverse=not ascending)
-        except Exception:
-            pass
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as suppressed_exc:
+            _ = suppressed_exc
 
     # Build Header
     lines = []
@@ -342,13 +342,13 @@ def parse_office_document(
                         "sample_rows": data_rows[:max_preview_rows],
                         "markdown_table": convert_data_to_markdown_table(data_rows[:max_preview_rows], columns=cols),
                     }
-            except Exception as e:
+            except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
                 log.warning(f"openpyxl failed, falling back to text read: {e}")
 
         try:
             with open(p, "r", encoding="utf-8", errors="replace") as f:
                 text_content = f.read(1_000_000)
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return {"error": f"Datei konnte nicht gelesen werden: {exc}"}
 
     cols, rows = _convert_to_table_rows(text_content)
