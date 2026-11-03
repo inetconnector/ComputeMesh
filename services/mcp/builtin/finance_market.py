@@ -6,6 +6,7 @@ Supports Global Stocks, ETFs, Indices, Crypto, and Currencies.
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import re
 import urllib.parse
@@ -143,8 +144,6 @@ def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> dict[str, Any] 
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return None
 
-
-import concurrent.futures
 
 MARKET_BASKETS = {
     "NASDAQ": [
