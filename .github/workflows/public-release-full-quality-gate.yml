@@ -3,12 +3,11 @@ name: Exact-source full release quality gate
 on:
   push:
     branches:
+      - main
       - release/portal-platform-sync-20261028
       - codex/consolidate-public-20261103
   pull_request:
     branches: [main]
-    paths:
-      - '.github/workflows/public-release-full-quality-gate.yml'
   workflow_dispatch:
 
 permissions:
