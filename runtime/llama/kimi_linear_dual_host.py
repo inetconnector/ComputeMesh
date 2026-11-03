@@ -173,6 +173,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--headroom-mib", type=int, default=2048)
     parser.add_argument("--context-size", type=int, default=2048)
     parser.add_argument("--port", type=int, default=18080)
+    parser.add_argument("--startup-timeout", type=float, default=900.0)
+    parser.add_argument("--request-timeout", type=float, default=300.0)
     parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args(argv)
     try:
@@ -194,6 +196,8 @@ def main(argv: list[str] | None = None) -> int:
                 plan.spike,
                 prompt="ComputeMesh Kimi-Linear distributed inference acceptance. Answer READY.",
                 output_dir=args.output_dir,
+                startup_timeout=args.startup_timeout,
+                request_timeout=args.request_timeout,
             )
             print(str(result))
             return 0

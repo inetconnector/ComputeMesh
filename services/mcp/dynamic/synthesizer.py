@@ -25,6 +25,10 @@ from .sandbox_runner import (
 
 logger = logging.getLogger("ComputeMesh.MCP.DynamicEngine")
 
+
+class DynamicSynthesisError(RuntimeError):
+    """Raised when dynamic code synthesis is unavailable or fails to generate valid code."""
+
 # Refusal Guardrails against destructive, malware, or exploit instructions
 DANGEROUS_INTENT_PATTERNS = [
     re.compile(r"\b(?:ransomware|cryptominer|rootkit|keylogger|trojan|reverse\s+shell|bind\s+shell)\b", re.IGNORECASE),
@@ -110,21 +114,28 @@ class DynamicToolEngine:
                     # Strip markdown code blocks
                     cleaned_code = re.sub(r"^```(?:python)?\s*", "", raw_content.strip(), flags=re.MULTILINE)
                     cleaned_code = re.sub(r"\s*```$", "", cleaned_code.strip(), flags=re.MULTILINE)
-                    return cleaned_code
+                    if cleaned_code.strip():
+                        return cleaned_code.strip()
+            raise DynamicSynthesisError("DYNAMIC_SYNTHESIS_FAILED: LLM-Caller lieferte keinen gültigen Python-Code zurück.")
 
-        # Fallback default code if no LLM caller is supplied
-        return (
-            "def execute(inputs: dict) -> dict:\n"
-            "    # Standard-Verarbeitung\n"
-            "    return {'status': 'success', 'inputs': inputs, 'message': 'Dynamisches Tool ausgeführt'}\n"
+        raise DynamicSynthesisError(
+            "DYNAMIC_SYNTHESIS_UNAVAILABLE: Kein LLM-Caller für dynamische Code-Synthese konfiguriert "
+            "und kein verifizierter Code bereitgestellt. Scheinerfolg verweigert."
         )
 
     def preflight_smoke_test(self, code: str, sample_inputs: dict[str, Any]) -> None:
-        """Runs the code with sample inputs in a temporary sandbox to ensure it runs without errors."""
+        """Runs the code with sample inputs in a temporary sandbox to ensure it runs without errors and performs real computation."""
         test_inputs = sample_inputs if sample_inputs else {"test_mode": True}
         res = run_code_in_sandbox(code, test_inputs, timeout_seconds=2.0)
         if not isinstance(res, dict):
             raise SandboxExecutionError("Pre-Flight Smoke Test fehlgeschlagen: Rückgabewert ist kein Dictionary.")
+        if not res:
+            raise SandboxExecutionError("Pre-Flight Smoke Test fehlgeschlagen: Leere Ergebnisdaten zurückgegeben.")
+        user_keys = {k for k in res if not k.startswith("_")}
+        if user_keys <= {"status", "inputs", "message"} and res.get("status") == "success":
+            raise SandboxExecutionError(
+                "Pre-Flight Smoke Test fehlgeschlagen: Trivialer Scheinerfolg ohne fachliche Berechnungsdaten zurückgegeben."
+            )
 
     def execute_dynamic_task(
         self,
@@ -239,11 +250,14 @@ class DynamicToolEngine:
                 }
                 return result
 
-            except (SecurityASTViolation, SandboxExecutionError, SandboxTimeoutError) as exc:
+            except (SecurityASTViolation, SandboxExecutionError, SandboxTimeoutError, DynamicSynthesisError) as exc:
                 last_error = str(exc)
                 logger.warning(f"Dynamic tool attempt {attempt} failed: {last_error}")
                 # Reset code to trigger re-synthesis on next attempt
                 code = ""
+                # Do not retry if synthesis engine is completely unavailable
+                if isinstance(exc, DynamicSynthesisError) and "DYNAMIC_SYNTHESIS_UNAVAILABLE" in str(exc):
+                    break
                 if attempt == max_attempts:
                     break
 
@@ -259,12 +273,14 @@ class DynamicToolEngine:
         ))
 
         return {
+            "status": "failed",
             "error": f"Dynamic Tool Ausführung fehlgeschlagen nach {max_attempts} Versuchen: {last_error}",
             "task_description": task_description,
             "_dynamic_meta": {
                 "tool_name": tool_name,
                 "execution_time_seconds": elapsed,
                 "status": "rejected_unsafe",
+                "quality_class": "F",
             }
         }
 

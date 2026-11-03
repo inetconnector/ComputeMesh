@@ -12,7 +12,9 @@ import ast
 import logging
 import math
 import multiprocessing
+import os
 import time
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -348,7 +350,7 @@ def run_python_calc(
     code: str = "",
     formula: str = "",
     query: str = "",
-    timeout: float = 2.0,
+    timeout: float = 5.0,
 ) -> dict[str, Any]:
     """Evaluate bounded mathematical expressions with a real process timeout."""
     raw_code = str(expression or code or formula or query or "").strip()
@@ -365,14 +367,19 @@ def run_python_calc(
     if validation_error:
         return {"error": validation_error, "expression": raw_code}
 
-    started = time.perf_counter()
+    t_start = time.perf_counter()
+    module_root = str(Path(__file__).resolve().parents[3])
+    current_pp = os.environ.get("PYTHONPATH", "")
+    if module_root not in current_pp:
+        os.environ["PYTHONPATH"] = f"{module_root}{os.pathsep}{current_pp}" if current_pp else module_root
+
     context = multiprocessing.get_context("spawn")
     parent_connection, child_connection = context.Pipe(duplex=False)
     process = context.Process(target=_worker, args=(raw_code, child_connection), daemon=True)
-    started = False
+    proc_started = False
     try:
         process.start()
-        started = True
+        proc_started = True
         child_connection.close()
         process.join(timeout_value)
         if process.is_alive():
@@ -382,13 +389,14 @@ def run_python_calc(
                 "error": f"Berechnung nach {timeout_value:.2f} Sekunden abgebrochen (Zeitlimit).",
                 "expression": raw_code,
             }
-        if not parent_connection.poll(0.5):
+        poll_time = max(2.0, timeout_value)
+        if not parent_connection.poll(poll_time):
             return {"error": "Berechnungsprozess lieferte kein Ergebnis.", "expression": raw_code}
         payload = parent_connection.recv()
     except (OSError, EOFError, ValueError, RuntimeError) as exc:
         # A failed spawn is not a live child: is_alive() on an unstarted
         # multiprocessing.Process raises AssertionError and masks the cause.
-        if started and process.is_alive():
+        if proc_started and process.is_alive():
             process.terminate()
             process.join(1.0)
         return {"error": f"Berechnungsprozess fehlgeschlagen: {type(exc).__name__}: {exc}", "expression": raw_code}
@@ -400,7 +408,7 @@ def run_python_calc(
             except (OSError, ValueError) as close_error:
                 logger.debug("calculator parent pipe close failed: %s", close_error)
 
-    duration_ms = round((time.perf_counter() - started) * 1000, 2)
+    duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
     if not isinstance(payload, dict) or not payload.get("ok"):
         message = payload.get("error") if isinstance(payload, dict) else "Unbekannter Worker-Fehler"
         return {"error": f"Fehler bei Berechnung: {message}", "expression": raw_code}

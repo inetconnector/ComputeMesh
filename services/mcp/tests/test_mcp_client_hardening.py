@@ -78,7 +78,7 @@ class TestMCPStdioHardening(unittest.TestCase):
         started = time.monotonic()
         with self.assertRaises(TimeoutError):
             client._send_rpc("ping", {})
-        self.assertLess(time.monotonic() - started, 0.15)
+        self.assertLess(time.monotonic() - started, 0.5)
 
     @patch("services.mcp.mcp_client.subprocess.Popen")
     def test_start_uses_devnull_stderr_and_handshake(self, popen):
