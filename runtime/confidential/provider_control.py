@@ -10,6 +10,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from protocol.node_session import SessionSnapshot
+
 from runtime.confidential.protected_worker import (
     CONFIDENTIAL_PROVISION_CAPABILITY,
     ProtectedWorkerError,

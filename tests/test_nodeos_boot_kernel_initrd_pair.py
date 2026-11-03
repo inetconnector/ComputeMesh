@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-
 from deploy.appliance.build_real_live_appliance import _copy_matched_boot_pair
 
 

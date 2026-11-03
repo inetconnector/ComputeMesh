@@ -14,7 +14,6 @@ from services.gateway.auth import (
 )
 from services.gateway.teaser import TeaserQuotaManager
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestGatewayAuth(unittest.TestCase):

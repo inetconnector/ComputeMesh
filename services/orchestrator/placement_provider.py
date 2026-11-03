@@ -13,7 +13,6 @@ from urllib import request as urlrequest
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from services.scheduler.placement import build_placement_decision
 
 

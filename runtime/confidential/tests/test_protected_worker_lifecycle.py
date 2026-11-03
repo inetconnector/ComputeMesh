@@ -9,6 +9,7 @@ from protocol.confidential_envelope import (
     ConfidentialBinding,
     create_confidential_request,
 )
+
 from runtime.confidential.protected_worker import (
     ProtectedWorkerError,
     ProtectedWorkerSessionManager,

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from services.common.secure_memory import secure_zero_memory
 
 from protocol.confidential_envelope import (
     ConfidentialClientContext,
@@ -21,7 +22,6 @@ from protocol.confidential_envelope import (
     decrypt_confidential_response,
     encrypt_response_in_attested_recipient,
 )
-from services.common.secure_memory import secure_zero_memory
 
 STREAM_SCHEMA_VERSION = 1
 MAX_STREAM_SEQUENCE = 10_000_000

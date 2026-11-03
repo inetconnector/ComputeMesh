@@ -2,7 +2,6 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from services.mcp.platform.environment import (
     EnvironmentLease,

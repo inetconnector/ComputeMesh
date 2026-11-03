@@ -25,7 +25,6 @@ from urllib import request as urlrequest
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 from runtime.confidential.protected_worker import CONFIDENTIAL_PROVISION_CAPABILITY
 from runtime.confidential.provider_control import CONFIDENTIAL_PROVISION_MESSAGE

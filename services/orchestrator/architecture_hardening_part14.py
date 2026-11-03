@@ -11,22 +11,18 @@ import sqlite3
 
 class HardeningPart14Error(RuntimeError):
     """Base exception for Part 14 invariant violations."""
-    pass
 
 
 class AmbiguousCompletionError(HardeningPart14Error):
     """Raised when an ambiguous completion is settled before reconciliation."""
-    pass
 
 
 class SilentCorruptionError(HardeningPart14Error):
     """Raised when silent corruption is detected (e.g., digest mismatch)."""
-    pass
 
 
 class BillingNeutralityError(HardeningPart14Error):
     """Raised when billing is not neutral for platform-caused duplicate execution."""
-    pass
 
 
 class AmbiguousCompletionEnforcer:

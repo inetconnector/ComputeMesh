@@ -18,20 +18,16 @@ import subprocess
 import sys
 import threading
 import time
+import tkinter as tk
 import traceback
-
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
-
-from cm_tray_bootstrap import REPO_ROOT
-
-import tkinter as tk
 from tkinter import messagebox, ttk
 
-from PIL import Image, ImageDraw, ImageTk
-
+from cm_tray_bootstrap import REPO_ROOT
 from config import CONFIG
+from PIL import Image, ImageDraw, ImageTk
 from services.appliance_dashboard.server import create_dashboard_server
 from services.updater.auto_updater import AutoUpdater
 from tools.appliance.appliance_config import load_appliance_config

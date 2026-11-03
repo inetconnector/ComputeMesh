@@ -20,7 +20,6 @@ import tempfile
 from pathlib import Path
 
 from cm_project_bootstrap import REPO_ROOT
-
 from config import CONFIG
 from deploy.windows.build_installer import build_windows_standalone_bundle
 

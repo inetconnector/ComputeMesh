@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-
 from services.portal import passkey_routes
 from services.portal.fleet_accounts import FleetAccountStoreError
 

@@ -5,7 +5,6 @@ from unittest.mock import Mock, patch
 from urllib import error
 
 import pytest
-
 from services.concert_research.config import ConcertResearchConfig
 from services.concert_research.http_client import HardenedSafeFetcher as SafeFetcher
 

@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from deploy.appliance import build_real_live_appliance as builder
 
 

@@ -6,9 +6,9 @@ import unittest
 from unittest.mock import patch
 
 from services.mcp.builtin.product_price_engine import (
-    search_product_prices,
-    parse_numeric_price,
     extract_merchant_name,
+    parse_numeric_price,
+    search_product_prices,
 )
 from services.mcp.formatting.tool_formatter import format_tool_content_if_json
 from services.mcp.intent.intent_router import detect_direct_tool_intent
@@ -291,7 +291,7 @@ class TestProductPriceEngine(unittest.TestCase):
         html_snippet = (
             '<a class="result__a" href="https://example.org/item">Gerät 219 €</a>'
             '<a class="result__snippet" href="https://example.org/item">Top Gerät</a>'
-        ).encode("utf-8")
+        ).encode()
         with patch(
             "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
         ) as mock_open:
@@ -308,9 +308,9 @@ class TestProductPriceEngine(unittest.TestCase):
         from services.mcp.builtin.product_price_engine import fetch_live_shopping_offers
 
         html_snippet = (
-            '<a class="result__a" href="https://example.org/item">Device $1,299.00</a>'
-            '<a class="result__snippet" href="https://example.org/item">Sale</a>'
-        ).encode("utf-8")
+            b'<a class="result__a" href="https://example.org/item">Device $1,299.00</a>'
+            b'<a class="result__snippet" href="https://example.org/item">Sale</a>'
+        )
         with patch(
             "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
         ) as mock_open:
@@ -328,7 +328,7 @@ class TestProductPriceEngine(unittest.TestCase):
             '<a class="result__a" href="https://amazon.de.evil.example.org/item">'
             'Fake Gerät 199 €</a>'
             '<a class="result__snippet" href="#">Angebot</a>'
-        ).encode("utf-8")
+        ).encode()
         with patch(
             "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
         ) as mock_open:

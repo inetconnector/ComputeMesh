@@ -25,15 +25,14 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from apps.node.environment import NodeEnvironmentError, NodeEnvironmentExecutor
 from apps.node.inference_backend import LocalOpenAIInferenceBackend
 from apps.node.model_preparation import (
     AllowlistedModelPreparationExecutor,
     ModelPreparationManifestError,
 )
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from protocol.control import (
     CURRENT_PROTOCOL_MINOR,
     SUPPORTED_PROTOCOL_MAJOR,

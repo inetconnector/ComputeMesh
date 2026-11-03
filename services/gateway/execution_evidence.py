@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.gateway.placement_selection import PlacementSelection
 
 MAX_EVIDENCE_BYTES = 4 * 1024 * 1024

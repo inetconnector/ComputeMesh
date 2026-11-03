@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from deploy.android import build_apk
 
 PIN = "ab" * 32

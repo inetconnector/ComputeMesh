@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 from services.gateway.execution_attestation import (
     AttestationClaims,

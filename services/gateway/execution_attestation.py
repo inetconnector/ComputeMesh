@@ -14,7 +14,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
-
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 
 DOMAIN = b"ComputeMesh.ExecutionAttestation.v1\x00"

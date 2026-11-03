@@ -6,7 +6,6 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from tools.security import node_key_storage
 from tools.security.node_key_storage import (
     _HAS_DPAPI,

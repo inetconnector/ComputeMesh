@@ -12,7 +12,6 @@ from services.common.secure_memory import (
     unlock_memory_buffer,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestSecureMemory(unittest.TestCase):

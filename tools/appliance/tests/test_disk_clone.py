@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 from tools.appliance import disk_clone
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestDiskCloneSafety(unittest.TestCase):

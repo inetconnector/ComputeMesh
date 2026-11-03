@@ -3,7 +3,6 @@
 from datetime import date
 
 import pytest
-
 from services.mcp.builtin.time_calendar import calculate_easter_sunday
 
 

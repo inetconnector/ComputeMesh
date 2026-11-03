@@ -15,7 +15,6 @@ from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
 from tools.release.verify_portal_bundle import (
     REQUIRED,
     ReleaseGateError,

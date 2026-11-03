@@ -12,11 +12,10 @@ import enum
 import hashlib
 import json
 import os
-from dataclasses import asdict, dataclass
 import secrets
 import threading
 import time
-
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -33,7 +32,6 @@ from services.common.pricing import (
 from services.common.pricing import (
     get_price_tier as get_price_tier,  # noqa: PLC0414 - public compatibility re-export
 )
-
 
 SCHEMA_VERSION = 1
 MICRO_UNIT_SCALE = 1_000_000  # 1.000000 currency unit = 1,000,000 micro-units

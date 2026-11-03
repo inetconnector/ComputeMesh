@@ -13,7 +13,6 @@ from services.portal.routes_registration import (
     PortalRegistrationHandler,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def accepted_registration(**overrides):

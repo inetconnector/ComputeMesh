@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
-
 from services.updater.auto_updater import (
     AutoUpdater,
 )

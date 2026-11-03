@@ -1,7 +1,6 @@
 """Partial or malformed JSONL gateway API-key registries fail closed."""
 
 import pytest
-
 from services.gateway.auth import GatewayCredentialStoreError, _load_api_key_store
 
 

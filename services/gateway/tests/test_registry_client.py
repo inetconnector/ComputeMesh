@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 from services.gateway.registry_client import ModelRegistryClient, RegistryClientError
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class _Response:

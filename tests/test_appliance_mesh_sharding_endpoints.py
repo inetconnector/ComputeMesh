@@ -15,7 +15,6 @@ from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestApplianceMeshShardingEndpoints(unittest.TestCase):

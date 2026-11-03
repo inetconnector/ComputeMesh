@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 from services.scheduler.placement import (
     PlacementInputError,
     PlannerPolicy,

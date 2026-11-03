@@ -9,7 +9,6 @@ from services.gateway.blind_inference import (
     BlindedTensorProjector,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def test_blinded_projector_orthogonality() -> None:

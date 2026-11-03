@@ -4,7 +4,6 @@ from pathlib import Path
 
 from apps.android.android_node_relay import AndroidBatteryPolicy, AndroidNodeRelay
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestAndroidNodeProtocol(unittest.TestCase):

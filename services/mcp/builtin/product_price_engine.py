@@ -116,10 +116,11 @@ def _safe_offer_host(url: str) -> str | None:
     except (TypeError, ValueError):
         return None
     if (parsed.scheme != "https" or parsed.username is not None
-            or parsed.password is not None or not host or host.endswith(".")
+            or parsed.password is not None or not host
             or "\\" in url
             or not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", host)
             or host.endswith((
+                ".",
                 ".localhost", ".local", ".localdomain", ".internal",
                 ".lan", ".home.arpa", ".corp", ".cluster.local",
                 ".invalid", ".test", ".example", ".onion",
@@ -218,7 +219,7 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> list[dict[st
             if "uddg=" in raw_url:
                 parsed = urllib.parse.urlparse(raw_url)
                 qs = urllib.parse.parse_qs(parsed.query)
-                if "uddg" in qs and qs["uddg"]:
+                if qs.get("uddg"):
                     target_url = qs["uddg"][0]
 
             # A search engine can return a redirect to a non-web or local URI.

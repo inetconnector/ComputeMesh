@@ -1,7 +1,6 @@
 """Gateway forwarded-IP trust must be bound to the transport proxy."""
 
 import pytest
-
 from services.gateway.auth import resolve_client_ip
 
 

@@ -6,7 +6,6 @@ from services.billing.owner_accounts import OwnerAccountStore
 from services.mcp.tool_registry import ToolRegistry
 from services.portal.fleet_accounts import FleetAccountStore
 
-
 _repo_root = Path(__file__).resolve().parent.parent.parent
 
 class TestFleetMcpSettings(unittest.TestCase):

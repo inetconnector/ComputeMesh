@@ -5,7 +5,6 @@ import threading
 from unittest.mock import Mock
 
 import pytest
-
 from runtime.network.mesh_transport import MeshTunnelClient, MeshTunnelServer
 
 

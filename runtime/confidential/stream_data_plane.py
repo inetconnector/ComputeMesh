@@ -20,6 +20,7 @@ from protocol.confidential_envelope import (
     ConfidentialResponseEnvelope,
 )
 from protocol.confidential_metering import ConfidentialUsageReceipt
+
 from runtime.confidential.data_plane import (
     AttestedConfidentialEndpoint,
     ConfidentialDataPlaneError,

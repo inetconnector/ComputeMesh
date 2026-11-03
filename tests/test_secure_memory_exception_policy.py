@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from services.common import secure_memory
 
 

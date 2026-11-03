@@ -22,27 +22,18 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, urlparse
-from cm_project_bootstrap import REPO_ROOT
 
+from cm_project_bootstrap import REPO_ROOT
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import InsufficientBalanceError, Ledger
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
-from services.billing.threadsafe_ledger import ThreadSafeLedger
-from services.gateway.inference_backend import InferenceBackendError
-from services.portal.passkey_routes import (
-    FLEET_ACCOUNT_STORE,
-    PasskeyAuthHandler,
-    session_account_from_headers,
-)
-from services.portal.routes_downloads import get_download_file_response
-from services.portal.routes_payouts import PortalPayoutsHandler
-
 from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
 from services.billing.stripe_integration import (
     StripePaymentService,
     StripeSessionStore,
     stripe_session_store_path_from_env,
 )
+from services.billing.threadsafe_ledger import ThreadSafeLedger
 from services.common.config import CONFIG
 from services.gateway.auth import (
     GatewayAuthManager,
@@ -63,15 +54,10 @@ from services.gateway.dashboard import (
     save_node_telemetry_registry,
 )
 from services.gateway.inference import InferenceEngine
+from services.gateway.inference_backend import InferenceBackendError
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.routes_billing import BillingRoutesHandler
 from services.gateway.routes_provider import ProviderRoutesHandler
-from services.gateway.security import (
-    GLOBAL_RATE_LIMITER,
-    MAX_REQUEST_PAYLOAD_BYTES,
-    SECURITY_HEADERS,
-    sanitize_error_message,
-)
 from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
 from services.mcp.platform.artifacts import (
     ArtifactAccessDenied,
@@ -96,6 +82,20 @@ from services.mcp.platform.session_projection import (
     project_sessions,
     project_turn,
     project_turns,
+)
+from services.portal.passkey_routes import (
+    FLEET_ACCOUNT_STORE,
+    PasskeyAuthHandler,
+    session_account_from_headers,
+)
+from services.portal.routes_downloads import get_download_file_response
+from services.portal.routes_payouts import PortalPayoutsHandler
+
+from services.gateway.security import (
+    GLOBAL_RATE_LIMITER,
+    MAX_REQUEST_PAYLOAD_BYTES,
+    SECURITY_HEADERS,
+    sanitize_error_message,
 )
 
 logger = logging.getLogger(__name__)

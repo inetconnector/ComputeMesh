@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Self
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from protocol.node_identity import VerificationKey, key_id_from_public_key
 
 MAX_ENROLLMENT_TOKEN_TTL = timedelta(minutes=15)

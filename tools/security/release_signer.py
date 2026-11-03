@@ -15,14 +15,12 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from cm_project_bootstrap import REPO_ROOT
+from config import CONFIG
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
-
-
-from cm_project_bootstrap import REPO_ROOT as REPO_ROOT
-
-from config import CONFIG
 from tools.security.signing_keys import TRUSTED_RELEASE_PUBLIC_KEYS_HEX
 
 DISKSTATION_PATH = Path(r"\\diskstation\Dani\ComputeMesh")
@@ -294,3 +292,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+__all__ = ["REPO_ROOT"]

@@ -5,12 +5,13 @@ import unittest
 
 from services.orchestrator.architecture_hardening_part14 import (
     AmbiguousCompletionEnforcer,
-    SilentCorruptionEnforcer,
-    BillingNeutralityEnforcer,
     AmbiguousCompletionError,
-    SilentCorruptionError,
+    BillingNeutralityEnforcer,
     BillingNeutralityError,
+    SilentCorruptionEnforcer,
+    SilentCorruptionError,
 )
+
 
 class TestArchitectureHardeningPart14(unittest.TestCase):
     def setUp(self) -> None:
@@ -122,8 +123,7 @@ class TestArchitectureHardeningPart14(unittest.TestCase):
             ("exec-duplicate-string", "false", False, 10),
         )
         for execution_id, is_duplicate, policy, amount in rejected:
-            with self.subTest(execution_id=execution_id):
-                with self.assertRaises(BillingNeutralityError):
+            with self.subTest(execution_id=execution_id), self.assertRaises(BillingNeutralityError):
                     enforcer.record_execution_billing(
                         "job-reject", execution_id, is_duplicate, policy, amount
                     )

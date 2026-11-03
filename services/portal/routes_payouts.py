@@ -19,7 +19,6 @@ from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecu
 from services.billing.stripe_connect import StripeConnectService
 from services.billing.stripe_integration import StripeIntegrationError
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _resolve_accounting_store() -> AccountingStore:

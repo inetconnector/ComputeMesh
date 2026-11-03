@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from runtime.confidential.protected_worker import CONFIDENTIAL_PROVISION_CAPABILITY
 from services.orchestrator.remote_confidential_broker import (
     RemoteConfidentialBrokerError,

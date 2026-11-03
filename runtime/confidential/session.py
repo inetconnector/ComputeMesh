@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from protocol.confidential_metering import ConfidentialUsageReceipt
+
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 
 

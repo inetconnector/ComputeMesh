@@ -21,7 +21,6 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from cryptography.hazmat.primitives import serialization
-
 from tools.appliance.boot_preflight import PreflightError, validate_node_evidence
 from tools.appliance.node_identity import NodeIdentityError, validate_node_id
 from tools.security.node_auth_token_storage import persist_node_auth_token
