@@ -1,15 +1,10 @@
 """High-Performance & Concurrency Stress Test Harness for ComputeMesh Gateway."""
 import os
-import sys
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.ledger import Ledger
 from services.gateway.auth import GatewayAuthManager
@@ -18,6 +13,8 @@ from services.gateway.inference_backend import SyntheticInferenceBackend
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
 
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TestPerformanceHarness(unittest.TestCase):
     def setUp(self) -> None:

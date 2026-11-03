@@ -7,21 +7,18 @@ from __future__ import annotations
 
 import os
 import shutil
-import sys
 import threading
 import unittest
 from base64 import b64decode
 from pathlib import Path
 from unittest.mock import patch
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from services.appliance_dashboard.server import create_dashboard_server
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(os.environ.get("COMPUTEMESH_BROWSER_E2E") == "1", "browser E2E opt-in")
 class TestWebUIAttachmentBrowser(unittest.TestCase):
