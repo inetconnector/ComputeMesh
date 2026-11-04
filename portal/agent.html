@@ -50,64 +50,19 @@
       user-select: none;
     }
 
-    /* Top Desktop Menu Bar (Codex Style) */
+    /* Top Website Site-Header */
     header.site-header {
-      position: relative !important;
-      height: 35px !important;
-      min-height: 35px !important;
-      background: var(--bg-window) !important;
-      border-bottom: 1px solid var(--border-subtle) !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: space-between !important;
-      padding: 0 10px !important;
       flex-shrink: 0 !important;
-      font-size: 12px !important;
-      color: var(--text-muted) !important;
-      z-index: 1000 !important;
+      position: relative !important;
     }
 
-    .menubar-left {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .nav-arrow-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      padding: 4px 6px;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-    }
-    .nav-arrow-btn:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text-main);
-    }
-
+    /* Codex Scoped Popups (separate from site-header dropdowns) */
     .menu-item-container {
       position: relative;
       display: inline-block;
     }
 
-    .menu-item-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      cursor: pointer;
-    }
-    .menu-item-btn:hover, .menu-item-btn.active {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-main);
-    }
-
-    .dropdown-menu {
+    .codex-menu {
       position: absolute;
       top: 100%;
       left: 0;
@@ -121,11 +76,11 @@
       display: none;
       padding: 4px 0;
     }
-    .dropdown-menu.show {
+    .codex-menu.show {
       display: block;
     }
 
-    .dropdown-item {
+    .codex-menu-item {
       padding: 6px 14px;
       display: flex;
       justify-content: space-between;
@@ -135,47 +90,28 @@
       font-size: 12px;
       text-decoration: none;
     }
-    .dropdown-item:hover {
+    .codex-menu-item:hover {
       background: var(--accent-blue);
       color: #fff;
     }
-    .dropdown-divider {
+    .codex-menu-divider {
       height: 1px;
       background: var(--border-subtle);
       margin: 4px 0;
     }
-    .dropdown-shortcut {
+    .codex-menu-shortcut {
       color: var(--text-dim);
       font-size: 11px;
     }
-    .dropdown-item:hover .dropdown-shortcut {
+    .codex-menu-item:hover .codex-menu-shortcut {
       color: rgba(255, 255, 255, 0.8);
-    }
-
-    .menubar-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 12px;
-    }
-    .status-pill-clean {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: var(--accent-green);
-    }
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--accent-green);
     }
 
     /* Main Layout */
     .codex-layout {
       display: flex;
       flex: 1;
+      min-height: 0;
       overflow: hidden;
       position: relative;
     }
@@ -902,73 +838,142 @@
 </head>
 <body>
 
-  <!-- Top Desktop Menubar (Canonical Site Header + Codex Menubar) -->
+  <!-- Top Navigation Header (Canonical Site Header) -->
   <header class="site-header">
-    <div class="menubar-left">
-      <button class="nav-arrow-btn" title="Zurück" onclick="history.back()">←</button>
-      <button class="nav-arrow-btn" title="Vorwärts" onclick="history.forward()">→</button>
-      
-      <div class="brand-group" style="display: flex; align-items: center; gap: 6px; margin-right: 6px;">
-        <span style="font-weight: 600; color: #fff; font-size: 13px;">Codex</span>
-        <span class="brand-badge" style="display: none;">AGENT WORKSPACE</span>
-      </div>
+    <!-- Row 1: Brand & Actions -->
+    <div class="container nav-top-row">
+      <a href="/" class="brand">
+        <span class="brand-logo">Inet<span class="gradient-text">Connector</span></span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
+      </a>
 
-      <!-- Menu: Datei -->
-      <div class="menu-item-container">
-        <button class="menu-item-btn" onclick="toggleMenu('menu-datei')">Datei</button>
-        <div id="menu-datei" class="dropdown-menu">
-          <div class="dropdown-item" onclick="startNewChat()">Neuer Chat <span class="dropdown-shortcut">Strg+N</span></div>
-          <div class="dropdown-item" onclick="promptWorkspace()">Workspace wechseln...</div>
-          <div class="dropdown-item" onclick="openKeyModal()">API-Schlüssel festlegen...</div>
-          <div class="dropdown-divider"></div>
-          <div class="dropdown-item" onclick="exportActiveSession()">Sitzung exportieren...</div>
-          <div class="dropdown-item" onclick="window.close()">Schließen <span class="dropdown-shortcut">Alt+F4</span></div>
-        </div>
-      </div>
-
-      <!-- Menu: Bearbeiten -->
-      <div class="menu-item-container">
-        <button class="menu-item-btn" onclick="toggleMenu('menu-bearbeiten')">Bearbeiten</button>
-        <div id="menu-bearbeiten" class="dropdown-menu">
-          <div class="dropdown-item" onclick="document.execCommand('copy')">Kopieren <span class="dropdown-shortcut">Strg+C</span></div>
-          <div class="dropdown-item" onclick="document.execCommand('undo')">Rückgängig <span class="dropdown-shortcut">Strg+Z</span></div>
-          <div class="dropdown-divider"></div>
-          <div class="dropdown-item" onclick="clearTimeline()">Chat leeren</div>
-        </div>
-      </div>
-
-      <!-- Menu: Ansicht -->
-      <div class="menu-item-container">
-        <button class="menu-item-btn" onclick="toggleMenu('menu-ansicht')">Ansicht</button>
-        <div id="menu-ansicht" class="dropdown-menu">
-          <div class="dropdown-item" onclick="toggleSidebar()">Seitenleiste umschalten <span class="dropdown-shortcut">Strg+B</span></div>
-          <div class="dropdown-item" onclick="toggleRightRail()">Quellen & Änderungen umschalten</div>
-          <div class="dropdown-divider"></div>
-          <div class="dropdown-item" onclick="switchLanguage('de')">Sprache: Deutsch</div>
-          <div class="dropdown-item" onclick="switchLanguage('en')">Sprache: English</div>
-        </div>
-      </div>
-
-      <!-- Menu: Hilfe -->
-      <div class="menu-item-container">
-        <button class="menu-item-btn" onclick="toggleMenu('menu-hilfe')">Hilfe</button>
-        <div id="menu-hilfe" class="dropdown-menu">
-          <a class="dropdown-item" href="/fleet">Flotten-Cockpit ↗</a>
-          <a class="dropdown-item" href="/docs">Dokumentation ↗</a>
-          <div class="dropdown-divider"></div>
-          <div class="dropdown-item" onclick="alert('ComputeMesh Codex v1.2.193\nAutonomous AI Agent Platform')">Über ComputeMesh Codex</div>
-        </div>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
       </div>
     </div>
 
-    <div class="menubar-right">
-      <div class="status-pill-clean">
-        <div class="status-dot"></div>
-        <span id="cluster-status-text">Mesh Cluster Verbunden</span>
+    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+          <li><a href="/agent" class="nav-link active">🤖 AGENT WORKSPACE</a></li>
+          <li class="nav-item has-dropdown">
+            <a href="/products" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/playground" class="dropdown-item">
+                <span class="item-icon">⚡</span>
+                <div>
+                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
+                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
+                </div>
+              </a>
+              <a href="/marketplace" class="dropdown-item">
+                <span class="item-icon">🖥️</span>
+                <div>
+                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
+                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
+                </div>
+              </a>
+              <a href="/models" class="dropdown-item">
+                <span class="item-icon">📚</span>
+                <div>
+                  <strong data-i18n="nav_prod_models">Model Library</strong>
+                  <p data-i18n="nav_prod_models_sub">Live-Modellkatalog</p>
+                </div>
+              </a>
+              <a href="/lan-mesh" class="dropdown-item">
+                <span class="item-icon">🏠</span>
+                <div>
+                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
+                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li class="nav-item has-dropdown">
+            <a href="/projects" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/downloads" class="dropdown-item">
+                <span class="item-icon">🤖</span>
+                <div>
+                  <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
+                  <p data-i18n="nav_app_localcode_sub">Download &amp; Autonome IDE-Übersicht</p>
+                </div>
+              </a>
+              <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🛡️</span>
+                <div>
+                  <strong data-i18n="nav_app_aegis">Aegis AI Risk Terminal</strong>
+                  <p data-i18n="nav_app_aegis_sub">Frühwarnsystem für Börsencrashs &amp; Marktrisiken</p>
+                </div>
+              </a>
+              <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🌳</span>
+                <div>
+                  <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
+                  <p data-i18n="nav_app_ancesora_sub">Genealogieplattform für Familienarchive, Personen &amp; Quellen</p>
+                </div>
+              </a>
+              <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📅</span>
+                <div>
+                  <strong data-i18n="nav_app_today">Heute &amp; Morgen</strong>
+                  <p data-i18n="nav_app_today_sub">Konzerte heute und morgen nach Ort, PLZ &amp; Radius</p>
+                </div>
+              </a>
+              <a href="https://trade.inetconnector.com/" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📉</span>
+                <div>
+                  <strong data-i18n="nav_app_causamind">CausaMind Market Predictor</strong>
+                  <p data-i18n="nav_app_causamind_sub">Research-Signale und risikobewusste Kauf-/Verkaufspläne</p>
+                </div>
+              </a>
+              <a href="https://smartx.inetconnector.com/" target="_blank" rel="noopener noreferrer" class="dropdown-item">
+                <span class="item-icon">⛓️</span>
+                <div>
+                  <strong data-i18n="nav_app_smartx">SmartX Blockchain</strong>
+                  <p data-i18n="nav_app_smartx_sub">Blockchain-Projekt und dezentrales Netzwerk von InetConnector</p>
+                </div>
+              </a>
+              <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📱</span>
+                <div>
+                  <strong data-i18n="nav_app_hub">Google Play Store</strong>
+                  <p data-i18n="nav_app_hub_sub">Offizielle Android-Apps von InetConnector</p>
+                </div>
+              </a>
+              <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">💻</span>
+                <div>
+                  <strong data-i18n="nav_app_github">GitHub Ecosystem</strong>
+                  <p data-i18n="nav_app_github_sub">Open Source, Python SDK, ControlPlane &amp; Tools</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+        </ul>
       </div>
-      <a href="/fleet" style="color: var(--text-muted); font-size: 11px; text-decoration: none; padding: 2px 6px; border-radius: 4px;">Flotte</a>
-      <button class="nav-arrow-btn" title="Einstellungen" onclick="openKeyModal()">⚙️</button>
-    </div>
+    </nav>
   </header>
 
   <!-- Codex Main App Layout -->
@@ -1079,11 +1084,11 @@
         </div>
         <div class="main-header-actions">
           <button class="sidebar-icon-btn" title="Weitere Optionen" onclick="toggleMenu('menu-session-opts')">•••</button>
-          <div id="menu-session-opts" class="dropdown-menu" style="right: 16px; left: auto;">
-            <div class="dropdown-item" onclick="renameCurrentSession()">Sitzung umbenennen</div>
-            <div class="dropdown-item" onclick="archiveCurrentSession()">Archivieren</div>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
+          <div id="menu-session-opts" class="codex-menu" style="right: 16px; left: auto;">
+            <div class="codex-menu-item" onclick="renameCurrentSession()">Sitzung umbenennen</div>
+            <div class="codex-menu-item" onclick="archiveCurrentSession()">Archivieren</div>
+            <div class="codex-menu-divider"></div>
+            <div class="codex-menu-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
           </div>
           <button class="sidebar-icon-btn" title="Quellen & Kontext" onclick="toggleRightRail()">⊞</button>
         </div>
@@ -1116,10 +1121,10 @@
                   <span id="policy-label">Für mich genehmigen</span>
                   <span style="font-size: 9px;">⌵</span>
                 </button>
-                <div id="menu-policy" class="dropdown-menu">
-                  <div class="dropdown-item" onclick="setPolicy('Für mich genehmigen', 'interactive')">🛡️ Für mich genehmigen (Interaktiv)</div>
-                  <div class="dropdown-item" onclick="setPolicy('Automatisch ausführen', 'autonomous')">⚡ Automatisch ausführen (Autonom)</div>
-                  <div class="dropdown-item" onclick="setPolicy('Nur Lesezugriff', 'readonly')">🔒 Nur Lesezugriff (Read-Only)</div>
+                <div id="menu-policy" class="codex-menu">
+                  <div class="codex-menu-item" onclick="setPolicy('Für mich genehmigen', 'interactive')">🛡️ Für mich genehmigen (Interaktiv)</div>
+                  <div class="codex-menu-item" onclick="setPolicy('Automatisch ausführen', 'autonomous')">⚡ Automatisch ausführen (Autonom)</div>
+                  <div class="codex-menu-item" onclick="setPolicy('Nur Lesezugriff', 'readonly')">🔒 Nur Lesezugriff (Read-Only)</div>
                 </div>
               </div>
             </div>
@@ -1131,11 +1136,11 @@
                   <span id="active-model-name">GPT-5.6 Luna Hoch</span>
                   <span style="font-size: 9px;">⌵</span>
                 </button>
-                <div id="menu-models" class="dropdown-menu" style="right: 0; left: auto; min-width: 240px;">
-                  <div class="dropdown-item" onclick="setModel('GPT-5.6 Luna Hoch', 'gpt-5.6-luna-high')">GPT-5.6 Luna Hoch (Standard)</div>
-                  <div class="dropdown-item" onclick="setModel('DeepSeek R1 / Kimi RPC', 'deepseek-r1-kimi')">DeepSeek R1 / Kimi RPC (Reasoning)</div>
-                  <div class="dropdown-item" onclick="setModel('Qwen 2.5 72B (Cluster)', 'qwen2.5:72b')">Qwen 2.5 72B (Cluster Inferenz)</div>
-                  <div class="dropdown-item" onclick="setModel('Local NVIDIA RTX 3080', 'local-rtx3080')">Local NVIDIA RTX 3080 (10GB VRAM)</div>
+                <div id="menu-models" class="codex-menu" style="right: 0; left: auto; min-width: 240px;">
+                  <div class="codex-menu-item" onclick="setModel('GPT-5.6 Luna Hoch', 'gpt-5.6-luna-high')">GPT-5.6 Luna Hoch (Standard)</div>
+                  <div class="codex-menu-item" onclick="setModel('DeepSeek R1 / Kimi RPC', 'deepseek-r1-kimi')">DeepSeek R1 / Kimi RPC (Reasoning)</div>
+                  <div class="codex-menu-item" onclick="setModel('Qwen 2.5 72B (Cluster)', 'qwen2.5:72b')">Qwen 2.5 72B (Cluster Inferenz)</div>
+                  <div class="codex-menu-item" onclick="setModel('Local NVIDIA RTX 3080', 'local-rtx3080')">Local NVIDIA RTX 3080 (10GB VRAM)</div>
                 </div>
               </div>
 
@@ -1245,14 +1250,15 @@
     // Global Dropdown Closer
     window.addEventListener('click', function(e) {
       if (!e.target.closest('.menu-item-container') && !e.target.closest('.main-header-actions')) {
-        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+        document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
       }
     });
 
     function toggleMenu(id) {
       const menu = document.getElementById(id);
+      if (!menu) return;
       const wasOpen = menu.classList.contains('show');
-      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+      document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
       if (!wasOpen) menu.classList.add('show');
     }
 
@@ -1273,18 +1279,18 @@
     function setPolicy(label, val) {
       currentPolicy = val;
       document.getElementById('policy-label').textContent = label;
-      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+      document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
     }
 
     function setModel(label, val) {
       currentModel = val;
       document.getElementById('active-model-name').textContent = label;
-      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+      document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
     }
 
     function switchLanguage(lang) {
       currentLocale = lang;
-      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+      document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
     }
 
     function autoResizeTextarea(el) {
@@ -1776,5 +1782,6 @@
       `;
     });
   </script>
+  <script src="/portal-core.js?v=5.4"></script>
 </body>
 </html>
