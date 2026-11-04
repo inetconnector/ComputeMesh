@@ -28,22 +28,50 @@ html, html body {
 [data-slot="alert-dialog-description"] { color: var(--cm-muted) !important; }
 [class*="border-border"], hr { border-color: var(--cm-border) !important; }
 
-/* Clean, standard chat input box container (No fat boxed double border!) */
+/* Outer input area: completely transparent, no border, no nested box */
 [data-slot="input-area"],
-.chat-input,
+.chat-input-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Unified ChatGPT-style pill capsule in ComputeMesh colors */
 form.relative:has(textarea),
+.chat-input:has(textarea),
 [data-slot="chat-container"] form {
-  background: var(--cm-surface-raised) !important;
-  border: 1px solid var(--cm-border) !important;
-  border-radius: 18px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
-  padding: 4px 6px !important;
+  background: #141824 !important;
+  border: 1.5px solid rgba(56, 189, 248, 0.28) !important;
+  border-radius: 26px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(0, 240, 255, 0.06) !important;
+  padding: 8px 14px 8px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+form.relative:has(textarea):focus-within,
+.chat-input:has(textarea):focus-within,
+[data-slot="chat-container"] form:focus-within {
+  border-color: rgba(0, 240, 255, 0.55) !important;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6), 0 0 22px rgba(0, 240, 255, 0.18) !important;
+}
+
+/* Any inner wrappers must NOT have borders, backgrounds or box-shadows */
+form.relative:has(textarea) div,
+form.relative:has(textarea) .relative,
+[data-slot="chat-container"] form div {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* Seamless inner textarea without redundant inner border */
-[data-slot="input-area"] textarea,
+form.relative:has(textarea) textarea,
 .chat-input textarea,
-form textarea,
+[data-slot="input-area"] textarea,
 [data-slot="chat-input"] textarea,
 textarea[placeholder*="Nachricht"],
 textarea[placeholder*="Message"],
@@ -52,11 +80,12 @@ textarea[placeholder*="Ask"] {
   background: transparent !important;
   outline: none !important;
   box-shadow: none !important;
-  color: var(--cm-text) !important;
-  font-size: 14px !important;
-  line-height: 1.5 !important;
-  padding: 8px 12px !important;
+  color: #f1f5f9 !important;
+  font-size: 14.5px !important;
+  line-height: 1.55 !important;
+  padding: 4px 6px !important;
   resize: none !important;
+  width: 100% !important;
 }
 
 input::placeholder, textarea::placeholder { color: var(--cm-muted) !important; opacity: .88; }
@@ -134,17 +163,10 @@ button:not(:disabled):hover, [role="button"]:not([aria-disabled="true"]):hover {
 /* Small message action buttons, composer controls, and icon buttons */
 .actions button,
 .chat-message button,
-[data-slot="chat-container"] button.rounded-full,
 .code-block-actions button,
-.file-upload-button,
-button.file-upload-button,
-button.images-button,
-button.camera-button,
-button.audio-button,
-button.video-button,
-button.mermaid-preview-btn,
+.mermaid-preview-btn,
 button.cm-action-icon,
-[data-slot="input-area"] button:not([type="submit"]),
+[data-slot="input-area"] button:not([type="submit"]):not(:has(svg.lucide-arrow-up)):not(:has(svg.lucide-send)),
 .chat-message button:not(.bg-destructive) {
   background-color: transparent !important;
   border: 1px solid transparent !important;
@@ -156,7 +178,6 @@ button.cm-action-icon,
 
 .actions button svg,
 .chat-message button svg,
-.file-upload-button svg,
 [data-slot="input-area"] button svg {
   color: inherit !important;
   stroke: currentColor !important;
@@ -165,19 +186,182 @@ button.cm-action-icon,
 /* Hover on icon buttons: Clean subtle dark card hover */
 .actions button:not(:disabled):hover,
 .chat-message button:not(:disabled):hover,
-[data-slot="chat-container"] button.rounded-full:not(:disabled):hover,
 .code-block-actions button:not(:disabled):hover,
-.file-upload-button:not(:disabled):hover,
-button.file-upload-button:not(:disabled):hover,
-button.images-button:not(:disabled):hover,
-button.camera-button:not(:disabled):hover,
-button.audio-button:not(:disabled):hover,
-button.video-button:not(:disabled):hover,
-[data-slot="input-area"] button:not([type="submit"]):not(:disabled):hover {
+[data-slot="input-area"] button:not([type="submit"]):not(:has(svg.lucide-arrow-up)):not(:has(svg.lucide-send)):not(:disabled):hover {
   background-color: var(--cm-card-hover) !important;
   border-color: transparent !important;
   color: var(--cm-text) !important;
   box-shadow: none !important;
+}
+
+/* ==============================================================================
+   ComputeMesh ChatGPT-Style Send Button & Action Controls
+   ============================================================================== */
+
+/* Send / Submit Button base: Circular pill */
+form button[type="submit"],
+button[type="submit"],
+button.rounded-full:has(svg.lucide-arrow-up),
+button.rounded-full:has(svg.lucide-send),
+button:has(svg.lucide-arrow-up),
+button:has(svg.lucide-send),
+[data-slot="chat-container"] button.rounded-full:last-child {
+  border-radius: 9999px !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  border: none !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+  flex-shrink: 0 !important;
+}
+
+/* 1. Disabled / Inactive: sleek dark circle, no harsh white dot! */
+form button[type="submit"]:disabled,
+button[type="submit"]:disabled,
+button:disabled:has(svg.lucide-arrow-up),
+button:disabled:has(svg.lucide-send),
+[data-slot="chat-container"] button.rounded-full:last-child:disabled {
+  background: rgba(255, 255, 255, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+form button[type="submit"]:disabled svg,
+button[type="submit"]:disabled svg,
+button:disabled:has(svg.lucide-arrow-up) svg,
+button:disabled:has(svg.lucide-send) svg {
+  color: rgba(255, 255, 255, 0.28) !important;
+  stroke: rgba(255, 255, 255, 0.28) !important;
+}
+
+/* 2. Active / Ready: ComputeMesh Electric Cyan/Blue Gradient */
+form button[type="submit"]:not(:disabled),
+button[type="submit"]:not(:disabled),
+button:not(:disabled):has(svg.lucide-arrow-up),
+button:not(:disabled):has(svg.lucide-send),
+[data-slot="chat-container"] button.rounded-full:last-child:not(:disabled) {
+  background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%) !important;
+  background-color: #00f0ff !important;
+  color: #0b0f19 !important;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.5) !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+}
+
+form button[type="submit"]:not(:disabled) svg,
+button[type="submit"]:not(:disabled) svg,
+button:not(:disabled):has(svg.lucide-arrow-up) svg,
+button:not(:disabled):has(svg.lucide-send) svg {
+  color: #0b0f19 !important;
+  stroke: #0b0f19 !important;
+  stroke-width: 2.5px !important;
+}
+
+/* Hover on active button: glowing electric cyan */
+form button[type="submit"]:not(:disabled):hover,
+button[type="submit"]:not(:disabled):hover,
+button:not(:disabled):has(svg.lucide-arrow-up):hover,
+button:not(:disabled):has(svg.lucide-send):hover {
+  background: linear-gradient(135deg, #38bdf8 0%, #00f0ff 100%) !important;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.8) !important;
+  transform: scale(1.06) !important;
+}
+
+/* Stop Streaming Button (when generating) */
+button.stop-button,
+.stop-button,
+button:has(.stop-icon),
+button:has(svg.lucide-square) {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border: 1.5px solid #ef4444 !important;
+  color: #ef4444 !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4) !important;
+}
+button.stop-button svg,
+.stop-button svg {
+  color: #ef4444 !important;
+  fill: #ef4444 !important;
+}
+
+/* Model Selector Pill inside chat input (ComputeMesh Theme) */
+form [data-slot="dropdown-menu-trigger"]:has(svg),
+form button:has(svg.lucide-box),
+form button:has(svg.lucide-cuboid) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 9999px !important;
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+  padding: 4px 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.18s ease !important;
+}
+
+form [data-slot="dropdown-menu-trigger"]:has(svg):hover,
+form button:has(svg.lucide-box):hover {
+  background: rgba(0, 240, 255, 0.08) !important;
+  border-color: rgba(0, 240, 255, 0.35) !important;
+  color: #00f0ff !important;
+}
+
+/* ChatGPT-style Attachment (+) Button */
+.file-upload-button,
+button.file-upload-button,
+button.images-button,
+button.camera-button,
+button.audio-button,
+button.video-button,
+form button:has(svg.lucide-plus) {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 9999px !important;
+  color: #94a3b8 !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.18s ease !important;
+}
+
+.file-upload-button:hover,
+button.file-upload-button:hover,
+button.images-button:hover,
+button.camera-button:hover,
+button.audio-button:hover,
+button.video-button:hover,
+form button:has(svg.lucide-plus):hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f1f5f9 !important;
+}
+
+/* Scroll-to-bottom floating pill button */
+button:has(svg.lucide-arrow-down) {
+  background: #141824 !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 9999px !important;
+  transition: all 0.2s ease !important;
+}
+button:has(svg.lucide-arrow-down):hover {
+  border-color: #00f0ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.4) !important;
+  transform: translateY(-2px) !important;
 }
 
 /* Icon-only navigation rail */

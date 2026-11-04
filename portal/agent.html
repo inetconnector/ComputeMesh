@@ -758,21 +758,31 @@
     }
 
     .btn-send-circle {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.1);
-      border: none;
-      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.28);
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      transition: all 0.15s ease;
+      cursor: not-allowed;
+      transition: all 0.2s ease;
+      font-size: 14px;
     }
-    .btn-send-circle.active, .btn-send-circle:hover {
-      background: var(--accent-blue);
-      color: #fff;
+    .btn-send-circle.active {
+      background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%) !important;
+      color: #0b0f19 !important;
+      font-weight: 900 !important;
+      border: none !important;
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.5) !important;
+      cursor: pointer !important;
+    }
+    .btn-send-circle.active:hover {
+      background: linear-gradient(135deg, #38bdf8 0%, #00f0ff 100%) !important;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.8) !important;
+      transform: scale(1.06) !important;
     }
 
     /* Modal / Popups */
