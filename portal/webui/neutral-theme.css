@@ -82,32 +82,54 @@ html, html body {
 [role="dialog"] span,
 [role="dialog"] input,
 [role="dialog"] select,
+[role="menu"],
+[role="menu"] div,
+div[role="dialog"],
+div[role="menu"],
 [data-slot="dialog-content"],
 [data-slot="dropdown-menu-content"],
 [data-slot="dropdown-menu-sub-content"],
 [data-slot="popover-content"],
 [data-bits-menu-content],
 [data-bits-dropdown-menu-content],
+[data-radix-menu-content],
+[data-radix-popper-content-wrapper],
 [data-radix-popper-content-wrapper] > div,
+[data-floating-ui-portal] > div,
 [data-bits-floating-content-switcher] > div {
   --tw-ring-color: transparent !important;
   --tw-ring-offset-color: transparent !important;
   --tw-ring-shadow: none !important;
   outline-color: transparent !important;
+  outline: none !important;
+}
+
+[role="dialog"],
+div[role="dialog"],
+[data-slot="dialog-content"],
+[role="menu"],
+div[role="menu"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"],
+[data-bits-menu-content],
+[data-bits-dropdown-menu-content],
+[data-radix-menu-content],
+[data-radix-popper-content-wrapper] > div,
+[data-floating-ui-portal] > div,
+[data-bits-floating-content-switcher] > div {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: #18191c !important;
+  background: #18191c !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
 }
 
 [role="dialog"] [class*="border-"],
 [role="dialog"] div[class*="border"],
 [role="dialog"] [class*="ring-"],
 [role="dialog"] input,
-[role="dialog"] .border-primary,
-[data-slot="dropdown-menu-content"],
-[data-slot="dropdown-menu-sub-content"],
-[data-slot="popover-content"],
-[data-bits-menu-content],
-[data-bits-dropdown-menu-content],
-[data-radix-popper-content-wrapper] > div,
-[data-bits-floating-content-switcher] > div {
+[role="dialog"] .border-primary {
   border-color: rgba(255, 255, 255, 0.12) !important;
   outline: none !important;
 }

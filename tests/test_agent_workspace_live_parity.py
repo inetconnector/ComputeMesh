@@ -84,3 +84,32 @@ def test_neutral_theme_no_blue_outlines():
         css_text = css_path.read_text(encoding="utf-8")
         assert "--tw-ring-color: transparent !important" in css_text
         assert "border-color: rgba(255, 255, 255, 0.12) !important" in css_text
+
+
+def test_workspace_physical_creation_and_isolation():
+    from tools.appliance.workspace_manager import register_local_workspace, unregister_local_workspace, discover_host_project_workspaces
+    import shutil
+    from pathlib import Path
+
+    test_ws_name = "TestPhysicalCreation_AutoTest"
+    ws = register_local_workspace(test_ws_name)
+    assert ws is not None
+    assert ws["name"] == test_ws_name
+    ws_path = Path(ws["path"])
+    try:
+        assert ws_path.is_dir(), "Physical directory must exist on disk"
+        assert (ws_path / "README.md").is_file(), "README.md must be generated"
+        assert (ws_path / ".git").is_dir(), "git repository must be initialized"
+    finally:
+        unregister_local_workspace(ws["id"])
+        if ws_path.is_dir():
+            shutil.rmtree(ws_path, ignore_errors=True)
+
+    # Verify discovery isolates to KI canonical projects only
+    discovered = discover_host_project_workspaces()
+    discovered_names = [d["name"] for d in discovered]
+    assert "ActivityLauncher" not in discovered_names, "Legacy non-KI directories must never be auto-discovered"
+    assert "Zeitungskiosk" not in discovered_names, "Legacy non-KI directories must never be auto-discovered"
+    assert "SpotifyPlaylistWebApp" not in discovered_names, "Legacy non-KI directories must never be auto-discovered"
+
+

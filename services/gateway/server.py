@@ -1945,10 +1945,20 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "registered_at": time.time(),
                     "last_active": time.time(),
                 }
-            if node_id_req and node_id_req in NODE_TELEMETRY_REGISTRY:
-                existing_ws = NODE_TELEMETRY_REGISTRY[node_id_req].setdefault("workspaces", [])
+            target_node = node_id_req
+            if not target_node:
+                for nid, nrec in NODE_TELEMETRY_REGISTRY.items():
+                    if nrec.get("is_online"):
+                        target_node = nid
+                        break
+            if target_node and target_node in NODE_TELEMETRY_REGISTRY:
+                existing_ws = NODE_TELEMETRY_REGISTRY[target_node].setdefault("workspaces", [])
                 if not any(w.get("path") == registered["path"] for w in existing_ws):
                     existing_ws.append(registered)
+                NODE_TELEMETRY_REGISTRY[target_node].setdefault("pending_workspaces", []).append({
+                    "path": path_str,
+                    "name": name_str or registered.get("name"),
+                })
             self._send_json({"status": "registered", "workspace": registered})
             return
 
@@ -2772,6 +2782,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "earnings_cm": provider_payable_micro,
                 "earnings_usd": round(provider_payable_micro / 1_000_000.0, 6),
             }
+            pending_ws = NODE_TELEMETRY_REGISTRY.get(node_id, {}).pop("pending_workspaces", [])
+            if pending_ws:
+                resp["create_workspaces"] = pending_ws
             if owner_binding_error:
                 resp["owner_binding_error"] = owner_binding_error
             self._send_json(resp)

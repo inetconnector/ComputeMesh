@@ -1193,28 +1193,28 @@
   <div id="add-workspace-modal" class="codex-modal-overlay" onclick="if(event.target===this)closeWorkspaceModal()">
     <div class="codex-modal">
       <div class="modal-header">
-        <span>Lokalen Projektpfad auf Node registrieren</span>
+        <span>Lokales Projekt auf mifcoms anlegen / registrieren</span>
         <button class="modal-close-btn" onclick="closeWorkspaceModal()">✕</button>
       </div>
       <div style="display: flex; flex-direction: column; gap: 12px;">
-        <p style="font-size: 12.5px; color: var(--text-muted);">
-          Gib das absolute Verzeichnis auf deinem Rechner ein, auf dem der Agent arbeiten soll:
+        <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.5;">
+          Gib einen Projektnamen oder absoluten Pfad ein. Wenn das Verzeichnis noch nicht existiert, wird der Projektordner automatisch lokal auf deinem Rechner in <code style="color: #d1d5db; background: rgba(255,255,255,0.06); padding: 2px 4px; border-radius: 4px;">C:\Users\frede\Projekte\KI\</code> physisch angelegt, mit README.md und Git initialisiert.
         </p>
         <input 
           type="text" 
           id="ws-path-input" 
-          placeholder="z.B. C:\Users\frede\Projekte\KI\MeinProjekt" 
+          placeholder="z.B. MeinNeuesProjekt oder C:\Users\frede\Projekte\KI\MeinNeuesProjekt" 
           style="width: 100%; background: #181818; border: 1px solid var(--border-hover); border-radius: 6px; padding: 8px 12px; color: #fff; font-family: var(--font-mono); font-size: 12px;">
         
         <input 
           type="text" 
           id="ws-name-input" 
-          placeholder="Optionaler Projektname (Standard: Ordnername)" 
+          placeholder="Optionaler Anzeigename (Standard: Ordnername)" 
           style="width: 100%; background: #181818; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 12px;">
 
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
           <button class="btn btn-secondary btn-sm" onclick="closeWorkspaceModal()">Abbrechen</button>
-          <button class="btn btn-primary btn-sm" onclick="submitRegisterWorkspace()">Projekt registrieren</button>
+          <button class="btn btn-primary btn-sm" onclick="submitRegisterWorkspace()">Projekt anlegen & registrieren</button>
         </div>
       </div>
     </div>

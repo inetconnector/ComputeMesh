@@ -410,6 +410,14 @@ class CloudTunnelRelay:
                         try:
                             resp_json = json.loads(raw_body)
                             sync_results[hb_url] = resp_json
+                            # Process any remote workspace creation requests dispatched by coordinator
+                            for ws_item in resp_json.get("create_workspaces", []):
+                                try:
+                                    from tools.appliance.workspace_manager import register_local_workspace
+                                    register_local_workspace(ws_item.get("path"), custom_name=ws_item.get("name"))
+                                    logger.info("Created and registered local project workspace: %s", ws_item)
+                                except Exception as ws_err:
+                                    logger.error("Failed to locally initialize workspace: %s", ws_err)
                             resp_tokens = int(resp_json.get("tokens_processed", 0) or 0)
                             resp_earnings = float(resp_json.get("earnings_usd", 0.0) or 0.0)
                             if resp_tokens > 0 or resp_earnings > 0:

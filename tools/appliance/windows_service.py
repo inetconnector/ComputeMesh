@@ -178,6 +178,14 @@ def run_headless_daemon() -> int:
     except Exception as e:
         _log(f"LAN discovery start skipped: {e}")
 
+    # Start Cloud Tunnel Relay (Heartbeat & Remote Workspace Sync)
+    try:
+        from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
+        relay = start_cloud_tunnel_relay(node_id=node_id)
+        _log(f"Cloud tunnel relay active for node {node_id}")
+    except Exception as e:
+        _log(f"Cloud tunnel relay start warning: {e}")
+
     # Keep alive loop
     try:
         while True:

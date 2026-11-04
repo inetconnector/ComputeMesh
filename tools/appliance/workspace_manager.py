@@ -121,13 +121,17 @@ def load_local_workspaces() -> list[dict[str, Any]]:
 
 
 def discover_host_project_workspaces() -> list[dict[str, Any]]:
-    """Scan candidate host directories for authentic local project workspaces."""
-    candidates = [
-        Path.home() / "Projekte" / "KI",
-        Path.home() / "Projekte",
-        Path("C:/Users/frede/Projekte/KI"),
-        Path.cwd().resolve().parent,
-    ]
+    """Scan canonical host project directory (C:\\Users\\frede\\Projekte\\KI) for authentic local projects."""
+    if sys.platform == "win32":
+        candidates = [
+            Path("C:/Users/frede/Projekte/KI"),
+            Path.home() / "Projekte" / "KI",
+        ]
+    else:
+        candidates = [
+            Path("/opt/computemesh"),
+            Path.home() / "computemesh",
+        ]
     discovered: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
 
@@ -141,8 +145,8 @@ def discover_host_project_workspaces() -> list[dict[str, Any]]:
                 p_str = str(sub.resolve())
                 if p_str in seen_paths:
                     continue
-                # Must be an authentic project folder (has .git or README.md)
-                if (sub / ".git").exists() or (sub / "README.md").exists():
+                # Must be an authentic project folder (has .git or README.md or code files)
+                if (sub / ".git").exists() or (sub / "README.md").exists() or (sub / "pyproject.toml").exists():
                     seen_paths.add(p_str)
                     branch = detect_git_branch(sub)
                     discovered.append({
@@ -160,13 +164,49 @@ def discover_host_project_workspaces() -> list[dict[str, Any]]:
 
 
 def register_local_workspace(path_str: str, custom_name: str | None = None) -> dict[str, Any] | None:
-    """Register a local directory path as a managed project workspace."""
-    p = Path(path_str).resolve()
-    if not p.is_dir():
-        logger.warning("Cannot register non-existent directory: %s", path_str)
+    """Register a local directory path as a managed project workspace.
+    
+    If the directory does not exist yet on disk, it is physically created,
+    initialized with a README.md and a clean git repository.
+    """
+    raw_path = (path_str or "").strip()
+    if not raw_path:
+        return None
+
+    p = Path(raw_path)
+    if not p.is_absolute():
+        if sys.platform == "win32":
+            p = (Path("C:/Users/frede/Projekte/KI") / raw_path).resolve()
+        else:
+            p = (Path.home() / "Projekte" / "KI" / raw_path).resolve()
+    else:
+        p = p.resolve()
+
+    # Physically create the folder on disk if it does not exist
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.error("Failed to create workspace directory %s: %s", p, exc)
         return None
 
     name = (custom_name or p.name).strip()
+
+    # Create README.md if missing
+    readme = p / "README.md"
+    if not readme.exists():
+        try:
+            readme.write_text(f"# {name}\n\nProjekt initialisiert durch ComputeMesh Node Remote Control.\n", encoding="utf-8")
+        except OSError:
+            pass
+
+    # Initialize git repo if missing
+    git_dir = p / ".git"
+    if not git_dir.exists():
+        try:
+            subprocess.run(["git", "init"], cwd=str(p), capture_output=True, check=False)
+        except Exception:
+            pass
+
     ws_id = _slugify(name)
     branch = detect_git_branch(p)
 
