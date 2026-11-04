@@ -131,32 +131,36 @@ button.dialog-close:hover,
   padding: 0 !important;
 }
 
-/* Unified ChatGPT-style pill capsule in gediegenem dark grey */
-form.relative:has(textarea),
-.chat-input:has(textarea),
+/* Form wrapper itself is completely transparent and borderless */
+form:has(textarea),
+form.relative,
 [data-slot="chat-container"] form {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Unified ChatGPT-style pill capsule in gediegenem dark grey (no blue frame) */
+[data-slot="input-area"] > div,
+.chat-input:has(textarea),
+[data-slot="input-area"] .relative {
   background: #1e2023 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 26px !important;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45) !important;
-  padding: 8px 14px 8px 12px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 6px !important;
+  border-radius: 24px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45) !important;
   transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-form.relative:has(textarea):focus-within,
+[data-slot="input-area"] > div:focus-within,
 .chat-input:has(textarea):focus-within,
-[data-slot="chat-container"] form:focus-within {
-  border-color: rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+[data-slot="input-area"] .relative:focus-within {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.6) !important;
 }
 
 /* Any inner wrappers must NOT have borders, backgrounds or box-shadows */
-form.relative:has(textarea) div,
-form.relative:has(textarea) .relative,
-[data-slot="chat-container"] form div {
+[data-slot="input-area"] > div div:not([data-slot="button"]):not(button),
+[data-slot="chat-container"] form div div:not([data-slot="button"]):not(button) {
   background-color: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
@@ -164,6 +168,7 @@ form.relative:has(textarea) .relative,
 
 /* Seamless inner textarea without redundant inner border */
 form.relative:has(textarea) textarea,
+form textarea,
 .chat-input textarea,
 [data-slot="input-area"] textarea,
 [data-slot="chat-input"] textarea,
@@ -198,17 +203,57 @@ button:not(.bg-destructive):not([data-variant="destructive"]),
 
 /* Clean, un-boxed dropdown menus & popups */
 [class*="bg-popover"],
+[role="menu"],
+[data-bits-menu-content],
+[data-bits-dropdown-menu-content],
+[data-bits-dropdown-menu-sub-content],
+[data-bits-popover-content],
 [data-slot="dropdown-menu-content"],
 [data-slot="dropdown-menu-sub-content"],
 [data-slot="popover-content"],
 [data-slot="command"] {
-  background: #24272a !important;
-  background-color: #24272a !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: #1e2023 !important;
+  background-color: #1e2023 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 12px !important;
   color: var(--cm-text) !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
   padding: 6px !important;
+}
+
+/* Search inputs inside dropdowns & popovers (e.g. MCP Server suchen...) */
+[data-slot="dropdown-menu-content"] input,
+[data-slot="dropdown-menu-sub-content"] input,
+[data-slot="popover-content"] input,
+[data-slot="command"] input,
+[role="menu"] input {
+  background: #141517 !important;
+  background-color: #141517 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  color: #f8fafc !important;
+  outline: none !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+  padding: 6px 10px !important;
+}
+
+[data-slot="dropdown-menu-content"] input:focus,
+[data-slot="dropdown-menu-sub-content"] input:focus,
+[data-slot="popover-content"] input:focus,
+[data-slot="command"] input:focus,
+[role="menu"] input:focus {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+/* Toggle Switches */
+[role="switch"][data-state="checked"],
+button[role="switch"][data-state="checked"] {
+  background-color: #4b5563 !important;
+}
+[role="switch"][data-state="unchecked"],
+button[role="switch"][data-state="unchecked"] {
+  background-color: #27272a !important;
 }
 
 /* Menu items: Clean, un-boxed rows with soft hover (NOT eingekastelt!) */

@@ -183,3 +183,4 @@ def _save_workspaces(workspaces: list[dict[str, Any]]) -> None:
         temp_path.replace(cfg_path)
     except Exception as exc:
         logger.error("Failed to write workspaces to %s: %s", cfg_path, exc)
+
