@@ -13,34 +13,55 @@
   --cm-bg: #181a1c; --cm-surface: #202325; --cm-surface-raised: #272a2c;
   --cm-card: #272a2c; --cm-card-hover: #303537; --cm-border: #454b50;
   --cm-border-strong: #687078; --cm-text: #f0f1f2; --cm-muted: #b6bbbf;
-  --cm-accent: #a9ccc2; --cm-accent-hover: #bfddd4; --cm-accent-soft: #263d38;
-  --cm-on-accent: #17221e; --cm-danger: #e7a3a8; --cm-danger-soft: #3a2226;
+  --cm-accent: #3b82f6; --cm-accent-hover: #60a5fa; --cm-accent-soft: rgba(59, 130, 246, 0.15);
+  --cm-on-accent: #ffffff; --cm-danger: #ef4444; --cm-danger-soft: rgba(239, 68, 68, 0.15);
   --cm-shadow: 0 16px 40px rgba(0, 0, 0, .32);
 }
 
-html, html body, body > div, body > #svelte, main, .chat-screen,
-[data-slot="chat-container"], .messages-container, [class*="bg-background"] {
-  background: var(--cm-bg) !important; background-color: var(--cm-bg) !important;
-  background-image: none !important; color: var(--cm-text) !important;
+html, html body {
+  background: var(--cm-bg) !important;
+  background-color: var(--cm-bg) !important;
+  color: var(--cm-text) !important;
 }
-[class*="bg-card"], [class*="bg-popover"], [data-slot="sidebar"],
-[data-slot="dialog-content"], [data-slot="dialog-header"], [data-slot="dialog-footer"],
-[data-slot="sheet-content"], [data-slot="sheet-header"], [data-slot="sheet-footer"],
-[data-slot="popover-content"], [data-slot="dropdown-menu-content"],
-[data-slot="dropdown-menu-sub-content"], [data-slot="command"] {
-  background: var(--cm-surface) !important; background-color: var(--cm-surface) !important;
-  background-image: none !important; border-color: var(--cm-border) !important;
-  color: var(--cm-text) !important; box-shadow: var(--cm-shadow) !important;
-}
+
 [class*="text-muted-foreground"], [data-slot="dialog-description"],
 [data-slot="alert-dialog-description"] { color: var(--cm-muted) !important; }
 [class*="border-border"], hr { border-color: var(--cm-border) !important; }
-input, textarea, select, [contenteditable="true"] {
-  background: var(--cm-surface) !important; border: 1px solid var(--cm-border-strong) !important;
-  color: var(--cm-text) !important; box-shadow: none !important;
+
+/* Clean, standard chat input box container (No fat boxed double border!) */
+[data-slot="input-area"],
+.chat-input,
+form.relative:has(textarea),
+[data-slot="chat-container"] form {
+  background: var(--cm-surface-raised) !important;
+  border: 1px solid var(--cm-border) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+  padding: 4px 6px !important;
 }
+
+/* Seamless inner textarea without redundant inner border */
+[data-slot="input-area"] textarea,
+.chat-input textarea,
+form textarea,
+[data-slot="chat-input"] textarea,
+textarea[placeholder*="Nachricht"],
+textarea[placeholder*="Message"],
+textarea[placeholder*="Ask"] {
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--cm-text) !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  padding: 8px 12px !important;
+  resize: none !important;
+}
+
 input::placeholder, textarea::placeholder { color: var(--cm-muted) !important; opacity: .88; }
-/* Base button reset: clean neutral surface in resting state (NO PINK in rest) */
+
+/* Base button reset: clean neutral surface */
 button,
 [role="button"] {
   background-image: none !important;
@@ -49,17 +70,68 @@ button,
 
 button:not(.bg-destructive):not([data-variant="destructive"]),
 [role="button"]:not(.bg-destructive):not([data-variant="destructive"]) {
-  border-color: var(--cm-border) !important;
+  border-color: transparent !important;
+}
+
+/* Clean, un-boxed dropdown menus & popups */
+[class*="bg-popover"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"],
+[data-slot="command"] {
+  background: var(--cm-surface-raised) !important;
+  background-color: var(--cm-surface-raised) !important;
+  border: 1px solid var(--cm-border) !important;
+  border-radius: 12px !important;
+  color: var(--cm-text) !important;
+  box-shadow: var(--cm-shadow) !important;
+  padding: 6px !important;
+}
+
+/* Menu items: Clean, un-boxed rows with soft hover (NOT eingekastelt!) */
+[role="menuitem"],
+[role="option"],
+[data-slot="dropdown-menu-item"],
+[data-slot="dropdown-menu-sub-trigger"],
+[data-slot="command-item"],
+.dropdown-menu-item {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+  padding: 7px 10px !important;
+  margin: 1px 0 !important;
+  background: transparent !important;
+  color: var(--cm-text) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease !important;
+}
+
+[role="menuitem"]:hover,
+[role="menuitem"]:focus,
+[role="menuitem"][data-highlighted],
+[data-slot="dropdown-menu-item"]:hover,
+[data-slot="dropdown-menu-item"]:focus,
+[data-slot="command-item"]:hover,
+[data-slot="command-item"]:focus {
+  background: var(--cm-card-hover) !important;
+  background-color: var(--cm-card-hover) !important;
+  color: var(--cm-text) !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* General interactive hover */
-button:not(:disabled):hover, [role="button"]:not([aria-disabled="true"]):hover,
-[role="menuitem"]:not([aria-disabled="true"]):hover {
+button:not(:disabled):hover, [role="button"]:not([aria-disabled="true"]):hover {
   background-color: var(--cm-card-hover) !important;
 }
 
-/* Small message action buttons, composer controls, attachment buttons, and icon buttons */
-/* RESTING STATE: Neutral dark background, NO persistent pink, icon clearly visible */
+/* Small message action buttons, composer controls, and icon buttons */
 .actions button,
 .chat-message button,
 [data-slot="chat-container"] button.rounded-full,
@@ -78,7 +150,8 @@ button.cm-action-icon,
   border: 1px solid transparent !important;
   color: var(--cm-muted) !important;
   box-shadow: none !important;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease !important;
+  border-radius: 8px !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
 }
 
 .actions button svg,
@@ -89,7 +162,7 @@ button.cm-action-icon,
   stroke: currentColor !important;
 }
 
-/* MOUSEOVER / HOVER: Pink highlight is activated! */
+/* Hover on icon buttons: Clean subtle dark card hover */
 .actions button:not(:disabled):hover,
 .chat-message button:not(:disabled):hover,
 [data-slot="chat-container"] button.rounded-full:not(:disabled):hover,
@@ -100,16 +173,14 @@ button.images-button:not(:disabled):hover,
 button.camera-button:not(:disabled):hover,
 button.audio-button:not(:disabled):hover,
 button.video-button:not(:disabled):hover,
-button.mermaid-preview-btn:not(:disabled):hover,
-button.cm-action-icon:not(:disabled):hover,
 [data-slot="input-area"] button:not([type="submit"]):not(:disabled):hover {
-  background-color: rgba(244, 114, 182, 0.22) !important;
-  border-color: #f472b6 !important;
-  color: #f472b6 !important;
-  box-shadow: 0 0 12px rgba(244, 114, 182, 0.4) !important;
+  background-color: var(--cm-card-hover) !important;
+  border-color: transparent !important;
+  color: var(--cm-text) !important;
+  box-shadow: none !important;
 }
 
-/* Icon-only navigation rail: neutral until hovered; leave the expand and destructive controls alone. */
+/* Icon-only navigation rail */
 :is(aside, [data-slot="sidebar"]) button:is(
   [aria-label="Neuer Chat"], [aria-label="New chat"],
   [aria-label="Suchen"], [aria-label="Search"],
@@ -121,6 +192,7 @@ button.cm-action-icon:not(:disabled):hover,
   border: 1px solid var(--cm-border) !important;
   color: var(--cm-muted) !important;
   box-shadow: none !important;
+  border-radius: 8px !important;
   transition: background-color .15s ease, border-color .15s ease, color .15s ease !important;
 }
 
@@ -130,55 +202,14 @@ button.cm-action-icon:not(:disabled):hover,
   [aria-label="MCP-Server"], [aria-label="MCP servers"],
   [aria-label="Einstellungen"], [aria-label="Settings"]
 ):not(:disabled):hover {
-  background: rgba(244, 114, 182, .25) !important;
-  background-color: rgba(244, 114, 182, .25) !important;
-  border-color: #f472b6 !important;
-  color: #f472b6 !important;
-  box-shadow: 0 0 12px rgba(244, 114, 182, .30) !important;
-}
-
-:is(aside, [data-slot="sidebar"]) button:is(
-  [aria-label="Neuer Chat"], [aria-label="New chat"],
-  [aria-label="Suchen"], [aria-label="Search"],
-  [aria-label="MCP-Server"], [aria-label="MCP servers"],
-  [aria-label="Einstellungen"], [aria-label="Settings"]
-):not(:disabled):active {
-  background: rgba(244, 114, 182, .38) !important;
-  border-color: #ec4899 !important;
+  background: var(--cm-card-hover) !important;
+  background-color: var(--cm-card-hover) !important;
+  border-color: var(--cm-border-strong) !important;
   color: var(--cm-text) !important;
+  box-shadow: none !important;
 }
 
-:is(aside, [data-slot="sidebar"]) button:is(
-  [aria-label="Neuer Chat"], [aria-label="New chat"],
-  [aria-label="Suchen"], [aria-label="Search"],
-  [aria-label="MCP-Server"], [aria-label="MCP servers"],
-  [aria-label="Einstellungen"], [aria-label="Settings"]
-):focus-visible {
-  outline: 2px solid #f472b6 !important;
-  outline-offset: 2px !important;
-}
-
-/* ACTIVE / PRESSED */
-.actions button:not(:disabled):active,
-.chat-message button:not(:disabled):active,
-[data-slot="chat-container"] button.rounded-full:not(:disabled):active,
-.file-upload-button:not(:disabled):active {
-  background-color: rgba(244, 114, 182, 0.38) !important;
-  border-color: #ec4899 !important;
-  color: #ffffff !important;
-  transform: scale(0.96) !important;
-}
-
-/* KEYBOARD FOCUS */
-.actions button:focus-visible,
-.chat-message button:focus-visible,
-[data-slot="chat-container"] button:focus-visible,
-.file-upload-button:focus-visible {
-  outline: 2px solid #f472b6 !important;
-  outline-offset: 2px !important;
-}
-
-/* Destructive actions (e.g. Delete message): danger red only on hover */
+/* Destructive actions (e.g. Delete message) */
 .actions button[aria-label*="Löschen"]:not(:disabled):hover,
 .actions button[aria-label*="löschen"]:not(:disabled):hover,
 .actions button[aria-label*="Delete"]:not(:disabled):hover,
@@ -187,22 +218,10 @@ button.cm-action-icon:not(:disabled):hover,
 .chat-message button[aria-label*="Delete"]:not(:disabled):hover,
 button:has(svg.lucide-trash):not(:disabled):hover,
 button:has(svg.lucide-trash-2):not(:disabled):hover {
-  background-color: rgba(239, 68, 68, 0.22) !important;
-  border-color: #ef4444 !important;
-  color: #f87171 !important;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4) !important;
-}
-
-/* Touch devices: avoid sticky hover */
-@media (hover: none) and (pointer: coarse) {
-  .actions button:not(:active),
-  .chat-message button:not(:active),
-  .file-upload-button:not(:active) {
-    background-color: transparent !important;
-    border-color: transparent !important;
-    color: var(--cm-muted) !important;
-    box-shadow: none !important;
-  }
+  background-color: var(--cm-danger-soft) !important;
+  border-color: var(--cm-danger) !important;
+  color: var(--cm-danger) !important;
+  box-shadow: none !important;
 }
 
 /* Disabled state */
@@ -224,43 +243,16 @@ button[data-variant="destructive"] {
   color: #fff !important; box-shadow: none !important;
 }
 a { color: var(--cm-accent) !important; }
-:focus-visible { outline: 3px solid var(--cm-accent) !important; outline-offset: 2px !important; }
 
+/* Completely hide the floating + Agents button and weird popup in AI Chat */
 #cm-agent-toggle {
-  position: fixed; right: 16px; top: max(104px, calc(env(safe-area-inset-top, 0px) + 104px));
-  z-index: 38; min-height: 44px; padding: 0 16px; border: 1px solid var(--cm-border-strong);
-  border-radius: 999px; background: var(--cm-surface-raised); color: var(--cm-text);
-  box-shadow: var(--cm-shadow); font-size: 14px; font-weight: 650; cursor: pointer;
+  display: none !important;
 }
-#cm-agent-toggle[aria-expanded="true"] { background: var(--cm-accent); color: var(--cm-on-accent); }
-#cm-agent-session-panel {
-  position: fixed !important; right: 16px !important;
-  top: max(160px, calc(env(safe-area-inset-top, 0px) + 160px)) !important;
-  z-index: 39 !important; width: min(400px, calc(100vw - 32px)) !important;
-  max-height: min(72vh, 680px) !important; box-sizing: border-box !important;
-  padding: 18px !important; border: 1px solid var(--cm-border) !important;
-  border-radius: 16px !important; background: var(--cm-surface-raised) !important;
-  color: var(--cm-text) !important; box-shadow: var(--cm-shadow) !important;
-  font-size: 14px !important; line-height: 1.45 !important;
+#cm-agent-session-panel,
+#cm-agent-session-panel[hidden] {
+  display: none !important;
 }
-#cm-agent-session-panel[hidden] { display: none !important; }
-.cm-agent-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
-.cm-agent-heading { flex: 1; min-width: 0; }
-.cm-agent-heading > div { display: block; font-size: 17px; line-height: 1.25; }
-.cm-agent-heading p { margin: 5px 0 0; color: var(--cm-muted); font-size: 13px; }
-.cm-agent-close { width: 40px; height: 40px; border-radius: 10px; font-size: 22px; cursor: pointer; }
-#cm-agent-session-panel select, #cm-agent-session-panel textarea {
-  display: block; width: 100%; min-height: 44px; background: var(--cm-surface) !important;
-  border-color: var(--cm-border-strong) !important; color: var(--cm-text) !important; font-size: 14px !important;
-}
-#cm-agent-session-panel textarea { min-height: 88px !important; padding: 11px 12px !important; }
-#cm-agent-session-panel button { min-height: 42px !important; font-size: 14px !important; border-radius: 10px !important; }
-#cm-agent-session-panel button:first-of-type { background: var(--cm-accent) !important; color: var(--cm-on-accent) !important; }
 
-@media (max-width: 640px) {
-  #cm-agent-toggle { right: 12px; top: max(72px, calc(env(safe-area-inset-top, 0px) + 72px)); }
-  #cm-agent-session-panel { inset: auto 8px 8px 8px !important; width: auto !important; max-height: 78dvh !important; border-radius: 18px !important; }
-}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
