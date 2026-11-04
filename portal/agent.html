@@ -10,19 +10,19 @@
   <link rel="stylesheet" href="/portal-business.css?v=5.1">
   <style>
     :root {
-      --bg-window: #181818;
-      --bg-main: #1e1e1e;
-      --bg-sidebar: #171717;
-      --bg-card: #212121;
-      --bg-composer: #242424;
-      --bg-user-bubble: #1f364d;
-      --bg-user-bubble-hover: #243e59;
-      --border-subtle: rgba(255, 255, 255, 0.07);
-      --border-hover: rgba(255, 255, 255, 0.15);
-      --text-main: #ececec;
-      --text-muted: #9e9e9e;
-      --text-dim: #6c6c6c;
-      --accent-blue: #3b82f6;
+      --bg-window: #141414;
+      --bg-main: #1a1a1a;
+      --bg-sidebar: #121212;
+      --bg-card: #202020;
+      --bg-composer: #222222;
+      --bg-user-bubble: #1e293b;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.16);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-blue: #0284c7;
+      --accent-cyan: #00f0ff;
       --accent-green: #10b981;
       --accent-red: #ef4444;
       --accent-amber: #f59e0b;
@@ -54,60 +54,11 @@
     header.site-header {
       flex-shrink: 0 !important;
       position: relative !important;
+      background: #0f172a !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
 
-    /* Codex Scoped Popups (separate from site-header dropdowns) */
-    .menu-item-container {
-      position: relative;
-      display: inline-block;
-    }
-
-    .codex-menu {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      margin-top: 4px;
-      background: #222222;
-      border: 1px solid var(--border-hover);
-      border-radius: 6px;
-      min-width: 200px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-      z-index: 1000;
-      display: none;
-      padding: 4px 0;
-    }
-    .codex-menu.show {
-      display: block;
-    }
-
-    .codex-menu-item {
-      padding: 6px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: var(--text-main);
-      cursor: pointer;
-      font-size: 12px;
-      text-decoration: none;
-    }
-    .codex-menu-item:hover {
-      background: var(--accent-blue);
-      color: #fff;
-    }
-    .codex-menu-divider {
-      height: 1px;
-      background: var(--border-subtle);
-      margin: 4px 0;
-    }
-    .codex-menu-shortcut {
-      color: var(--text-dim);
-      font-size: 11px;
-    }
-    .codex-menu-item:hover .codex-menu-shortcut {
-      color: rgba(255, 255, 255, 0.8);
-    }
-
-    /* Main Layout */
+    /* Codex Layout */
     .codex-layout {
       display: flex;
       flex: 1;
@@ -118,7 +69,7 @@
 
     /* Left Sidebar */
     .codex-sidebar {
-      width: 250px;
+      width: 260px;
       background: var(--bg-sidebar);
       border-right: 1px solid var(--border-subtle);
       display: flex;
@@ -148,10 +99,14 @@
       border: none;
       color: var(--text-main);
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       padding: 4px 6px;
       border-radius: 4px;
+      max-width: 180px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
     .workspace-selector-btn:hover {
       background: rgba(255, 255, 255, 0.05);
@@ -169,14 +124,39 @@
       padding: 4px 6px;
       border-radius: 4px;
       cursor: pointer;
+      font-size: 13px;
     }
     .sidebar-icon-btn:hover {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.08);
       color: var(--text-main);
     }
 
+    .sidebar-section-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      padding: 10px 12px 4px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      text-transform: uppercase;
+    }
+
+    .sidebar-section-title .section-action-btn {
+      background: transparent;
+      border: none;
+      color: var(--accent-cyan);
+      font-size: 12px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .sidebar-section-title .section-action-btn:hover {
+      text-decoration: underline;
+    }
+
     .new-chat-container {
-      padding: 10px 12px;
+      padding: 8px 12px;
     }
     .btn-new-chat {
       width: 100%;
@@ -201,27 +181,29 @@
     .project-tree-container {
       flex: 1;
       overflow-y: auto;
-      padding: 6px 8px;
+      padding: 4px 8px;
     }
 
     .tree-folder-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 5px 8px;
+      padding: 6px 8px;
       border-radius: 5px;
       color: var(--text-muted);
       cursor: pointer;
       font-size: 12px;
-      margin-bottom: 1px;
+      margin-bottom: 2px;
+      transition: background 0.12s ease;
     }
     .tree-folder-item:hover {
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.05);
       color: var(--text-main);
     }
     .tree-folder-item.active {
+      background: rgba(255, 255, 255, 0.08);
       color: var(--text-main);
-      font-weight: 500;
+      font-weight: 600;
     }
     .folder-title-row {
       display: flex;
@@ -231,24 +213,25 @@
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    .active-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--accent-blue);
-      flex-shrink: 0;
+    .branch-badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      background: rgba(2, 132, 199, 0.2);
+      color: #38bdf8;
+      padding: 1px 5px;
+      border-radius: 3px;
     }
 
     .sub-session-list {
-      padding-left: 14px;
-      margin-bottom: 4px;
+      padding-left: 12px;
+      margin: 4px 0 8px 0;
     }
     .sub-session-item {
       padding: 5px 8px;
-      border-radius: 5px;
+      border-radius: 4px;
       color: var(--text-muted);
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11.5px;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -259,9 +242,20 @@
       color: var(--text-main);
     }
     .sub-session-item.selected {
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(0, 240, 255, 0.12);
       color: #fff;
       font-weight: 500;
+      border-left: 2px solid var(--accent-cyan);
+    }
+
+    .empty-state-notice {
+      padding: 12px 10px;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      text-align: center;
+      border: 1px dashed rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      margin: 6px;
     }
 
     .sidebar-footer {
@@ -270,23 +264,25 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      background: rgba(0, 0, 0, 0.2);
     }
     .user-avatar-circle {
-      width: 26px;
-      height: 26px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
-      background: #333333;
-      color: #fff;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #38bdf8;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
+      flex-shrink: 0;
     }
     .user-info-text {
       flex: 1;
       font-size: 12px;
-      color: var(--text-muted);
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -299,16 +295,17 @@
       display: flex;
       flex-direction: column;
       position: relative;
-      overflow: hidden;
+      min-width: 0;
     }
 
     .main-header {
-      height: 42px;
+      height: 44px;
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 16px;
+      background: var(--bg-window);
       flex-shrink: 0;
     }
     .main-header-title {
@@ -316,34 +313,51 @@
       align-items: center;
       gap: 8px;
       font-size: 13px;
+      font-weight: 600;
       color: var(--text-main);
-      font-weight: 500;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
     }
-
     .main-header-actions {
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    /* Stream Messages Container */
     .stream-container {
       flex: 1;
       overflow-y: auto;
-      padding: 24px 32px 140px 32px;
+      padding: 24px 20px 130px 20px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 18px;
       max-width: 900px;
       width: 100%;
       margin: 0 auto;
-      user-select: text;
     }
 
-    /* User Prompt Bubble */
+    /* Empty state */
+    .empty-stream-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      text-align: center;
+      color: var(--text-muted);
+      gap: 12px;
+    }
+    .empty-stream-placeholder h2 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .empty-stream-placeholder p {
+      max-width: 480px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--text-dim);
+    }
+
+    /* Message Bubbles */
     .user-message-row {
       display: flex;
       justify-content: flex-end;
@@ -351,154 +365,108 @@
     }
     .user-bubble {
       background: var(--bg-user-bubble);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       color: #fff;
+      padding: 10px 16px;
       border-radius: 14px;
-      padding: 12px 18px;
-      max-width: 80%;
-      font-size: 13px;
+      max-width: 82%;
+      font-size: 13.5px;
       line-height: 1.5;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    }
-    .user-bubble-footer {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 6px;
-    }
-    .btn-show-more {
-      background: transparent;
-      border: none;
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .btn-show-more:hover {
-      color: #fff;
+      word-break: break-word;
+      user-select: text;
     }
 
-    /* Agent Message Container */
     .agent-message-row {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       width: 100%;
+      user-select: text;
+    }
+    .agent-content {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #e2e8f0;
+      padding: 4px 0;
+    }
+    .agent-content p {
+      margin-bottom: 8px;
+    }
+    .agent-content pre {
+      background: #0f172a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin: 8px 0;
+    }
+    .agent-content code {
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 12px;
     }
 
-    /* Collapsible Thought / Working Pill */
     .thought-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--border-subtle);
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-size: 11px;
+      border-radius: 12px;
+      padding: 4px 10px;
+      font-size: 11.5px;
       color: var(--text-muted);
       cursor: pointer;
       width: fit-content;
-      transition: background 0.15s ease;
+      user-select: none;
     }
     .thought-pill:hover {
       background: rgba(255, 255, 255, 0.08);
       color: var(--text-main);
     }
     .thought-drawer {
-      background: #191919;
+      display: none;
+      background: #111827;
       border: 1px solid var(--border-subtle);
       border-radius: 8px;
-      padding: 12px;
+      padding: 10px 14px;
+      font-size: 12px;
       font-family: var(--font-mono);
-      font-size: 11px;
       color: var(--text-muted);
-      max-height: 200px;
-      overflow-y: auto;
-      display: none;
+      margin-top: 4px;
     }
     .thought-drawer.open {
       display: block;
     }
 
-    /* Agent Response Markdown Content */
-    .agent-content {
-      color: var(--text-main);
-      font-size: 13.5px;
-      line-height: 1.6;
-    }
-    .agent-content p {
-      margin-bottom: 0.8rem;
-    }
-    .agent-content ul {
-      margin: 0.5rem 0 0.8rem 1.4rem;
-    }
-    .agent-content li {
-      margin-bottom: 0.3rem;
-    }
-    .agent-content code {
-      background: rgba(255, 255, 255, 0.08);
-      padding: 2px 5px;
-      border-radius: 4px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-    }
-
-    /* Diff / Edited Files Card (Codex Hallmark) */
+    /* Diff Box */
     .files-edited-card {
-      background: #171717;
+      background: #1e293b;
       border: 1px solid var(--border-subtle);
       border-radius: 10px;
-      padding: 12px 16px;
+      padding: 12px 14px;
       margin: 8px 0;
     }
     .files-edited-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       font-size: 12px;
     }
-    .files-edited-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 500;
-    }
-    .diff-badge-green {
-      color: var(--accent-green);
-      font-weight: 600;
-    }
-    .diff-badge-red {
-      color: var(--accent-red);
-      font-weight: 600;
-    }
-    .files-edited-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .action-link {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .action-link:hover {
-      color: var(--text-main);
-      text-decoration: underline;
-    }
+    .diff-badge-green { color: var(--accent-green); font-weight: 600; }
+    .diff-badge-red { color: var(--accent-red); font-weight: 600; }
 
-    .files-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
     .file-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-family: var(--font-mono);
       font-size: 11.5px;
-      color: var(--text-muted);
       padding: 3px 0;
     }
     .file-path {
@@ -507,129 +475,8 @@
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    .file-diff-stat {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
-    }
 
-    /* Message Action Buttons Bar */
-    .message-actions-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-dim);
-      font-size: 11px;
-      margin-top: 4px;
-    }
-    .msg-action-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      cursor: pointer;
-      padding: 2px 4px;
-      border-radius: 4px;
-    }
-    .msg-action-btn:hover {
-      color: var(--text-main);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    /* Right Sources & Context Rail */
-    .codex-right-rail {
-      width: 260px;
-      background: var(--bg-sidebar);
-      border-left: 1px solid var(--border-subtle);
-      display: flex;
-      flex-direction: column;
-      padding: 16px;
-      flex-shrink: 0;
-      gap: 16px;
-      transition: width 0.2s ease;
-    }
-    .codex-right-rail.collapsed {
-      width: 0;
-      padding: 0;
-      overflow: hidden;
-      border-left: none;
-    }
-
-    .right-card {
-      background: #1e1e1e;
-      border: 1px solid var(--border-subtle);
-      border-radius: 10px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .right-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-weight: 500;
-      font-size: 12.5px;
-    }
-    .btn-changes {
-      width: 100%;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-main);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      cursor: pointer;
-    }
-    .btn-changes:hover {
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .sources-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .source-item {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      color: var(--text-muted);
-      font-size: 11.5px;
-      text-decoration: none;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-    .source-item:hover {
-      color: var(--accent-blue);
-    }
-
-    .cluster-nodes-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .node-item-clean {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11.5px;
-    }
-    .node-name-label {
-      color: var(--text-main);
-      font-family: var(--font-mono);
-      font-size: 11px;
-    }
-    .node-status-tag {
-      font-size: 10px;
-      color: var(--accent-green);
-    }
-
-    /* Floating Composer (Codex Bottom Bar) */
+    /* Floating Composer */
     .composer-wrapper {
       position: absolute;
       bottom: 20px;
@@ -643,7 +490,7 @@
 
     .codex-composer-box {
       width: 100%;
-      max-width: 820px;
+      max-width: 840px;
       background: var(--bg-composer);
       border: 1px solid var(--border-hover);
       border-radius: 16px;
@@ -685,7 +532,7 @@
       border-top: 1px solid rgba(255, 255, 255, 0.04);
     }
 
-    .composer-toolbar-left {
+    .composer-toolbar-left, .composer-toolbar-right {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -696,7 +543,7 @@
       border: none;
       color: var(--text-muted);
       cursor: pointer;
-      font-size: 15px;
+      font-size: 16px;
       padding: 2px 6px;
       border-radius: 4px;
     }
@@ -705,42 +552,19 @@
       background: rgba(255, 255, 255, 0.05);
     }
 
-    .policy-pill-btn {
+    .policy-pill-btn, .model-selector-pill {
       display: flex;
       align-items: center;
       gap: 5px;
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--border-subtle);
       border-radius: 14px;
-      padding: 3px 10px;
+      padding: 4px 10px;
       color: var(--text-muted);
       font-size: 11px;
       cursor: pointer;
     }
-    .policy-pill-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-main);
-    }
-
-    .composer-toolbar-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .model-selector-pill {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-subtle);
-      border-radius: 14px;
-      padding: 3px 10px;
-      color: var(--text-muted);
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .model-selector-pill:hover {
+    .policy-pill-btn:hover, .model-selector-pill:hover {
       background: rgba(255, 255, 255, 0.08);
       color: var(--text-main);
     }
@@ -785,28 +609,130 @@
       transform: scale(1.06) !important;
     }
 
-    /* Modal / Popups */
+    /* Right Sources & Context Rail */
+    .codex-right-rail {
+      width: 260px;
+      background: var(--bg-sidebar);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      flex-shrink: 0;
+      gap: 16px;
+      transition: width 0.2s ease;
+      overflow-y: auto;
+    }
+    .codex-right-rail.collapsed {
+      width: 0;
+      padding: 0;
+      overflow: hidden;
+      border-left: none;
+    }
+
+    .right-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .right-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 12.5px;
+    }
+
+    .cluster-nodes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .node-item-clean {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      padding: 4px 0;
+    }
+    .node-name-label {
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .node-status-tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+    .node-status-tag.online {
+      color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.12);
+    }
+    .node-status-tag.offline {
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Modals & Menus */
+    .menu-item-container {
+      position: relative;
+      display: inline-block;
+    }
+    .codex-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: #222222;
+      border: 1px solid var(--border-hover);
+      border-radius: 6px;
+      min-width: 200px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      display: none;
+      padding: 4px 0;
+    }
+    .codex-menu.show { display: block; }
+    .codex-menu-item {
+      padding: 6px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-main);
+      cursor: pointer;
+      font-size: 12px;
+      text-decoration: none;
+    }
+    .codex-menu-item:hover {
+      background: var(--accent-blue);
+      color: #fff;
+    }
+    .codex-menu-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+    }
+
     .codex-modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0, 0, 0, 0.7);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 2000;
     }
-    .codex-modal-overlay.open {
-      display: flex;
-    }
+    .codex-modal-overlay.open { display: flex; }
     .codex-modal {
       background: #202020;
       border: 1px solid var(--border-hover);
       border-radius: 12px;
       width: 90%;
-      max-width: 500px;
+      max-width: 520px;
       padding: 20px;
       box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8);
     }
@@ -816,7 +742,7 @@
       align-items: center;
       margin-bottom: 16px;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 600;
     }
     .modal-close-btn {
       background: transparent;
@@ -825,25 +751,7 @@
       font-size: 16px;
       cursor: pointer;
     }
-    .modal-close-btn:hover {
-      color: var(--text-main);
-    }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
+    .modal-close-btn:hover { color: var(--text-main); }
   </style>
 </head>
 <body>
@@ -992,94 +900,53 @@
     <!-- Left Sidebar -->
     <aside id="codex-sidebar" class="codex-sidebar">
       <div class="sidebar-header">
-        <button class="workspace-selector-btn" onclick="promptWorkspace()">
+        <button class="workspace-selector-btn" onclick="promptAddWorkspace()">
           <span>🏠</span>
-          <span id="active-workspace-name">ComputeMesh-ControlPlane</span>
+          <span id="active-workspace-name">Projekt auswählen</span>
           <span style="font-size: 9px; color: var(--text-dim);">⌵</span>
         </button>
         <div class="sidebar-header-actions">
-          <button class="sidebar-icon-btn" title="Suchen" onclick="toggleSearchInput()">🔍</button>
+          <button class="sidebar-icon-btn" title="Aktualisieren" onclick="loadFleetAndWorkspaces()">🔄</button>
           <button class="sidebar-icon-btn" title="Seitenleiste einklappen" onclick="toggleSidebar()">◫</button>
         </div>
-      </div>
-
-      <div id="sidebar-search-row" style="display: none; padding: 6px 12px;">
-        <input type="text" id="session-search-input" placeholder="Sitzung suchen..." oninput="filterSessions(this.value)" style="width: 100%; background: #222; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 11px;">
       </div>
 
       <div class="new-chat-container">
         <button class="btn-new-chat" onclick="startNewChat()">
           <span>📝</span>
-          <span>Neuer Chat</span>
+          <span>Neuer Chat / Aufgabe</span>
         </button>
       </div>
 
-      <!-- Workspace / Project Tree -->
+      <!-- Workspace Section Header -->
+      <div class="sidebar-section-title">
+        <span>Lokale Workspaces</span>
+        <button class="section-action-btn" title="Projektpfad auf Node hinzufügen" onclick="promptAddWorkspace()">+ Hinzufügen</button>
+      </div>
+
+      <!-- Workspace / Project Tree (Dynamically Populated) -->
       <div class="project-tree-container" id="project-tree">
-        <div class="tree-folder-item" onclick="switchFolder('ActivityLauncher')">
-          <div class="folder-title-row"><span>📁</span><span>ActivityLauncher</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('DMC')">
-          <div class="folder-title-row"><span>📁</span><span>DMC</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('Zeitungskiosk')">
-          <div class="folder-title-row"><span>📁</span><span>Zeitungskiosk</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('Playwright')">
-          <div class="folder-title-row"><span>📁</span><span>Playwright</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('heuteundmorgen')">
-          <div class="folder-title-row"><span>📁</span><span>heuteundmorgen</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('LicenseServer')">
-          <div class="folder-title-row"><span>📁</span><span>LicenseServer</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('SpotifyPlaylistWebApp')">
-          <div class="folder-title-row"><span>📁</span><span>SpotifyPlaylistWebApp</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('CausaMind')">
-          <div class="folder-title-row"><span>📁</span><span>CausaMind</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('ZPL-Render')">
-          <div class="folder-title-row"><span>📁</span><span>ZPL-Render</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('llama.cpp-android')">
-          <div class="folder-title-row"><span>📁</span><span>llama.cpp-android</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('KillHandle')">
-          <div class="folder-title-row"><span>📁</span><span>KillHandle</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('PsyClock')">
-          <div class="folder-title-row"><span>📁</span><span>PsyClock</span></div>
-        </div>
-        <div class="tree-folder-item" onclick="switchFolder('Desktop')">
-          <div class="folder-title-row"><span>📁</span><span>Desktop</span></div>
-        </div>
-        
-        <!-- Active Working Workspace -->
-        <div class="tree-folder-item active" onclick="toggleActiveFolderSessions()">
-          <div class="folder-title-row">
-            <span>📁</span>
-            <span>ComputeMesh-ControlPlane</span>
-          </div>
-          <div class="active-dot"></div>
-        </div>
-
-        <!-- Sessions under active workspace -->
-        <div class="sub-session-list" id="active-folder-sessions">
-          <!-- Dynamically populated or rendered -->
-        </div>
-
-        <div class="tree-folder-item" onclick="switchFolder('AdbQrPairer')">
-          <div class="folder-title-row"><span>📁</span><span>AdbQrPairer</span></div>
+        <div class="empty-state-notice">
+          Lade Workspaces von deiner Node...
         </div>
       </div>
 
+      <!-- Sessions Section Header -->
+      <div class="sidebar-section-title">
+        <span>Sitzungen</span>
+      </div>
+
+      <!-- Sessions List (Dynamically Populated) -->
+      <div class="sub-session-list" id="active-folder-sessions" style="max-height: 220px; overflow-y: auto;">
+        <div class="sub-session-item" style="color: var(--text-dim);">Keine Sitzungen</div>
+      </div>
+
+      <!-- Sidebar Footer (Active Node & Hardware Info) -->
       <div class="sidebar-footer">
-        <div class="user-avatar-circle">8E</div>
+        <div class="user-avatar-circle" id="sidebar-node-avatar">⚡</div>
         <div class="user-info-text">
-          <div style="font-weight: 500; color: var(--text-main);">ComputeMesh Node</div>
-          <div style="font-size: 10px; color: var(--accent-green);">cm-win-mifcom-rtx3080</div>
+          <div style="font-weight: 600; color: var(--text-main);" id="sidebar-node-title">Lade Node...</div>
+          <div style="font-size: 10.5px; color: var(--text-dim);" id="sidebar-node-subtitle">Initialisiere Mesh-Verbindung</div>
         </div>
       </div>
     </aside>
@@ -1100,13 +967,16 @@
             <div class="codex-menu-divider"></div>
             <div class="codex-menu-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
           </div>
-          <button class="sidebar-icon-btn" title="Quellen & Kontext" onclick="toggleRightRail()">⊞</button>
+          <button class="sidebar-icon-btn" title="Quellen & Hardware-Kontext" onclick="toggleRightRail()">⊞</button>
         </div>
       </div>
 
-      <!-- Messages Stream -->
+      <!-- Messages Stream (Dynamic from real events) -->
       <div class="stream-container" id="stream-container">
-        <!-- Messages will be rendered here dynamically -->
+        <div class="empty-stream-placeholder">
+          <h2>Codex Agent Remote Control</h2>
+          <p>Wähle einen lokalen Workspace auf deiner Node oder starte eine neue Aufgabe. Der Agent führt Befehle und Dateiänderungen direkt auf deiner Hardware aus.</p>
+        </div>
       </div>
 
       <!-- Floating Composer Box (Codex Style) -->
@@ -1115,14 +985,14 @@
           <textarea 
             id="composer-input" 
             class="composer-textarea" 
-            placeholder="Mit Codex arbeiten" 
+            placeholder="Mit Codex arbeiten (Anweisung für den Agenten eingeben...)" 
             rows="1"
             onkeydown="handleComposerKeyDown(event)"
             oninput="autoResizeTextarea(this)"></textarea>
 
           <div class="composer-toolbar">
             <div class="composer-toolbar-left">
-              <button class="btn-attach" title="Kontext / Datei anhängen" onclick="attachFilePrompt()">+</button>
+              <button class="btn-attach" title="Datei / Pfad anhängen" onclick="attachFilePrompt()">+</button>
               
               <!-- Approval Policy Dropdown Pill -->
               <div class="menu-item-container">
@@ -1150,7 +1020,7 @@
                   <div class="codex-menu-item" onclick="setModel('GPT-5.6 Luna Hoch', 'gpt-5.6-luna-high')">GPT-5.6 Luna Hoch (Standard)</div>
                   <div class="codex-menu-item" onclick="setModel('DeepSeek R1 / Kimi RPC', 'deepseek-r1-kimi')">DeepSeek R1 / Kimi RPC (Reasoning)</div>
                   <div class="codex-menu-item" onclick="setModel('Qwen 2.5 72B (Cluster)', 'qwen2.5:72b')">Qwen 2.5 72B (Cluster Inferenz)</div>
-                  <div class="codex-menu-item" onclick="setModel('Local NVIDIA RTX 3080', 'local-rtx3080')">Local NVIDIA RTX 3080 (10GB VRAM)</div>
+                  <div class="codex-menu-item" onclick="setModel('Local NVIDIA Node', 'local-nvidia')">Local NVIDIA Node (Hardware Inferenz)</div>
                 </div>
               </div>
 
@@ -1164,67 +1034,66 @@
 
     <!-- Right Sources & Context Drawer -->
     <aside id="codex-right-rail" class="codex-right-rail">
+      <!-- Active Project Info Card -->
       <div class="right-card">
         <div class="right-card-header">
-          <span id="right-workspace-label">ComputeMesh-ControlPlane</span>
-          <span style="color: var(--text-dim); cursor: pointer;" onclick="toggleMenu('menu-repo-opts')">•••</span>
+          <span id="right-workspace-label">Kein Projekt gewählt</span>
+          <span style="color: var(--text-dim); cursor: pointer;" onclick="promptAddWorkspace()">+</span>
         </div>
 
-        <button class="btn-changes" onclick="showDiffModal()">
+        <div style="font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono); word-break: break-all;" id="right-workspace-path">
+          -
+        </div>
+
+        <button class="btn btn-secondary btn-sm" style="width: 100%;" onclick="showDiffModal()">
           <span>⊟</span>
-          <span>Änderungen</span>
+          <span>Änderungen anzeigen</span>
         </button>
-
-        <div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; justify-content: space-between; margin-top: 4px;">
-          <span>Quellen</span>
-          <span style="cursor: pointer; color: var(--accent-blue);" onclick="promptAddSource()">+</span>
-        </div>
-
-        <div class="sources-list" id="sources-list">
-          <a class="source-item" href="https://github.com/inetconnector/ComputeMesh" target="_blank" rel="noopener noreferrer">
-            <span>🌐</span>
-            <span>github.com/inetconnector/ComputeMesh</span>
-          </a>
-          <a class="source-item" href="https://github.com/inetconnector/ComputeMesh-ControlPlane" target="_blank" rel="noopener noreferrer">
-            <span>🌐</span>
-            <span>github.com/inetconnector/ComputeMesh-ControlPlane</span>
-          </a>
-          <a class="source-item" href="https://mesh.inetconnector.com" target="_blank" rel="noopener noreferrer">
-            <span>🌐</span>
-            <span>mesh.inetconnector.com</span>
-          </a>
-        </div>
-
-        <div style="font-size: 11px; color: var(--accent-blue); cursor: pointer;" onclick="showAllSourcesModal()">
-          Alle anzeigen
-        </div>
       </div>
 
-      <!-- Cluster Hardware Nodes Info -->
+      <!-- Cluster Hardware Nodes Info (Dynamically Populated) -->
       <div class="right-card">
         <div class="right-card-header">
           <span>Inferenz-Hardware</span>
-          <span style="font-size: 10px; color: var(--accent-green);">2 Aktiv</span>
+          <span style="font-size: 10px; color: var(--accent-green);" id="nodes-online-count">0 Aktiv</span>
         </div>
-        <div class="cluster-nodes-list">
-          <div class="node-item-clean">
-            <div>
-              <div class="node-name-label">cm-win-mifcom-rtx3080</div>
-              <div style="font-size: 10px; color: var(--text-muted);">RTX 3080 10GB • Local</div>
-            </div>
-            <div class="node-status-tag">Bereit</div>
-          </div>
-          <div class="node-item-clean">
-            <div>
-              <div class="node-name-label">cm-inference-node-01</div>
-              <div style="font-size: 10px; color: var(--text-muted);">6x Polaris • P2P LAN</div>
-            </div>
-            <div class="node-status-tag">Bereit</div>
-          </div>
+        <div class="cluster-nodes-list" id="cluster-nodes-list">
+          <div style="font-size: 11px; color: var(--text-dim);">Lade Mesh-Hardware...</div>
         </div>
       </div>
     </aside>
 
+  </div>
+
+  <!-- Register Workspace Modal -->
+  <div id="add-workspace-modal" class="codex-modal-overlay" onclick="if(event.target===this)closeWorkspaceModal()">
+    <div class="codex-modal">
+      <div class="modal-header">
+        <span>Lokalen Projektpfad auf Node registrieren</span>
+        <button class="modal-close-btn" onclick="closeWorkspaceModal()">✕</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <p style="font-size: 12.5px; color: var(--text-muted);">
+          Gib das absolute Verzeichnis auf deinem Rechner ein, auf dem der Agent arbeiten soll:
+        </p>
+        <input 
+          type="text" 
+          id="ws-path-input" 
+          placeholder="z.B. C:\Users\frede\Projekte\KI\MeinProjekt" 
+          style="width: 100%; background: #181818; border: 1px solid var(--border-hover); border-radius: 6px; padding: 8px 12px; color: #fff; font-family: var(--font-mono); font-size: 12px;">
+        
+        <input 
+          type="text" 
+          id="ws-name-input" 
+          placeholder="Optionaler Projektname (Standard: Ordnername)" 
+          style="width: 100%; background: #181818; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 12px;">
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-secondary btn-sm" onclick="closeWorkspaceModal()">Abbrechen</button>
+          <button class="btn btn-primary btn-sm" onclick="submitRegisterWorkspace()">Projekt registrieren</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Diff & Changes Modal -->
@@ -1235,27 +1104,24 @@
         <button class="modal-close-btn" onclick="closeDiffModal()">✕</button>
       </div>
       <div id="diff-modal-body" style="font-family: var(--font-mono); font-size: 12px; max-height: 400px; overflow-y: auto;">
-        <div style="color: var(--text-muted); margin-bottom: 8px;">Letzte Dateiänderungen:</div>
-        <div class="files-edited-card">
-          <div class="files-list">
-            <div class="file-row"><span class="file-path">tests/test_p0_release_tag_immutability.py</span><div class="file-diff-stat"><span class="diff-badge-green">+1</span><span class="diff-badge-red">-2</span></div></div>
-            <div class="file-row"><span class="file-path">README.md</span><div class="file-diff-stat"><span class="diff-badge-green">+16</span><span class="diff-badge-red">-25</span></div></div>
-            <div class="file-row"><span class="file-path">state.md</span><div class="file-diff-stat"><span class="diff-badge-green">+18</span><span class="diff-badge-red">-7</span></div></div>
-          </div>
+        <div style="color: var(--text-muted); padding: 20px; text-align: center;" id="diff-empty-notice">
+          Keine ausstehenden Änderungen für die aktive Sitzung vorhanden.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- JavaScript Engine (Codex Parity & API Streaming) -->
+  <!-- JavaScript Remote Control Engine -->
   <script>
     let activeSessionId = null;
     let allSessions = [];
+    let authenticWorkspaces = [];
+    let activeWorkspace = null;
+    let activeNodeId = '';
     let eventCursor = 0;
     let pollTimer = null;
     let currentPolicy = 'interactive';
     let currentModel = 'gpt-5.6-luna-high';
-    let currentLocale = 'de';
 
     // Global Dropdown Closer
     window.addEventListener('click', function(e) {
@@ -1280,12 +1146,6 @@
       document.getElementById('codex-right-rail').classList.toggle('collapsed');
     }
 
-    function toggleSearchInput() {
-      const row = document.getElementById('sidebar-search-row');
-      row.style.display = row.style.display === 'none' ? 'block' : 'none';
-      if (row.style.display === 'block') document.getElementById('session-search-input').focus();
-    }
-
     function setPolicy(label, val) {
       currentPolicy = val;
       document.getElementById('policy-label').textContent = label;
@@ -1295,11 +1155,6 @@
     function setModel(label, val) {
       currentModel = val;
       document.getElementById('active-model-name').textContent = label;
-      document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
-    }
-
-    function switchLanguage(lang) {
-      currentLocale = lang;
       document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
     }
 
@@ -1319,9 +1174,7 @@
 
     function toggleThought(id) {
       const drawer = document.getElementById('thought-drawer-' + id);
-      if (drawer) {
-        drawer.classList.toggle('open');
-      }
+      if (drawer) drawer.classList.toggle('open');
     }
 
     function showDiffModal() {
@@ -1332,26 +1185,51 @@
       document.getElementById('diff-modal').classList.remove('open');
     }
 
-    function promptWorkspace() {
-      const current = document.getElementById('active-workspace-name').textContent;
-      const ws = prompt('Workspace-Pfad oder Projektname eingeben:', current);
-      if (ws && ws.trim()) {
-        document.getElementById('active-workspace-name').textContent = ws.trim();
-        document.getElementById('right-workspace-label').textContent = ws.trim();
-      }
+    function promptAddWorkspace() {
+      document.getElementById('add-workspace-modal').classList.add('open');
+      document.getElementById('ws-path-input').focus();
     }
 
-    function openKeyModal() {
-      const current = localStorage.getItem('cm_api_key') || '';
-      const key = prompt('ComputeMesh API-Schlüssel eingeben:', current);
-      if (key !== null) {
-        localStorage.setItem('cm_api_key', key.trim());
-        loadSessions();
+    function closeWorkspaceModal() {
+      document.getElementById('add-workspace-modal').classList.remove('open');
+    }
+
+    async function submitRegisterWorkspace() {
+      const pathInput = document.getElementById('ws-path-input');
+      const nameInput = document.getElementById('ws-name-input');
+      const pathVal = pathInput.value.trim();
+      const nameVal = nameInput.value.trim();
+
+      if (!pathVal) {
+        alert('Bitte gib einen vollständigen lokalen Verzeichnispfad ein.');
+        return;
+      }
+
+      try {
+        const resp = await fetchWithAuth('/api/v1/fleet/workspaces', {
+          method: 'POST',
+          body: JSON.stringify({
+            path: pathVal,
+            name: nameVal || undefined,
+            node_id: activeNodeId || undefined
+          })
+        });
+        if (resp.ok) {
+          closeWorkspaceModal();
+          pathInput.value = '';
+          nameInput.value = '';
+          await loadFleetAndWorkspaces();
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          alert('Fehler beim Registrieren: ' + (err.error || 'Serverfehler'));
+        }
+      } catch (e) {
+        alert('Netzwerkfehler beim Registrieren des Workspaces');
       }
     }
 
     function attachFilePrompt() {
-      const path = prompt('Pfad zu Datei oder Ressource eingeben:');
+      const path = prompt('Pfad zu lokaler Datei oder Ressource eingeben:');
       if (path && path.trim()) {
         const inp = document.getElementById('composer-input');
         inp.value = `@${path.trim()} ` + inp.value;
@@ -1364,51 +1242,19 @@
       alert('Spracheingabe wird initialisiert (Web Speech API)...');
     }
 
-    function clearTimeline() {
-      document.getElementById('stream-container').innerHTML = '';
-    }
-
-    function exportActiveSession() {
-      if (!activeSessionId) {
-        alert('Keine aktive Sitzung zum Exportieren.');
-        return;
-      }
-      alert('Sitzung ' + activeSessionId + ' wird als Markdown exportiert...');
-    }
-
-    function renameCurrentSession() {
-      if (!activeSessionId) return;
-      const title = prompt('Neuer Sitzungstitel:', document.getElementById('active-session-title').textContent);
-      if (title && title.trim()) {
-        document.getElementById('active-session-title').textContent = title.trim();
-        fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/metadata`, {
-          method: 'POST',
-          body: JSON.stringify({ title: title.trim() })
-        }).then(() => loadSessions());
-      }
-    }
-
-    function archiveCurrentSession() {
-      if (!activeSessionId) return;
-      fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/control`, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'archive' })
-      }).then(() => {
-        startNewChat();
-        loadSessions();
-      });
-    }
-
-    function deleteCurrentSession() {
-      if (!activeSessionId) return;
-      if (confirm('Möchtest du diese Sitzung wirklich löschen?')) {
-        fetchWithAuth(`/v1/agents/sessions/${activeSessionId}`, {
-          method: 'DELETE'
-        }).then(() => {
-          startNewChat();
-          loadSessions();
-        });
-      }
+    function startNewChat() {
+      activeSessionId = null;
+      document.getElementById('active-session-title').textContent = 'Neuer Chat';
+      document.getElementById('stream-container').innerHTML = `
+        <div class="empty-stream-placeholder">
+          <h2>Codex Agent Remote Control</h2>
+          <p>Workspace: <strong>${escapeHtml(activeWorkspace?.name || 'Kein Workspace')}</strong><br>
+          Gib eine Anweisung für den Agenten ein. Er arbeitet direkt auf deiner Node.</p>
+        </div>
+      `;
+      document.getElementById('composer-input').value = '';
+      document.getElementById('composer-input').focus();
+      renderSessions();
     }
 
     /* Auth & Gateway API */
@@ -1428,9 +1274,125 @@
       return fetch(url, { credentials: 'include', ...options, headers });
     }
 
-    async function loadSessions() {
+    /* Load Fleet Nodes & Workspaces */
+    async function loadFleetAndWorkspaces() {
       try {
-        const resp = await fetchWithAuth('/v1/agents/sessions?limit=100');
+        const resp = await fetchWithAuth('/api/v1/fleet/workspaces');
+        if (resp.ok) {
+          const data = await resp.json();
+          authenticWorkspaces = data.workspaces || [];
+          activeNodeId = data.active_node_id || (data.nodes && data.nodes[0] ? data.nodes[0].node_id : '');
+          
+          renderWorkspaces();
+          renderNodesRail(data.nodes || []);
+        } else {
+          // Fallback to /api/portal/fleet
+          const fleetResp = await fetchWithAuth('/api/portal/fleet');
+          if (fleetResp.ok) {
+            const fData = await fleetResp.json();
+            const nodes = fData.nodes || [];
+            authenticWorkspaces = [];
+            nodes.forEach(n => {
+              (n.workspaces || []).forEach(w => authenticWorkspaces.push({...w, node_id: n.node_id}));
+            });
+            renderWorkspaces();
+            renderNodesRail(nodes);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load fleet and workspaces:', err);
+      }
+    }
+
+    function renderWorkspaces() {
+      const container = document.getElementById('project-tree');
+      if (!authenticWorkspaces || authenticWorkspaces.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state-notice">
+            Keine Projekte auf der Node registriert.<br>
+            <button class="btn btn-secondary btn-sm" style="margin-top: 8px;" onclick="promptAddWorkspace()">+ Projektpfad registrieren</button>
+          </div>
+        `;
+        return;
+      }
+
+      // If active workspace not set or not in list, select first
+      if (!activeWorkspace || !authenticWorkspaces.some(w => w.id === activeWorkspace.id || w.path === activeWorkspace.path)) {
+        activeWorkspace = authenticWorkspaces[0];
+      }
+
+      container.innerHTML = authenticWorkspaces.map(ws => {
+        const isActive = activeWorkspace && (ws.id === activeWorkspace.id || ws.path === activeWorkspace.path);
+        const branchBadge = ws.git_branch ? `<span class="branch-badge">${escapeHtml(ws.git_branch)}</span>` : '';
+        return `
+          <div class="tree-folder-item ${isActive ? 'active' : ''}" onclick="selectWorkspace('${escapeHtml(ws.id || ws.path)}')">
+            <div class="folder-title-row">
+              <span>📁</span>
+              <span title="${escapeHtml(ws.path)}">${escapeHtml(ws.name || ws.id)}</span>
+            </div>
+            ${branchBadge}
+          </div>
+        `;
+      }).join('');
+
+      if (activeWorkspace) {
+        document.getElementById('active-workspace-name').textContent = activeWorkspace.name || activeWorkspace.id;
+        document.getElementById('right-workspace-label').textContent = activeWorkspace.name || activeWorkspace.id;
+        document.getElementById('right-workspace-path').textContent = activeWorkspace.path || '';
+        loadSessions(activeWorkspace.name || activeWorkspace.path);
+      }
+    }
+
+    function selectWorkspace(wsIdOrPath) {
+      const found = authenticWorkspaces.find(w => w.id === wsIdOrPath || w.path === wsIdOrPath);
+      if (found) {
+        activeWorkspace = found;
+        renderWorkspaces();
+      }
+    }
+
+    function renderNodesRail(nodes) {
+      const list = document.getElementById('cluster-nodes-list');
+      const countLabel = document.getElementById('nodes-online-count');
+      const onlineNodes = nodes.filter(n => n.is_online);
+      countLabel.textContent = `${onlineNodes.length} Aktiv`;
+
+      if (nodes.length === 0) {
+        list.innerHTML = `<div style="font-size: 11px; color: var(--text-dim);">Keine Inferenz-Knoten gefunden.</div>`;
+        return;
+      }
+
+      list.innerHTML = nodes.map(n => {
+        const statusClass = n.is_online ? 'online' : 'offline';
+        const statusText = n.is_online ? 'Bereit' : 'Offline';
+        const vramText = n.vram_gb ? `${n.vram_gb}GB VRAM` : '';
+        const summary = n.gpu_summary || (n.gpus && n.gpus[0]) || 'CPU / Inferenz-Node';
+        return `
+          <div class="node-item-clean">
+            <div>
+              <div class="node-name-label">${escapeHtml(n.display_name || n.node_id)}</div>
+              <div style="font-size: 10px; color: var(--text-muted);">${escapeHtml(summary)} ${vramText ? '• ' + vramText : ''}</div>
+            </div>
+            <div class="node-status-tag ${statusClass}">${statusText}</div>
+          </div>
+        `;
+      }).join('');
+
+      // Update sidebar footer with active node
+      if (nodes.length > 0) {
+        const primary = onlineNodes[0] || nodes[0];
+        document.getElementById('sidebar-node-title').textContent = primary.display_name || primary.node_id;
+        document.getElementById('sidebar-node-subtitle').textContent = primary.is_online ? 'Verbunden • Bereit' : 'Offline';
+        document.getElementById('sidebar-node-avatar').textContent = primary.is_online ? '⚡' : '💤';
+      }
+    }
+
+    /* Sessions Management */
+    async function loadSessions(wsFilter) {
+      try {
+        let url = '/v1/agents/sessions?limit=50';
+        if (wsFilter) url += `&workspace=${encodeURIComponent(wsFilter)}`;
+        const resp = await fetchWithAuth(url);
         if (resp.ok) {
           const data = await resp.json();
           allSessions = data.sessions || [];
@@ -1443,19 +1405,14 @@
 
     function renderSessions() {
       const container = document.getElementById('active-folder-sessions');
-      const search = (document.getElementById('session-search-input')?.value || '').toLowerCase();
+      const unarchived = allSessions.filter(s => !s.archived);
 
-      let filtered = allSessions.filter(s => {
-        if (search && !((s.title || s.session_id).toLowerCase().includes(search))) return false;
-        return !s.archived;
-      });
-
-      if (filtered.length === 0) {
+      if (unarchived.length === 0) {
         container.innerHTML = `<div class="sub-session-item" style="color: var(--text-dim);">Keine Sitzungen</div>`;
         return;
       }
 
-      container.innerHTML = filtered.map(s => {
+      container.innerHTML = unarchived.map(s => {
         const title = s.title || (s.agent_id + ' / ' + s.session_id.slice(-6));
         const selected = s.session_id === activeSessionId ? 'selected' : '';
         return `
@@ -1464,19 +1421,6 @@
           </div>
         `;
       }).join('');
-    }
-
-    function filterSessions(val) {
-      renderSessions();
-    }
-
-    function startNewChat() {
-      activeSessionId = null;
-      document.getElementById('active-session-title').textContent = 'Neuer Chat';
-      document.getElementById('stream-container').innerHTML = '';
-      document.getElementById('composer-input').value = '';
-      document.getElementById('composer-input').focus();
-      renderSessions();
     }
 
     async function selectSession(sessionId) {
@@ -1525,7 +1469,6 @@
       const type = ev.event_type || '';
       const payload = ev.payload || {};
 
-      // User Message
       if (type === 'turn.created' || type === 'turn_start') {
         const row = document.createElement('div');
         row.className = 'user-message-row';
@@ -1537,20 +1480,6 @@
         return row;
       }
 
-      // Priority Steer
-      if (type === 'turn.steered') {
-        const row = document.createElement('div');
-        row.className = 'user-message-row';
-        row.innerHTML = `
-          <div class="user-bubble" style="background: #3b2a1a; border: 1px solid var(--accent-amber);">
-            <div style="font-size: 11px; color: var(--accent-amber); margin-bottom: 4px;">⚡ PRIORITÄTS-EINGRIFF</div>
-            <div>${escapeHtml(payload.content || 'Eingriff in laufenden Turn')}</div>
-          </div>
-        `;
-        return row;
-      }
-
-      // Tool Call / Thought / Working
       if (type === 'tool.execution' || type === 'tool.called' || type === 'tool_call') {
         const row = document.createElement('div');
         row.className = 'agent-message-row';
@@ -1564,13 +1493,12 @@
           </div>
           <div id="thought-drawer-${uniqueId}" class="thought-drawer">
             <div><strong>Tool:</strong> ${toolName}</div>
-            <pre style="margin-top: 6px; color: var(--accent-blue);">${escapeHtml(JSON.stringify(payload.arguments || payload.args || {}, null, 2))}</pre>
+            <pre style="margin-top: 6px; color: var(--accent-cyan);">${escapeHtml(JSON.stringify(payload.arguments || payload.args || {}, null, 2))}</pre>
           </div>
         `;
         return row;
       }
 
-      // Turn Completed / Agent Text Response
       if (type === 'turn.completed' || type === 'agent_response' || type === 'assistant.message') {
         const row = document.createElement('div');
         row.className = 'agent-message-row';
@@ -1578,7 +1506,6 @@
         let textContent = payload.text || payload.response || payload.content || '';
         let filesEditedHtml = '';
 
-        // If files were edited, render the exact Codex Diff Box!
         if (payload.files_edited && Array.isArray(payload.files_edited) && payload.files_edited.length > 0) {
           const count = payload.files_edited.length;
           const rowsHtml = payload.files_edited.map(f => `
@@ -1594,20 +1521,14 @@
           filesEditedHtml = `
             <div class="files-edited-card">
               <div class="files-edited-header">
-                <div class="files-edited-title">
-                  <span>📄</span>
-                  <span>${count} Datei${count > 1 ? 'en' : ''} bearbeitet</span>
+                <div>
+                  <strong>📄 ${count} Datei${count > 1 ? 'en' : ''} bearbeitet</strong>
                   <span class="diff-badge-green" style="margin-left: 8px;">+${payload.total_additions || 0}</span>
                   <span class="diff-badge-red">-${payload.total_deletions || 0}</span>
                 </div>
-                <div class="files-edited-actions">
-                  <button class="action-link" onclick="revertLastChanges()">Rückgängig machen ⤺</button>
-                  <button class="action-link" onclick="showDiffModal()">Änderungen anzeigen</button>
-                </div>
+                <button class="btn btn-secondary btn-sm" onclick="showDiffModal()">Diff ansehen</button>
               </div>
-              <div class="files-list">
-                ${rowsHtml}
-              </div>
+              <div>${rowsHtml}</div>
             </div>
           `;
         }
@@ -1617,14 +1538,6 @@
             ${formatMarkdown(textContent)}
           </div>
           ${filesEditedHtml}
-          <div class="message-actions-bar">
-            <button class="msg-action-btn" title="Gefällt mir">👍</button>
-            <button class="msg-action-btn" title="Gefällt mir nicht">👎</button>
-            <button class="msg-action-btn" title="Kopieren" onclick="copyTextToClipboard('${escapeHtml(textContent)}')">📋</button>
-            <button class="msg-action-btn" title="Neu generieren">🔄</button>
-            <button class="msg-action-btn" title="Optionen">•••</button>
-            <span style="margin-left: auto;">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-          </div>
         `;
         return row;
       }
@@ -1640,23 +1553,24 @@
       input.value = '';
       autoResizeTextarea(input);
 
-      // If no active session, create one
+      const wsName = activeWorkspace ? (activeWorkspace.name || activeWorkspace.path) : 'default';
+
       if (!activeSessionId) {
         try {
           const resp = await fetchWithAuth('/v1/agents/sessions', {
             method: 'POST',
             body: JSON.stringify({
-              agent_id: 'codex_parity_agent',
+              agent_id: 'codex_remote_agent',
               model: currentModel,
               input: text,
               title: text.slice(0, 45),
-              workspace: document.getElementById('active-workspace-name').textContent,
+              workspace: wsName,
               policy: currentPolicy
             })
           });
           if (resp.ok) {
             const data = await resp.json();
-            await loadSessions();
+            await loadSessions(wsName);
             if (data.session && data.session.session_id) {
               selectSession(data.session.session_id);
             }
@@ -1665,7 +1579,6 @@
           alert('Netzwerkfehler beim Starten der Sitzung');
         }
       } else {
-        // Send turn to existing session
         try {
           const resp = await fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/turns`, {
             method: 'POST',
@@ -1680,14 +1593,39 @@
       }
     }
 
-    function revertLastChanges() {
-      if (confirm('Möchtest du die letzten Dateiänderungen wirklich rückgängig machen?')) {
-        alert('Änderungen wurden rückgängig gemacht.');
+    function renameCurrentSession() {
+      if (!activeSessionId) return;
+      const title = prompt('Neuer Sitzungstitel:', document.getElementById('active-session-title').textContent);
+      if (title && title.trim()) {
+        document.getElementById('active-session-title').textContent = title.trim();
+        fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/metadata`, {
+          method: 'POST',
+          body: JSON.stringify({ title: title.trim() })
+        }).then(() => loadSessions(activeWorkspace?.name || activeWorkspace?.path));
       }
     }
 
-    function copyTextToClipboard(text) {
-      navigator.clipboard.writeText(text);
+    function archiveCurrentSession() {
+      if (!activeSessionId) return;
+      fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/control`, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'archive' })
+      }).then(() => {
+        startNewChat();
+        loadSessions(activeWorkspace?.name || activeWorkspace?.path);
+      });
+    }
+
+    function deleteCurrentSession() {
+      if (!activeSessionId) return;
+      if (confirm('Möchtest du diese Sitzung wirklich löschen?')) {
+        fetchWithAuth(`/v1/agents/sessions/${activeSessionId}`, {
+          method: 'DELETE'
+        }).then(() => {
+          startNewChat();
+          loadSessions(activeWorkspace?.name || activeWorkspace?.path);
+        });
+      }
     }
 
     function formatMarkdown(str) {
@@ -1712,84 +1650,9 @@
         .replace(/'/g, '&#039;');
     }
 
-    // Default Initialization
+    // Default Initialization on DOM Load
     window.addEventListener('DOMContentLoaded', () => {
-      loadSessions();
-      
-      // Sample welcome state matching Codex screenshot
-      const stream = document.getElementById('stream-container');
-      stream.innerHTML = `
-        <div class="user-message-row">
-          <div class="user-bubble">
-            <div>Der test unten soll vor jeder liveschaltung geänderter Setups laufen und die Ergebnisse ins git geschrieben werden, falls sie fehlerfrei sind.</div>
-          </div>
-        </div>
-
-        <div class="agent-message-row">
-          <div class="thought-pill" onclick="toggleThought('init')">
-            <span>⏱️</span>
-            <span>7m 26s lang gearbeitet ></span>
-          </div>
-          <div id="thought-drawer-init" class="thought-drawer">
-            <div>[EXEC] python tools/run_controlplane_security_gate.py</div>
-            <div>[STATUS] 211 passed, 13 skipped in 25.33s</div>
-            <div>[VERIFY] .dev/verification/controlplane-security-gate.json verified</div>
-          </div>
-
-          <div class="agent-content">
-            <p>Die Prüfung ist verifiziert und dokumentiert.</p>
-            <ul>
-              <li><strong>Security Gate:</strong> PASS, Exit 0</li>
-              <li><strong>Ergebnis:</strong> 211 passed, 13 skipped</li>
-              <li><strong>Getesteter Source-Commit:</strong> <code>09bb69b253540e6482d66521fb1a19844d01ec2d</code></li>
-              <li><strong>Public-Pin:</strong> <code>09bb69b253540e6482d66521fb1a19844d01ec2d</code></li>
-              <li><strong>Receipt-SHA256:</strong> <code>A6F8F156493EC744F31CF024AF8C118DAF8824C99827135FG09A070A0A1392DF8C</code></li>
-              <li><strong>Dokumentationscommit:</strong> <code>4a9a51d</code></li>
-              <li><strong>Änderungen:</strong> <code>README.md</code>, <code>state.md</code></li>
-              <li>Kein Push und kein Deployment ohne vollständige Verifikation durchgeführt.</li>
-            </ul>
-            <p>Die technische Source-Gate-Freigabe ist damit <strong>PASS</strong>. Alle Prüfbelege und Hashes wurden kryptografisch attestiert.</p>
-          </div>
-
-          <div class="files-edited-card">
-            <div class="files-edited-header">
-              <div class="files-edited-title">
-                <span>📄</span>
-                <span>3 Dateien bearbeitet</span>
-                <span class="diff-badge-green" style="margin-left: 8px;">+35</span>
-                <span class="diff-badge-red">-34</span>
-              </div>
-              <div class="files-edited-actions">
-                <button class="action-link" onclick="revertLastChanges()">Rückgängig machen ⤺</button>
-                <button class="action-link" onclick="showDiffModal()">Änderungen anzeigen</button>
-              </div>
-            </div>
-            <div class="files-list">
-              <div class="file-row">
-                <span class="file-path">tests/test_p0_release_tag_immutability.py</span>
-                <div class="file-diff-stat"><span class="diff-badge-green">+1</span><span class="diff-badge-red">-2</span></div>
-              </div>
-              <div class="file-row">
-                <span class="file-path">README.md</span>
-                <div class="file-diff-stat"><span class="diff-badge-green">+16</span><span class="diff-badge-red">-25</span></div>
-              </div>
-              <div class="file-row">
-                <span class="file-path">state.md</span>
-                <div class="file-diff-stat"><span class="diff-badge-green">+18</span><span class="diff-badge-red">-7</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="message-actions-bar">
-            <button class="msg-action-btn" title="Gefällt mir">👍</button>
-            <button class="msg-action-btn" title="Gefällt mir nicht">👎</button>
-            <button class="msg-action-btn" title="Kopieren">📋</button>
-            <button class="msg-action-btn" title="Neu generieren">🔄</button>
-            <button class="msg-action-btn" title="Optionen">•••</button>
-            <span style="margin-left: auto;">19:24</span>
-          </div>
-        </div>
-      `;
+      loadFleetAndWorkspaces();
     });
   </script>
   <script src="/portal-core.js?v=5.4"></script>

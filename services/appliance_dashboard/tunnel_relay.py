@@ -342,6 +342,12 @@ class CloudTunnelRelay:
             previous_node_id=previous_node_id or "",
         )
 
+        try:
+            from tools.appliance.workspace_manager import load_local_workspaces
+            node_workspaces = load_local_workspaces()
+        except Exception:
+            node_workspaces = []
+
         payload: dict[str, Any] = {
             "node_id": self.node_id,
             "previous_node_id": previous_node_id or "",
@@ -359,6 +365,7 @@ class CloudTunnelRelay:
                 "lan_ips": lan_ips,
             },
             "inventory": inv.to_dict(),
+            "workspaces": node_workspaces,
             "telemetry": {
                 "tokens_processed": toks_processed,
                 "earnings_cm": earnings_cm,

@@ -335,6 +335,26 @@ class ComputeMeshProviderApp:
         """Opens the official ComputeMesh Fleet Cockpit."""
         webbrowser.open("https://mesh.inetconnector.com/fleet")
 
+    def register_workspace_dialog(self, *args) -> None:
+        """Opens a folder selection dialog to register a local project path."""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            folder_selected = filedialog.askdirectory(title="ComputeMesh - Lokalen Projektpfad auswählen")
+            root.destroy()
+            if folder_selected:
+                from tools.appliance.workspace_manager import register_local_workspace
+                res = register_local_workspace(folder_selected)
+                if res:
+                    _log_event(f"Registered project workspace: {folder_selected}")
+                    # Open agent in browser for this workspace
+                    webbrowser.open(f"http://localhost:{self.dashboard_port}/agent?workspace={res.get('id')}")
+        except Exception as exc:
+            _log_event(f"Workspace dialog error: {exc}")
+
     def toggle_autostart(self, icon=None, item=None) -> None:
         current = is_windows_autostart_enabled()
         set_windows_autostart(not current)
@@ -370,6 +390,7 @@ class ComputeMeshProviderApp:
         menu = pystray.Menu(
             pystray.MenuItem("✨ ComputeMesh Studio & Dashboard", self.open_web_dashboard, default=True),
             pystray.MenuItem("🤖 Agent Workspace (/agent)", self.open_agent_studio),
+            pystray.MenuItem("📁 Projektpfad registrieren...", self.register_workspace_dialog),
             pystray.MenuItem("💬 AI Chat Studio (/webui/)", self.open_chat_studio),
             pystray.MenuItem("🌐 Flotten-Cockpit (mesh.inetconnector.com)", self.open_fleet_portal),
             pystray.Menu.SEPARATOR,

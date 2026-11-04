@@ -470,6 +470,7 @@ def _build_fleet_payload(
             "dashboard_port": n.get("dashboard_port", 8080) if n else 8080,
             "payout_address": n.get("payout_address", "") if n else "",
             "network": n.get("network", {}) if n else {},
+            "workspaces": n.get("workspaces", []) if n else [],
             "candidate_local_urls": _extract_candidate_local_urls(n) if n else [],
         }
         if include_remote_urls and n:
@@ -1488,6 +1489,47 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True))
             return
 
+        if clean_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                            owner_key = candidate
+            owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
+            fleet_info = _build_fleet_payload(owner_id, include_remote_urls=False)
+            nodes = fleet_info.get("nodes", [])
+            all_ws = []
+            active_node_id = ""
+            for node in nodes:
+                n_ws = node.get("workspaces", [])
+                if node.get("is_online") and not active_node_id:
+                    active_node_id = node.get("node_id", "")
+                for w in n_ws:
+                    entry = dict(w)
+                    entry["node_id"] = node.get("node_id")
+                    entry["node_name"] = node.get("display_name")
+                    all_ws.append(entry)
+            if not all_ws:
+                try:
+                    from tools.appliance.workspace_manager import load_local_workspaces
+                    local_ws = load_local_workspaces()
+                    for w in local_ws:
+                        entry = dict(w)
+                        entry["node_id"] = active_node_id or "local-node"
+                        entry["node_name"] = "Local Host"
+                        all_ws.append(entry)
+                except Exception:
+                    pass
+            self._send_json({"workspaces": all_ws, "active_node_id": active_node_id, "nodes": nodes})
+            return
+
         if clean_path in ("/v1/mcp/tools", "/api/v1/mcp/tools", "/mcp/tools"):
             auth = self.auth_manager.authenticate_request(
                 self.headers, getattr(self, "client_address", None), allow_teaser=True
@@ -1864,6 +1906,38 @@ class GatewayHandler(BaseHTTPRequestHandler):
             body = json.loads(raw_body.decode("utf-8")) if raw_body else {}
         except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
             self._send_error_response("Malformed JSON request body", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        if clean_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
+            path_str = str(body.get("path", "")).strip()
+            name_str = str(body.get("name", "")).strip() or None
+            node_id_req = str(body.get("node_id", "")).strip()
+            if not path_str:
+                self._send_error_response("Path is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            registered = None
+            try:
+                from tools.appliance.workspace_manager import register_local_workspace
+                registered = register_local_workspace(path_str, custom_name=name_str)
+            except Exception as exc:
+                logger.warning("Local workspace register error: %s", exc)
+            if not registered:
+                from pathlib import Path
+                p = Path(path_str)
+                name = name_str or p.name
+                registered = {
+                    "id": name.lower().replace(" ", "-"),
+                    "name": name,
+                    "path": str(p),
+                    "git_branch": "",
+                    "registered_at": time.time(),
+                    "last_active": time.time(),
+                }
+            if node_id_req and node_id_req in NODE_TELEMETRY_REGISTRY:
+                existing_ws = NODE_TELEMETRY_REGISTRY[node_id_req].setdefault("workspaces", [])
+                if not any(w.get("path") == registered["path"] for w in existing_ws):
+                    existing_ws.append(registered)
+            self._send_json({"status": "registered", "workspace": registered})
             return
 
         agent_session_prefix = next(
@@ -2615,6 +2689,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "protocol_version": body.get("protocol_version") or body.get("software", {}).get("protocol_version") or 2,
                 "models": body.get("models") or body.get("inventory", {}).get("models", []),
                 "machine_identity": body.get("machine_identity", {}),
+                "workspaces": body.get("workspaces", []),
                 "clock_skew_ms": body.get("clock_skew_ms", 0),
                 "updated_at": now_iso,
             }
