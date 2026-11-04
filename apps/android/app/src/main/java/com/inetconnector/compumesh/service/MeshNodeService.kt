@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.inetconnector.compumesh.R
 import com.inetconnector.compumesh.engine.MiniCpmEngine
+import com.inetconnector.compumesh.security.MobileQrPairing
 import com.inetconnector.compumesh.guard.BatteryPolicyGuard
 import kotlinx.coroutines.*
 import org.json.JSONArray
@@ -46,9 +47,7 @@ class MeshNodeService : Service() {
             get() = _nodeId.ifBlank { "android-device" }
             set(value) { _nodeId = value }
 
-        // Legacy property retained for UI compatibility only; never sent.
         var ownerKey: String = ""
-        var deviceToken: String = ""
         var gatewayUrl: String = "https://mesh.inetconnector.com"
 
         fun getOrCreateNodeId(context: Context): String {
@@ -82,8 +81,6 @@ class MeshNodeService : Service() {
     override fun onCreate() {
         super.onCreate()
         getOrCreateNodeId(this)
-        deviceToken = MobileCredentialStore.load(this)
-        ownerKey = ""
         batteryGuard = BatteryPolicyGuard(this)
         engine = MiniCpmEngine.getInstance(this)
         createNotificationChannel()
@@ -109,10 +106,21 @@ class MeshNodeService : Service() {
             while (isActive && isRunning) {
                 try {
                     val guardStatus = batteryGuard.getStatus()
+                    val signedIdentity = MobileQrPairing.signedHeartbeatIdentity(this@MeshNodeService, nodeId)
+                    if (signedIdentity == null) {
+                        updateNotification(false, "Handy noch nicht gekoppelt – QR-Code scannen")
+                        delay(10_000)
+                        continue
+                    }
                     val payload = JSONObject().apply {
                         put("node_id", nodeId)
-                        put("nonce", UUID.randomUUID().toString())
-                        put("timestamp", System.currentTimeMillis() / 1000L)
+                        // An exact device-scoped token and Ed25519 proof are
+                        // required. No predictable token or owner master key.
+                        put("auth_token", signedIdentity.getString("auth_token"))
+                        put("public_key", signedIdentity.getString("public_key"))
+                        put("signature", signedIdentity.getString("signature"))
+                        put("timestamp", signedIdentity.getLong("timestamp"))
+                        put("nonce", signedIdentity.getString("nonce"))
                         put("inventory", JSONObject().apply {
                             put("schema_version", 1)
                             put("host_architecture", "android_arm64")
@@ -125,8 +133,9 @@ class MeshNodeService : Service() {
                         })
                         put("telemetry", JSONObject().apply {
                             put("tokens_processed", totalTokensProcessed)
-                            put("earnings_cm", totalTokensProcessed)
-                            put("local_compute_tflops", 1.5)
+                            put("earnings_cm", 0)
+                            put("local_compute_tflops", 0.0)
+                            put("compute_measurement", "unavailable")
                             put("is_simulated", false)
                             put("is_compute_permitted", guardStatus.isComputePermitted)
                             put("restriction_reason", guardStatus.restrictionReason ?: "")
@@ -139,13 +148,9 @@ class MeshNodeService : Service() {
                         })
                     }
 
-                    // Device auth is possible only after the QR exchange.
-                    // Never leak its credential to an arbitrary LAN gateway.
-                    if (deviceToken.isNotBlank() &&
-                        gatewayUrl.trimEnd('/') == "https://mesh.inetconnector.com") {
-                        sendHeartbeat(payload)
-                    }
-                    updateNotification(guardStatus.isComputePermitted, guardStatus.restrictionReason)
+                    val accepted = sendHeartbeat(payload)
+                    if (accepted) updateNotification(guardStatus.isComputePermitted, guardStatus.restrictionReason)
+                    else updateNotification(false, "Gateway hat den Heartbeat nicht bestätigt")
                 } catch (e: Exception) {
                     Log.e(TAG, "Heartbeat failed", e)
                 }
@@ -154,14 +159,13 @@ class MeshNodeService : Service() {
         }
     }
 
-    private fun sendHeartbeat(payload: JSONObject) {
-        if (gatewayUrl.trimEnd('/') != "https://mesh.inetconnector.com" ||
-            !Regex("cm_mobile_[a-f0-9]{64}").matches(deviceToken)) return
-        val url = URL("https://mesh.inetconnector.com/api/v1/mobile/heartbeat")
+    private fun sendHeartbeat(payload: JSONObject): Boolean {
+        // The device-scoped credential is valid only for our pinned public
+        // HTTPS gateway. Never transmit it to a user-entered LAN endpoint.
+        val url = URL("https://mesh.inetconnector.com/api/v1/node/heartbeat")
         val conn = (url.openConnection() as HttpURLConnection).apply {
             instanceFollowRedirects = false
             requestMethod = "POST"
-            setRequestProperty("Authorization", "Bearer $deviceToken")
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("User-Agent", "ComputeMesh-Android-Node/1.2")
             doOutput = true
@@ -174,15 +178,20 @@ class MeshNodeService : Service() {
         }
 
         val code = conn.responseCode
-        if (code == 200) {
+        try {
+            if (code != 200) {
+                Log.w(TAG, "Gateway heartbeat refused: HTTP $code")
+                return false
+            }
             val resp = conn.inputStream.bufferedReader().use { it.readText() }
-            try {
-                val json = JSONObject(resp)
-                // Telemetry success is not a proof of inference completion
-                // or of any earnings. Accounting never follows client claims.
-            } catch (_: Exception) {}
+            val json = JSONObject(resp)
+            if (json.has("tokens_processed")) {
+                totalTokensProcessed = json.getLong("tokens_processed")
+            }
+            return true
+        } finally {
+            conn.disconnect()
         }
-        conn.disconnect()
     }
 
     private fun updateNotification(permitted: Boolean, reason: String?) {

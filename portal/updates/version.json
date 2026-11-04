@@ -1,6 +1,6 @@
 {
   "version": "1.2.190",
-  "release_date": "2026-11-04T00:12:13.972908+00:00",
+  "release_date": "2026-11-04T00:54:07.430701+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
@@ -39,7 +39,25 @@
       "url": "https://mesh.inetconnector.com/downloads/install.sh",
       "sha256": "721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2",
       "size_bytes": 6651
+    },
+    "android-apk": {
+      "filename": "ComputeMesh-Android.apk",
+      "url": "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk",
+      "sha256": "583fee5218567d33c0e928616f751acd92c1459fd1d374e982e405dd62ddf3f0",
+      "size_bytes": 99581547
+    },
+    "android-aab": {
+      "filename": "ComputeMesh-Android.aab",
+      "url": "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.aab",
+      "sha256": "dae30198d1858e772bd9929b71e05ab4a483f38e958acfdb501450debcd1cbd7",
+      "size_bytes": 31204019
+    },
+    "android-release-metadata": {
+      "filename": "ComputeMesh-Android.json",
+      "url": "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.json",
+      "sha256": "4e795c309d173a2a007dda050fb55d02b4cc7a7bcd80b5aed74fedf26910c3e1",
+      "size_bytes": 550
     }
   },
-  "signature": "ebc78e9a8ad95aca26246931f95d711950ae53e60854aa2d803f734932c175bb7357f836808ccd10da6cd5f2b772d227495af50371ce2e5d0d3d45b0db17bb00"
+  "signature": "18c6682e96b7a323f831fde1bb2c3f94ab21901b7d08a4ed903ca2055113ec565ca38d6f7d86014a65048cce1982f036418a2f66e26354915a138ff507461a05"
 }

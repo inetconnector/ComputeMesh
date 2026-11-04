@@ -24,8 +24,8 @@ android {
         applicationId = "com.inetconnector.compumesh"
         minSdk = 29
         targetSdk = 34
-        versionCode = 190
-        versionName = "1.2.190"
+        versionCode = 168
+        versionName = "1.2.168"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -160,6 +160,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

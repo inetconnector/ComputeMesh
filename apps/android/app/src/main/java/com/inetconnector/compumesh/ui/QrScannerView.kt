@@ -3,6 +3,7 @@ package com.inetconnector.compumesh.ui
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.inetconnector.compumesh.R
@@ -53,29 +55,77 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.inetconnector.compumesh.ui.theme.*
+import org.json.JSONObject
 import java.util.concurrent.Executors
 
 data class QrPairResult(
     val ownerKey: String,
     val gatewayUrl: String,
-    val enrollmentToken: String = ""
+    val enrollmentToken: String = "",
+    val invitation: String = ""
 )
 
 /**
- * Only the authenticated fleet portal's one-time QR link is a pairing
- * credential. A raw Owner Key, JSON blob, IP address or foreign URL is not.
+ * Parses raw barcode string (URI, JSON, or raw string) into OwnerKey & Gateway.
  */
-@Suppress("UNUSED_PARAMETER")
-fun parseQrPayload(raw: String, fallbackGateway: String = EnrollmentLinkPolicy.TRUSTED_GATEWAY): QrPairResult {
-    return QrPairResult(
-        ownerKey = "",
-        gatewayUrl = EnrollmentLinkPolicy.TRUSTED_GATEWAY,
-        enrollmentToken = EnrollmentLinkPolicy.tokenFromQr(raw).orEmpty()
-    )
+fun parseQrPayload(raw: String, fallbackGateway: String = "https://mesh.inetconnector.com"): QrPairResult {
+    val trimmed = raw.trim()
+    // New QR-only onboarding: only a short-lived server invitation.
+    // Reject old master owner-key/enrollment-code QR payloads in the normal UI.
+    if (trimmed.startsWith("computemesh://pair?")) {
+        val uri = Uri.parse(trimmed)
+        val invite = uri.getQueryParameter("invite") ?: ""
+        if (uri.host == "pair" && invite.matches(Regex("[A-Za-z0-9_-]{32,128}"))
+            && uri.queryParameterNames.all { it == "invite" }) {
+            return QrPairResult(ownerKey = "", gatewayUrl = fallbackGateway, invitation = trimmed)
+        }
+        return QrPairResult(ownerKey = "", gatewayUrl = fallbackGateway)
+    }
+    try {
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            val json = JSONObject(trimmed)
+            val key = json.optString("owner_key", json.optString("key", ""))
+            val gateway = json.optString("gateway", json.optString("gateway_url", fallbackGateway))
+            val enrollment = json.optString("enrollment_token", "")
+            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway }, enrollmentToken = enrollment)
+        }
+    } catch (_: Throwable) {}
+
+    try {
+        if (trimmed.startsWith("computemesh://") || trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+            val uri = Uri.parse(trimmed)
+            val fragmentParams = uri.fragment?.let { fragment ->
+                android.net.Uri.parse("https://local.invalid/?$fragment")
+            }
+            val key = fragmentParams?.getQueryParameter("owner_key")
+                ?: uri.getQueryParameter("owner_key")
+                ?: uri.getQueryParameter("key")
+                ?: uri.getQueryParameter("secret")
+                ?: ""
+            val enrollment = uri.getQueryParameter("enrollment_token") ?: ""
+            val gateway = uri.getQueryParameter("gateway")
+                ?: uri.getQueryParameter("gateway_url")
+                ?: if ((trimmed.startsWith("http://") || trimmed.startsWith("https://")) && !trimmed.contains("?")) trimmed else fallbackGateway
+
+            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway }, enrollmentToken = enrollment)
+        }
+    } catch (_: Throwable) {}
+
+    // Direct URL or IP:Port string (e.g. http://192.168.1.94:8080/ or 192.168.1.94:8080)
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        return QrPairResult(ownerKey = "", gatewayUrl = trimmed)
+    }
+    if (trimmed.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/?.*$"""))) {
+        return QrPairResult(ownerKey = "", gatewayUrl = "http://$trimmed")
+    }
+
+    // Direct key string (e.g. inet-... or owner_...)
+    return QrPairResult(ownerKey = trimmed, gatewayUrl = fallbackGateway)
 }
 
 @Composable
 fun QrCameraScannerDialog(
+    currentGateway: String,
     onCodeScanned: (QrPairResult) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -117,14 +167,8 @@ fun QrCameraScannerDialog(
             if (hasCameraPermission) {
                 CameraPreviewWithScanner(
                     onBarcodeFound = { rawValue ->
-                        val result = parseQrPayload(rawValue)
-                        if (result.enrollmentToken.isBlank()) {
-                            Toast.makeText(context, "Nur gültige ComputeMesh QR-Pairing-Codes zulässig", Toast.LENGTH_SHORT).show()
-                            false
-                        } else {
-                            onCodeScanned(result)
-                            true
-                        }
+                        val result = parseQrPayload(rawValue, currentGateway)
+                        onCodeScanned(result)
                     },
                     onClose = onDismiss
                 )
@@ -166,13 +210,12 @@ fun QrCameraScannerDialog(
                     ) {
                         Text("Berechtigung anfordern", color = DeepVoidBg, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     TextButton(onClick = onDismiss) {
                         Text("Schließen", color = TextSecondary)
                     }
                 }
             }
-
 
         }
     }
@@ -181,7 +224,7 @@ fun QrCameraScannerDialog(
 @OptIn(ExperimentalGetImage::class)
 @Composable
 private fun CameraPreviewWithScanner(
-    onBarcodeFound: (String) -> Boolean,
+    onBarcodeFound: (String) -> Unit,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
@@ -254,9 +297,7 @@ private fun CameraPreviewWithScanner(
                                         if (!raw.isNullOrBlank() && !hasScanned) {
                                             hasScanned = true
                                             previewView.post {
-                                                if (!onBarcodeFound(raw)) {
-                                                    hasScanned = false
-                                                }
+                                                onBarcodeFound(raw)
                                             }
                                             break
                                         }
@@ -358,6 +399,8 @@ private fun CameraPreviewWithScanner(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
         }
     }

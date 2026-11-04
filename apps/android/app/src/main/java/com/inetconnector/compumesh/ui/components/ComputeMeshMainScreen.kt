@@ -45,9 +45,12 @@ fun ComputeMeshMainScreen(
     currentGatewayUrl: String,
     onStartNode: () -> Unit,
     onStopNode: () -> Unit,
-    onSaveFleetConfig: (String, String) -> Unit
+    onSaveFleetConfig: (String, String) -> Unit,
+    onScanMobileQr: (String) -> Unit,
+    mobilePaired: Boolean
 ) {
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
+    // First launch: jump straight to QR pairing rather than five technical tabs.
+    val pagerState = rememberPagerState(initialPage = if (mobilePaired) 0 else 4, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
     var guardStatus by remember { mutableStateOf(guard.getStatus()) }
     var showQuickMenu by remember { mutableStateOf(false) }
@@ -393,7 +396,9 @@ fun ComputeMeshMainScreen(
                 4 -> SetupTab(
                     currentOwnerKey = currentOwnerKey,
                     currentGatewayUrl = currentGatewayUrl,
-                    onSaveFleetConfig = onSaveFleetConfig
+                    onSaveFleetConfig = onSaveFleetConfig,
+                    onScanMobileQr = onScanMobileQr,
+                    mobilePaired = mobilePaired
                 )
             }
         }

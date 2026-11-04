@@ -16,42 +16,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inetconnector.compumesh.R
 import com.inetconnector.compumesh.ui.QrCameraScannerDialog
+import com.inetconnector.compumesh.ui.parseQrPayload
 import com.inetconnector.compumesh.ui.theme.*
 
 @Composable
 fun SetupTab(
     currentOwnerKey: String,
     currentGatewayUrl: String,
-    onSaveFleetConfig: (String, String) -> Unit
+    onSaveFleetConfig: (String, String) -> Unit,
+    onScanMobileQr: (String) -> Unit,
+    mobilePaired: Boolean
 ) {
     var gatewayUrlInput by remember(currentGatewayUrl) { mutableStateOf(currentGatewayUrl) }
     var directTrafficOnly by remember { mutableStateOf(true) }
+    var showAdvancedSettings by remember { mutableStateOf(false) }
     var showQrCameraScanner by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val cleanActiveGateway = currentGatewayUrl.trim().trimEnd('/')
     val isLanConnected = cleanActiveGateway.isNotBlank() && cleanActiveGateway != "https://mesh.inetconnector.com"
-    // A saved QR credential is NOT evidence that the gateway has accepted
-    // a heartbeat. Do not mark the fleet connected on QR redemption alone.
-    val isQrSaved = currentOwnerKey == "paired-device"
-    val isFleetBound = currentOwnerKey.isNotBlank() && !isQrSaved
-    val isCoupled = isFleetBound || isLanConnected
+    val isFleetBound = mobilePaired
+    val isCoupled = isFleetBound
 
-    val pairingBadgeText = when {
-        isQrSaved -> "QR-Berechtigung gespeichert"
-        isFleetBound && isLanConnected -> "✓ Flotte & LAN gekoppelt"
-        isLanConnected -> "✓ LAN Node verbunden"
-        isFleetBound -> "✓ Flotte gekoppelt"
-        else -> "Standard Cloud"
-    }
-
-    val pairingStatusSubtitle = when {
-        isQrSaved -> "Geräteberechtigung eingerichtet. Heartbeat und Online-Status müssen vom Gateway gesondert bestätigt werden."
-        isFleetBound && isLanConnected -> "Gekoppelt mit ComputeMesh Flotte • Inferenz über lokales LAN Gateway ($currentGatewayUrl)"
-        isLanConnected -> "Verbunden mit lokalem Inferenz-Knoten ($currentGatewayUrl). Telemetrie & Inferenz laufen direkt über dein Heimnetzwerk."
-        isFleetBound -> "Gekoppelt mit ComputeMesh Flotte für Telemetrie & Earnings."
-        else -> "Scanne den QR-Code aus deinem ComputeMesh Cockpit auf dem PC, um dieses Gerät sofort hinzuzufügen."
-    }
+    val pairingBadgeText = if (isFleetBound) "✓ QR-Anmeldung gespeichert" else "Nicht verbunden"
+    val pairingStatusSubtitle = if (isFleetBound)
+        "QR-Kopplung gespeichert. Online erst nach vom Server bestätigtem Heartbeat."
+    else "Öffne auf deinem PC 'Meine Rechner → Handy hinzufügen'. Scanne den QR-Code mit dieser App."
 
     LazyColumn(
         modifier = Modifier
@@ -60,9 +50,9 @@ fun SetupTab(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text("Flotten-Kopplung & Sicherheit", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text("Handy verbinden", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Text(
-                "Verbinde dieses Smartphone mit deiner ComputeMesh Flotte für Echtzeit-Telemetrie und Earnings.",
+                "Einmal QR-Code auf der ComputeMesh-Webseite scannen. Keine Schlüssel, keine Codes eintippen.",
                 color = TextSecondary,
                 fontSize = 13.sp
             )
@@ -93,7 +83,7 @@ fun SetupTab(
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("1-Klick Flotten QR-Code", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Handy mit QR koppeln", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         Surface(
                             shape = RoundedCornerShape(10.dp),
@@ -129,27 +119,25 @@ fun SetupTab(
                     ) {
                         Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = DeepVoidBg)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("📷 QR-Code scannen & koppeln", color = DeepVoidBg, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("📷 QR-Code scannen", color = DeepVoidBg, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }
         }
 
         item {
-            Text(
-                "Flottenanmeldung nur per Kamera-QR-Code aus deinem ComputeMesh-Cockpit. " +
-                    "Master-/Owner-Keys werden hier nicht eingegeben.",
-                color = TextSecondary,
-                fontSize = 12.sp
-            )
+            TextButton(onClick = { showAdvancedSettings = !showAdvancedSettings }) {
+                Text(if (showAdvancedSettings) "Technische Einstellungen schließen" else "Weitere technische Einstellungen", color = TextSecondary)
+            }
         }
-
+        if (showAdvancedSettings) {
+        // No manual Owner-Key enrollment. QR is the only mobile fleet path.
         item {
             OutlinedTextField(
                 value = gatewayUrlInput,
                 onValueChange = { input ->
                     gatewayUrlInput = input
-                    onSaveFleetConfig(currentOwnerKey, input)
+                    onSaveFleetConfig("", input)
                 },
                 label = { Text("Control-Plane Gateway / Inferenz-Endpunkt") },
                 placeholder = { Text("https://mesh.inetconnector.com oder http://192.168.1.x:8080") },
@@ -165,7 +153,7 @@ fun SetupTab(
                     if (gatewayUrlInput != "https://mesh.inetconnector.com" && gatewayUrlInput.isNotBlank()) {
                         IconButton(onClick = {
                             gatewayUrlInput = "https://mesh.inetconnector.com"
-                            onSaveFleetConfig(currentOwnerKey, "https://mesh.inetconnector.com")
+                            onSaveFleetConfig("", "https://mesh.inetconnector.com")
                             Toast.makeText(context, "Auf Standard Cloud-Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
                         }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = AmberWarning)
@@ -204,26 +192,19 @@ fun SetupTab(
                 }
             }
         }
+        } // advanced settings
     }
 
     if (showQrCameraScanner) {
         QrCameraScannerDialog(
+            currentGateway = gatewayUrlInput,
             onCodeScanned = { result ->
                 showQrCameraScanner = false
-                gatewayUrlInput = result.gatewayUrl
-                onSaveFleetConfig(result.enrollmentToken, result.gatewayUrl)
-                Toast.makeText(
-                    context,
-                    context.getString(
-                        R.string.pairing_starting,
-                        if (result.enrollmentToken.isNotBlank()) {
-                            context.getString(R.string.pairing_one_time_token)
-                        } else {
-                            result.gatewayUrl
-                        },
-                    ),
-                    Toast.LENGTH_LONG
-                ).show()
+                if (result.invitation.isNotBlank()) {
+                    onScanMobileQr(result.invitation)
+                } else {
+                    Toast.makeText(context, "Bitte nur den neuen QR-Code aus 'Handy hinzufügen' scannen.", Toast.LENGTH_LONG).show()
+                }
             },
             onDismiss = {
                 showQrCameraScanner = false

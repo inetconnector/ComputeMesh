@@ -19,7 +19,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-
 logger = logging.getLogger("ComputeMesh-Android-Relay")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -137,7 +136,7 @@ def main() -> None:
         try:
             resp = relay.send_heartbeat()
             logger.info("Heartbeat acknowledged: %s", resp)
-        except (OSError, ValueError, TypeError) as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.error("Heartbeat error: %s", exc)
         time.sleep(args.interval)
 

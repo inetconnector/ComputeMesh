@@ -2,6 +2,7 @@ package com.inetconnector.compumesh.ui
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.webkit.WebView
 import android.widget.Toast
@@ -24,7 +25,7 @@ import com.inetconnector.compumesh.R
 import com.inetconnector.compumesh.p2p.DirectLanDiscovery
 import com.inetconnector.compumesh.server.LocalChatServer
 import com.inetconnector.compumesh.service.MeshNodeService
-import com.inetconnector.compumesh.service.MobileCredentialStore
+import com.inetconnector.compumesh.security.MobileQrPairing
 import com.inetconnector.compumesh.update.AndroidUpdateChecker
 import com.inetconnector.compumesh.update.AndroidUpdateInfo
 import com.inetconnector.compumesh.ui.components.ComputeMeshMainScreen
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private val ownerKeyState = mutableStateOf("")
     private val gatewayUrlState = mutableStateOf("https://mesh.inetconnector.com")
     private val pendingUpdateState = mutableStateOf<AndroidUpdateInfo?>(null)
+    private val mobilePairedState = mutableStateOf(false)
     private val updateCheckInProgressState = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,15 +70,13 @@ class MainActivity : ComponentActivity() {
 
         // Restore saved fleet credentials
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        // Older builds stored a shared owner key in ordinary app preferences.
-        // Never restore or send it from this QR-only client.
-        prefs.edit().remove(PREF_OWNER_KEY).apply()
+        val savedKey = prefs.getString(PREF_OWNER_KEY, "") ?: ""
         val savedGateway = prefs.getString(PREF_GATEWAY_URL, "https://mesh.inetconnector.com") ?: "https://mesh.inetconnector.com"
-        MeshNodeService.ownerKey = ""
-        MeshNodeService.deviceToken = MobileCredentialStore.load(this)
+        MeshNodeService.ownerKey = savedKey
         MeshNodeService.gatewayUrl = savedGateway
-        ownerKeyState.value = if (MeshNodeService.deviceToken.isNotBlank()) "paired-device" else ""
+        ownerKeyState.value = savedKey
         gatewayUrlState.value = savedGateway
+        mobilePairedState.value = MobileQrPairing.currentToken(this) != null
 
         // Handle possible deep link QR code pairing on launch
         handlePairingIntent(intent)
@@ -99,19 +99,9 @@ class MainActivity : ComponentActivity() {
                     currentGatewayUrl = gatewayUrlState.value,
                     onStartNode = { startNodeService() },
                     onStopNode = { stopNodeService() },
-                    onSaveFleetConfig = { key, gateway ->
-                        when {
-                            key.startsWith("cmenroll_") -> {
-                                resolveEnrollmentToken(key, EnrollmentLinkPolicy.TRUSTED_GATEWAY)
-                            }
-                            key.isBlank() || key == ownerKeyState.value -> saveFleetConfig(key, gateway)
-                            else -> Toast.makeText(
-                                this@MainActivity,
-                                "Flottenkopplung nur über den QR-Code aus dem ComputeMesh-Cockpit",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
-                    }
+                    onSaveFleetConfig = { _, gateway -> saveFleetConfig("", gateway) },
+                    onScanMobileQr = { inviteQr -> pairMobileFromQr(inviteQr) },
+                    mobilePaired = mobilePairedState.value
                 )
                 if (pendingUpdate != null) {
                     AlertDialog(
@@ -192,62 +182,39 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handlePairingIntent(intent: Intent?) {
-        val payload = intent?.data?.toString() ?: return
-        val enrollmentToken = EnrollmentLinkPolicy.tokenFromQr(payload)
-        if (enrollmentToken == null) {
-            Toast.makeText(this, "Ungültiger ComputeMesh-Pairing-Link", Toast.LENGTH_LONG).show()
-            return
+        val uri = intent?.data ?: return
+        if (uri.scheme == "computemesh" && uri.host == "pair" &&
+            uri.getQueryParameter("invite") != null) {
+            pairMobileFromQr(uri.toString())
+        } else if (uri.getQueryParameter("owner_key") != null ||
+                   uri.getQueryParameter("enrollment_token") != null) {
+            Toast.makeText(this,
+                "Alter Kopplungslink. Bitte den neuen QR-Code aus 'Handy hinzufügen' scannen.",
+                Toast.LENGTH_LONG).show()
         }
-        resolveEnrollmentToken(enrollmentToken, EnrollmentLinkPolicy.TRUSTED_GATEWAY)
     }
 
-    private fun resolveEnrollmentToken(token: String, gateway: String) {
-        // No QR token may be posted to a gateway controlled by the scanned data.
-        if (gateway != EnrollmentLinkPolicy.TRUSTED_GATEWAY ||
-            !Regex("cmenroll_[A-Za-z0-9_-]{20,64}").matches(token)) {
-            Toast.makeText(this, "Ungültiger Pairing-Code oder Gateway", Toast.LENGTH_LONG).show()
-            return
-        }
+    private fun pairMobileFromQr(invitationQr: String) {
         lifecycleScope.launch {
             try {
-                val deviceToken = withContext(Dispatchers.IO) {
-                    val endpoint = URL("${gateway.trimEnd('/')}/api/portal/fleet/mobile/enrollment/consume")
-                    val connection = endpoint.openConnection() as HttpURLConnection
-                    connection.instanceFollowRedirects = false
-                    connection.requestMethod = "POST"
-                    connection.doOutput = true
-                    connection.setRequestProperty("Content-Type", "application/json")
-                    connection.connectTimeout = 6000
-                    connection.readTimeout = 6000
-                    connection.outputStream.use {
-                        it.write(
-                            JSONObject().put("enrollment_token", token)
-                                .put("node_id", MeshNodeService.getOrCreateNodeId(this@MainActivity))
-                                .toString().toByteArray(Charsets.UTF_8)
-                        )
-                    }
-                    if (connection.responseCode !in 200..299) {
-                        error(getString(R.string.enrollment_failed_http, connection.responseCode))
-                    }
-                    JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).optString("device_token")
+                withContext(Dispatchers.IO) {
+                    MobileQrPairing.pairFromQr(this@MainActivity, invitationQr)
                 }
-                if (!Regex("cm_mobile_[a-f0-9]{64}").matches(deviceToken)) {
-                    error("Mobile device enrollment response invalid")
-                }
-                MobileCredentialStore.save(this@MainActivity, deviceToken)
-                MeshNodeService.deviceToken = deviceToken
+                // Retire legacy owner-key auth only AFTER a device-scoped token
+                // is securely persisted; no secret copied from the QR.
                 MeshNodeService.ownerKey = ""
-                MeshNodeService.gatewayUrl = EnrollmentLinkPolicy.TRUSTED_GATEWAY
-                ownerKeyState.value = "paired-device"
-                gatewayUrlState.value = EnrollmentLinkPolicy.TRUSTED_GATEWAY
-                Toast.makeText(this@MainActivity, "QR-Berechtigung gespeichert. Online-Status erst nach Gateway-Heartbeat bestätigt.", Toast.LENGTH_LONG).show()
+                ownerKeyState.value = ""
+                getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().remove(PREF_OWNER_KEY).apply()
+                mobilePairedState.value = true
                 startNodeService()
-            } catch (error: Throwable) {
-                Toast.makeText(
-                    this@MainActivity,
-                    getString(R.string.pairing_failed, error.message ?: getString(R.string.unknown_error)),
-                    Toast.LENGTH_LONG,
-                ).show()
+                Toast.makeText(this@MainActivity,
+                    "Handy registriert. Der Online-Status erscheint nach dem Gateway-Heartbeat.",
+                    Toast.LENGTH_LONG).show()
+            } catch (error: Exception) {
+                Toast.makeText(this@MainActivity,
+                    "QR-Kopplung nicht abgeschlossen. Bitte einen neuen Code auf der Webseite erzeugen.",
+                    Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -270,11 +237,9 @@ class MainActivity : ComponentActivity() {
             else -> cleanKey
         }
 
-        // A LAN inference gateway is not the mobile device's enrollment
-        // authority. Do not revive master fleet keys from free-text inputs.
-        MeshNodeService.ownerKey = ""
+        MeshNodeService.ownerKey = effectiveKey
         MeshNodeService.gatewayUrl = effectiveGateway
-        ownerKeyState.value = if (MeshNodeService.deviceToken.isNotBlank()) "paired-device" else ""
+        ownerKeyState.value = effectiveKey
         gatewayUrlState.value = effectiveGateway
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
