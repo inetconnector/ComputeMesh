@@ -156,43 +156,6 @@ class AndroidSpeechBridge(
         }
     }
 
-    @JavascriptInterface
-    fun openOrInstallLocalCode() {
-        activity.runOnUiThread {
-            val packageName = "com.inetconnector.localcode"
-            val pm = activity.packageManager
-            try {
-                // Check if package is installed
-                pm.getPackageInfo(packageName, 0)
-                // Installed -> Launch LocalCode app!
-                val launchIntent = pm.getLaunchIntentForPackage(packageName)
-                if (launchIntent != null) {
-                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    activity.startActivity(launchIntent)
-                    android.widget.Toast.makeText(activity, "LocalCode wird geöffnet...", android.widget.Toast.LENGTH_SHORT).show()
-                } else {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("localcode://pair")).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    activity.startActivity(intent)
-                }
-            } catch (_: PackageManager.NameNotFoundException) {
-                // Not installed -> open download / install page
-                try {
-                    val downloadUri = Uri.parse("https://mesh.inetconnector.com/downloads")
-                    val browserIntent = Intent(Intent.ACTION_VIEW, downloadUri).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    activity.startActivity(browserIntent)
-                    android.widget.Toast.makeText(activity, "LocalCode wird heruntergeladen / installiert...", android.widget.Toast.LENGTH_LONG).show()
-                } catch (ex: Exception) {
-                    Log.e("SpeechBridge", "Failed to open LocalCode download link", ex)
-                }
-            } catch (ex: Exception) {
-                Log.e("SpeechBridge", "Failed to launch LocalCode", ex)
-            }
-        }
-    }
 
     private fun notifyJs(event: String, data: String = "") {
         activity.runOnUiThread {

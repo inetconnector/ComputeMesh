@@ -10,8 +10,7 @@ from deploy.android import build_apk
 def test_android_release_source_version_is_aligned() -> None:
     name, code = build_apk._read_version()
     assert name == build_apk.CONFIG.appliance_version
-    assert name == "1.2.190"
-    assert code == 190
+    assert code == int(build_apk.CONFIG.appliance_version.split(".")[-1])
 
 
 @pytest.mark.parametrize(

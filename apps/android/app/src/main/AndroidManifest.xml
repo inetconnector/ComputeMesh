@@ -23,9 +23,8 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
-    <!-- Package Visibility Queries for LocalCode & Browser Links -->
+    <!-- Package Visibility Queries for Browser Links -->
     <queries>
-        <package android:name="com.inetconnector.localcode" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="http" />

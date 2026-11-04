@@ -109,6 +109,55 @@ button.cm-action-icon:not(:disabled):hover,
   box-shadow: 0 0 12px rgba(244, 114, 182, 0.4) !important;
 }
 
+/* Icon-only navigation rail: neutral until hovered; leave the expand and destructive controls alone. */
+:is(aside, [data-slot="sidebar"]) button:is(
+  [aria-label="Neuer Chat"], [aria-label="New chat"],
+  [aria-label="Suchen"], [aria-label="Search"],
+  [aria-label="MCP-Server"], [aria-label="MCP servers"],
+  [aria-label="Einstellungen"], [aria-label="Settings"]
+) {
+  background: var(--cm-surface-raised) !important;
+  background-color: var(--cm-surface-raised) !important;
+  border: 1px solid var(--cm-border) !important;
+  color: var(--cm-muted) !important;
+  box-shadow: none !important;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease !important;
+}
+
+:is(aside, [data-slot="sidebar"]) button:is(
+  [aria-label="Neuer Chat"], [aria-label="New chat"],
+  [aria-label="Suchen"], [aria-label="Search"],
+  [aria-label="MCP-Server"], [aria-label="MCP servers"],
+  [aria-label="Einstellungen"], [aria-label="Settings"]
+):not(:disabled):hover {
+  background: rgba(244, 114, 182, .25) !important;
+  background-color: rgba(244, 114, 182, .25) !important;
+  border-color: #f472b6 !important;
+  color: #f472b6 !important;
+  box-shadow: 0 0 12px rgba(244, 114, 182, .30) !important;
+}
+
+:is(aside, [data-slot="sidebar"]) button:is(
+  [aria-label="Neuer Chat"], [aria-label="New chat"],
+  [aria-label="Suchen"], [aria-label="Search"],
+  [aria-label="MCP-Server"], [aria-label="MCP servers"],
+  [aria-label="Einstellungen"], [aria-label="Settings"]
+):not(:disabled):active {
+  background: rgba(244, 114, 182, .38) !important;
+  border-color: #ec4899 !important;
+  color: var(--cm-text) !important;
+}
+
+:is(aside, [data-slot="sidebar"]) button:is(
+  [aria-label="Neuer Chat"], [aria-label="New chat"],
+  [aria-label="Suchen"], [aria-label="Search"],
+  [aria-label="MCP-Server"], [aria-label="MCP servers"],
+  [aria-label="Einstellungen"], [aria-label="Settings"]
+):focus-visible {
+  outline: 2px solid #f472b6 !important;
+  outline-offset: 2px !important;
+}
+
 /* ACTIVE / PRESSED */
 .actions button:not(:disabled):active,
 .chat-message button:not(:disabled):active,

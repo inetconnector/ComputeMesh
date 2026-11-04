@@ -151,7 +151,8 @@ def verify_production_signatures(apk: Path, aab: Path) -> str:
         [jarsigner, "-verify", "-verbose", "-certs", str(aab)],
         capture_output=True, text=True, check=True, timeout=60,
     )
-    if "jar verified." not in aab_result.stdout.lower() or "jar is unsigned" in aab_result.stdout.lower():
+    aab_out = aab_result.stdout.lower()
+    if ("jar verified." not in aab_out and "jar-datei verifiziert." not in aab_out) or "jar is unsigned" in aab_out or "nicht signiert" in aab_out:
         raise RuntimeError("Android App Bundle signature was not verified")
 
     certificate = subprocess.run(

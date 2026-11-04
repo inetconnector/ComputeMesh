@@ -138,10 +138,14 @@ class LocalChatServer(
      * the per-model props endpoint and render its details dialog.
      */
     private fun normalizeCatalogModel(model: JSONObject): JSONObject {
-        if (!model.has("status")) {
-            model.put("status", JSONObject().put("value", "loaded"))
+        val hasExplicitAvailability = model.has("available")
+        val isAvail = if (hasExplicitAvailability) model.optBoolean("available", false) else false
+        if (!model.has("available")) {
+            model.put("available", isAvail)
         }
-        if (!model.has("available")) model.put("available", true)
+        if (!model.has("status")) {
+            model.put("status", JSONObject().put("value", if (isAvail) "loaded" else "unloaded"))
+        }
         if (!model.has("meta") || model.opt("meta") !is JSONObject) {
             model.put("meta", JSONObject())
         }
@@ -504,7 +508,7 @@ class LocalChatServer(
             }
         } catch (_: Throwable) {}
 
-        // High quality fallback models with complete metadata and loaded status
+        // Standby catalog models when no provider responded; marked truthfully as offline
         val fallbackModels = listOf(
             Triple("qwen2.5:3b", "Qwen 2.5 3B (Fast General Assistant)", "alibaba"),
             Triple("gemma3:4b", "Gemma 3 4B (Multimodal Vision/Text)", "google"),
@@ -522,7 +526,8 @@ class LocalChatServer(
                     put("name", id)
                     put("model", id)
                     put("description", desc)
-                    put("status", JSONObject().put("value", "loaded"))
+                    put("status", JSONObject().put("value", "offline"))
+                    put("available", false)
                         val isVisionModel = id.lowercase().let { modelId ->
                             modelId.contains("vision") || modelId.contains("-vl") ||
                                     modelId.contains(":vl") || modelId.contains("llava") ||
@@ -551,6 +556,7 @@ class LocalChatServer(
                     put("id", id)
                     put("object", "model")
                     put("owned_by", "computemesh")
+                    put("available", false)
                     put("description", desc)
                         val isVisionModel = id.lowercase().let { modelId ->
                             modelId.contains("vision") || modelId.contains("-vl") ||
@@ -565,7 +571,7 @@ class LocalChatServer(
                         put("video", false)
                     })
                     put("meta", JSONObject())
-                    put("status", JSONObject().put("value", "loaded"))
+                    put("status", JSONObject().put("value", "offline"))
                 })
             }
             jsonResponse(JSONObject().put("object", "list").put("data", dataArr))

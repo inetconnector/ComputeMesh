@@ -1,6 +1,5 @@
 package com.inetconnector.compumesh.ui.components
 
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,10 +25,9 @@ import androidx.compose.ui.unit.sp
 import com.inetconnector.compumesh.guard.BatteryPolicyGuard
 import com.inetconnector.compumesh.p2p.DirectLanDiscovery
 import com.inetconnector.compumesh.ui.MainActivity
+import com.inetconnector.compumesh.ui.tabs.ChatTab
 import com.inetconnector.compumesh.ui.tabs.EdgeNodeTab
 import com.inetconnector.compumesh.ui.tabs.LanMeshTab
-import com.inetconnector.compumesh.ui.tabs.LocalCodeTab
-import com.inetconnector.compumesh.ui.tabs.MiniCpmChatTab
 import com.inetconnector.compumesh.ui.tabs.SetupTab
 import com.inetconnector.compumesh.ui.theme.*
 import kotlinx.coroutines.delay
@@ -49,14 +47,14 @@ fun ComputeMeshMainScreen(
     onScanMobileQr: (String) -> Unit,
     mobilePaired: Boolean
 ) {
-    // First launch: jump straight to QR pairing rather than five technical tabs.
-    val pagerState = rememberPagerState(initialPage = if (mobilePaired) 0 else 4, pageCount = { 5 })
+    // 4 clean main tabs: Chat (0), Edge Node (1), LAN Mesh (2), Setup & Flotte (3)
+    val pagerState = rememberPagerState(initialPage = if (mobilePaired) 0 else 3, pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
     var guardStatus by remember { mutableStateOf(guard.getStatus()) }
     var showQuickMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Periodic guard status polling
+    // Periodic battery/compute policy polling
     LaunchedEffect(Unit) {
         while (true) {
             guardStatus = guard.getStatus()
@@ -97,8 +95,8 @@ fun ComputeMeshMainScreen(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text("ComputeMesh Control", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
-                        Text("Schnellzugriff & Node-Status", color = TextMuted, fontSize = 12.sp)
+                        Text("ComputeMesh Menü", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
+                        Text("Schnellnavigation & Bereichsauswahl", color = TextMuted, fontSize = 12.sp)
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     IconButton(onClick = { showQuickMenu = false }) {
@@ -110,50 +108,20 @@ fun ComputeMeshMainScreen(
                 HorizontalDivider(color = CardSurfaceBorder)
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Option 1: Meine Chats & Verlauf
-                QuickMenuOption(
-                    icon = Icons.Default.Forum,
-                    title = "Meine Chats & Verlauf",
-                    subtitle = "Öffnet die Chat-Historie & Unterhaltungen",
-                    tint = IndigoAccent
-                ) {
-                    showQuickMenu = false
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(0)
-                    }
-                    MainActivity.globalWebView?.evaluateJavascript(
-                        "if (typeof window.__openSidebar === 'function') { window.__openSidebar(); }",
-                        null
-                    )
-                }
-
-                // Option 2: Neuer Chat
+                // Option 1: KI Chat
                 QuickMenuOption(
                     icon = Icons.Default.ChatBubble,
-                    title = "Neuer Chat",
-                    subtitle = "Startet eine frische Konversation",
+                    title = "KI Chat",
+                    subtitle = "Direkte Inferenz via Mesh-Knoten",
                     tint = CyanAccent
                 ) {
                     showQuickMenu = false
                     coroutineScope.launch {
                         pagerState.animateScrollToPage(0)
                     }
-                    MainActivity.globalWebView?.evaluateJavascript(
-                        """(function() {
-                            if (typeof window.__startNewChat === 'function') {
-                                return window.__startNewChat();
-                            }
-                            const ta = document.querySelector('textarea');
-                            if (ta) ta.value = '';
-                            const newChatBtn = document.querySelector('a[href*="new_chat"], button:has(.lucide-square-pen)');
-                            if (newChatBtn) newChatBtn.click();
-                            else window.location.href = 'http://127.0.0.1:$chatServerPort/?new_chat=true&lang=de#/';
-                        })()""",
-                        null
-                    )
                 }
 
-                // Option 3: Edge Node Tab
+                // Option 2: Edge Node Tab
                 QuickMenuOption(
                     icon = Icons.Default.ElectricBolt,
                     title = "Edge Compute Node",
@@ -166,7 +134,7 @@ fun ComputeMeshMainScreen(
                     }
                 }
 
-                // Option 4: LAN Mesh Tab
+                // Option 3: LAN Mesh Tab
                 QuickMenuOption(
                     icon = Icons.Default.Hub,
                     title = "LAN Mesh Netzwerk",
@@ -179,10 +147,10 @@ fun ComputeMeshMainScreen(
                     }
                 }
 
-                // Option 5: Setup & Gateway
+                // Option 4: Setup & Flotte
                 QuickMenuOption(
                     icon = Icons.Default.Settings,
-                    title = "Einstellungen & Gateway",
+                    title = "Setup & Flotte",
                     subtitle = "Gateway: ${currentGatewayUrl.ifBlank { "Standard" }}",
                     tint = TextPrimary
                 ) {
@@ -190,17 +158,6 @@ fun ComputeMeshMainScreen(
                     coroutineScope.launch {
                         pagerState.animateScrollToPage(3)
                     }
-                }
-
-                // Option 6: Reload WebUI
-                QuickMenuOption(
-                    icon = Icons.Default.Refresh,
-                    title = "WebUI neu laden",
-                    subtitle = "Aktualisiert die Chat-Oberfläche",
-                    tint = TextMuted
-                ) {
-                    showQuickMenu = false
-                    MainActivity.globalWebView?.reload()
                 }
             }
         }
@@ -219,9 +176,7 @@ fun ComputeMeshMainScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
-                                .clickable {
-                                    showQuickMenu = true
-                                }
+                                .clickable { showQuickMenu = true }
                                 .padding(vertical = 4.dp, horizontal = 2.dp)
                         ) {
                             Box(
@@ -244,62 +199,7 @@ fun ComputeMeshMainScreen(
                         }
                         Spacer(modifier = Modifier.weight(1f))
 
-                        // Meine Chats / Verlauf Icon Button
-                        IconButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(0)
-                                }
-                                MainActivity.globalWebView?.evaluateJavascript(
-                                    "if (typeof window.__toggleSidebar === 'function') { window.__toggleSidebar(); }",
-                                    null
-                                )
-                            },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Forum,
-                                contentDescription = "Meine Chats & Verlauf",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(2.dp))
-
-                        // Neuer Chat Icon Button
-                        IconButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(0)
-                                }
-                                MainActivity.globalWebView?.evaluateJavascript(
-                                    """(function() {
-                                        if (typeof window.__startNewChat === 'function') {
-                                            return window.__startNewChat();
-                                        }
-                                        const links = Array.from(document.querySelectorAll('a, button'));
-                                        const newChat = links.find(el => (el.getAttribute('href') || '').includes('new_chat') || (el.innerText || '').includes('Neuer Chat'));
-                                        if (newChat) newChat.click();
-                                        else window.location.hash = '#/';
-                                    })()""",
-                                    null
-                                )
-                                Toast.makeText(context, "Neuer Chat gestartet", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.AddComment,
-                                contentDescription = "Neuer Chat",
-                                tint = CyanAccent,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(6.dp))
-
-                        // Status Chip
+                        // Status Chip (Bereit / Standby)
                         Surface(
                             shape = RoundedCornerShape(20.dp),
                             color = if (guardStatus.isComputePermitted) EmeraldSuccess.copy(alpha = 0.15f) else AmberWarning.copy(alpha = 0.15f),
@@ -332,6 +232,21 @@ fun ComputeMeshMainScreen(
                                 )
                             }
                         }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Quick Navigation Menu Icon
+                        IconButton(
+                            onClick = { showQuickMenu = true },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = "Menü öffnen",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DeepVoidBg)
@@ -346,8 +261,7 @@ fun ComputeMeshMainScreen(
                     Triple(0, "KI Chat", Icons.Default.ChatBubble),
                     Triple(1, "Edge Node", Icons.Default.ElectricBolt),
                     Triple(2, "LAN Mesh", Icons.Default.Hub),
-                    Triple(3, "LocalCode", Icons.Default.Code),
-                    Triple(4, "Setup", Icons.Default.Settings)
+                    Triple(3, "Setup", Icons.Default.Settings)
                 )
 
                 tabs.forEach { (index, label, icon) ->
@@ -375,16 +289,23 @@ fun ComputeMeshMainScreen(
     ) { padding ->
         HorizontalPager(
             state = pagerState,
-            // Keep horizontal tab swipes available from the chat page too.
-            // The embedded WebView still owns vertical scrolling and controls.
             userScrollEnabled = true,
-            beyondBoundsPageCount = 4,
+            beyondBoundsPageCount = 3,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) { page ->
             when (page) {
-                0 -> MiniCpmChatTab(serverPort = chatServerPort)
+                0 -> ChatTab(
+                    gatewayUrl = currentGatewayUrl,
+                    ownerKey = currentOwnerKey,
+                    onOpenLanMesh = {
+                        coroutineScope.launch { pagerState.animateScrollToPage(2) }
+                    },
+                    onOpenSetup = {
+                        coroutineScope.launch { pagerState.animateScrollToPage(3) }
+                    }
+                )
                 1 -> EdgeNodeTab(guardStatus, onStartNode, onStopNode)
                 2 -> LanMeshTab(
                     lanDiscovery = lanDiscovery,
@@ -392,8 +313,7 @@ fun ComputeMeshMainScreen(
                     currentOwnerKey = currentOwnerKey,
                     onSaveFleetConfig = onSaveFleetConfig
                 )
-                3 -> LocalCodeTab(gatewayUrl = currentGatewayUrl)
-                4 -> SetupTab(
+                3 -> SetupTab(
                     currentOwnerKey = currentOwnerKey,
                     currentGatewayUrl = currentGatewayUrl,
                     onSaveFleetConfig = onSaveFleetConfig,
@@ -431,7 +351,7 @@ fun QuickMenuOption(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(tint.copy(alpha = 0.15f)),
+                .background(tint.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

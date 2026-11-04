@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -45,7 +44,6 @@ class MainActivity : ComponentActivity() {
         const val PREF_SELECTED_MODEL = "selected_model"
         const val CHAT_SERVER_PORT = 8089
         var isColdStart = true
-        var globalWebView: WebView? = null
     }
 
     private lateinit var batteryGuard: BatteryPolicyGuard
