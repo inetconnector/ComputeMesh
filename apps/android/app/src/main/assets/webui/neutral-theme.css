@@ -1,21 +1,51 @@
-/* ComputeMesh neutral theme contract shared by desktop NodeOS and Android. */
+/* ComputeMesh neutral theme contract shared by desktop NodeOS and Android.
+   Luxury, understated, high-end matte dark grey aesthetic (no cheap neon gloss or blue tints). */
 :root {
   color-scheme: light;
   --cm-bg: #f5f7fa; --cm-surface: #ffffff; --cm-surface-raised: #ffffff;
   --cm-card: #eef2f6; --cm-card-hover: #e2e8f0; --cm-border: #cbd5e1;
   --cm-border-strong: #94a3b8; --cm-text: #172033; --cm-muted: #526176;
-  --cm-accent: #0f6f78; --cm-accent-hover: #0b5961; --cm-accent-soft: #d9eef0;
+  --cm-accent: #374151; --cm-accent-hover: #1f2937; --cm-accent-soft: #f3f4f6;
   --cm-on-accent: #ffffff; --cm-danger: #b42332; --cm-danger-soft: #fde8eb;
-  --cm-shadow: 0 16px 40px rgba(15, 23, 42, .12);
+  --cm-shadow: 0 16px 40px rgba(15, 23, 42, .08);
 }
 :root.dark {
   color-scheme: dark;
   --cm-bg: #181a1c; --cm-surface: #202325; --cm-surface-raised: #272a2c;
-  --cm-card: #272a2c; --cm-card-hover: #303537; --cm-border: #454b50;
-  --cm-border-strong: #687078; --cm-text: #f0f1f2; --cm-muted: #b6bbbf;
-  --cm-accent: #3b82f6; --cm-accent-hover: #60a5fa; --cm-accent-soft: rgba(59, 130, 246, 0.15);
-  --cm-on-accent: #ffffff; --cm-danger: #ef4444; --cm-danger-soft: rgba(239, 68, 68, 0.15);
-  --cm-shadow: 0 16px 40px rgba(0, 0, 0, .32);
+  --cm-card: #272a2c; --cm-card-hover: #303537; --cm-border: #3c4146;
+  --cm-border-strong: #5a626a; --cm-text: #f0f1f2; --cm-muted: #9da3a8;
+  --cm-accent: #e4e5e7; --cm-accent-hover: #ffffff; --cm-accent-soft: rgba(255, 255, 255, 0.08);
+  --cm-on-accent: #181a1c; --cm-danger: #ef4444; --cm-danger-soft: rgba(239, 68, 68, 0.15);
+  --cm-shadow: 0 20px 48px rgba(0, 0, 0, .55);
+
+  /* Global Tailwind/shadcn overrides for dark mode: replace blue with refined monochrome grey */
+  --background: #181a1c !important;
+  --foreground: #f0f1f2 !important;
+  --card: #202325 !important;
+  --card-foreground: #f0f1f2 !important;
+  --popover: #24272a !important;
+  --popover-foreground: #f0f1f2 !important;
+  --primary: #e4e5e7 !important;
+  --primary-foreground: #181a1c !important;
+  --secondary: #272a2d !important;
+  --secondary-foreground: #f0f1f2 !important;
+  --muted: #24272a !important;
+  --muted-foreground: #9da3a8 !important;
+  --accent: #2c2f32 !important;
+  --accent-foreground: #f0f1f2 !important;
+  --border: rgba(255, 255, 255, 0.1) !important;
+  --input: rgba(255, 255, 255, 0.1) !important;
+  --ring: rgba(255, 255, 255, 0.18) !important;
+}
+.dark {
+  --background: #181a1c !important;
+  --foreground: #f0f1f2 !important;
+  --card: #202325 !important;
+  --border: rgba(255, 255, 255, 0.1) !important;
+  --input: rgba(255, 255, 255, 0.1) !important;
+  --ring: rgba(255, 255, 255, 0.18) !important;
+  --primary: #e4e5e7 !important;
+  --primary-foreground: #181a1c !important;
 }
 
 html, html body {
@@ -28,6 +58,70 @@ html, html body {
 [data-slot="alert-dialog-description"] { color: var(--cm-muted) !important; }
 [class*="border-border"], hr { border-color: var(--cm-border) !important; }
 
+/* ==============================================================================
+   High-End Gediegene Dialoge & Modals (Model Information, Settings, etc.)
+   No cheap blue border, no blue glow, no glossy sheen, velvety dark grey surfaces.
+   ============================================================================== */
+[role="dialog"],
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+.dialog-content,
+[data-dialog-content] {
+  background: #1e2023 !important;
+  background-color: #1e2023 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75) !important;
+  color: #f0f1f2 !important;
+  outline: none !important;
+}
+
+/* Modal Close Button */
+[data-slot="dialog-close"],
+button.dialog-close,
+[role="dialog"] button:has(svg.lucide-x) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  color: #9da3a8 !important;
+  box-shadow: none !important;
+  transition: all 0.15s ease !important;
+}
+
+[data-slot="dialog-close"]:hover,
+button.dialog-close:hover,
+[role="dialog"] button:has(svg.lucide-x):hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* Modal Inner Input Rows & Field Chips (replaces harsh blue with subtle dark grey) */
+[role="dialog"] [class*="badge"],
+[role="dialog"] .badge,
+[role="dialog"] div:has(> .lucide-copy),
+[role="dialog"] [data-slot="badge"],
+#cm-model-info-fallback,
+[role="dialog"] .rounded-md {
+  background: #25282b !important;
+  background-color: #25282b !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f0f1f2 !important;
+  box-shadow: none !important;
+}
+
+[role="dialog"] pre,
+[role="dialog"] code {
+  background: #17181a !important;
+  background-color: #17181a !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  color: #d1d5db !important;
+  box-shadow: none !important;
+}
+
 /* Outer input area: completely transparent, no border, no nested box */
 [data-slot="input-area"],
 .chat-input-wrapper {
@@ -37,14 +131,14 @@ html, html body {
   padding: 0 !important;
 }
 
-/* Unified ChatGPT-style pill capsule in ComputeMesh colors */
+/* Unified ChatGPT-style pill capsule in gediegenem dark grey */
 form.relative:has(textarea),
 .chat-input:has(textarea),
 [data-slot="chat-container"] form {
-  background: #141824 !important;
-  border: 1.5px solid rgba(56, 189, 248, 0.28) !important;
+  background: #1e2023 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 26px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(0, 240, 255, 0.06) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45) !important;
   padding: 8px 14px 8px 12px !important;
   display: flex !important;
   flex-direction: column !important;
@@ -55,8 +149,8 @@ form.relative:has(textarea),
 form.relative:has(textarea):focus-within,
 .chat-input:has(textarea):focus-within,
 [data-slot="chat-container"] form:focus-within {
-  border-color: rgba(0, 240, 255, 0.55) !important;
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6), 0 0 22px rgba(0, 240, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
 }
 
 /* Any inner wrappers must NOT have borders, backgrounds or box-shadows */
@@ -108,12 +202,12 @@ button:not(.bg-destructive):not([data-variant="destructive"]),
 [data-slot="dropdown-menu-sub-content"],
 [data-slot="popover-content"],
 [data-slot="command"] {
-  background: var(--cm-surface-raised) !important;
-  background-color: var(--cm-surface-raised) !important;
-  border: 1px solid var(--cm-border) !important;
+  background: #24272a !important;
+  background-color: #24272a !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 12px !important;
   color: var(--cm-text) !important;
-  box-shadow: var(--cm-shadow) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
   padding: 6px !important;
 }
 
@@ -195,7 +289,7 @@ button.cm-action-icon,
 }
 
 /* ==============================================================================
-   ComputeMesh ChatGPT-Style Send Button & Action Controls
+   Refined Monochrome Luxury Send Button (No cheap neon cyan/blue)
    ============================================================================== */
 
 /* Send / Submit Button base: Circular pill */
@@ -221,16 +315,16 @@ button:has(svg.lucide-send),
   flex-shrink: 0 !important;
 }
 
-/* 1. Disabled / Inactive: sleek dark circle, no harsh white dot! */
+/* 1. Disabled / Inactive: sleek dark grey circle */
 form button[type="submit"]:disabled,
 button[type="submit"]:disabled,
 button:disabled:has(svg.lucide-arrow-up),
 button:disabled:has(svg.lucide-send),
 [data-slot="chat-container"] button.rounded-full:last-child:disabled {
-  background: rgba(255, 255, 255, 0.08) !important;
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  color: rgba(255, 255, 255, 0.28) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
   box-shadow: none !important;
   opacity: 1 !important;
   cursor: not-allowed !important;
@@ -240,20 +334,20 @@ form button[type="submit"]:disabled svg,
 button[type="submit"]:disabled svg,
 button:disabled:has(svg.lucide-arrow-up) svg,
 button:disabled:has(svg.lucide-send) svg {
-  color: rgba(255, 255, 255, 0.28) !important;
-  stroke: rgba(255, 255, 255, 0.28) !important;
+  color: rgba(255, 255, 255, 0.25) !important;
+  stroke: rgba(255, 255, 255, 0.25) !important;
 }
 
-/* 2. Active / Ready: ComputeMesh Electric Cyan/Blue Gradient */
+/* 2. Active / Ready: Crisp Platinum / Off-White (Apple/ChatGPT/Linear Luxury) */
 form button[type="submit"]:not(:disabled),
 button[type="submit"]:not(:disabled),
 button:not(:disabled):has(svg.lucide-arrow-up),
 button:not(:disabled):has(svg.lucide-send),
 [data-slot="chat-container"] button.rounded-full:last-child:not(:disabled) {
-  background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%) !important;
-  background-color: #00f0ff !important;
-  color: #0b0f19 !important;
-  box-shadow: 0 0 14px rgba(0, 240, 255, 0.5) !important;
+  background: #e4e5e7 !important;
+  background-color: #e4e5e7 !important;
+  color: #181a1c !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
   cursor: pointer !important;
   opacity: 1 !important;
 }
@@ -262,19 +356,20 @@ form button[type="submit"]:not(:disabled) svg,
 button[type="submit"]:not(:disabled) svg,
 button:not(:disabled):has(svg.lucide-arrow-up) svg,
 button:not(:disabled):has(svg.lucide-send) svg {
-  color: #0b0f19 !important;
-  stroke: #0b0f19 !important;
+  color: #181a1c !important;
+  stroke: #181a1c !important;
   stroke-width: 2.5px !important;
 }
 
-/* Hover on active button: glowing electric cyan */
+/* Hover on active button */
 form button[type="submit"]:not(:disabled):hover,
 button[type="submit"]:not(:disabled):hover,
 button:not(:disabled):has(svg.lucide-arrow-up):hover,
 button:not(:disabled):has(svg.lucide-send):hover {
-  background: linear-gradient(135deg, #38bdf8 0%, #00f0ff 100%) !important;
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.8) !important;
-  transform: scale(1.06) !important;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important;
+  transform: scale(1.05) !important;
 }
 
 /* Stop Streaming Button (when generating) */
@@ -282,11 +377,11 @@ button.stop-button,
 .stop-button,
 button:has(.stop-icon),
 button:has(svg.lucide-square) {
-  background: rgba(239, 68, 68, 0.2) !important;
+  background: rgba(239, 68, 68, 0.15) !important;
   border: 1.5px solid #ef4444 !important;
   color: #ef4444 !important;
   border-radius: 9999px !important;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4) !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3) !important;
 }
 button.stop-button svg,
 .stop-button svg {
@@ -294,14 +389,14 @@ button.stop-button svg,
   fill: #ef4444 !important;
 }
 
-/* Model Selector Pill inside chat input (ComputeMesh Theme) */
+/* Model Selector Pill inside chat input (Refined matte grey) */
 form [data-slot="dropdown-menu-trigger"]:has(svg),
 form button:has(svg.lucide-box),
 form button:has(svg.lucide-cuboid) {
   background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
   border-radius: 9999px !important;
-  color: #94a3b8 !important;
+  color: #9da3a8 !important;
   font-size: 12px !important;
   padding: 4px 10px !important;
   display: inline-flex !important;
@@ -312,9 +407,9 @@ form button:has(svg.lucide-cuboid) {
 
 form [data-slot="dropdown-menu-trigger"]:has(svg):hover,
 form button:has(svg.lucide-box):hover {
-  background: rgba(0, 240, 255, 0.08) !important;
-  border-color: rgba(0, 240, 255, 0.35) !important;
-  color: #00f0ff !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #f0f1f2 !important;
 }
 
 /* ChatGPT-style Attachment (+) Button */
@@ -328,7 +423,7 @@ form button:has(svg.lucide-plus) {
   background: transparent !important;
   border: 1px solid transparent !important;
   border-radius: 9999px !important;
-  color: #94a3b8 !important;
+  color: #9da3a8 !important;
   width: 32px !important;
   height: 32px !important;
   display: inline-flex !important;
@@ -348,19 +443,18 @@ form button:has(svg.lucide-plus):hover {
   color: #f1f5f9 !important;
 }
 
-/* Scroll-to-bottom floating pill button */
+/* Scroll-to-bottom floating pill button (matte dark grey) */
 button:has(svg.lucide-arrow-down) {
-  background: #141824 !important;
-  border: 1px solid rgba(56, 189, 248, 0.3) !important;
-  color: #38bdf8 !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  background: #202325 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #d0d4d8 !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
   border-radius: 9999px !important;
   transition: all 0.2s ease !important;
 }
 button:has(svg.lucide-arrow-down):hover {
-  border-color: #00f0ff !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
   color: #ffffff !important;
-  box-shadow: 0 0 14px rgba(0, 240, 255, 0.4) !important;
   transform: translateY(-2px) !important;
 }
 
@@ -417,8 +511,8 @@ button:disabled, [role="button"][aria-disabled="true"] {
 
 [data-slot="alert-dialog-action"], [data-slot="dialog-footer"] button:last-child,
 [data-slot="sheet-footer"] button:last-child {
-  background: var(--cm-accent) !important; border-color: var(--cm-accent) !important;
-  color: var(--cm-on-accent) !important; box-shadow: none !important;
+  background: #e4e5e7 !important; border-color: #e4e5e7 !important;
+  color: #181a1c !important; box-shadow: none !important;
 }
 [data-slot="alert-dialog-action"].bg-destructive,
 button.bg-destructive,
@@ -426,7 +520,7 @@ button[data-variant="destructive"] {
   background: var(--cm-danger) !important; border-color: var(--cm-danger) !important;
   color: #fff !important; box-shadow: none !important;
 }
-a { color: var(--cm-accent) !important; }
+a { color: var(--cm-text) !important; text-decoration-color: var(--cm-border-strong) !important; }
 
 /* Completely hide the floating + Agents button and weird popup in AI Chat */
 #cm-agent-toggle {
