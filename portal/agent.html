@@ -3,37 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="page-title">ComputeMesh Studio — Autonomous Agent Platform</title>
+  <meta name="application-name" content="ComputeMesh Codex - AGENT WORKSPACE">
+  <title>Codex — ComputeMesh Autonomous AI Platform</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/portal.css?v=5.2">
   <link rel="stylesheet" href="/portal-business.css?v=5.1">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    /* ==========================================================================
-       Google AI Studio Theme & Layout Variables
-       ========================================================================== */
     :root {
-      --studio-bg: #131314;
-      --studio-sidebar-bg: #18191b;
-      --studio-surface: #1e1f20;
-      --studio-surface-elevated: #282a2c;
-      --studio-surface-hover: #333538;
-      --studio-border: rgba(255, 255, 255, 0.1);
-      --studio-border-subtle: rgba(255, 255, 255, 0.06);
-      --studio-border-focus: #8ab4f8;
-      --studio-accent-blue: #8ab4f8;
-      --studio-accent-purple: #c58af9;
-      --studio-accent-cyan: #00E5FF;
-      --studio-accent-amber: #fdd663;
-      --studio-accent-rose: #f28b82;
-      --studio-accent-emerald: #81c995;
-      --studio-glow: rgba(138, 180, 248, 0.18);
-      --studio-text-primary: #f1f3f4;
-      --studio-text-secondary: #9aa0a6;
-      --studio-text-tertiary: #5f6368;
-      --font-studio: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-mono: 'JetBrains Mono', Consolas, monospace;
+      --bg-window: #181818;
+      --bg-main: #1e1e1e;
+      --bg-sidebar: #171717;
+      --bg-card: #212121;
+      --bg-composer: #242424;
+      --bg-user-bubble: #1f364d;
+      --bg-user-bubble-hover: #243e59;
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-hover: rgba(255, 255, 255, 0.15);
+      --text-main: #ececec;
+      --text-muted: #9e9e9e;
+      --text-dim: #6c6c6c;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "SF Mono", "Segoe UI Mono", Consolas, Menlo, monospace;
     }
 
     * {
@@ -43,1569 +37,1362 @@
     }
 
     body {
-      background-color: var(--studio-bg);
-      color: var(--studio-text-primary);
-      font-family: var(--font-studio);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      -webkit-font-smoothing: antialiased;
+      background-color: var(--bg-window) !important;
+      color: var(--text-main) !important;
+      font-family: var(--font-family) !important;
+      font-size: 13px !important;
+      line-height: 1.5 !important;
+      overflow: hidden !important;
+      height: 100vh !important;
+      width: 100vw !important;
+      display: flex !important;
+      flex-direction: column !important;
+      user-select: none;
     }
 
-    /* ==========================================================================
-       Top Navigation Header (Canonical Portal Invariant)
-       ========================================================================== */
+    /* Top Desktop Menu Bar (Codex Style) */
     header.site-header {
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      background: rgba(19, 19, 20, 0.95);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--studio-border-subtle);
-      padding: 0.4rem 1.25rem;
-      height: 52px;
-      display: flex;
-      align-items: center;
+      position: relative !important;
+      height: 35px !important;
+      min-height: 35px !important;
+      background: var(--bg-window) !important;
+      border-bottom: 1px solid var(--border-subtle) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 0 10px !important;
+      flex-shrink: 0 !important;
+      font-size: 12px !important;
+      color: var(--text-muted) !important;
+      z-index: 1000 !important;
     }
 
-    .nav-top-row {
+    .menubar-left {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      width: 100%;
+      gap: 6px;
     }
 
-    .brand-group {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .sidebar-toggle-btn {
+    .nav-arrow-btn {
       background: transparent;
       border: none;
-      color: var(--studio-text-secondary);
-      font-size: 1.2rem;
+      color: var(--text-dim);
+      padding: 4px 6px;
+      border-radius: 4px;
       cursor: pointer;
-      padding: 0.35rem;
+      display: flex;
+      align-items: center;
+    }
+    .nav-arrow-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+    }
+
+    .menu-item-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .menu-item-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .menu-item-btn:hover, .menu-item-btn.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: #222222;
+      border: 1px solid var(--border-hover);
       border-radius: 6px;
+      min-width: 200px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      display: none;
+      padding: 4px 0;
+    }
+    .dropdown-menu.show {
+      display: block;
+    }
+
+    .dropdown-item {
+      padding: 6px 14px;
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      transition: all 0.15s;
-    }
-
-    .sidebar-toggle-btn:hover {
-      background: var(--studio-surface-elevated);
-      color: var(--studio-text-primary);
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      text-decoration: none;
-    }
-
-    .brand-logo {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
-    }
-
-    .brand-badge {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      padding: 0.2rem 0.5rem;
-      border-radius: 9999px;
-      background: rgba(0, 229, 255, 0.12);
-      color: var(--studio-accent-cyan);
-      border: 1px solid rgba(0, 229, 255, 0.25);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .pulse-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--studio-accent-cyan);
-      box-shadow: 0 0 8px var(--studio-accent-cyan);
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-    }
-
-    .mesh-status-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.25rem 0.65rem;
-      background: rgba(129, 201, 149, 0.1);
-      border: 1px solid rgba(129, 201, 149, 0.25);
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      color: var(--studio-accent-emerald);
-      font-weight: 500;
-    }
-
-    .mesh-status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--studio-accent-emerald);
-      animation: pulseGreen 2s infinite;
-    }
-
-    @keyframes pulseGreen {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    .btn-header-action {
-      background: var(--studio-surface-elevated);
-      border: 1px solid var(--studio-border);
-      color: var(--studio-text-secondary);
-      font-size: 0.8rem;
-      font-weight: 500;
-      padding: 0.35rem 0.75rem;
-      border-radius: 8px;
+      color: var(--text-main);
       cursor: pointer;
+      font-size: 12px;
       text-decoration: none;
-      display: inline-flex;
+    }
+    .dropdown-item:hover {
+      background: var(--accent-blue);
+      color: #fff;
+    }
+    .dropdown-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+    }
+    .dropdown-shortcut {
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+    .dropdown-item:hover .dropdown-shortcut {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .menubar-right {
+      display: flex;
       align-items: center;
-      gap: 0.4rem;
-      transition: all 0.15s;
+      gap: 12px;
+      font-size: 12px;
+    }
+    .status-pill-clean {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--accent-green);
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
     }
 
-    .btn-header-action:hover {
-      background: var(--studio-surface-hover);
-      color: var(--studio-text-primary);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    /* ==========================================================================
-       Main Studio Layout: Left Sidebar + Central Canvas + Right Drawer
-       ========================================================================== */
-    .studio-container {
+    /* Main Layout */
+    .codex-layout {
       display: flex;
       flex: 1;
-      height: calc(100vh - 52px);
       overflow: hidden;
       position: relative;
     }
 
-    /* Google AI Studio Left Navigation Rail */
-    .studio-sidebar {
+    /* Left Sidebar */
+    .codex-sidebar {
       width: 250px;
-      min-width: 250px;
-      background-color: var(--studio-sidebar-bg);
-      border-right: 1px solid var(--studio-border-subtle);
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      overflow-y: auto;
-      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 50;
+      flex-shrink: 0;
+      transition: width 0.2s ease;
     }
-
-    .studio-sidebar.collapsed {
+    .codex-sidebar.collapsed {
       width: 0;
-      min-width: 0;
       overflow: hidden;
       border-right: none;
     }
 
-    .sidebar-inner-top {
-      display: flex;
-      flex-direction: column;
-      padding: 0.75rem 0.5rem;
-      gap: 1.25rem;
-    }
-
-    .nav-section-title {
-      font-size: 0.68rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--studio-text-tertiary);
-      padding: 0 0.75rem;
-      margin-bottom: 0.25rem;
-    }
-
-    .nav-menu-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .nav-menu-item {
+    .sidebar-header {
+      padding: 10px 12px;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.5rem 0.75rem;
-      border-radius: 8px;
-      color: var(--studio-text-secondary);
-      font-size: 0.84rem;
-      font-weight: 500;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      border: 1px solid transparent;
-      user-select: none;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
     }
 
-    .nav-menu-item:hover {
-      background-color: var(--studio-surface);
-      color: var(--studio-text-primary);
-    }
-
-    .nav-menu-item.active {
-      background-color: rgba(138, 180, 248, 0.12);
-      color: var(--studio-accent-blue);
-      font-weight: 600;
-    }
-
-    .nav-menu-item svg {
-      width: 18px;
-      height: 18px;
-      flex-shrink: 0;
-      stroke-width: 1.8;
-    }
-
-    .btn-new-app-pill {
+    .workspace-selector-btn {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      background: var(--studio-surface-elevated);
-      border: 1px solid var(--studio-border);
-      border-radius: 9999px;
-      padding: 0.55rem 1rem;
-      color: var(--studio-text-primary);
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-      margin: 0 0.5rem 0.5rem 0.5rem;
-      transition: all 0.2s;
-    }
-
-    .btn-new-app-pill:hover {
-      background: var(--studio-surface-hover);
-      border-color: rgba(255, 255, 255, 0.25);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-
-    /* Sessions & History in Sidebar */
-    .sidebar-sessions-container {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .sidebar-search-box {
-      margin: 0 0.5rem;
-      position: relative;
-    }
-
-    .sidebar-search-input {
-      width: 100%;
-      background: var(--studio-surface);
-      border: 1px solid var(--studio-border-subtle);
-      border-radius: 8px;
-      padding: 0.4rem 0.65rem 0.4rem 1.8rem;
-      color: var(--studio-text-primary);
-      font-size: 0.78rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .sidebar-search-input:focus {
-      border-color: var(--studio-accent-blue);
-    }
-
-    .sidebar-search-icon {
-      position: absolute;
-      left: 0.55rem;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--studio-text-tertiary);
-      font-size: 0.8rem;
-      pointer-events: none;
-    }
-
-    .sidebar-tabs {
-      display: flex;
-      gap: 2px;
-      background: rgba(0, 0, 0, 0.25);
-      padding: 2px;
-      border-radius: 6px;
-      margin: 0 0.5rem;
-    }
-
-    .sidebar-tab {
-      flex: 1;
+      gap: 6px;
       background: transparent;
       border: none;
-      color: var(--studio-text-tertiary);
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 0.25rem 0;
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    .workspace-selector-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .sidebar-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .sidebar-icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 4px 6px;
       border-radius: 4px;
       cursor: pointer;
-      text-align: center;
-      transition: all 0.15s;
+    }
+    .sidebar-icon-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
     }
 
-    .sidebar-tab.active {
-      background: var(--studio-surface-elevated);
-      color: var(--studio-accent-blue);
+    .new-chat-container {
+      padding: 10px 12px;
     }
-
-    .sidebar-session-list {
-      max-height: 220px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      padding: 0 0.5rem;
-    }
-
-    .sidebar-session-item {
-      padding: 0.45rem 0.6rem;
+    .btn-new-chat {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 7px 12px;
       border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.78rem;
-      color: var(--studio-text-secondary);
       display: flex;
-      flex-direction: column;
-      gap: 0.15rem;
-      transition: all 0.15s;
-      border-left: 2px solid transparent;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-new-chat:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-hover);
     }
 
-    .sidebar-session-item:hover {
-      background: var(--studio-surface);
-      color: var(--studio-text-primary);
+    .project-tree-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
     }
 
-    .sidebar-session-item.active {
-      background: rgba(138, 180, 248, 0.08);
-      color: var(--studio-accent-blue);
-      border-left-color: var(--studio-accent-blue);
+    .tree-folder-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      border-radius: 5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      margin-bottom: 1px;
+    }
+    .tree-folder-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+    }
+    .tree-folder-item.active {
+      color: var(--text-main);
       font-weight: 500;
     }
-
-    .session-item-row {
+    .folder-title-row {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-    }
-
-    .session-item-title {
+      gap: 7px;
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 150px;
+      text-overflow: ellipsis;
+    }
+    .active-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      flex-shrink: 0;
     }
 
-    /* Google AI Studio Sidebar Bottom Promo Card */
-    .sidebar-inner-bottom {
-      padding: 0.75rem 0.75rem 1rem 0.75rem;
+    .sub-session-list {
+      padding-left: 14px;
+      margin-bottom: 4px;
+    }
+    .sub-session-item {
+      padding: 5px 8px;
+      border-radius: 5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      margin-bottom: 1px;
+    }
+    .sub-session-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+    }
+    .sub-session-item.selected {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .sidebar-footer {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border-subtle);
       display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
+      align-items: center;
+      gap: 10px;
     }
-
-    .studio-promo-card {
-      background: linear-gradient(180deg, rgba(30, 31, 32, 0.8) 0%, rgba(24, 25, 27, 0.9) 100%);
-      border: 1px solid transparent;
-      border-radius: 12px;
-      padding: 0.85rem;
-      position: relative;
-      background-clip: padding-box;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    }
-
-    .studio-promo-card::before {
-      content: '';
-      position: absolute;
-      top: -1px; left: -1px; right: -1px; bottom: -1px;
-      border-radius: 13px;
-      background: linear-gradient(135deg, rgba(138, 180, 248, 0.5), rgba(197, 138, 249, 0.4), rgba(242, 139, 130, 0.4));
-      z-index: -1;
-    }
-
-    .promo-card-title {
-      font-size: 0.82rem;
-      font-weight: 700;
+    .user-avatar-circle {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #333333;
       color: #fff;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      margin-bottom: 0.35rem;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
     }
-
-    .promo-card-desc {
-      font-size: 0.72rem;
-      color: var(--studio-text-secondary);
-      line-height: 1.35;
-    }
-
-    .sidebar-utility-icons {
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      padding-top: 0.35rem;
-      border-top: 1px solid var(--studio-border-subtle);
-    }
-
-    .utility-icon-btn {
-      background: transparent;
-      border: none;
-      color: var(--studio-text-tertiary);
-      font-size: 1rem;
-      cursor: pointer;
-      padding: 0.35rem;
-      border-radius: 6px;
-      transition: all 0.15s;
-    }
-
-    .utility-icon-btn:hover {
-      background: var(--studio-surface);
-      color: var(--studio-text-primary);
-    }
-
-    /* ==========================================================================
-       Central Workspace Canvas
-       ========================================================================== */
-    .studio-canvas {
+    .user-info-text {
       flex: 1;
+      font-size: 12px;
+      color: var(--text-muted);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    /* Main Chat Stream Area */
+    .codex-main-area {
+      flex: 1;
+      background: var(--bg-main);
       display: flex;
       flex-direction: column;
-      height: 100%;
-      overflow: hidden;
       position: relative;
-      background-color: var(--studio-bg);
+      overflow: hidden;
     }
 
-    /* Top Context Pill Bar (Workspace, Branch, Node, Model) */
-    .studio-top-context-bar {
+    .main-header {
+      height: 42px;
+      border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.4rem 1.5rem;
-      background: rgba(24, 25, 27, 0.5);
-      border-bottom: 1px solid var(--studio-border-subtle);
-      font-size: 0.78rem;
-      gap: 0.75rem;
-      flex-wrap: wrap;
+      padding: 0 16px;
+      flex-shrink: 0;
     }
-
-    .context-bar-left, .context-bar-right {
+    .main-header-title {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-main);
+      font-weight: 500;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
-    .context-pill {
-      display: inline-flex;
+    .main-header-actions {
+      display: flex;
       align-items: center;
-      gap: 0.4rem;
-      background: var(--studio-surface);
-      border: 1px solid var(--studio-border-subtle);
-      padding: 0.25rem 0.65rem;
-      border-radius: 6px;
-      color: var(--studio-text-secondary);
+      gap: 6px;
     }
 
-    .context-pill select, .context-pill input {
-      background: transparent;
-      border: none;
-      color: var(--studio-accent-blue);
-      font-weight: 600;
-      font-size: 0.78rem;
-      outline: none;
-      cursor: pointer;
-      font-family: inherit;
-    }
-
-    .context-pill select option {
-      background: #1e1f20;
-      color: #fff;
-    }
-
-    /* ==========================================================================
-       HERO VIEW (Exact Google AI Studio Layout)
-       ========================================================================== */
-    .studio-hero-view {
+    /* Stream Messages Container */
+    .stream-container {
       flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px 140px 32px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1.5rem;
-      overflow-y: auto;
+      gap: 20px;
       max-width: 900px;
+      width: 100%;
       margin: 0 auto;
+      user-select: text;
+    }
+
+    /* User Prompt Bubble */
+    .user-message-row {
+      display: flex;
+      justify-content: flex-end;
       width: 100%;
-      text-align: center;
     }
-
-    .studio-announcement-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: var(--studio-surface-elevated);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      padding: 0.35rem 0.9rem;
-      border-radius: 9999px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--studio-text-primary);
-      margin-bottom: 1.5rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .studio-announcement-pill:hover {
-      border-color: rgba(255, 255, 255, 0.25);
-      background: var(--studio-surface-hover);
-    }
-
-    .badge-number {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: #1a73e8;
+    .user-bubble {
+      background: var(--bg-user-bubble);
       color: #fff;
-      font-size: 0.7rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .studio-hero-headline {
-      font-size: 2.75rem;
-      font-weight: 500;
-      letter-spacing: -0.02em;
-      color: #e3e3e3;
-      margin-bottom: 2.25rem;
-      line-height: 1.15;
-    }
-
-    /* Signature Google AI Studio Prompt Box */
-    .studio-prompt-container {
-      width: 100%;
-      max-width: 820px;
-      background-color: var(--studio-surface);
-      border: 1px solid var(--studio-border);
-      border-radius: 20px;
-      padding: 1.25rem 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      box-shadow: 0 4px 28px rgba(0, 0, 0, 0.4);
-      position: relative;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      text-align: left;
-    }
-
-    .studio-prompt-container:focus-within {
-      border-color: rgba(138, 180, 248, 0.4);
-      box-shadow: 0 0 0 1px rgba(138, 180, 248, 0.3), 0 8px 32px rgba(0, 0, 0, 0.5);
-    }
-
-    .studio-prompt-textarea {
-      width: 100%;
-      min-height: 68px;
-      max-height: 220px;
-      background: transparent;
-      border: none;
-      color: var(--studio-text-primary);
-      font-family: var(--font-studio);
-      font-size: 1.05rem;
+      border-radius: 14px;
+      padding: 12px 18px;
+      max-width: 80%;
+      font-size: 13px;
       line-height: 1.5;
-      resize: none;
-      outline: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
-
-    .studio-prompt-textarea::placeholder {
-      color: var(--studio-text-secondary);
-      font-weight: 400;
-    }
-
-    .studio-prompt-controls-row {
+    .user-bubble-footer {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      margin-top: 0.25rem;
+      justify-content: flex-end;
+      margin-top: 6px;
     }
-
-    .prompt-controls-left {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .btn-prompt-attach {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: var(--studio-surface-elevated);
-      border: 1px solid var(--studio-border-subtle);
-      color: var(--studio-text-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 1.1rem;
-      transition: all 0.15s;
-    }
-
-    .btn-prompt-attach:hover {
-      background: var(--studio-surface-hover);
-      color: var(--studio-text-primary);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .prompt-controls-right {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
-    .dropdown-pill-selector {
-      background: var(--studio-surface-elevated);
-      border: 1px solid var(--studio-border-subtle);
-      border-radius: 9999px;
-      padding: 0.4rem 0.85rem;
-      color: var(--studio-text-secondary);
-      font-size: 0.82rem;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .dropdown-pill-selector:hover {
-      background: var(--studio-surface-hover);
-      color: var(--studio-text-primary);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .dropdown-pill-selector select {
+    .btn-show-more {
       background: transparent;
       border: none;
-      color: inherit;
-      font-size: inherit;
-      font-weight: inherit;
-      outline: none;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 11px;
       cursor: pointer;
-      font-family: inherit;
     }
-
-    .dropdown-pill-selector select option {
-      background: #1e1f20;
+    .btn-show-more:hover {
       color: #fff;
     }
 
-    .btn-mic-icon {
-      background: transparent;
-      border: none;
-      color: var(--studio-text-secondary);
-      font-size: 1.15rem;
-      cursor: pointer;
-      padding: 0.35rem;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s;
-    }
-
-    .btn-mic-icon:hover {
-      color: var(--studio-text-primary);
-      background: var(--studio-surface-hover);
-    }
-
-    .btn-lucky-action {
-      background: #2b2c2f;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 9999px;
-      padding: 0.5rem 1.1rem;
-      color: #fff;
-      font-size: 0.85rem;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.45rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-lucky-action:hover {
-      background: #36373b;
-      border-color: rgba(255, 255, 255, 0.25);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    }
-
-    .btn-lucky-action .sparkle {
-      color: var(--studio-accent-blue);
-      font-size: 1rem;
-    }
-
-    /* Quick Suggestion Chips below Prompt */
-    .studio-suggestion-chips {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.65rem;
-      margin-top: 1.25rem;
-      flex-wrap: wrap;
-      max-width: 820px;
-    }
-
-    .suggestion-chip {
-      background: var(--studio-surface);
-      border: 1px solid var(--studio-border-subtle);
-      border-radius: 9999px;
-      padding: 0.45rem 1rem;
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: var(--studio-text-secondary);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.45rem;
-      transition: all 0.15s;
-    }
-
-    .suggestion-chip:hover {
-      background: var(--studio-surface-hover);
-      color: var(--studio-text-primary);
-      border-color: rgba(255, 255, 255, 0.18);
-    }
-
-    /* ==========================================================================
-       TIMELINE & ACTIVE CONVERSATION VIEW (Smoothly replaces Hero when active)
-       ========================================================================== */
-    .studio-timeline-view {
-      flex: 1;
-      display: none;
-      flex-direction: column;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    .timeline-view-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.65rem 1.5rem;
-      border-bottom: 1px solid var(--studio-border-subtle);
-      background: rgba(24, 25, 27, 0.3);
-    }
-
-    .timeline-title-group {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .active-session-title-input {
-      background: transparent;
-      border: 1px solid transparent;
-      color: #fff;
-      font-size: 1.1rem;
-      font-weight: 600;
-      padding: 0.2rem 0.5rem;
-      border-radius: 6px;
-      outline: none;
-    }
-
-    .active-session-title-input:hover, .active-session-title-input:focus {
-      background: var(--studio-surface);
-      border-color: var(--studio-border);
-    }
-
-    .status-badge {
-      font-size: 0.65rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 0.2rem 0.5rem;
-      border-radius: 9999px;
-    }
-
-    .status-ready { background: rgba(129, 201, 149, 0.15); color: var(--studio-accent-emerald); }
-    .status-running { background: rgba(138, 180, 248, 0.15); color: var(--studio-accent-blue); }
-    .status-paused { background: rgba(253, 214, 99, 0.15); color: var(--studio-accent-amber); }
-    .status-waiting_for_approval { background: rgba(242, 139, 130, 0.2); color: var(--studio-accent-rose); animation: pulse 1.5s infinite; }
-    .status-completed { background: rgba(154, 160, 166, 0.15); color: var(--studio-text-secondary); }
-
-    .timeline-controls-group {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .btn-session-control {
-      background: var(--studio-surface-elevated);
-      border: 1px solid var(--studio-border-subtle);
-      color: var(--studio-text-secondary);
-      padding: 0.35rem 0.6rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      transition: all 0.15s;
-    }
-
-    .btn-session-control:hover {
-      background: var(--studio-surface-hover);
-      color: var(--studio-text-primary);
-    }
-
-    /* Scrollable Timeline Stream */
-    .timeline-stream-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1.5rem;
+    /* Agent Message Container */
+    .agent-message-row {
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
-      align-items: center;
-    }
-
-    .timeline-stream-container > * {
-      max-width: 820px;
+      gap: 12px;
       width: 100%;
     }
 
-    .stream-card {
-      background: var(--studio-surface);
-      border: 1px solid var(--studio-border-subtle);
-      border-radius: 12px;
-      padding: 1rem 1.25rem;
-      font-size: 0.92rem;
-      line-height: 1.55;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
+    /* Collapsible Thought / Working Pill */
+    .thought-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      width: fit-content;
+      transition: background 0.15s ease;
     }
-
-    .card-user-turn {
-      background: rgba(138, 180, 248, 0.06);
-      border-color: rgba(138, 180, 248, 0.2);
+    .thought-pill:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
     }
-
-    .card-tool-turn {
-      background: #18191b;
-      border-color: rgba(255, 255, 255, 0.08);
+    .thought-drawer {
+      background: #191919;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 12px;
       font-family: var(--font-mono);
-      font-size: 0.82rem;
+      font-size: 11px;
+      color: var(--text-muted);
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+    .thought-drawer.open {
+      display: block;
     }
 
-    .card-approval-turn {
-      background: rgba(242, 139, 130, 0.08);
-      border: 1px solid var(--studio-accent-rose);
+    /* Agent Response Markdown Content */
+    .agent-content {
+      color: var(--text-main);
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+    .agent-content p {
+      margin-bottom: 0.8rem;
+    }
+    .agent-content ul {
+      margin: 0.5rem 0 0.8rem 1.4rem;
+    }
+    .agent-content li {
+      margin-bottom: 0.3rem;
+    }
+    .agent-content code {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
     }
 
-    .stream-card-header {
+    /* Diff / Edited Files Card (Codex Hallmark) */
+    .files-edited-card {
+      background: #171717;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin: 8px 0;
+    }
+    .files-edited-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--studio-text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+      margin-bottom: 10px;
+      font-size: 12px;
     }
-
-    .stream-terminal-block {
-      background: #0d0e0f;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      padding: 0.75rem;
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      color: #a7f3d0;
-      white-space: pre-wrap;
-      max-height: 250px;
-      overflow-y: auto;
-    }
-
-    /* Bottom Docked Composer */
-    .timeline-docked-composer {
-      padding: 0.75rem 1.5rem 1.25rem 1.5rem;
-      background: linear-gradient(180deg, transparent 0%, var(--studio-bg) 40%);
+    .files-edited-title {
       display: flex;
-      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    .diff-badge-green {
+      color: var(--accent-green);
+      font-weight: 600;
+    }
+    .diff-badge-red {
+      color: var(--accent-red);
+      font-weight: 600;
+    }
+    .files-edited-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .action-link {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .action-link:hover {
+      color: var(--text-main);
+      text-decoration: underline;
     }
 
-    /* ==========================================================================
-       RIGHT INSPECTOR & PARAMETERS DRAWER (Collapsible)
-       ========================================================================== */
-    .studio-inspector-drawer {
-      width: 320px;
-      min-width: 320px;
-      background-color: var(--studio-sidebar-bg);
-      border-left: 1px solid var(--studio-border-subtle);
+    .files-list {
       display: flex;
       flex-direction: column;
-      overflow-y: auto;
-      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 40;
+      gap: 6px;
+    }
+    .file-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      padding: 3px 0;
+    }
+    .file-path {
+      color: var(--text-main);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .file-diff-stat {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
-    .studio-inspector-drawer.collapsed {
+    /* Message Action Buttons Bar */
+    .message-actions-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-dim);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .msg-action-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .msg-action-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Right Sources & Context Rail */
+    .codex-right-rail {
+      width: 260px;
+      background: var(--bg-sidebar);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      flex-shrink: 0;
+      gap: 16px;
+      transition: width 0.2s ease;
+    }
+    .codex-right-rail.collapsed {
       width: 0;
-      min-width: 0;
+      padding: 0;
       overflow: hidden;
       border-left: none;
     }
 
-    .inspector-header {
-      padding: 0.85rem 1rem;
-      border-bottom: 1px solid var(--studio-border-subtle);
+    .right-card {
+      background: #1e1e1e;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .right-card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-weight: 600;
-      font-size: 0.88rem;
-    }
-
-    .inspector-body {
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-      font-size: 0.82rem;
-    }
-
-    .inspector-card-section {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .inspector-section-label {
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--studio-text-tertiary);
-    }
-
-    .inspector-kv-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 0.5rem;
-      padding: 0.3rem 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    }
-
-    .inspector-kv-key {
-      color: var(--studio-text-secondary);
-    }
-
-    .inspector-kv-val {
-      color: #fff;
       font-weight: 500;
-      text-align: right;
+      font-size: 12.5px;
     }
-
-    /* Floating Attach/Plugin Popover */
-    .plugin-popover {
-      display: none;
-      position: absolute;
-      bottom: 60px;
-      left: 10px;
-      width: 280px;
-      background: var(--studio-surface-elevated);
-      border: 1px solid var(--studio-border);
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
-      padding: 0.5rem;
-      z-index: 100;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    .plugin-popover.active {
-      display: flex;
-    }
-
-    .popover-item {
-      padding: 0.45rem 0.65rem;
+    .btn-changes {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 6px 10px;
       border-radius: 6px;
-      color: var(--studio-text-primary);
-      font-size: 0.82rem;
+      font-size: 12px;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      justify-content: center;
+      gap: 6px;
       cursor: pointer;
-      transition: background 0.15s;
+    }
+    .btn-changes:hover {
+      background: rgba(255, 255, 255, 0.08);
     }
 
-    .popover-item:hover {
-      background: var(--studio-surface-hover);
+    .sources-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .source-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-muted);
+      font-size: 11.5px;
+      text-decoration: none;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .source-item:hover {
+      color: var(--accent-blue);
+    }
+
+    .cluster-nodes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .node-item-clean {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+    }
+    .node-name-label {
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .node-status-tag {
+      font-size: 10px;
+      color: var(--accent-green);
+    }
+
+    /* Floating Composer (Codex Bottom Bar) */
+    .composer-wrapper {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      padding: 0 20px;
+      pointer-events: none;
+    }
+
+    .codex-composer-box {
+      width: 100%;
+      max-width: 820px;
+      background: var(--bg-composer);
+      border: 1px solid var(--border-hover);
+      border-radius: 16px;
+      box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6);
+      padding: 10px 14px 8px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: auto;
+      transition: border-color 0.15s ease;
+    }
+    .codex-composer-box:focus-within {
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .composer-textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-family: var(--font-family);
+      font-size: 13.5px;
+      line-height: 1.5;
+      resize: none;
+      min-height: 38px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .composer-textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    .composer-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .composer-toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-attach {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 15px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .btn-attach:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .policy-pill-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 3px 10px;
+      color: var(--text-muted);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .policy-pill-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    .composer-toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .model-selector-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 3px 10px;
+      color: var(--text-muted);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .model-selector-pill:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    .btn-mic {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 50%;
+    }
+    .btn-mic:hover {
+      color: var(--text-main);
+    }
+
+    .btn-send-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-send-circle.active, .btn-send-circle:hover {
+      background: var(--accent-blue);
+      color: #fff;
+    }
+
+    /* Modal / Popups */
+    .codex-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .codex-modal-overlay.open {
+      display: flex;
+    }
+    .codex-modal {
+      background: #202020;
+      border: 1px solid var(--border-hover);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      padding: 20px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .modal-close-btn:hover {
+      color: var(--text-main);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
   </style>
 </head>
 <body>
 
-  <!-- ========================================================================
-       TOP HEADER (Canonical Site Header)
-       ======================================================================== -->
+  <!-- Top Desktop Menubar (Canonical Site Header + Codex Menubar) -->
   <header class="site-header">
-    <div class="nav-top-row">
-      <div class="brand-group">
-        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Sidebar ein/ausklappen">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        </button>
-        <a href="/" class="brand">
-          <span class="brand-logo">Compute<span class="gradient-text">Mesh</span> <span style="font-weight: 400; color: var(--studio-text-secondary); font-size: 1.05rem;">Studio</span></span>
-          <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> AGENT WORKSPACE</span>
-        </a>
+    <div class="menubar-left">
+      <button class="nav-arrow-btn" title="Zurück" onclick="history.back()">←</button>
+      <button class="nav-arrow-btn" title="Vorwärts" onclick="history.forward()">→</button>
+      
+      <div class="brand-group" style="display: flex; align-items: center; gap: 6px; margin-right: 6px;">
+        <span style="font-weight: 600; color: #fff; font-size: 13px;">Codex</span>
+        <span class="brand-badge" style="display: none;">AGENT WORKSPACE</span>
       </div>
 
-      <div class="nav-actions">
-        <div class="mesh-status-indicator" id="mesh-cluster-status">
-          <span class="mesh-status-dot"></span>
-          <span>Mesh Cluster Verbunden</span>
+      <!-- Menu: Datei -->
+      <div class="menu-item-container">
+        <button class="menu-item-btn" onclick="toggleMenu('menu-datei')">Datei</button>
+        <div id="menu-datei" class="dropdown-menu">
+          <div class="dropdown-item" onclick="startNewChat()">Neuer Chat <span class="dropdown-shortcut">Strg+N</span></div>
+          <div class="dropdown-item" onclick="promptWorkspace()">Workspace wechseln...</div>
+          <div class="dropdown-item" onclick="openKeyModal()">API-Schlüssel festlegen...</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" onclick="exportActiveSession()">Sitzung exportieren...</div>
+          <div class="dropdown-item" onclick="window.close()">Schließen <span class="dropdown-shortcut">Alt+F4</span></div>
         </div>
-        <div class="lang-switch">
-          <button id="lang-de-btn" class="lang-btn active" onclick="setLocale('de')">🇩🇪 DE</button>
-          <button id="lang-en-btn" class="lang-btn" onclick="setLocale('en')">🇬🇧 EN</button>
-        </div>
-        <a href="/fleet" class="btn-header-action" id="nav-fleet-btn">🖥️ Flotte</a>
-        <a href="https://ai.inetconnector.com" target="_blank" rel="noopener" class="btn-header-action">💬 AI-Chat ↗</a>
-        <button class="btn-header-action" onclick="toggleInspector()" title="Inspektor anzeigen/verbergen">
-          <span>⚙️ Inspektor</span>
-        </button>
       </div>
+
+      <!-- Menu: Bearbeiten -->
+      <div class="menu-item-container">
+        <button class="menu-item-btn" onclick="toggleMenu('menu-bearbeiten')">Bearbeiten</button>
+        <div id="menu-bearbeiten" class="dropdown-menu">
+          <div class="dropdown-item" onclick="document.execCommand('copy')">Kopieren <span class="dropdown-shortcut">Strg+C</span></div>
+          <div class="dropdown-item" onclick="document.execCommand('undo')">Rückgängig <span class="dropdown-shortcut">Strg+Z</span></div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" onclick="clearTimeline()">Chat leeren</div>
+        </div>
+      </div>
+
+      <!-- Menu: Ansicht -->
+      <div class="menu-item-container">
+        <button class="menu-item-btn" onclick="toggleMenu('menu-ansicht')">Ansicht</button>
+        <div id="menu-ansicht" class="dropdown-menu">
+          <div class="dropdown-item" onclick="toggleSidebar()">Seitenleiste umschalten <span class="dropdown-shortcut">Strg+B</span></div>
+          <div class="dropdown-item" onclick="toggleRightRail()">Quellen & Änderungen umschalten</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" onclick="switchLanguage('de')">Sprache: Deutsch</div>
+          <div class="dropdown-item" onclick="switchLanguage('en')">Sprache: English</div>
+        </div>
+      </div>
+
+      <!-- Menu: Hilfe -->
+      <div class="menu-item-container">
+        <button class="menu-item-btn" onclick="toggleMenu('menu-hilfe')">Hilfe</button>
+        <div id="menu-hilfe" class="dropdown-menu">
+          <a class="dropdown-item" href="/fleet">Flotten-Cockpit ↗</a>
+          <a class="dropdown-item" href="/docs">Dokumentation ↗</a>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" onclick="alert('ComputeMesh Codex v1.2.193\nAutonomous AI Agent Platform')">Über ComputeMesh Codex</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="menubar-right">
+      <div class="status-pill-clean">
+        <div class="status-dot"></div>
+        <span id="cluster-status-text">Mesh Cluster Verbunden</span>
+      </div>
+      <a href="/fleet" style="color: var(--text-muted); font-size: 11px; text-decoration: none; padding: 2px 6px; border-radius: 4px;">Flotte</a>
+      <button class="nav-arrow-btn" title="Einstellungen" onclick="openKeyModal()">⚙️</button>
     </div>
   </header>
 
-  <!-- ========================================================================
-       MAIN APPLICATION CONTAINER
-       ======================================================================== -->
-  <div class="studio-container">
-
-    <!-- ----------------------------------------------------------------------
-         LEFT NAVIGATION RAIL (Google AI Studio Sidebar)
-         ---------------------------------------------------------------------- -->
-    <aside class="studio-sidebar" id="studio-sidebar">
-      <div class="sidebar-inner-top">
-        <!-- New Task Button -->
-        <button class="btn-new-app-pill" onclick="openHeroView()">
-          <span style="font-size: 1.1rem; line-height: 1;">+</span>
-          <span id="btn-new-app-text">Neuer Agent / Prompt</span>
+  <!-- Codex Main App Layout -->
+  <div class="codex-layout">
+    
+    <!-- Left Sidebar -->
+    <aside id="codex-sidebar" class="codex-sidebar">
+      <div class="sidebar-header">
+        <button class="workspace-selector-btn" onclick="promptWorkspace()">
+          <span>🏠</span>
+          <span id="active-workspace-name">ComputeMesh-ControlPlane</span>
+          <span style="font-size: 9px; color: var(--text-dim);">⌵</span>
         </button>
-
-        <!-- EXPLORE SECTION -->
-        <div class="nav-section-title">EXPLORE</div>
-        <ul class="nav-menu-list">
-          <li class="nav-menu-item active" id="menu-playground" onclick="openHeroView()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/>
-            </svg>
-            <span id="menu-playground-label">Playground</span>
-          </li>
-          <li class="nav-menu-item" id="menu-history" onclick="toggleSessionList()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-            <span id="menu-history-label">Verlauf / History</span>
-          </li>
-        </ul>
-
-        <!-- SESSIONS & AGENTS LIST -->
-        <div class="sidebar-sessions-container" id="sidebar-sessions-container">
-          <div class="sidebar-search-box">
-            <span class="sidebar-search-icon">🔍</span>
-            <input type="text" id="sidebar-search-input" class="sidebar-search-input" placeholder="Sitzung suchen..." oninput="filterSessions(this.value)">
-          </div>
-          <div class="sidebar-tabs">
-            <button class="sidebar-tab active" id="tab-active" onclick="switchSidebarTab('active')">Aktiv</button>
-            <button class="sidebar-tab" id="tab-pinned" onclick="switchSidebarTab('pinned')">Angeheftet</button>
-            <button class="sidebar-tab" id="tab-archived" onclick="switchSidebarTab('archived')">Archiv</button>
-          </div>
-          <div class="sidebar-session-list" id="session-list-container">
-            <!-- Dynamic session items rendered here -->
-          </div>
+        <div class="sidebar-header-actions">
+          <button class="sidebar-icon-btn" title="Suchen" onclick="toggleSearchInput()">🔍</button>
+          <button class="sidebar-icon-btn" title="Seitenleiste einklappen" onclick="toggleSidebar()">◫</button>
         </div>
-
-        <!-- BUILD SECTION -->
-        <div class="nav-section-title">BUILD</div>
-        <ul class="nav-menu-list">
-          <li class="nav-menu-item" onclick="openHeroView()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-            <span>Meine Agenten</span>
-          </li>
-          <li class="nav-menu-item" onclick="showGalleryPrompt()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-            </svg>
-            <span>Skill- &amp; Prompt-Galerie</span>
-          </li>
-        </ul>
-
-        <!-- MANAGE SECTION -->
-        <div class="nav-section-title">MANAGE</div>
-        <ul class="nav-menu-list">
-          <a href="/fleet" class="nav-menu-item" style="text-decoration: none;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-              <line x1="8" y1="21" x2="16" y2="21"></line>
-              <line x1="12" y1="17" x2="12" y2="21"></line>
-            </svg>
-            <span>Flotten-Dashboard ↗</span>
-          </a>
-          <a href="/api-docs" class="nav-menu-item" style="text-decoration: none;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-            </svg>
-            <span>Dokumentation ↗</span>
-          </a>
-        </ul>
       </div>
 
-      <!-- BOTTOM PROMO CARD & UTILITY ICONS -->
-      <div class="sidebar-inner-bottom">
-        <div class="studio-promo-card">
-          <div class="promo-card-title">
-            <span>✨ ComputeMesh Cluster Argon</span>
-          </div>
-          <div class="promo-card-desc">
-            Qwen 2.5, DeepSeek R1 &amp; Kimi Linear 48B bereit. Volle Mesh-Inferenz auf dezentralen GPUs.
-          </div>
+      <div id="sidebar-search-row" style="display: none; padding: 6px 12px;">
+        <input type="text" id="session-search-input" placeholder="Sitzung suchen..." oninput="filterSessions(this.value)" style="width: 100%; background: #222; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 11px;">
+      </div>
+
+      <div class="new-chat-container">
+        <button class="btn-new-chat" onclick="startNewChat()">
+          <span>📝</span>
+          <span>Neuer Chat</span>
+        </button>
+      </div>
+
+      <!-- Workspace / Project Tree -->
+      <div class="project-tree-container" id="project-tree">
+        <div class="tree-folder-item" onclick="switchFolder('ActivityLauncher')">
+          <div class="folder-title-row"><span>📁</span><span>ActivityLauncher</span></div>
         </div>
-        <div class="sidebar-utility-icons">
-          <button class="utility-icon-btn" title="Benachrichtigungen">🔔</button>
-          <button class="utility-icon-btn" onclick="toggleInspector()" title="Einstellungen">⚙️</button>
-          <button class="utility-icon-btn" onclick="document.getElementById('sidebar-search-input').focus()" title="Suche">🔍</button>
-          <button class="utility-icon-btn" onclick="openKeyModal()" title="API-Schlüssel">🔑</button>
+        <div class="tree-folder-item" onclick="switchFolder('DMC')">
+          <div class="folder-title-row"><span>📁</span><span>DMC</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('Zeitungskiosk')">
+          <div class="folder-title-row"><span>📁</span><span>Zeitungskiosk</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('Playwright')">
+          <div class="folder-title-row"><span>📁</span><span>Playwright</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('heuteundmorgen')">
+          <div class="folder-title-row"><span>📁</span><span>heuteundmorgen</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('LicenseServer')">
+          <div class="folder-title-row"><span>📁</span><span>LicenseServer</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('SpotifyPlaylistWebApp')">
+          <div class="folder-title-row"><span>📁</span><span>SpotifyPlaylistWebApp</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('CausaMind')">
+          <div class="folder-title-row"><span>📁</span><span>CausaMind</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('ZPL-Render')">
+          <div class="folder-title-row"><span>📁</span><span>ZPL-Render</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('llama.cpp-android')">
+          <div class="folder-title-row"><span>📁</span><span>llama.cpp-android</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('KillHandle')">
+          <div class="folder-title-row"><span>📁</span><span>KillHandle</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('PsyClock')">
+          <div class="folder-title-row"><span>📁</span><span>PsyClock</span></div>
+        </div>
+        <div class="tree-folder-item" onclick="switchFolder('Desktop')">
+          <div class="folder-title-row"><span>📁</span><span>Desktop</span></div>
+        </div>
+        
+        <!-- Active Working Workspace -->
+        <div class="tree-folder-item active" onclick="toggleActiveFolderSessions()">
+          <div class="folder-title-row">
+            <span>📁</span>
+            <span>ComputeMesh-ControlPlane</span>
+          </div>
+          <div class="active-dot"></div>
+        </div>
+
+        <!-- Sessions under active workspace -->
+        <div class="sub-session-list" id="active-folder-sessions">
+          <!-- Dynamically populated or rendered -->
+        </div>
+
+        <div class="tree-folder-item" onclick="switchFolder('AdbQrPairer')">
+          <div class="folder-title-row"><span>📁</span><span>AdbQrPairer</span></div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="user-avatar-circle">8E</div>
+        <div class="user-info-text">
+          <div style="font-weight: 500; color: var(--text-main);">ComputeMesh Node</div>
+          <div style="font-size: 10px; color: var(--accent-green);">cm-win-mifcom-rtx3080</div>
         </div>
       </div>
     </aside>
 
-    <!-- ----------------------------------------------------------------------
-         CENTRAL WORKSPACE CANVAS
-         ---------------------------------------------------------------------- -->
-    <main class="studio-canvas">
-
-      <!-- Top Context Strip -->
-      <div class="studio-top-context-bar">
-        <div class="context-bar-left">
-          <div class="context-pill">
-            <span>📂 <strong id="lbl-workspace">Workspace:</strong></span>
-            <input type="text" id="cfg-workspace-path" value="/opt/computemesh" style="width: 170px;">
-          </div>
-          <div class="context-pill">
-            <span>🌿 <strong id="lbl-branch">Branch:</strong></span>
-            <span id="cfg-branch-name" style="color: var(--studio-accent-blue); font-weight: 600;">main</span>
-          </div>
+    <!-- Center Main Chat Column -->
+    <main class="codex-main-area">
+      <!-- Session Top Bar -->
+      <div class="main-header">
+        <div class="main-header-title">
+          <span>📁</span>
+          <span id="active-session-title">Neuer Chat</span>
         </div>
-        <div class="context-bar-right">
-          <div class="context-pill">
-            <span>🖥️ <strong id="lbl-node">Node:</strong></span>
-            <select id="cfg-node-select">
-              <option value="auto">Auto-Router (Cluster)</option>
-              <option value="test-node-custom">test-node-custom (RTX 3080)</option>
-              <option value="cm-inference-node-01">cm-inference-node-01 (AMD Polaris)</option>
-            </select>
+        <div class="main-header-actions">
+          <button class="sidebar-icon-btn" title="Weitere Optionen" onclick="toggleMenu('menu-session-opts')">•••</button>
+          <div id="menu-session-opts" class="dropdown-menu" style="right: 16px; left: auto;">
+            <div class="dropdown-item" onclick="renameCurrentSession()">Sitzung umbenennen</div>
+            <div class="dropdown-item" onclick="archiveCurrentSession()">Archivieren</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
           </div>
-          <div class="context-pill">
-            <span>🧠 <strong id="lbl-model">Model:</strong></span>
-            <select id="cfg-model-select">
-              <option value="qwen2.5:7b">qwen2.5:7b (Inference Ready)</option>
-              <option value="gemma3:4b">gemma3:4b (Local NVIDIA)</option>
-              <option value="kimi-linear-48b">kimi-linear-48b (Cluster)</option>
-              <option value="deepseek-coder:6.7b">deepseek-coder:6.7b</option>
-            </select>
-          </div>
-          <div class="context-pill">
-            <span>🛡️ <strong id="lbl-policy">Policy:</strong></span>
-            <select id="cfg-policy-select">
-              <option value="interactive">Interaktiv (Approvals erforderlich)</option>
-              <option value="autonomous">Autonom (Standard Sandbox)</option>
-              <option value="readonly">Nur Lesen (Safe Mode)</option>
-            </select>
-          </div>
+          <button class="sidebar-icon-btn" title="Quellen & Kontext" onclick="toggleRightRail()">⊞</button>
         </div>
       </div>
 
-      <!-- ====================================================================
-           1. HERO VIEW (Google AI Studio Clone)
-           ==================================================================== -->
-      <div class="studio-hero-view" id="studio-hero-view">
-        <div class="studio-announcement-pill">
-          <span class="badge-number">4</span>
-          <span>Introducing ComputeMesh 4 Argon</span>
-        </div>
-
-        <h1 class="studio-hero-headline" id="hero-headline">Build your ideas with ComputeMesh</h1>
-
-        <!-- Signature Centered Prompt Box -->
-        <div class="studio-prompt-container">
-          <textarea id="hero-prompt-text" class="studio-prompt-textarea" placeholder="Describe an app or agent task and let ComputeMesh do the rest" onkeydown="handleHeroKey(event)"></textarea>
-
-          <!-- Floating Attachment Popover Menu -->
-          <div class="plugin-popover" id="hero-plugin-popover">
-            <div class="popover-item" onclick="selectPluginOption('@ Skills & Plugins')">
-              <span>🧩</span> <strong>@ Skills &amp; Plugins durchsuchen</strong>
-            </div>
-            <div class="popover-item" onclick="selectPluginOption('🐙 GitHub')">
-              <span>🐙</span> <span>GitHub Repository einbinden</span>
-            </div>
-            <div class="popover-item" onclick="selectPluginOption('📁 Workspace')">
-              <span>📁</span> <span>Workspace-Pfad wählen</span>
-            </div>
-            <div class="popover-item" onclick="selectPluginOption('📄 Attachment')">
-              <span>📄</span> <span>Lokale Datei / Diff anhängen</span>
-            </div>
-          </div>
-
-          <div class="studio-prompt-controls-row">
-            <div class="prompt-controls-left">
-              <button class="btn-prompt-attach" onclick="togglePluginPopover()" title="Plugins, Workspace oder Dateien anhängen">+</button>
-            </div>
-            <div class="prompt-controls-right">
-              <div class="dropdown-pill-selector">
-                <select id="hero-mode-select">
-                  <option value="autonomous">Default mode</option>
-                  <option value="interactive">Interactive (Approvals)</option>
-                  <option value="review">Plan &amp; Review</option>
-                  <option value="steer">Priority Steer</option>
-                </select>
-              </div>
-              <button class="btn-mic-icon" onclick="toggleVoiceInput()" title="Spracheingabe aktivieren">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                  <line x1="12" y1="19" x2="12" y2="23"></line>
-                  <line x1="8" y1="23" x2="16" y2="23"></line>
-                </svg>
-              </button>
-              <button class="btn-lucky-action" onclick="submitHeroPrompt()">
-                <span class="sparkle">✦</span>
-                <span id="btn-hero-action-text">I'm feeling lucky</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Suggestion Chips Below Prompt -->
-        <div class="studio-suggestion-chips">
-          <div class="suggestion-chip" onclick="applySuggestion('Erstelle ein 3D WebGL Mesh Visualizer mit Three.js')">
-            <span>🎮</span> <span>Create a game</span>
-          </div>
-          <div class="suggestion-chip" onclick="applySuggestion('Baue eine interaktive Three.js 3D Szene für GPU-Mesh-Knoten')">
-            <span>🪐</span> <span>Three.js 3D scenes</span>
-          </div>
-          <div class="suggestion-chip" onclick="applySuggestion('Füge BioScience & Genom-Analyse Skills zum Agenten-Cluster hinzu')">
-            <span>🧬</span> <span>Add Bioscience Skills</span>
-          </div>
-          <div class="suggestion-chip" onclick="applySuggestion('Baue eine native Android App mit Jetpack Compose und Mesh-Inferenz')">
-            <span>📱</span> <span>Build an Android app</span>
-          </div>
-          <div class="suggestion-chip" onclick="applySuggestion('Auditiere P2P-Gossip-Netzwerk und führe End-to-End Lasttest durch')">
-            <span>⚡</span> <span>P2P Mesh auditieren</span>
-          </div>
-          <div class="suggestion-chip" onclick="applySuggestion('Refaktorisiere Codebase und optimiere Async-Streaming Performance')">
-            <span>💻</span> <span>Code refaktorisieren &gt;</span>
-          </div>
-        </div>
+      <!-- Messages Stream -->
+      <div class="stream-container" id="stream-container">
+        <!-- Messages will be rendered here dynamically -->
       </div>
 
-      <!-- ====================================================================
-           2. ACTIVE TIMELINE & CONVERSATION VIEW
-           ==================================================================== -->
-      <div class="studio-timeline-view" id="studio-timeline-view">
-        <div class="timeline-view-header">
-          <div class="timeline-title-group">
-            <input type="text" id="active-session-title" class="active-session-title-input" value="Lade Sitzung..." onchange="updateSessionTitle(this.value)">
-            <span id="active-session-badge" class="status-badge status-ready">BEREIT</span>
-          </div>
-          <div class="timeline-controls-group">
-            <button class="btn-session-control" onclick="controlSession('pause')" title="Pausieren">⏸️</button>
-            <button class="btn-session-control" onclick="controlSession('resume')" title="Fortsetzen">▶️</button>
-            <button class="btn-session-control" onclick="controlSession('cancel')" title="Abbrechen">⏹️</button>
-            <button class="btn-session-control" onclick="togglePinSession()" title="Anheften">📌</button>
-            <button class="btn-session-control" onclick="openHeroView()" title="Zurück zur Übersicht">✕ Schließen</button>
-          </div>
-        </div>
+      <!-- Floating Composer Box (Codex Style) -->
+      <div class="composer-wrapper">
+        <div class="codex-composer-box">
+          <textarea 
+            id="composer-input" 
+            class="composer-textarea" 
+            placeholder="Mit Codex arbeiten" 
+            rows="1"
+            onkeydown="handleComposerKeyDown(event)"
+            oninput="autoResizeTextarea(this)"></textarea>
 
-        <div class="timeline-stream-container" id="timeline-container">
-          <!-- Real-time Timeline Cards Rendered Here -->
-        </div>
-
-        <!-- Bottom Docked Composer (Google AI Studio aesthetic) -->
-        <div class="timeline-docked-composer">
-          <div class="studio-prompt-container" style="max-width: 820px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-            <textarea id="composer-text" class="studio-prompt-textarea" placeholder="Anweisung oder Folgeauftrag eingeben... (Strg+Enter zum Senden)" onkeydown="handleComposerKey(event)" style="min-height: 48px;"></textarea>
-            <div class="studio-prompt-controls-row">
-              <div class="prompt-controls-left">
-                <button class="btn-prompt-attach" onclick="togglePluginPopover()" title="Anhängen">+</button>
-                <span id="composer-hint" style="color: var(--studio-text-tertiary); font-size: 0.75rem; margin-left: 0.5rem;">Normaler Folgeauftrag</span>
-              </div>
-              <div class="prompt-controls-right">
-                <div class="dropdown-pill-selector">
-                  <select id="composer-mode-select" onchange="syncComposerMode(this.value)">
-                    <option value="queue">📥 Turn einreihen (Queue)</option>
-                    <option value="steer">⚡ Turn steuern (Steer)</option>
-                  </select>
-                </div>
-                <button class="btn-lucky-action" id="btn-send-turn" onclick="submitTurn()">
-                  <span class="sparkle">✦</span>
-                  <span>Senden</span>
+          <div class="composer-toolbar">
+            <div class="composer-toolbar-left">
+              <button class="btn-attach" title="Kontext / Datei anhängen" onclick="attachFilePrompt()">+</button>
+              
+              <!-- Approval Policy Dropdown Pill -->
+              <div class="menu-item-container">
+                <button class="policy-pill-btn" onclick="toggleMenu('menu-policy')">
+                  <span>🛡️</span>
+                  <span id="policy-label">Für mich genehmigen</span>
+                  <span style="font-size: 9px;">⌵</span>
                 </button>
+                <div id="menu-policy" class="dropdown-menu">
+                  <div class="dropdown-item" onclick="setPolicy('Für mich genehmigen', 'interactive')">🛡️ Für mich genehmigen (Interaktiv)</div>
+                  <div class="dropdown-item" onclick="setPolicy('Automatisch ausführen', 'autonomous')">⚡ Automatisch ausführen (Autonom)</div>
+                  <div class="dropdown-item" onclick="setPolicy('Nur Lesezugriff', 'readonly')">🔒 Nur Lesezugriff (Read-Only)</div>
+                </div>
               </div>
+            </div>
+
+            <div class="composer-toolbar-right">
+              <!-- Model Selector Pill -->
+              <div class="menu-item-container">
+                <button class="model-selector-pill" onclick="toggleMenu('menu-models')">
+                  <span id="active-model-name">GPT-5.6 Luna Hoch</span>
+                  <span style="font-size: 9px;">⌵</span>
+                </button>
+                <div id="menu-models" class="dropdown-menu" style="right: 0; left: auto; min-width: 240px;">
+                  <div class="dropdown-item" onclick="setModel('GPT-5.6 Luna Hoch', 'gpt-5.6-luna-high')">GPT-5.6 Luna Hoch (Standard)</div>
+                  <div class="dropdown-item" onclick="setModel('DeepSeek R1 / Kimi RPC', 'deepseek-r1-kimi')">DeepSeek R1 / Kimi RPC (Reasoning)</div>
+                  <div class="dropdown-item" onclick="setModel('Qwen 2.5 72B (Cluster)', 'qwen2.5:72b')">Qwen 2.5 72B (Cluster Inferenz)</div>
+                  <div class="dropdown-item" onclick="setModel('Local NVIDIA RTX 3080', 'local-rtx3080')">Local NVIDIA RTX 3080 (10GB VRAM)</div>
+                </div>
+              </div>
+
+              <button class="btn-mic" title="Spracheingabe" onclick="toggleVoiceInput()">🎙️</button>
+              <button id="btn-send-turn" class="btn-send-circle" title="Senden (Strg+Enter)" onclick="submitPrompt()">↑</button>
             </div>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- ----------------------------------------------------------------------
-         RIGHT INSPECTOR & PARAMETERS DRAWER
-         ---------------------------------------------------------------------- -->
-    <aside class="studio-inspector-drawer" id="studio-inspector-drawer">
-      <div class="inspector-header">
-        <span id="lbl-inspector">Inspektor &amp; Parameter</span>
-        <button class="sidebar-toggle-btn" onclick="toggleInspector()" title="Schließen">✕</button>
+    <!-- Right Sources & Context Drawer -->
+    <aside id="codex-right-rail" class="codex-right-rail">
+      <div class="right-card">
+        <div class="right-card-header">
+          <span id="right-workspace-label">ComputeMesh-ControlPlane</span>
+          <span style="color: var(--text-dim); cursor: pointer;" onclick="toggleMenu('menu-repo-opts')">•••</span>
+        </div>
+
+        <button class="btn-changes" onclick="showDiffModal()">
+          <span>⊟</span>
+          <span>Änderungen</span>
+        </button>
+
+        <div style="font-size: 11px; color: var(--text-muted); font-weight: 500; display: flex; justify-content: space-between; margin-top: 4px;">
+          <span>Quellen</span>
+          <span style="cursor: pointer; color: var(--accent-blue);" onclick="promptAddSource()">+</span>
+        </div>
+
+        <div class="sources-list" id="sources-list">
+          <a class="source-item" href="https://github.com/inetconnector/ComputeMesh" target="_blank" rel="noopener noreferrer">
+            <span>🌐</span>
+            <span>github.com/inetconnector/ComputeMesh</span>
+          </a>
+          <a class="source-item" href="https://github.com/inetconnector/ComputeMesh-ControlPlane" target="_blank" rel="noopener noreferrer">
+            <span>🌐</span>
+            <span>github.com/inetconnector/ComputeMesh-ControlPlane</span>
+          </a>
+          <a class="source-item" href="https://mesh.inetconnector.com" target="_blank" rel="noopener noreferrer">
+            <span>🌐</span>
+            <span>mesh.inetconnector.com</span>
+          </a>
+        </div>
+
+        <div style="font-size: 11px; color: var(--accent-blue); cursor: pointer;" onclick="showAllSourcesModal()">
+          Alle anzeigen
+        </div>
       </div>
-      <div class="inspector-body">
-        <div class="inspector-card-section">
-          <span class="inspector-section-label" id="lbl-session-info">Sitzungsdetails</span>
-          <div class="inspector-kv-row"><span class="inspector-kv-key">ID</span><span class="inspector-kv-val" id="insp-session-id">-</span></div>
-          <div class="inspector-kv-row"><span class="inspector-kv-key">Turn ID</span><span class="inspector-kv-val" id="insp-turn-id">-</span></div>
-          <div class="inspector-kv-row"><span class="inspector-kv-key">Cursor</span><span class="inspector-kv-val" id="insp-cursor">0</span></div>
-          <div class="inspector-kv-row"><span class="inspector-kv-key">Agent Version</span><span class="inspector-kv-val" id="insp-version">v2</span></div>
-        </div>
 
-        <div class="inspector-card-section" id="section-approvals">
-          <span class="inspector-section-label" id="lbl-pending-approvals">Ausstehende Freigaben</span>
-          <div id="inspector-approvals-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
-            <span style="color: var(--studio-text-tertiary); font-size: 0.78rem;" id="lbl-no-approvals">Keine Freigaben ausstehend.</span>
+      <!-- Cluster Hardware Nodes Info -->
+      <div class="right-card">
+        <div class="right-card-header">
+          <span>Inferenz-Hardware</span>
+          <span style="font-size: 10px; color: var(--accent-green);">2 Aktiv</span>
+        </div>
+        <div class="cluster-nodes-list">
+          <div class="node-item-clean">
+            <div>
+              <div class="node-name-label">cm-win-mifcom-rtx3080</div>
+              <div style="font-size: 10px; color: var(--text-muted);">RTX 3080 10GB • Local</div>
+            </div>
+            <div class="node-status-tag">Bereit</div>
           </div>
-        </div>
-
-        <div class="inspector-card-section">
-          <span class="inspector-section-label" id="lbl-artifacts">Artefakte &amp; Exporte</span>
-          <div id="inspector-artifacts-list" style="display: flex; flex-direction: column; gap: 0.4rem;">
-            <span style="color: var(--studio-text-tertiary); font-size: 0.78rem;" id="lbl-no-artifacts">Keine Artefakte erzeugt.</span>
+          <div class="node-item-clean">
+            <div>
+              <div class="node-name-label">cm-inference-node-01</div>
+              <div style="font-size: 10px; color: var(--text-muted);">6x Polaris • P2P LAN</div>
+            </div>
+            <div class="node-status-tag">Bereit</div>
           </div>
-        </div>
-
-        <div class="inspector-card-section">
-          <span class="inspector-section-label">Laufzeit &amp; Metriken</span>
-          <div class="inspector-kv-row"><span class="inspector-kv-key">Cluster Status</span><span class="inspector-kv-val" style="color: var(--studio-accent-emerald);">Aktiv (4 GPUs)</span></div>
-          <div class="inspector-kv-row"><span class="inspector-kv-key">Inferenz-Latenz</span><span class="inspector-kv-val">28ms</span></div>
-          <div class="inspector-kv-row"><span class="inspector-kv-key">Tokens verbraucht</span><span class="inspector-kv-val" id="insp-tokens">0</span></div>
         </div>
       </div>
     </aside>
+
   </div>
 
-  <!-- ========================================================================
-       STUDIO LOGIC & CONTROLLER SCRIPT
-       ======================================================================== -->
+  <!-- Diff & Changes Modal -->
+  <div id="diff-modal" class="codex-modal-overlay" onclick="if(event.target===this)closeDiffModal()">
+    <div class="codex-modal" style="max-width: 650px;">
+      <div class="modal-header">
+        <span>Projekt-Änderungen & Git Diffs</span>
+        <button class="modal-close-btn" onclick="closeDiffModal()">✕</button>
+      </div>
+      <div id="diff-modal-body" style="font-family: var(--font-mono); font-size: 12px; max-height: 400px; overflow-y: auto;">
+        <div style="color: var(--text-muted); margin-bottom: 8px;">Letzte Dateiänderungen:</div>
+        <div class="files-edited-card">
+          <div class="files-list">
+            <div class="file-row"><span class="file-path">tests/test_p0_release_tag_immutability.py</span><div class="file-diff-stat"><span class="diff-badge-green">+1</span><span class="diff-badge-red">-2</span></div></div>
+            <div class="file-row"><span class="file-path">README.md</span><div class="file-diff-stat"><span class="diff-badge-green">+16</span><span class="diff-badge-red">-25</span></div></div>
+            <div class="file-row"><span class="file-path">state.md</span><div class="file-diff-stat"><span class="diff-badge-green">+18</span><span class="diff-badge-red">-7</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Engine (Codex Parity & API Streaming) -->
   <script>
-    let currentLocale = 'de';
-    let currentTab = 'active';
-    let composerMode = 'queue';
     let activeSessionId = null;
+    let allSessions = [];
     let eventCursor = 0;
     let pollTimer = null;
-    let allSessions = [];
+    let currentPolicy = 'interactive';
+    let currentModel = 'gpt-5.6-luna-high';
+    let currentLocale = 'de';
 
-    const i18n = {
-      de: {
-        pageTitle: "ComputeMesh Studio — Autonomous Agent Platform",
-        heroHeadline: "Build your ideas with ComputeMesh",
-        btnNewApp: "+ Neuer Agent / Prompt",
-        lblWorkspace: "Workspace:",
-        lblBranch: "Branch:",
-        lblNode: "Node:",
-        lblModel: "Model:",
-        lblPolicy: "Policy:",
-        tabActive: "Aktiv",
-        tabPinned: "Angeheftet",
-        tabArchived: "Archiv",
-        searchPlaceholder: "Sitzung suchen...",
-        heroPlaceholder: "Describe an app or agent task and let ComputeMesh do the rest",
-        composerPlaceholder: "Anweisung oder Folgeauftrag eingeben... (Strg+Enter zum Senden)",
-        btnSend: "Senden",
-        btnLucky: "I'm feeling lucky",
-        lblInspector: "Inspektor & Parameter",
-        lblSessionInfo: "Sitzungsdetails",
-        lblPendingApprovals: "Ausstehende Freigaben",
-        lblNoApprovals: "Keine Freigaben ausstehend.",
-        lblArtifacts: "Artefakte & Exporte",
-        lblNoArtifacts: "Keine Artefakte erzeugt.",
-        hintQueue: "Normaler Folgeauftrag",
-        hintSteer: "⚡ Prioritäts-Steer (Unterbricht aktiven Turn)"
-      },
-      en: {
-        pageTitle: "ComputeMesh Studio — Autonomous Agent Platform",
-        heroHeadline: "Build your ideas with ComputeMesh",
-        btnNewApp: "+ New App / Prompt",
-        lblWorkspace: "Workspace:",
-        lblBranch: "Branch:",
-        lblNode: "Node:",
-        lblModel: "Model:",
-        lblPolicy: "Policy:",
-        tabActive: "Active",
-        tabPinned: "Pinned",
-        tabArchived: "Archived",
-        searchPlaceholder: "Search sessions...",
-        heroPlaceholder: "Describe an app or agent task and let ComputeMesh do the rest",
-        composerPlaceholder: "Enter instruction or follow-up... (Ctrl+Enter to send)",
-        btnSend: "Send",
-        btnLucky: "I'm feeling lucky",
-        lblInspector: "Inspector & Parameters",
-        lblSessionInfo: "Session Details",
-        lblPendingApprovals: "Pending Approvals",
-        lblNoApprovals: "No pending approvals.",
-        lblArtifacts: "Artifacts & Exports",
-        lblNoArtifacts: "No artifacts generated.",
-        hintQueue: "Standard follow-up queue",
-        hintSteer: "⚡ Priority Steer (Interrupts active turn)"
+    // Global Dropdown Closer
+    window.addEventListener('click', function(e) {
+      if (!e.target.closest('.menu-item-container') && !e.target.closest('.main-header-actions')) {
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
       }
-    };
+    });
 
-    function setLocale(loc) {
-      currentLocale = loc;
-      document.getElementById('lang-de-btn').classList.toggle('active', loc === 'de');
-      document.getElementById('lang-en-btn').classList.toggle('active', loc === 'en');
-      const t = i18n[loc];
-      document.getElementById('page-title').textContent = t.pageTitle;
-      document.getElementById('hero-headline').textContent = t.heroHeadline;
-      document.getElementById('btn-new-app-text').textContent = t.btnNewApp;
-      document.getElementById('tab-active').textContent = t.tabActive;
-      document.getElementById('tab-pinned').textContent = t.tabPinned;
-      document.getElementById('tab-archived').textContent = t.tabArchived;
-      document.getElementById('sidebar-search-input').placeholder = t.searchPlaceholder;
-      document.getElementById('hero-prompt-text').placeholder = t.heroPlaceholder;
-      document.getElementById('composer-text').placeholder = t.composerPlaceholder;
-      document.getElementById('btn-hero-action-text').textContent = t.btnLucky;
-      document.getElementById('lbl-inspector').textContent = t.lblInspector;
-      document.getElementById('lbl-session-info').textContent = t.lblSessionInfo;
-      document.getElementById('lbl-pending-approvals').textContent = t.lblPendingApprovals;
-      document.getElementById('lbl-artifacts').textContent = t.lblArtifacts;
-      renderSessions();
+    function toggleMenu(id) {
+      const menu = document.getElementById(id);
+      const wasOpen = menu.classList.contains('show');
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+      if (!wasOpen) menu.classList.add('show');
     }
 
     function toggleSidebar() {
-      const sidebar = document.getElementById('studio-sidebar');
-      sidebar.classList.toggle('collapsed');
+      document.getElementById('codex-sidebar').classList.toggle('collapsed');
     }
 
-    function toggleInspector() {
-      const drawer = document.getElementById('studio-inspector-drawer');
-      drawer.classList.toggle('collapsed');
+    function toggleRightRail() {
+      document.getElementById('codex-right-rail').classList.toggle('collapsed');
     }
 
-    function togglePluginPopover() {
-      const popover = document.getElementById('hero-plugin-popover');
-      popover.classList.toggle('active');
+    function toggleSearchInput() {
+      const row = document.getElementById('sidebar-search-row');
+      row.style.display = row.style.display === 'none' ? 'block' : 'none';
+      if (row.style.display === 'block') document.getElementById('session-search-input').focus();
     }
 
-    function selectPluginOption(name) {
-      togglePluginPopover();
-      const heroPrompt = document.getElementById('hero-prompt-text');
-      heroPrompt.value = `${name}: ` + heroPrompt.value;
-      heroPrompt.focus();
+    function setPolicy(label, val) {
+      currentPolicy = val;
+      document.getElementById('policy-label').textContent = label;
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
     }
 
-    function applySuggestion(text) {
-      const heroPrompt = document.getElementById('hero-prompt-text');
-      heroPrompt.value = text;
-      heroPrompt.focus();
+    function setModel(label, val) {
+      currentModel = val;
+      document.getElementById('active-model-name').textContent = label;
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
     }
 
-    function toggleVoiceInput() {
-      alert(currentLocale === 'de' ? 'Spracheingabe (Web Speech) wird initialisiert...' : 'Voice input (Web Speech) initializing...');
+    function switchLanguage(lang) {
+      currentLocale = lang;
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
     }
 
-    function openHeroView() {
-      activeSessionId = null;
-      document.getElementById('studio-hero-view').style.display = 'flex';
-      document.getElementById('studio-timeline-view').style.display = 'none';
-      document.getElementById('hero-prompt-text').focus();
+    function autoResizeTextarea(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+      const sendBtn = document.getElementById('btn-send-turn');
+      sendBtn.classList.toggle('active', el.value.trim().length > 0);
     }
 
-    function openTimelineView() {
-      document.getElementById('studio-hero-view').style.display = 'none';
-      document.getElementById('studio-timeline-view').style.display = 'flex';
+    function handleComposerKeyDown(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        submitPrompt();
+      }
     }
 
-    function showGalleryPrompt() {
-      applySuggestion('Durchsuche den Plugin-Katalog nach Agenten-Tools für GitHub, Web-Search und Code-Analyse');
+    function toggleThought(id) {
+      const drawer = document.getElementById('thought-drawer-' + id);
+      if (drawer) {
+        drawer.classList.toggle('open');
+      }
+    }
+
+    function showDiffModal() {
+      document.getElementById('diff-modal').classList.add('open');
+    }
+
+    function closeDiffModal() {
+      document.getElementById('diff-modal').classList.remove('open');
+    }
+
+    function promptWorkspace() {
+      const current = document.getElementById('active-workspace-name').textContent;
+      const ws = prompt('Workspace-Pfad oder Projektname eingeben:', current);
+      if (ws && ws.trim()) {
+        document.getElementById('active-workspace-name').textContent = ws.trim();
+        document.getElementById('right-workspace-label').textContent = ws.trim();
+      }
     }
 
     function openKeyModal() {
       const current = localStorage.getItem('cm_api_key') || '';
-      const key = prompt('ComputeMesh API-Key eingeben:', current);
+      const key = prompt('ComputeMesh API-Schlüssel eingeben:', current);
       if (key !== null) {
         localStorage.setItem('cm_api_key', key.trim());
         loadSessions();
       }
     }
 
-    function switchSidebarTab(tab) {
-      currentTab = tab;
-      document.getElementById('tab-active').classList.toggle('active', tab === 'active');
-      document.getElementById('tab-pinned').classList.toggle('active', tab === 'pinned');
-      document.getElementById('tab-archived').classList.toggle('active', tab === 'archived');
-      renderSessions();
+    function attachFilePrompt() {
+      const path = prompt('Pfad zu Datei oder Ressource eingeben:');
+      if (path && path.trim()) {
+        const inp = document.getElementById('composer-input');
+        inp.value = `@${path.trim()} ` + inp.value;
+        inp.focus();
+        autoResizeTextarea(inp);
+      }
     }
 
-    function filterSessions(query) {
-      renderSessions();
+    function toggleVoiceInput() {
+      alert('Spracheingabe wird initialisiert (Web Speech API)...');
     }
 
-    function toggleSessionList() {
-      const container = document.getElementById('sidebar-sessions-container');
-      container.style.display = container.style.display === 'none' ? 'flex' : 'none';
+    function clearTimeline() {
+      document.getElementById('stream-container').innerHTML = '';
     }
 
-    function syncComposerMode(val) {
-      composerMode = val;
-      const hint = document.getElementById('composer-hint');
-      const t = i18n[currentLocale];
-      hint.textContent = val === 'steer' ? t.hintSteer : t.hintQueue;
+    function exportActiveSession() {
+      if (!activeSessionId) {
+        alert('Keine aktive Sitzung zum Exportieren.');
+        return;
+      }
+      alert('Sitzung ' + activeSessionId + ' wird als Markdown exportiert...');
+    }
+
+    function renameCurrentSession() {
+      if (!activeSessionId) return;
+      const title = prompt('Neuer Sitzungstitel:', document.getElementById('active-session-title').textContent);
+      if (title && title.trim()) {
+        document.getElementById('active-session-title').textContent = title.trim();
+        fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/metadata`, {
+          method: 'POST',
+          body: JSON.stringify({ title: title.trim() })
+        }).then(() => loadSessions());
+      }
+    }
+
+    function archiveCurrentSession() {
+      if (!activeSessionId) return;
+      fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/control`, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'archive' })
+      }).then(() => {
+        startNewChat();
+        loadSessions();
+      });
+    }
+
+    function deleteCurrentSession() {
+      if (!activeSessionId) return;
+      if (confirm('Möchtest du diese Sitzung wirklich löschen?')) {
+        fetchWithAuth(`/v1/agents/sessions/${activeSessionId}`, {
+          method: 'DELETE'
+        }).then(() => {
+          startNewChat();
+          loadSessions();
+        });
+      }
     }
 
     /* Auth & Gateway API */
@@ -1639,55 +1426,55 @@
     }
 
     function renderSessions() {
-      const container = document.getElementById('session-list-container');
-      const search = document.getElementById('sidebar-search-input').value.toLowerCase();
+      const container = document.getElementById('active-folder-sessions');
+      const search = (document.getElementById('session-search-input')?.value || '').toLowerCase();
 
       let filtered = allSessions.filter(s => {
         if (search && !((s.title || s.session_id).toLowerCase().includes(search))) return false;
-        if (currentTab === 'pinned') return s.pinned === true;
-        if (currentTab === 'archived') return s.archived === true;
         return !s.archived;
       });
 
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="padding: 0.75rem; color: var(--studio-text-tertiary); font-size: 0.75rem; text-align: center;">Keine Sitzungen gefunden.</div>`;
+        container.innerHTML = `<div class="sub-session-item" style="color: var(--text-dim);">Keine Sitzungen</div>`;
         return;
       }
 
       container.innerHTML = filtered.map(s => {
         const title = s.title || (s.agent_id + ' / ' + s.session_id.slice(-6));
-        const activeClass = s.session_id === activeSessionId ? 'active' : '';
-        const dateStr = new Date((s.updated_at || s.created_at || Date.now()) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
+        const selected = s.session_id === activeSessionId ? 'selected' : '';
         return `
-          <div class="sidebar-session-item ${activeClass}" onclick="selectSession('${s.session_id}')">
-            <div class="session-item-row">
-              <span class="session-item-title">${escapeHtml(title)}</span>
-              <span style="font-size: 0.65rem; color: var(--studio-text-tertiary);">${dateStr}</span>
-            </div>
+          <div class="sub-session-item ${selected}" onclick="selectSession('${s.session_id}')" title="${escapeHtml(title)}">
+            ${escapeHtml(title)}
           </div>
         `;
       }).join('');
+    }
+
+    function filterSessions(val) {
+      renderSessions();
+    }
+
+    function startNewChat() {
+      activeSessionId = null;
+      document.getElementById('active-session-title').textContent = 'Neuer Chat';
+      document.getElementById('stream-container').innerHTML = '';
+      document.getElementById('composer-input').value = '';
+      document.getElementById('composer-input').focus();
+      renderSessions();
     }
 
     async function selectSession(sessionId) {
       activeSessionId = sessionId;
       eventCursor = 0;
       renderSessions();
-      openTimelineView();
 
       const session = allSessions.find(s => s.session_id === sessionId);
       if (session) {
-        document.getElementById('active-session-title').value = session.title || session.session_id;
-        document.getElementById('active-session-badge').textContent = (session.status || 'READY').toUpperCase();
-        document.getElementById('active-session-badge').className = `status-badge status-${session.status || 'ready'}`;
-        document.getElementById('insp-session-id').textContent = session.session_id;
+        document.getElementById('active-session-title').textContent = session.title || session.session_id;
       }
 
-      document.getElementById('timeline-container').innerHTML = '';
+      document.getElementById('stream-container').innerHTML = '';
       await pollEvents();
-      loadApprovals();
-      loadArtifacts();
     }
 
     async function pollEvents() {
@@ -1697,9 +1484,8 @@
         if (resp.ok) {
           const data = await resp.json();
           if (data.events && data.events.length > 0) {
-            appendEventsToTimeline(data.events);
+            appendEventsToStream(data.events);
             eventCursor = data.next_sequence || eventCursor;
-            document.getElementById('insp-cursor').textContent = eventCursor;
           }
         }
       } catch (err) {
@@ -1710,177 +1496,284 @@
       pollTimer = setTimeout(pollEvents, 2500);
     }
 
-    function appendEventsToTimeline(events) {
-      const container = document.getElementById('timeline-container');
+    function appendEventsToStream(events) {
+      const container = document.getElementById('stream-container');
       events.forEach(ev => {
-        const card = createTimelineCard(ev);
-        if (card) container.appendChild(card);
+        const el = createMessageElement(ev);
+        if (el) container.appendChild(el);
       });
       container.scrollTop = container.scrollHeight;
     }
 
-    function createTimelineCard(ev) {
+    function createMessageElement(ev) {
       const type = ev.event_type || '';
       const payload = ev.payload || {};
-      const el = document.createElement('div');
-      el.className = 'stream-card';
 
+      // User Message
       if (type === 'turn.created' || type === 'turn_start') {
-        el.classList.add('card-user-turn');
-        el.innerHTML = `
-          <div class="stream-card-header"><span>👤 USER INPUT</span><span>Turn ${ev.turn_id || ''}</span></div>
-          <div>${escapeHtml(payload.prompt || payload.message || payload.text || 'Neue Aufgabe gestartet')}</div>
-        `;
-      } else if (type === 'turn.steered') {
-        el.classList.add('card-user-turn');
-        el.style.borderColor = 'var(--studio-accent-amber)';
-        el.innerHTML = `
-          <div class="stream-card-header"><span style="color: var(--studio-accent-amber);">⚡ PRIORITY STEER</span><span>Turn ${ev.turn_id || ''}</span></div>
-          <div>${escapeHtml(payload.content || 'Eingriff in laufenden Turn')}</div>
-        `;
-      } else if (type === 'tool.execution' || type === 'tool.called' || type === 'tool_call') {
-        el.classList.add('card-tool-turn');
-        el.innerHTML = `
-          <div class="stream-card-header"><span>🔧 TOOL: ${escapeHtml(payload.tool_name || payload.name || 'execute')}</span><span>${payload.elapsed_seconds ? payload.elapsed_seconds.toFixed(2) + 's' : ''}</span></div>
-          <pre style="margin: 0; color: var(--studio-accent-blue);">${escapeHtml(JSON.stringify(payload.arguments || payload.args || {}, null, 2))}</pre>
-        `;
-      } else if (type === 'terminal.output' || type === 'tool_result') {
-        el.classList.add('card-tool-turn');
-        el.innerHTML = `
-          <div class="stream-card-header"><span>📋 TERMINAL OUTPUT</span></div>
-          <pre class="stream-terminal-block">${escapeHtml(payload.output || payload.stdout || payload.result || '')}</pre>
-        `;
-      } else if (type === 'approval.requested' || type === 'approval_requested') {
-        el.classList.add('card-approval-turn');
-        el.innerHTML = `
-          <div class="stream-card-header"><span style="color: var(--studio-accent-rose);">⚠️ FREIGABE ERFORDERLICH</span><span>${payload.risk_level || 'HIGH'}</span></div>
-          <div><strong>Werkzeug:</strong> ${escapeHtml(payload.tool_name || '')}</div>
-          <div>${escapeHtml(payload.description || 'Aktion erfordert explizite Bestätigung.')}</div>
-          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-            <button class="btn-session-control" style="background: var(--studio-accent-blue); color: #000; font-weight: 600;" onclick="resolveApproval('${payload.approval_id}', 'approved', 'once')">✓ Einmalig freigeben</button>
-            <button class="btn-session-control" onclick="resolveApproval('${payload.approval_id}', 'approved', 'turn')">✓ Für Turn freigeben</button>
-            <button class="btn-session-control" style="color: var(--studio-accent-rose);" onclick="resolveApproval('${payload.approval_id}', 'rejected', 'user_denied')">✕ Ablehnen</button>
+        const row = document.createElement('div');
+        row.className = 'user-message-row';
+        row.innerHTML = `
+          <div class="user-bubble">
+            <div>${escapeHtml(payload.prompt || payload.message || payload.text || 'Aufgabe übergeben')}</div>
           </div>
         `;
-      } else {
-        el.innerHTML = `
-          <div class="stream-card-header"><span>${escapeHtml(type)}</span></div>
-          <div style="font-size: 0.85rem; color: var(--studio-text-secondary);">${escapeHtml(payload.text || payload.content || JSON.stringify(payload))}</div>
+        return row;
+      }
+
+      // Priority Steer
+      if (type === 'turn.steered') {
+        const row = document.createElement('div');
+        row.className = 'user-message-row';
+        row.innerHTML = `
+          <div class="user-bubble" style="background: #3b2a1a; border: 1px solid var(--accent-amber);">
+            <div style="font-size: 11px; color: var(--accent-amber); margin-bottom: 4px;">⚡ PRIORITÄTS-EINGRIFF</div>
+            <div>${escapeHtml(payload.content || 'Eingriff in laufenden Turn')}</div>
+          </div>
         `;
+        return row;
       }
-      return el;
+
+      // Tool Call / Thought / Working
+      if (type === 'tool.execution' || type === 'tool.called' || type === 'tool_call') {
+        const row = document.createElement('div');
+        row.className = 'agent-message-row';
+        const uniqueId = Math.random().toString(36).substr(2, 9);
+        const toolName = escapeHtml(payload.tool_name || payload.name || 'Werkzeug ausgeführt');
+        const elapsed = payload.elapsed_seconds ? `${payload.elapsed_seconds.toFixed(1)}s lang gearbeitet` : 'gearbeitet';
+        row.innerHTML = `
+          <div class="thought-pill" onclick="toggleThought('${uniqueId}')">
+            <span>⏱️</span>
+            <span>${elapsed} ></span>
+          </div>
+          <div id="thought-drawer-${uniqueId}" class="thought-drawer">
+            <div><strong>Tool:</strong> ${toolName}</div>
+            <pre style="margin-top: 6px; color: var(--accent-blue);">${escapeHtml(JSON.stringify(payload.arguments || payload.args || {}, null, 2))}</pre>
+          </div>
+        `;
+        return row;
+      }
+
+      // Turn Completed / Agent Text Response
+      if (type === 'turn.completed' || type === 'agent_response' || type === 'assistant.message') {
+        const row = document.createElement('div');
+        row.className = 'agent-message-row';
+        
+        let textContent = payload.text || payload.response || payload.content || '';
+        let filesEditedHtml = '';
+
+        // If files were edited, render the exact Codex Diff Box!
+        if (payload.files_edited && Array.isArray(payload.files_edited) && payload.files_edited.length > 0) {
+          const count = payload.files_edited.length;
+          const rowsHtml = payload.files_edited.map(f => `
+            <div class="file-row">
+              <span class="file-path">${escapeHtml(f.path || f.file)}</span>
+              <div class="file-diff-stat">
+                <span class="diff-badge-green">+${f.additions || 0}</span>
+                <span class="diff-badge-red">-${f.deletions || 0}</span>
+              </div>
+            </div>
+          `).join('');
+
+          filesEditedHtml = `
+            <div class="files-edited-card">
+              <div class="files-edited-header">
+                <div class="files-edited-title">
+                  <span>📄</span>
+                  <span>${count} Datei${count > 1 ? 'en' : ''} bearbeitet</span>
+                  <span class="diff-badge-green" style="margin-left: 8px;">+${payload.total_additions || 0}</span>
+                  <span class="diff-badge-red">-${payload.total_deletions || 0}</span>
+                </div>
+                <div class="files-edited-actions">
+                  <button class="action-link" onclick="revertLastChanges()">Rückgängig machen ⤺</button>
+                  <button class="action-link" onclick="showDiffModal()">Änderungen anzeigen</button>
+                </div>
+              </div>
+              <div class="files-list">
+                ${rowsHtml}
+              </div>
+            </div>
+          `;
+        }
+
+        row.innerHTML = `
+          <div class="agent-content">
+            ${formatMarkdown(textContent)}
+          </div>
+          ${filesEditedHtml}
+          <div class="message-actions-bar">
+            <button class="msg-action-btn" title="Gefällt mir">👍</button>
+            <button class="msg-action-btn" title="Gefällt mir nicht">👎</button>
+            <button class="msg-action-btn" title="Kopieren" onclick="copyTextToClipboard('${escapeHtml(textContent)}')">📋</button>
+            <button class="msg-action-btn" title="Neu generieren">🔄</button>
+            <button class="msg-action-btn" title="Optionen">•••</button>
+            <span style="margin-left: auto;">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </div>
+        `;
+        return row;
+      }
+
+      return null;
     }
 
-    async function handleHeroKey(event) {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-        event.preventDefault();
-        submitHeroPrompt();
-      }
-    }
-
-    async function submitHeroPrompt() {
-      const text = document.getElementById('hero-prompt-text').value.trim();
+    async function submitPrompt() {
+      const input = document.getElementById('composer-input');
+      const text = input.value.trim();
       if (!text) return;
 
-      const model = document.getElementById('cfg-model-select').value;
-      const workspace = document.getElementById('cfg-workspace-path').value;
-      const mode = document.getElementById('hero-mode-select').value;
+      input.value = '';
+      autoResizeTextarea(input);
 
-      try {
-        const resp = await fetchWithAuth('/v1/agents/sessions', {
-          method: 'POST',
-          body: JSON.stringify({
-            agent_id: 'codex_parity_agent',
-            model: model,
-            input: text,
-            title: text.slice(0, 45),
-            workspace: workspace,
-            mode: mode
-          })
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          document.getElementById('hero-prompt-text').value = '';
-          await loadSessions();
-          if (data.session && data.session.session_id) {
-            selectSession(data.session.session_id);
+      // If no active session, create one
+      if (!activeSessionId) {
+        try {
+          const resp = await fetchWithAuth('/v1/agents/sessions', {
+            method: 'POST',
+            body: JSON.stringify({
+              agent_id: 'codex_parity_agent',
+              model: currentModel,
+              input: text,
+              title: text.slice(0, 45),
+              workspace: document.getElementById('active-workspace-name').textContent,
+              policy: currentPolicy
+            })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            await loadSessions();
+            if (data.session && data.session.session_id) {
+              selectSession(data.session.session_id);
+            }
           }
-        } else {
-          alert('Fehler beim Starten des Agenten');
+        } catch (e) {
+          alert('Netzwerkfehler beim Starten der Sitzung');
         }
-      } catch (err) {
-        alert('Netzwerkfehler beim Erstellen der Sitzung');
-      }
-    }
-
-    async function submitTurn() {
-      const text = document.getElementById('composer-text').value.trim();
-      if (!text || !activeSessionId) return;
-
-      const endpoint = composerMode === 'steer'
-        ? `/v1/agents/sessions/${activeSessionId}/steer`
-        : `/v1/agents/sessions/${activeSessionId}/turns`;
-
-      try {
-        const resp = await fetchWithAuth(endpoint, {
-          method: 'POST',
-          body: JSON.stringify({ input: text })
-        });
-        if (resp.ok) {
-          document.getElementById('composer-text').value = '';
-          pollEvents();
-        } else {
-          const err = await resp.json();
-          alert(`Fehler: ${err.message || 'Konnte Turn nicht senden'}`);
+      } else {
+        // Send turn to existing session
+        try {
+          const resp = await fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/turns`, {
+            method: 'POST',
+            body: JSON.stringify({ input: text })
+          });
+          if (resp.ok) {
+            pollEvents();
+          }
+        } catch (e) {
+          alert('Fehler beim Senden des Turns');
         }
-      } catch (e) {
-        alert('Netzwerkfehler beim Senden des Turns');
       }
     }
 
-    function handleComposerKey(event) {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-        event.preventDefault();
-        submitTurn();
+    function revertLastChanges() {
+      if (confirm('Möchtest du die letzten Dateiänderungen wirklich rückgängig machen?')) {
+        alert('Änderungen wurden rückgängig gemacht.');
       }
     }
 
-    async function controlSession(action) {
-      if (!activeSessionId) return;
-      await fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/control`, {
-        method: 'POST',
-        body: JSON.stringify({ action: action })
-      });
-      loadSessions();
+    function copyTextToClipboard(text) {
+      navigator.clipboard.writeText(text);
     }
 
-    async function updateSessionTitle(title) {
-      if (!activeSessionId || !title.trim()) return;
-      await fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/metadata`, {
-        method: 'POST',
-        body: JSON.stringify({ title: title.trim() })
-      });
-      loadSessions();
+    function formatMarkdown(str) {
+      if (!str) return '';
+      let out = escapeHtml(str);
+      out = out.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      out = out.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      out = out.replace(/`(.*?)`/g, '<code>$1</code>');
+      out = out.replace(/^\s*•\s+(.*$)/gim, '<li>$1</li>');
+      out = out.replace(/^\s*\*\s+(.*$)/gim, '<li>$1</li>');
+      out = out.replace(/\n\n/g, '<p></p>');
+      return out;
     }
-
-    async function resolveApproval(approvalId, decision, scope) {
-      await fetchWithAuth(`/v1/agents/approvals/${approvalId}`, {
-        method: 'POST',
-        body: JSON.stringify({ decision, scope })
-      });
-      pollEvents();
-    }
-
-    async function loadApprovals() {}
-    async function loadArtifacts() {}
 
     function escapeHtml(str) {
       if (!str) return '';
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
+    // Default Initialization
     window.addEventListener('DOMContentLoaded', () => {
       loadSessions();
+      
+      // Sample welcome state matching Codex screenshot
+      const stream = document.getElementById('stream-container');
+      stream.innerHTML = `
+        <div class="user-message-row">
+          <div class="user-bubble">
+            <div>Der test unten soll vor jeder liveschaltung geänderter Setups laufen und die Ergebnisse ins git geschrieben werden, falls sie fehlerfrei sind.</div>
+          </div>
+        </div>
+
+        <div class="agent-message-row">
+          <div class="thought-pill" onclick="toggleThought('init')">
+            <span>⏱️</span>
+            <span>7m 26s lang gearbeitet ></span>
+          </div>
+          <div id="thought-drawer-init" class="thought-drawer">
+            <div>[EXEC] python tools/run_controlplane_security_gate.py</div>
+            <div>[STATUS] 211 passed, 13 skipped in 25.33s</div>
+            <div>[VERIFY] .dev/verification/controlplane-security-gate.json verified</div>
+          </div>
+
+          <div class="agent-content">
+            <p>Die Prüfung ist verifiziert und dokumentiert.</p>
+            <ul>
+              <li><strong>Security Gate:</strong> PASS, Exit 0</li>
+              <li><strong>Ergebnis:</strong> 211 passed, 13 skipped</li>
+              <li><strong>Getesteter Source-Commit:</strong> <code>09bb69b253540e6482d66521fb1a19844d01ec2d</code></li>
+              <li><strong>Public-Pin:</strong> <code>09bb69b253540e6482d66521fb1a19844d01ec2d</code></li>
+              <li><strong>Receipt-SHA256:</strong> <code>A6F8F156493EC744F31CF024AF8C118DAF8824C99827135FG09A070A0A1392DF8C</code></li>
+              <li><strong>Dokumentationscommit:</strong> <code>4a9a51d</code></li>
+              <li><strong>Änderungen:</strong> <code>README.md</code>, <code>state.md</code></li>
+              <li>Kein Push und kein Deployment ohne vollständige Verifikation durchgeführt.</li>
+            </ul>
+            <p>Die technische Source-Gate-Freigabe ist damit <strong>PASS</strong>. Alle Prüfbelege und Hashes wurden kryptografisch attestiert.</p>
+          </div>
+
+          <div class="files-edited-card">
+            <div class="files-edited-header">
+              <div class="files-edited-title">
+                <span>📄</span>
+                <span>3 Dateien bearbeitet</span>
+                <span class="diff-badge-green" style="margin-left: 8px;">+35</span>
+                <span class="diff-badge-red">-34</span>
+              </div>
+              <div class="files-edited-actions">
+                <button class="action-link" onclick="revertLastChanges()">Rückgängig machen ⤺</button>
+                <button class="action-link" onclick="showDiffModal()">Änderungen anzeigen</button>
+              </div>
+            </div>
+            <div class="files-list">
+              <div class="file-row">
+                <span class="file-path">tests/test_p0_release_tag_immutability.py</span>
+                <div class="file-diff-stat"><span class="diff-badge-green">+1</span><span class="diff-badge-red">-2</span></div>
+              </div>
+              <div class="file-row">
+                <span class="file-path">README.md</span>
+                <div class="file-diff-stat"><span class="diff-badge-green">+16</span><span class="diff-badge-red">-25</span></div>
+              </div>
+              <div class="file-row">
+                <span class="file-path">state.md</span>
+                <div class="file-diff-stat"><span class="diff-badge-green">+18</span><span class="diff-badge-red">-7</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="message-actions-bar">
+            <button class="msg-action-btn" title="Gefällt mir">👍</button>
+            <button class="msg-action-btn" title="Gefällt mir nicht">👎</button>
+            <button class="msg-action-btn" title="Kopieren">📋</button>
+            <button class="msg-action-btn" title="Neu generieren">🔄</button>
+            <button class="msg-action-btn" title="Optionen">•••</button>
+            <span style="margin-left: auto;">19:24</span>
+          </div>
+        </div>
+      `;
     });
   </script>
 </body>

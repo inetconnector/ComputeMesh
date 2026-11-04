@@ -139,7 +139,7 @@ def _acquire_single_instance_lock() -> bool:
             if last_err == ERROR_ALREADY_EXISTS:
                 # Open Web Dashboard in default browser and exit immediately
                 _log_event("Secondary instance launched: opening web dashboard in browser and exiting.")
-                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/")
+                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/agent")
                 return False
             return True
         except Exception as e:
@@ -156,7 +156,7 @@ def _acquire_single_instance_lock() -> bool:
                 fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except Exception:
                 os.close(lock_fd)
-                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/")
+                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/agent")
                 return False
             _SINGLE_INSTANCE_LOCK_FD = lock_fd
             return True
@@ -320,8 +320,8 @@ class ComputeMeshProviderApp:
             time.sleep(600)
 
     def open_web_dashboard(self, *args) -> None:
-        """Opens the Google AI Studio style Web Dashboard in the default browser."""
-        webbrowser.open(f"http://localhost:{self.dashboard_port}/")
+        """Opens the ultra-clean Codex Agent Workspace in the default browser."""
+        webbrowser.open(f"http://localhost:{self.dashboard_port}/agent")
 
     def open_agent_studio(self, *args) -> None:
         """Opens the Agent Workspace in the default browser."""
