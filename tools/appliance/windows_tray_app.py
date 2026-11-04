@@ -56,6 +56,19 @@ REG_APP_NAME = "ComputeMesh"
 DEFAULT_DASHBOARD_PORT = 8080
 
 
+def get_active_dashboard_port() -> int:
+    """Returns the actively listening dashboard port, with fallback to default."""
+    port_file = Path.home() / ".computemesh" / "dashboard_port"
+    if port_file.exists():
+        try:
+            val = int(port_file.read_text(encoding="utf-8").strip())
+            if 1024 <= val <= 65535:
+                return val
+        except Exception:
+            pass
+    return DEFAULT_DASHBOARD_PORT
+
+
 def _create_computemesh_icon_image(size: tuple[int, int] = (32, 32)) -> Image.Image:
     """Generates a crisp branded cyan mesh icon for Windows taskbar & tray."""
     w, h = size
@@ -126,7 +139,7 @@ def _acquire_single_instance_lock() -> bool:
             if last_err == ERROR_ALREADY_EXISTS:
                 # Open Web Dashboard in default browser and exit immediately
                 _log_event("Secondary instance launched: opening web dashboard in browser and exiting.")
-                webbrowser.open(f"http://localhost:{DEFAULT_DASHBOARD_PORT}/")
+                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/")
                 return False
             return True
         except Exception as e:
@@ -143,7 +156,7 @@ def _acquire_single_instance_lock() -> bool:
                 fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except Exception:
                 os.close(lock_fd)
-                webbrowser.open(f"http://localhost:{DEFAULT_DASHBOARD_PORT}/")
+                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/")
                 return False
             _SINGLE_INSTANCE_LOCK_FD = lock_fd
             return True
@@ -270,6 +283,12 @@ class ComputeMeshProviderApp:
                 node_id=nid
             )
             self.dashboard_port = actual_port
+            try:
+                p_file = Path.home() / ".computemesh" / "dashboard_port"
+                p_file.parent.mkdir(parents=True, exist_ok=True)
+                p_file.write_text(str(actual_port), encoding="utf-8")
+            except Exception:
+                pass
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"[{datetime.now(UTC).isoformat()}] Dashboard server listening on http://0.0.0.0:{actual_port}\n")
             server.serve_forever()
