@@ -1,32 +1,38 @@
 {
-  "version": "1.2.189",
-  "release_date": "2026-10-26T00:30:00.000000+00:00",
+  "version": "1.2.190",
+  "release_date": "2026-11-04T00:12:13.972908+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
     "windows-x64": {
       "filename": "ComputeMesh-Setup-x64.exe",
       "url": "https://mesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
-      "sha256": "3cb5547d24c6ae95d63e7bd42d1f292f1963f3ebe53e5440d870d8239ba99a71",
-      "size_bytes": 113721085
+      "sha256": "7be1ba121fcf46e5d272254b92e7f399b732d7190e88155aaf936c2240ef0b7f",
+      "size_bytes": 114766777
     },
     "linux-x64": {
       "filename": "computemesh-linux-x86_64.tar.gz",
       "url": "https://mesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
-      "sha256": "f47db789191a3e0eb602149d0ebe7fcda1f979d65da04f9a56a3e2fdee75489c",
-      "size_bytes": 7516127
+      "sha256": "d13782e6e96c43f79b15712dccf40597f8add1da045d5a8ac99a8850e39ed431",
+      "size_bytes": 7352688
     },
     "nodeos-iso": {
       "filename": "computemesh-nodeos-x86_64.iso",
       "url": "https://mesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.iso",
-      "sha256": "cee5568f5a3bc9785e7857de3e642940ca72c89932a801142b0a2c3b5cdb3311",
-      "size_bytes": 541065216
+      "sha256": "04aa6d79ed6f74e8c507634e4ac33437abdc5023c13e845fc810cc5089fc8f70",
+      "size_bytes": 836763648
     },
     "nodeos-img": {
       "filename": "computemesh-nodeos-x86_64.img.xz",
       "url": "https://mesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.img.xz",
-      "sha256": "71fa4be754ec174ef35652f43d14da7161cd515ea0349d9ecc9ead0eb3598f8c",
-      "size_bytes": 525896448
+      "sha256": "b8c00cb92bf3d94c6ade2159bc68977616798774d1fb866e3f3ce352327b6339",
+      "size_bytes": 822812392
+    },
+    "nodeos-runtime-x64": {
+      "filename": "computemesh-nodeos-runtime-x86_64.tar.gz",
+      "url": "https://mesh.inetconnector.com/downloads/computemesh-nodeos-runtime-x86_64.tar.gz",
+      "sha256": "312ac69837283c377daf35271fdbe5e38c5015043438d3149d21a718237275f6",
+      "size_bytes": 82233971
     },
     "installer-script": {
       "filename": "install.sh",
@@ -35,5 +41,5 @@
       "size_bytes": 6651
     }
   },
-  "signature": "5dc2aa661a36d7105b2d514aef6f1c5688f4fc17d5a3b7e76c93d63e8e97ca0a87d51c076febdc8285a7e06de0d28aa6f104412795e50f8809309b86d9f4f404"
+  "signature": "ebc78e9a8ad95aca26246931f95d711950ae53e60854aa2d803f734932c175bb7357f836808ccd10da6cd5f2b772d227495af50371ce2e5d0d3d45b0db17bb00"
 }
