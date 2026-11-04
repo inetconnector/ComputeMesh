@@ -167,7 +167,14 @@ fi
 # 6. Local gateway health verification (fail-closed)
 echo "[5/6] Verifying local gateway health..."
 if command -v curl >/dev/null 2>&1; then
-  HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/status || curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/v1/models || echo "000")
+  HEALTH_STATUS="000"
+  for retry in {1..15}; do
+    HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/v1/models || echo "000")
+    if [ "${HEALTH_STATUS}" = "200" ]; then
+      break
+    fi
+    sleep 1
+  done
   if [ "${HEALTH_STATUS}" != "200" ]; then
     echo "Error: Gateway local healthcheck failed with HTTP ${HEALTH_STATUS}."
     rollback_and_exit

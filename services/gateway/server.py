@@ -1376,7 +1376,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.close_connection = True
             return
 
-        if clean_path in ("/v1/models", "/models", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
+        if clean_path in ("/status", "/health", "/v1/models", "/models", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
             self._handle_models()
             return
 
