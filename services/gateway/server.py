@@ -1946,11 +1946,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "last_active": time.time(),
                 }
             target_node = node_id_req
-            if not target_node:
+            if not target_node or target_node not in NODE_TELEMETRY_REGISTRY:
                 for nid, nrec in NODE_TELEMETRY_REGISTRY.items():
                     if nrec.get("is_online"):
                         target_node = nid
                         break
+                if not target_node:
+                    for nid in NODE_TELEMETRY_REGISTRY.keys():
+                        if "mifcom" in nid or "win" in nid:
+                            target_node = nid
+                            break
             if target_node and target_node in NODE_TELEMETRY_REGISTRY:
                 existing_ws = NODE_TELEMETRY_REGISTRY[target_node].setdefault("workspaces", [])
                 if not any(w.get("path") == registered["path"] for w in existing_ws):
@@ -2678,6 +2683,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
             now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             existing_tokens = int(existing_node.get("telemetry", {}).get("tokens_processed", 0) or 0) if existing_node else 0
+            pending_ws_for_node = (existing_node.pop("pending_workspaces", []) if existing_node else [])
             incoming_tokens = int(body.get("telemetry", {}).get("tokens_processed", 0) or 0)
             final_tokens = max(existing_tokens, incoming_tokens)
             provider_payable_micro = max(0, int(self.ledger.get_balance(f"provider:{node_id}")))
@@ -2782,7 +2788,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "earnings_cm": provider_payable_micro,
                 "earnings_usd": round(provider_payable_micro / 1_000_000.0, 6),
             }
-            pending_ws = NODE_TELEMETRY_REGISTRY.get(node_id, {}).pop("pending_workspaces", [])
+            pending_ws = pending_ws_for_node
             if pending_ws:
                 resp["create_workspaces"] = pending_ws
             if owner_binding_error:
