@@ -3,641 +3,1445 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="page-title">ComputeMesh — Agent Workspace</title>
+  <title id="page-title">ComputeMesh Studio — Autonomous Agent Platform</title>
   <link rel="stylesheet" href="/portal.css?v=5.2">
   <link rel="stylesheet" href="/portal-business.css?v=5.1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    /* ==========================================================================
+       Google AI Studio Theme & Layout Variables
+       ========================================================================== */
     :root {
-      --agent-bg: #090d16;
-      --card-bg: rgba(15, 23, 42, 0.85);
-      --card-border: rgba(56, 189, 248, 0.2);
-      --card-border-active: rgba(56, 189, 248, 0.6);
-      --accent-cyan: #38bdf8;
-      --accent-emerald: #10b981;
-      --accent-amber: #f59e0b;
-      --accent-rose: #f43f5e;
-      --accent-indigo: #818cf8;
-      --text-muted: #94a3b8;
+      --studio-bg: #131314;
+      --studio-sidebar-bg: #18191b;
+      --studio-surface: #1e1f20;
+      --studio-surface-elevated: #282a2c;
+      --studio-surface-hover: #333538;
+      --studio-border: rgba(255, 255, 255, 0.1);
+      --studio-border-subtle: rgba(255, 255, 255, 0.06);
+      --studio-border-focus: #8ab4f8;
+      --studio-accent-blue: #8ab4f8;
+      --studio-accent-purple: #c58af9;
+      --studio-accent-cyan: #00E5FF;
+      --studio-accent-amber: #fdd663;
+      --studio-accent-rose: #f28b82;
+      --studio-accent-emerald: #81c995;
+      --studio-glow: rgba(138, 180, 248, 0.18);
+      --studio-text-primary: #f1f3f4;
+      --studio-text-secondary: #9aa0a6;
+      --studio-text-tertiary: #5f6368;
+      --font-studio: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
 
     body {
-      background-color: var(--agent-bg);
-      background-image: radial-gradient(circle at 50% -10%, rgba(56, 189, 248, 0.12), transparent 60%),
-                        radial-gradient(circle at 10% 80%, rgba(16, 185, 129, 0.08), transparent 50%);
-      color: #f8fafc;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--studio-bg);
+      color: var(--studio-text-primary);
+      font-family: var(--font-studio);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      margin: 0;
-    }
-
-    /* Workspace 3-Column Layout */
-    .workspace-wrapper {
-      display: grid;
-      grid-template-columns: 320px 1fr 340px;
-      gap: 1rem;
-      max-width: 1720px;
-      margin: 1rem auto 2rem auto;
-      padding: 0 1rem;
-      width: 100%;
-      height: calc(100vh - 170px);
-      min-height: 600px;
-    }
-
-    @media (max-width: 1200px) {
-      .workspace-wrapper {
-        grid-template-columns: 280px 1fr;
-      }
-      .inspector-column {
-        display: none !important;
-      }
-    }
-
-    @media (max-width: 800px) {
-      .workspace-wrapper {
-        grid-template-columns: 1fr;
-        height: auto;
-      }
-      .sidebar-column {
-        display: none;
-      }
-      .sidebar-column.mobile-open {
-        display: flex;
-        position: fixed;
-        inset: 0;
-        z-index: 999;
-        background: #0b1120;
-      }
-    }
-
-    .workspace-panel {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      backdrop-filter: blur(12px);
-      display: flex;
-      flex-direction: column;
       overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Top Workspace Config Bar */
-    .workspace-bar {
-      max-width: 1720px;
-      margin: 0.5rem auto;
-      padding: 0.5rem 1rem;
+    /* ==========================================================================
+       Top Navigation Header (Canonical Portal Invariant)
+       ========================================================================== */
+    header.site-header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(19, 19, 20, 0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--studio-border-subtle);
+      padding: 0.4rem 1.25rem;
+      height: 52px;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       width: 100%;
+    }
+
+    .brand-group {
       display: flex;
       align-items: center;
       gap: 1rem;
-      flex-wrap: wrap;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      font-size: 0.85rem;
     }
 
-    .config-chip {
+    .sidebar-toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--studio-text-secondary);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0.35rem;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .sidebar-toggle-btn:hover {
+      background: var(--studio-surface-elevated);
+      color: var(--studio-text-primary);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .brand-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      background: rgba(0, 229, 255, 0.12);
+      color: var(--studio-accent-cyan);
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--studio-accent-cyan);
+      box-shadow: 0 0 8px var(--studio-accent-cyan);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .mesh-status-indicator {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
-      padding: 0.3rem 0.75rem;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      color: #cbd5e1;
+      padding: 0.25rem 0.65rem;
+      background: rgba(129, 201, 149, 0.1);
+      border: 1px solid rgba(129, 201, 149, 0.25);
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      color: var(--studio-accent-emerald);
+      font-weight: 500;
     }
 
-    .config-chip select, .config-chip input {
-      background: transparent;
-      border: none;
-      color: var(--accent-cyan);
-      font-weight: 600;
-      font-size: 0.85rem;
-      outline: none;
+    .mesh-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--studio-accent-emerald);
+      animation: pulseGreen 2s infinite;
+    }
+
+    @keyframes pulseGreen {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .btn-header-action {
+      background: var(--studio-surface-elevated);
+      border: 1px solid var(--studio-border);
+      color: var(--studio-text-secondary);
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
       cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s;
     }
 
-    .config-chip select option {
-      background: #0f172a;
-      color: #f8fafc;
+    .btn-header-action:hover {
+      background: var(--studio-surface-hover);
+      color: var(--studio-text-primary);
+      border-color: rgba(255, 255, 255, 0.2);
     }
 
-    /* Left Sidebar: Session List */
-    .sidebar-header {
-      padding: 1rem;
-      border-bottom: 1px solid var(--card-border);
+    /* ==========================================================================
+       Main Studio Layout: Left Sidebar + Central Canvas + Right Drawer
+       ========================================================================== */
+    .studio-container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 52px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Google AI Studio Left Navigation Rail */
+    .studio-sidebar {
+      width: 250px;
+      min-width: 250px;
+      background-color: var(--studio-sidebar-bg);
+      border-right: 1px solid var(--studio-border-subtle);
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      justify-content: space-between;
+      overflow-y: auto;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 50;
     }
 
-    .sidebar-search {
-      width: 100%;
+    .studio-sidebar.collapsed {
+      width: 0;
+      min-width: 0;
+      overflow: hidden;
+      border-right: none;
+    }
+
+    .sidebar-inner-top {
+      display: flex;
+      flex-direction: column;
+      padding: 0.75rem 0.5rem;
+      gap: 1.25rem;
+    }
+
+    .nav-section-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--studio-text-tertiary);
+      padding: 0 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .nav-menu-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nav-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
       padding: 0.5rem 0.75rem;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      color: #fff;
+      border-radius: 8px;
+      color: var(--studio-text-secondary);
+      font-size: 0.84rem;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+
+    .nav-menu-item:hover {
+      background-color: var(--studio-surface);
+      color: var(--studio-text-primary);
+    }
+
+    .nav-menu-item.active {
+      background-color: rgba(138, 180, 248, 0.12);
+      color: var(--studio-accent-blue);
+      font-weight: 600;
+    }
+
+    .nav-menu-item svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      stroke-width: 1.8;
+    }
+
+    .btn-new-app-pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: var(--studio-surface-elevated);
+      border: 1px solid var(--studio-border);
+      border-radius: 9999px;
+      padding: 0.55rem 1rem;
+      color: var(--studio-text-primary);
       font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 0 0.5rem 0.5rem 0.5rem;
+      transition: all 0.2s;
+    }
+
+    .btn-new-app-pill:hover {
+      background: var(--studio-surface-hover);
+      border-color: rgba(255, 255, 255, 0.25);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    /* Sessions & History in Sidebar */
+    .sidebar-sessions-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .sidebar-search-box {
+      margin: 0 0.5rem;
+      position: relative;
+    }
+
+    .sidebar-search-input {
+      width: 100%;
+      background: var(--studio-surface);
+      border: 1px solid var(--studio-border-subtle);
+      border-radius: 8px;
+      padding: 0.4rem 0.65rem 0.4rem 1.8rem;
+      color: var(--studio-text-primary);
+      font-size: 0.78rem;
       outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .sidebar-search-input:focus {
+      border-color: var(--studio-accent-blue);
+    }
+
+    .sidebar-search-icon {
+      position: absolute;
+      left: 0.55rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--studio-text-tertiary);
+      font-size: 0.8rem;
+      pointer-events: none;
     }
 
     .sidebar-tabs {
       display: flex;
-      gap: 0.25rem;
-      background: rgba(0, 0, 0, 0.2);
+      gap: 2px;
+      background: rgba(0, 0, 0, 0.25);
       padding: 2px;
       border-radius: 6px;
+      margin: 0 0.5rem;
     }
 
     .sidebar-tab {
       flex: 1;
       background: transparent;
       border: none;
-      color: var(--text-muted);
-      font-size: 0.75rem;
+      color: var(--studio-text-tertiary);
+      font-size: 0.7rem;
       font-weight: 600;
-      padding: 0.35rem;
+      padding: 0.25rem 0;
       border-radius: 4px;
       cursor: pointer;
       text-align: center;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
     .sidebar-tab.active {
-      background: rgba(56, 189, 248, 0.18);
-      color: var(--accent-cyan);
+      background: var(--studio-surface-elevated);
+      color: var(--studio-accent-blue);
     }
 
-    .session-list {
-      flex: 1;
+    .sidebar-session-list {
+      max-height: 220px;
       overflow-y: auto;
-      padding: 0.5rem;
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
+      gap: 2px;
+      padding: 0 0.5rem;
     }
 
-    .session-card {
-      padding: 0.75rem;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 8px;
+    .sidebar-session-item {
+      padding: 0.45rem 0.6rem;
+      border-radius: 6px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      font-size: 0.78rem;
+      color: var(--studio-text-secondary);
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
+      gap: 0.15rem;
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
     }
 
-    .session-card:hover {
-      background: rgba(56, 189, 248, 0.05);
-      border-color: rgba(56, 189, 248, 0.3);
+    .sidebar-session-item:hover {
+      background: var(--studio-surface);
+      color: var(--studio-text-primary);
     }
 
-    .session-card.active {
-      background: rgba(56, 189, 248, 0.12);
-      border-color: var(--accent-cyan);
+    .sidebar-session-item.active {
+      background: rgba(138, 180, 248, 0.08);
+      color: var(--studio-accent-blue);
+      border-left-color: var(--studio-accent-blue);
+      font-weight: 500;
     }
 
-    .session-card-header {
+    .session-item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .session-item-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 150px;
+    }
+
+    /* Google AI Studio Sidebar Bottom Promo Card */
+    .sidebar-inner-bottom {
+      padding: 0.75rem 0.75rem 1rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .studio-promo-card {
+      background: linear-gradient(180deg, rgba(30, 31, 32, 0.8) 0%, rgba(24, 25, 27, 0.9) 100%);
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 0.85rem;
+      position: relative;
+      background-clip: padding-box;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+
+    .studio-promo-card::before {
+      content: '';
+      position: absolute;
+      top: -1px; left: -1px; right: -1px; bottom: -1px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, rgba(138, 180, 248, 0.5), rgba(197, 138, 249, 0.4), rgba(242, 139, 130, 0.4));
+      z-index: -1;
+    }
+
+    .promo-card-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .promo-card-desc {
+      font-size: 0.72rem;
+      color: var(--studio-text-secondary);
+      line-height: 1.35;
+    }
+
+    .sidebar-utility-icons {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding-top: 0.35rem;
+      border-top: 1px solid var(--studio-border-subtle);
+    }
+
+    .utility-icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--studio-text-tertiary);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0.35rem;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+
+    .utility-icon-btn:hover {
+      background: var(--studio-surface);
+      color: var(--studio-text-primary);
+    }
+
+    /* ==========================================================================
+       Central Workspace Canvas
+       ========================================================================== */
+    .studio-canvas {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+      background-color: var(--studio-bg);
+    }
+
+    /* Top Context Pill Bar (Workspace, Branch, Node, Model) */
+    .studio-top-context-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      padding: 0.4rem 1.5rem;
+      background: rgba(24, 25, 27, 0.5);
+      border-bottom: 1px solid var(--studio-border-subtle);
+      font-size: 0.78rem;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .context-bar-left, .context-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .context-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--studio-surface);
+      border: 1px solid var(--studio-border-subtle);
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      color: var(--studio-text-secondary);
+    }
+
+    .context-pill select, .context-pill input {
+      background: transparent;
+      border: none;
+      color: var(--studio-accent-blue);
+      font-weight: 600;
+      font-size: 0.78rem;
+      outline: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .context-pill select option {
+      background: #1e1f20;
+      color: #fff;
+    }
+
+    /* ==========================================================================
+       HERO VIEW (Exact Google AI Studio Layout)
+       ========================================================================== */
+    .studio-hero-view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
+      overflow-y: auto;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+      text-align: center;
+    }
+
+    .studio-announcement-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--studio-surface-elevated);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 0.35rem 0.9rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--studio-text-primary);
+      margin-bottom: 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .studio-announcement-pill:hover {
+      border-color: rgba(255, 255, 255, 0.25);
+      background: var(--studio-surface-hover);
+    }
+
+    .badge-number {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #1a73e8;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .studio-hero-headline {
+      font-size: 2.75rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: #e3e3e3;
+      margin-bottom: 2.25rem;
+      line-height: 1.15;
+    }
+
+    /* Signature Google AI Studio Prompt Box */
+    .studio-prompt-container {
+      width: 100%;
+      max-width: 820px;
+      background-color: var(--studio-surface);
+      border: 1px solid var(--studio-border);
+      border-radius: 20px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      box-shadow: 0 4px 28px rgba(0, 0, 0, 0.4);
+      position: relative;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      text-align: left;
+    }
+
+    .studio-prompt-container:focus-within {
+      border-color: rgba(138, 180, 248, 0.4);
+      box-shadow: 0 0 0 1px rgba(138, 180, 248, 0.3), 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .studio-prompt-textarea {
+      width: 100%;
+      min-height: 68px;
+      max-height: 220px;
+      background: transparent;
+      border: none;
+      color: var(--studio-text-primary);
+      font-family: var(--font-studio);
+      font-size: 1.05rem;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+    }
+
+    .studio-prompt-textarea::placeholder {
+      color: var(--studio-text-secondary);
+      font-weight: 400;
+    }
+
+    .studio-prompt-controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 0.25rem;
+    }
+
+    .prompt-controls-left {
+      display: flex;
+      align-items: center;
       gap: 0.5rem;
     }
 
-    .session-title {
-      font-weight: 600;
+    .btn-prompt-attach {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--studio-surface-elevated);
+      border: 1px solid var(--studio-border-subtle);
+      color: var(--studio-text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: all 0.15s;
+    }
+
+    .btn-prompt-attach:hover {
+      background: var(--studio-surface-hover);
+      color: var(--studio-text-primary);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .prompt-controls-right {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .dropdown-pill-selector {
+      background: var(--studio-surface-elevated);
+      border: 1px solid var(--studio-border-subtle);
+      border-radius: 9999px;
+      padding: 0.4rem 0.85rem;
+      color: var(--studio-text-secondary);
+      font-size: 0.82rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .dropdown-pill-selector:hover {
+      background: var(--studio-surface-hover);
+      color: var(--studio-text-primary);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .dropdown-pill-selector select {
+      background: transparent;
+      border: none;
+      color: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      outline: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .dropdown-pill-selector select option {
+      background: #1e1f20;
+      color: #fff;
+    }
+
+    .btn-mic-icon {
+      background: transparent;
+      border: none;
+      color: var(--studio-text-secondary);
+      font-size: 1.15rem;
+      cursor: pointer;
+      padding: 0.35rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .btn-mic-icon:hover {
+      color: var(--studio-text-primary);
+      background: var(--studio-surface-hover);
+    }
+
+    .btn-lucky-action {
+      background: #2b2c2f;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      padding: 0.5rem 1.1rem;
+      color: #fff;
       font-size: 0.85rem;
-      color: #f1f5f9;
-      white-space: nowrap;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-lucky-action:hover {
+      background: #36373b;
+      border-color: rgba(255, 255, 255, 0.25);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+
+    .btn-lucky-action .sparkle {
+      color: var(--studio-accent-blue);
+      font-size: 1rem;
+    }
+
+    /* Quick Suggestion Chips below Prompt */
+    .studio-suggestion-chips {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+      max-width: 820px;
+    }
+
+    .suggestion-chip {
+      background: var(--studio-surface);
+      border: 1px solid var(--studio-border-subtle);
+      border-radius: 9999px;
+      padding: 0.45rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--studio-text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      transition: all 0.15s;
+    }
+
+    .suggestion-chip:hover {
+      background: var(--studio-surface-hover);
+      color: var(--studio-text-primary);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    /* ==========================================================================
+       TIMELINE & ACTIVE CONVERSATION VIEW (Smoothly replaces Hero when active)
+       ========================================================================== */
+    .studio-timeline-view {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      height: 100%;
       overflow: hidden;
-      text-overflow: ellipsis;
+    }
+
+    .timeline-view-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 1.5rem;
+      border-bottom: 1px solid var(--studio-border-subtle);
+      background: rgba(24, 25, 27, 0.3);
+    }
+
+    .timeline-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .active-session-title-input {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .active-session-title-input:hover, .active-session-title-input:focus {
+      background: var(--studio-surface);
+      border-color: var(--studio-border);
     }
 
     .status-badge {
       font-size: 0.65rem;
       font-weight: 700;
       text-transform: uppercase;
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.05em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
     }
 
-    .status-running { background: rgba(56, 189, 248, 0.2); color: var(--accent-cyan); }
-    .status-ready { background: rgba(16, 185, 129, 0.2); color: var(--accent-emerald); }
-    .status-paused { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
-    .status-waiting_for_approval { background: rgba(244, 63, 94, 0.25); color: var(--accent-rose); animation: pulse 1.5s infinite; }
-    .status-completed { background: rgba(148, 163, 184, 0.2); color: var(--text-muted); }
+    .status-ready { background: rgba(129, 201, 149, 0.15); color: var(--studio-accent-emerald); }
+    .status-running { background: rgba(138, 180, 248, 0.15); color: var(--studio-accent-blue); }
+    .status-paused { background: rgba(253, 214, 99, 0.15); color: var(--studio-accent-amber); }
+    .status-waiting_for_approval { background: rgba(242, 139, 130, 0.2); color: var(--studio-accent-rose); animation: pulse 1.5s infinite; }
+    .status-completed { background: rgba(154, 160, 166, 0.15); color: var(--studio-text-secondary); }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-
-    .session-meta-row {
+    .timeline-controls-group {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      font-size: 0.72rem;
-      color: var(--text-muted);
+      gap: 0.4rem;
     }
 
-    /* Middle Column: Chat & Timeline */
-    .timeline-header {
-      padding: 0.85rem 1.25rem;
-      border-bottom: 1px solid var(--card-border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      background: rgba(0, 0, 0, 0.15);
+    .btn-session-control {
+      background: var(--studio-surface-elevated);
+      border: 1px solid var(--studio-border-subtle);
+      color: var(--studio-text-secondary);
+      padding: 0.35rem 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s;
     }
 
-    .timeline-title-area {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      overflow: hidden;
+    .btn-session-control:hover {
+      background: var(--studio-surface-hover);
+      color: var(--studio-text-primary);
     }
 
-    .timeline-title-input {
-      background: transparent;
-      border: 1px solid transparent;
-      color: #fff;
-      font-weight: 700;
-      font-size: 1.1rem;
-      outline: none;
-      padding: 0.2rem 0.4rem;
-      border-radius: 4px;
-      max-width: 400px;
-    }
-
-    .timeline-title-input:hover, .timeline-title-input:focus {
-      background: rgba(0, 0, 0, 0.3);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .timeline-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .timeline-body {
+    /* Scrollable Timeline Stream */
+    .timeline-stream-container {
       flex: 1;
       overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      align-items: center;
+    }
+
+    .timeline-stream-container > * {
+      max-width: 820px;
+      width: 100%;
+    }
+
+    .stream-card {
+      background: var(--studio-surface);
+      border: 1px solid var(--studio-border-subtle);
+      border-radius: 12px;
       padding: 1rem 1.25rem;
+      font-size: 0.92rem;
+      line-height: 1.55;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.6rem;
     }
 
-    /* Typed Timeline Cards */
-    .timeline-card {
-      background: rgba(15, 23, 42, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      font-size: 0.9rem;
+    .card-user-turn {
+      background: rgba(138, 180, 248, 0.06);
+      border-color: rgba(138, 180, 248, 0.2);
     }
 
-    .card-user {
-      border-color: rgba(56, 189, 248, 0.3);
-      background: rgba(56, 189, 248, 0.06);
-    }
-
-    .card-steering {
-      border-color: rgba(245, 158, 11, 0.4);
-      background: rgba(245, 158, 11, 0.08);
-    }
-
-    .card-tool {
-      border-color: rgba(129, 140, 248, 0.3);
-      background: rgba(15, 23, 42, 0.9);
-      font-family: 'JetBrains Mono', Consolas, monospace;
+    .card-tool-turn {
+      background: #18191b;
+      border-color: rgba(255, 255, 255, 0.08);
+      font-family: var(--font-mono);
       font-size: 0.82rem;
     }
 
-    .card-terminal {
-      background: #070a12;
-      border-color: rgba(255, 255, 255, 0.12);
-      font-family: 'JetBrains Mono', Consolas, monospace;
-      font-size: 0.8rem;
-      color: #a7f3d0;
-      white-space: pre-wrap;
-      word-break: break-all;
+    .card-approval-turn {
+      background: rgba(242, 139, 130, 0.08);
+      border: 1px solid var(--studio-accent-rose);
     }
 
-    .card-approval {
-      border: 1px solid var(--accent-rose);
-      background: rgba(244, 63, 94, 0.08);
-    }
-
-    .card-header {
+    .stream-card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--text-muted);
+      font-weight: 600;
+      color: var(--studio-text-secondary);
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
 
-    .diff-block {
-      background: #070a12;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      padding: 0.5rem;
-      font-family: monospace;
+    .stream-terminal-block {
+      background: #0d0e0f;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: var(--font-mono);
       font-size: 0.8rem;
+      color: #a7f3d0;
+      white-space: pre-wrap;
       max-height: 250px;
       overflow-y: auto;
     }
 
-    .diff-add { color: #34d399; background: rgba(52, 211, 153, 0.1); display: block; }
-    .diff-del { color: #f87171; background: rgba(248, 113, 113, 0.1); display: block; }
+    /* Bottom Docked Composer */
+    .timeline-docked-composer {
+      padding: 0.75rem 1.5rem 1.25rem 1.5rem;
+      background: linear-gradient(180deg, transparent 0%, var(--studio-bg) 40%);
+      display: flex;
+      justify-content: center;
+    }
 
-    /* Composer Area */
-    .composer-area {
-      padding: 0.75rem 1rem;
-      border-top: 1px solid var(--card-border);
-      background: rgba(0, 0, 0, 0.25);
+    /* ==========================================================================
+       RIGHT INSPECTOR & PARAMETERS DRAWER (Collapsible)
+       ========================================================================== */
+    .studio-inspector-drawer {
+      width: 320px;
+      min-width: 320px;
+      background-color: var(--studio-sidebar-bg);
+      border-left: 1px solid var(--studio-border-subtle);
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      overflow-y: auto;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 40;
     }
 
-    .composer-mode-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 0.78rem;
+    .studio-inspector-drawer.collapsed {
+      width: 0;
+      min-width: 0;
+      overflow: hidden;
+      border-left: none;
     }
 
-    .mode-switch {
-      display: inline-flex;
-      gap: 0.25rem;
-      background: rgba(0, 0, 0, 0.35);
-      padding: 2px;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .mode-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 0.25rem 0.6rem;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .mode-btn.active {
-      background: rgba(56, 189, 248, 0.2);
-      color: var(--accent-cyan);
-    }
-
-    .mode-btn.steer.active {
-      background: rgba(245, 158, 11, 0.25);
-      color: var(--accent-amber);
-    }
-
-    .composer-input-wrapper {
-      display: flex;
-      gap: 0.5rem;
-      align-items: flex-end;
-    }
-
-    .composer-textarea {
-      flex: 1;
-      min-height: 60px;
-      max-height: 180px;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 8px;
-      color: #fff;
-      font-family: inherit;
-      font-size: 0.9rem;
-      padding: 0.6rem 0.8rem;
-      resize: vertical;
-      outline: none;
-    }
-
-    .composer-textarea:focus {
-      border-color: var(--accent-cyan);
-    }
-
-    /* Right Column: Inspector */
     .inspector-header {
-      padding: 1rem;
-      border-bottom: 1px solid var(--card-border);
-      font-weight: 700;
-      font-size: 0.9rem;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--studio-border-subtle);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      font-weight: 600;
+      font-size: 0.88rem;
     }
 
     .inspector-body {
-      flex: 1;
-      overflow-y: auto;
       padding: 1rem;
       display: flex;
       flex-direction: column;
       gap: 1.25rem;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
     }
 
-    .inspector-section {
+    .inspector-card-section {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
     }
 
-    .section-title {
-      font-size: 0.75rem;
+    .inspector-section-label {
+      font-size: 0.7rem;
       font-weight: 700;
-      color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.06em;
+      color: var(--studio-text-tertiary);
     }
 
-    .kv-item {
+    .inspector-kv-row {
       display: flex;
       justify-content: space-between;
       gap: 0.5rem;
       padding: 0.3rem 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     }
 
-    .kv-key { color: var(--text-muted); }
-    .kv-val { color: #f8fafc; font-weight: 600; text-align: right; }
+    .inspector-kv-key {
+      color: var(--studio-text-secondary);
+    }
 
-    .artifact-chip {
+    .inspector-kv-val {
+      color: #fff;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    /* Floating Attach/Plugin Popover */
+    .plugin-popover {
+      display: none;
+      position: absolute;
+      bottom: 60px;
+      left: 10px;
+      width: 280px;
+      background: var(--studio-surface-elevated);
+      border: 1px solid var(--studio-border);
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      padding: 0.5rem;
+      z-index: 100;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .plugin-popover.active {
+      display: flex;
+    }
+
+    .popover-item {
+      padding: 0.45rem 0.65rem;
+      border-radius: 6px;
+      color: var(--studio-text-primary);
+      font-size: 0.82rem;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0.45rem 0.65rem;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px;
-      font-size: 0.8rem;
+      gap: 0.5rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .popover-item:hover {
+      background: var(--studio-surface-hover);
     }
   </style>
 </head>
 <body>
-  <!-- Top Navigation Header -->
+
+  <!-- ========================================================================
+       TOP HEADER (Canonical Site Header)
+       ======================================================================== -->
   <header class="site-header">
-    <div class="container nav-top-row">
-      <a href="/" class="brand">
-        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> AGENT WORKSPACE</span>
-      </a>
+    <div class="nav-top-row">
+      <div class="brand-group">
+        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Sidebar ein/ausklappen">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <a href="/" class="brand">
+          <span class="brand-logo">Compute<span class="gradient-text">Mesh</span> <span style="font-weight: 400; color: var(--studio-text-secondary); font-size: 1.05rem;">Studio</span></span>
+          <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> AGENT WORKSPACE</span>
+        </a>
+      </div>
 
       <div class="nav-actions">
+        <div class="mesh-status-indicator" id="mesh-cluster-status">
+          <span class="mesh-status-dot"></span>
+          <span>Mesh Cluster Verbunden</span>
+        </div>
         <div class="lang-switch">
           <button id="lang-de-btn" class="lang-btn active" onclick="setLocale('de')">🇩🇪 DE</button>
           <button id="lang-en-btn" class="lang-btn" onclick="setLocale('en')">🇬🇧 EN</button>
         </div>
-        <a href="/fleet" class="btn btn-secondary btn-sm" id="nav-fleet-btn">🖥️ Flotte</a>
-        <a href="https://ai.inetconnector.com" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">💬 AI-Chat ↗</a>
-        <button class="btn btn-primary btn-sm" onclick="newSessionModal()" id="btn-new-task">+ Neue Aufgabe</button>
+        <a href="/fleet" class="btn-header-action" id="nav-fleet-btn">🖥️ Flotte</a>
+        <a href="https://ai.inetconnector.com" target="_blank" rel="noopener" class="btn-header-action">💬 AI-Chat ↗</a>
+        <button class="btn-header-action" onclick="toggleInspector()" title="Inspektor anzeigen/verbergen">
+          <span>⚙️ Inspektor</span>
+        </button>
       </div>
     </div>
   </header>
 
-  <!-- Workspace Configuration Context Bar -->
-  <div class="workspace-bar">
-    <div class="config-chip">
-      <span>📂 <strong id="lbl-workspace">Workspace:</strong></span>
-      <input type="text" id="cfg-workspace-path" value="/opt/computemesh" style="width: 200px;">
-    </div>
-    <div class="config-chip">
-      <span>🌿 <strong id="lbl-branch">Branch:</strong></span>
-      <span id="cfg-branch-name" style="color: var(--accent-cyan); font-weight: 600;">main</span>
-    </div>
-    <div class="config-chip">
-      <span>🖥️ <strong id="lbl-node">Node:</strong></span>
-      <select id="cfg-node-select">
-        <option value="auto">Auto-Router (Cluster)</option>
-        <option value="test-node-custom">test-node-custom (RTX 3080)</option>
-        <option value="cm-inference-node-01">cm-inference-node-01 (6x AMD Polaris)</option>
-      </select>
-    </div>
-    <div class="config-chip">
-      <span>🧠 <strong id="lbl-model">Model:</strong></span>
-      <select id="cfg-model-select">
-        <option value="qwen2.5:7b">qwen2.5:7b (Inference Ready)</option>
-        <option value="gemma3:4b">gemma3:4b (Local NVIDIA)</option>
-        <option value="deepseek-coder:6.7b">deepseek-coder:6.7b</option>
-      </select>
-    </div>
-    <div class="config-chip">
-      <span>🛡️ <strong id="lbl-policy">Policy:</strong></span>
-      <select id="cfg-policy-select">
-        <option value="interactive">Interaktiv (Approvals erforderlich)</option>
-        <option value="autonomous">Autonom (Standard Sandbox)</option>
-        <option value="readonly">Nur Lesen (Safe Mode)</option>
-      </select>
-    </div>
-  </div>
+  <!-- ========================================================================
+       MAIN APPLICATION CONTAINER
+       ======================================================================== -->
+  <div class="studio-container">
 
-  <!-- 3-Column Main Workspace -->
-  <main class="workspace-wrapper">
-    <!-- Left Column: Session Sidebar -->
-    <aside class="workspace-panel sidebar-column">
-      <div class="sidebar-header">
-        <input type="text" id="sidebar-search-input" class="sidebar-search" placeholder="Sitzung suchen..." oninput="filterSessions(this.value)">
-        <div class="sidebar-tabs">
-          <button class="sidebar-tab active" id="tab-active" onclick="switchSidebarTab('active')">Aktiv</button>
-          <button class="sidebar-tab" id="tab-pinned" onclick="switchSidebarTab('pinned')">Angeheftet</button>
-          <button class="sidebar-tab" id="tab-archived" onclick="switchSidebarTab('archived')">Archiv</button>
+    <!-- ----------------------------------------------------------------------
+         LEFT NAVIGATION RAIL (Google AI Studio Sidebar)
+         ---------------------------------------------------------------------- -->
+    <aside class="studio-sidebar" id="studio-sidebar">
+      <div class="sidebar-inner-top">
+        <!-- New Task Button -->
+        <button class="btn-new-app-pill" onclick="openHeroView()">
+          <span style="font-size: 1.1rem; line-height: 1;">+</span>
+          <span id="btn-new-app-text">Neuer Agent / Prompt</span>
+        </button>
+
+        <!-- EXPLORE SECTION -->
+        <div class="nav-section-title">EXPLORE</div>
+        <ul class="nav-menu-list">
+          <li class="nav-menu-item active" id="menu-playground" onclick="openHeroView()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/>
+            </svg>
+            <span id="menu-playground-label">Playground</span>
+          </li>
+          <li class="nav-menu-item" id="menu-history" onclick="toggleSessionList()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span id="menu-history-label">Verlauf / History</span>
+          </li>
+        </ul>
+
+        <!-- SESSIONS & AGENTS LIST -->
+        <div class="sidebar-sessions-container" id="sidebar-sessions-container">
+          <div class="sidebar-search-box">
+            <span class="sidebar-search-icon">🔍</span>
+            <input type="text" id="sidebar-search-input" class="sidebar-search-input" placeholder="Sitzung suchen..." oninput="filterSessions(this.value)">
+          </div>
+          <div class="sidebar-tabs">
+            <button class="sidebar-tab active" id="tab-active" onclick="switchSidebarTab('active')">Aktiv</button>
+            <button class="sidebar-tab" id="tab-pinned" onclick="switchSidebarTab('pinned')">Angeheftet</button>
+            <button class="sidebar-tab" id="tab-archived" onclick="switchSidebarTab('archived')">Archiv</button>
+          </div>
+          <div class="sidebar-session-list" id="session-list-container">
+            <!-- Dynamic session items rendered here -->
+          </div>
         </div>
+
+        <!-- BUILD SECTION -->
+        <div class="nav-section-title">BUILD</div>
+        <ul class="nav-menu-list">
+          <li class="nav-menu-item" onclick="openHeroView()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Meine Agenten</span>
+          </li>
+          <li class="nav-menu-item" onclick="showGalleryPrompt()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            <span>Skill- &amp; Prompt-Galerie</span>
+          </li>
+        </ul>
+
+        <!-- MANAGE SECTION -->
+        <div class="nav-section-title">MANAGE</div>
+        <ul class="nav-menu-list">
+          <a href="/fleet" class="nav-menu-item" style="text-decoration: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span>Flotten-Dashboard ↗</span>
+          </a>
+          <a href="/api-docs" class="nav-menu-item" style="text-decoration: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>Dokumentation ↗</span>
+          </a>
+        </ul>
       </div>
-      <div class="session-list" id="session-list-container">
-        <!-- Dynamic Session Cards Rendered Here -->
+
+      <!-- BOTTOM PROMO CARD & UTILITY ICONS -->
+      <div class="sidebar-inner-bottom">
+        <div class="studio-promo-card">
+          <div class="promo-card-title">
+            <span>✨ ComputeMesh Cluster Argon</span>
+          </div>
+          <div class="promo-card-desc">
+            Qwen 2.5, DeepSeek R1 &amp; Kimi Linear 48B bereit. Volle Mesh-Inferenz auf dezentralen GPUs.
+          </div>
+        </div>
+        <div class="sidebar-utility-icons">
+          <button class="utility-icon-btn" title="Benachrichtigungen">🔔</button>
+          <button class="utility-icon-btn" onclick="toggleInspector()" title="Einstellungen">⚙️</button>
+          <button class="utility-icon-btn" onclick="document.getElementById('sidebar-search-input').focus()" title="Suche">🔍</button>
+          <button class="utility-icon-btn" onclick="openKeyModal()" title="API-Schlüssel">🔑</button>
+        </div>
       </div>
     </aside>
 
-    <!-- Center Column: Active Session Timeline -->
-    <section class="workspace-panel timeline-column">
-      <div class="timeline-header">
-        <div class="timeline-title-area">
-          <input type="text" id="active-session-title" class="timeline-title-input" value="Lade Sitzung..." onchange="updateSessionTitle(this.value)">
-          <span id="active-session-badge" class="status-badge status-ready">BEREIT</span>
-        </div>
-        <div class="timeline-actions">
-          <button class="btn btn-secondary btn-sm" id="btn-pause-session" onclick="controlSession('pause')" title="Pausieren">⏸️</button>
-          <button class="btn btn-secondary btn-sm" id="btn-resume-session" onclick="controlSession('resume')" title="Fortsetzen">▶️</button>
-          <button class="btn btn-secondary btn-sm" id="btn-cancel-session" onclick="controlSession('cancel')" title="Abbrechen">⏹️</button>
-          <button class="btn btn-secondary btn-sm" id="btn-pin-session" onclick="togglePinSession()" title="Anheften">📌</button>
-        </div>
-      </div>
+    <!-- ----------------------------------------------------------------------
+         CENTRAL WORKSPACE CANVAS
+         ---------------------------------------------------------------------- -->
+    <main class="studio-canvas">
 
-      <div class="timeline-body" id="timeline-container">
-        <!-- Real-time Timeline Cards Rendered Here -->
-      </div>
-
-      <!-- Composer & Steer Control -->
-      <div class="composer-area">
-        <div class="composer-mode-bar">
-          <div class="mode-switch">
-            <button class="mode-btn active" id="mode-queue-btn" onclick="setComposerMode('queue')">📥 Turn einreihen (Queue)</button>
-            <button class="mode-btn steer" id="mode-steer-btn" onclick="setComposerMode('steer')">⚡ Turn steuern (Steer)</button>
+      <!-- Top Context Strip -->
+      <div class="studio-top-context-bar">
+        <div class="context-bar-left">
+          <div class="context-pill">
+            <span>📂 <strong id="lbl-workspace">Workspace:</strong></span>
+            <input type="text" id="cfg-workspace-path" value="/opt/computemesh" style="width: 170px;">
           </div>
-          <span id="composer-hint" style="color: var(--text-muted); font-size: 0.75rem;">Normaler Folgeauftrag</span>
+          <div class="context-pill">
+            <span>🌿 <strong id="lbl-branch">Branch:</strong></span>
+            <span id="cfg-branch-name" style="color: var(--studio-accent-blue); font-weight: 600;">main</span>
+          </div>
         </div>
-        <div class="composer-input-wrapper">
-          <textarea id="composer-text" class="composer-textarea" placeholder="Anweisung oder Steuerung eingeben... (Strg+Enter zum Senden)" onkeydown="handleComposerKey(event)"></textarea>
-          <button class="btn btn-primary" id="btn-send-turn" onclick="submitTurn()" style="height: 60px; min-width: 90px;">Senden</button>
+        <div class="context-bar-right">
+          <div class="context-pill">
+            <span>🖥️ <strong id="lbl-node">Node:</strong></span>
+            <select id="cfg-node-select">
+              <option value="auto">Auto-Router (Cluster)</option>
+              <option value="test-node-custom">test-node-custom (RTX 3080)</option>
+              <option value="cm-inference-node-01">cm-inference-node-01 (AMD Polaris)</option>
+            </select>
+          </div>
+          <div class="context-pill">
+            <span>🧠 <strong id="lbl-model">Model:</strong></span>
+            <select id="cfg-model-select">
+              <option value="qwen2.5:7b">qwen2.5:7b (Inference Ready)</option>
+              <option value="gemma3:4b">gemma3:4b (Local NVIDIA)</option>
+              <option value="kimi-linear-48b">kimi-linear-48b (Cluster)</option>
+              <option value="deepseek-coder:6.7b">deepseek-coder:6.7b</option>
+            </select>
+          </div>
+          <div class="context-pill">
+            <span>🛡️ <strong id="lbl-policy">Policy:</strong></span>
+            <select id="cfg-policy-select">
+              <option value="interactive">Interaktiv (Approvals erforderlich)</option>
+              <option value="autonomous">Autonom (Standard Sandbox)</option>
+              <option value="readonly">Nur Lesen (Safe Mode)</option>
+            </select>
+          </div>
         </div>
       </div>
-    </section>
 
-    <!-- Right Column: Inspector -->
-    <aside class="workspace-panel inspector-column">
+      <!-- ====================================================================
+           1. HERO VIEW (Google AI Studio Clone)
+           ==================================================================== -->
+      <div class="studio-hero-view" id="studio-hero-view">
+        <div class="studio-announcement-pill">
+          <span class="badge-number">4</span>
+          <span>Introducing ComputeMesh 4 Argon</span>
+        </div>
+
+        <h1 class="studio-hero-headline" id="hero-headline">Build your ideas with ComputeMesh</h1>
+
+        <!-- Signature Centered Prompt Box -->
+        <div class="studio-prompt-container">
+          <textarea id="hero-prompt-text" class="studio-prompt-textarea" placeholder="Describe an app or agent task and let ComputeMesh do the rest" onkeydown="handleHeroKey(event)"></textarea>
+
+          <!-- Floating Attachment Popover Menu -->
+          <div class="plugin-popover" id="hero-plugin-popover">
+            <div class="popover-item" onclick="selectPluginOption('@ Skills & Plugins')">
+              <span>🧩</span> <strong>@ Skills &amp; Plugins durchsuchen</strong>
+            </div>
+            <div class="popover-item" onclick="selectPluginOption('🐙 GitHub')">
+              <span>🐙</span> <span>GitHub Repository einbinden</span>
+            </div>
+            <div class="popover-item" onclick="selectPluginOption('📁 Workspace')">
+              <span>📁</span> <span>Workspace-Pfad wählen</span>
+            </div>
+            <div class="popover-item" onclick="selectPluginOption('📄 Attachment')">
+              <span>📄</span> <span>Lokale Datei / Diff anhängen</span>
+            </div>
+          </div>
+
+          <div class="studio-prompt-controls-row">
+            <div class="prompt-controls-left">
+              <button class="btn-prompt-attach" onclick="togglePluginPopover()" title="Plugins, Workspace oder Dateien anhängen">+</button>
+            </div>
+            <div class="prompt-controls-right">
+              <div class="dropdown-pill-selector">
+                <select id="hero-mode-select">
+                  <option value="autonomous">Default mode</option>
+                  <option value="interactive">Interactive (Approvals)</option>
+                  <option value="review">Plan &amp; Review</option>
+                  <option value="steer">Priority Steer</option>
+                </select>
+              </div>
+              <button class="btn-mic-icon" onclick="toggleVoiceInput()" title="Spracheingabe aktivieren">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="23"></line>
+                  <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+              </button>
+              <button class="btn-lucky-action" onclick="submitHeroPrompt()">
+                <span class="sparkle">✦</span>
+                <span id="btn-hero-action-text">I'm feeling lucky</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggestion Chips Below Prompt -->
+        <div class="studio-suggestion-chips">
+          <div class="suggestion-chip" onclick="applySuggestion('Erstelle ein 3D WebGL Mesh Visualizer mit Three.js')">
+            <span>🎮</span> <span>Create a game</span>
+          </div>
+          <div class="suggestion-chip" onclick="applySuggestion('Baue eine interaktive Three.js 3D Szene für GPU-Mesh-Knoten')">
+            <span>🪐</span> <span>Three.js 3D scenes</span>
+          </div>
+          <div class="suggestion-chip" onclick="applySuggestion('Füge BioScience & Genom-Analyse Skills zum Agenten-Cluster hinzu')">
+            <span>🧬</span> <span>Add Bioscience Skills</span>
+          </div>
+          <div class="suggestion-chip" onclick="applySuggestion('Baue eine native Android App mit Jetpack Compose und Mesh-Inferenz')">
+            <span>📱</span> <span>Build an Android app</span>
+          </div>
+          <div class="suggestion-chip" onclick="applySuggestion('Auditiere P2P-Gossip-Netzwerk und führe End-to-End Lasttest durch')">
+            <span>⚡</span> <span>P2P Mesh auditieren</span>
+          </div>
+          <div class="suggestion-chip" onclick="applySuggestion('Refaktorisiere Codebase und optimiere Async-Streaming Performance')">
+            <span>💻</span> <span>Code refaktorisieren &gt;</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           2. ACTIVE TIMELINE & CONVERSATION VIEW
+           ==================================================================== -->
+      <div class="studio-timeline-view" id="studio-timeline-view">
+        <div class="timeline-view-header">
+          <div class="timeline-title-group">
+            <input type="text" id="active-session-title" class="active-session-title-input" value="Lade Sitzung..." onchange="updateSessionTitle(this.value)">
+            <span id="active-session-badge" class="status-badge status-ready">BEREIT</span>
+          </div>
+          <div class="timeline-controls-group">
+            <button class="btn-session-control" onclick="controlSession('pause')" title="Pausieren">⏸️</button>
+            <button class="btn-session-control" onclick="controlSession('resume')" title="Fortsetzen">▶️</button>
+            <button class="btn-session-control" onclick="controlSession('cancel')" title="Abbrechen">⏹️</button>
+            <button class="btn-session-control" onclick="togglePinSession()" title="Anheften">📌</button>
+            <button class="btn-session-control" onclick="openHeroView()" title="Zurück zur Übersicht">✕ Schließen</button>
+          </div>
+        </div>
+
+        <div class="timeline-stream-container" id="timeline-container">
+          <!-- Real-time Timeline Cards Rendered Here -->
+        </div>
+
+        <!-- Bottom Docked Composer (Google AI Studio aesthetic) -->
+        <div class="timeline-docked-composer">
+          <div class="studio-prompt-container" style="max-width: 820px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            <textarea id="composer-text" class="studio-prompt-textarea" placeholder="Anweisung oder Folgeauftrag eingeben... (Strg+Enter zum Senden)" onkeydown="handleComposerKey(event)" style="min-height: 48px;"></textarea>
+            <div class="studio-prompt-controls-row">
+              <div class="prompt-controls-left">
+                <button class="btn-prompt-attach" onclick="togglePluginPopover()" title="Anhängen">+</button>
+                <span id="composer-hint" style="color: var(--studio-text-tertiary); font-size: 0.75rem; margin-left: 0.5rem;">Normaler Folgeauftrag</span>
+              </div>
+              <div class="prompt-controls-right">
+                <div class="dropdown-pill-selector">
+                  <select id="composer-mode-select" onchange="syncComposerMode(this.value)">
+                    <option value="queue">📥 Turn einreihen (Queue)</option>
+                    <option value="steer">⚡ Turn steuern (Steer)</option>
+                  </select>
+                </div>
+                <button class="btn-lucky-action" id="btn-send-turn" onclick="submitTurn()">
+                  <span class="sparkle">✦</span>
+                  <span>Senden</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ----------------------------------------------------------------------
+         RIGHT INSPECTOR & PARAMETERS DRAWER
+         ---------------------------------------------------------------------- -->
+    <aside class="studio-inspector-drawer" id="studio-inspector-drawer">
       <div class="inspector-header">
-        <span id="lbl-inspector">Inspektor &amp; Status</span>
-        <button class="btn btn-secondary btn-sm" onclick="refreshInspector()" title="Aktualisieren">🔄</button>
+        <span id="lbl-inspector">Inspektor &amp; Parameter</span>
+        <button class="sidebar-toggle-btn" onclick="toggleInspector()" title="Schließen">✕</button>
       </div>
       <div class="inspector-body">
-        <div class="inspector-section">
-          <span class="section-title" id="lbl-session-info">Sitzungsdetails</span>
-          <div class="kv-item"><span class="kv-key">ID</span><span class="kv-val" id="insp-session-id">-</span></div>
-          <div class="kv-item"><span class="kv-key">Turn ID</span><span class="kv-val" id="insp-turn-id">-</span></div>
-          <div class="kv-item"><span class="kv-key">Cursor</span><span class="kv-val" id="insp-cursor">0</span></div>
-          <div class="kv-item"><span class="kv-key">Agent Version</span><span class="kv-val" id="insp-version">v2</span></div>
+        <div class="inspector-card-section">
+          <span class="inspector-section-label" id="lbl-session-info">Sitzungsdetails</span>
+          <div class="inspector-kv-row"><span class="inspector-kv-key">ID</span><span class="inspector-kv-val" id="insp-session-id">-</span></div>
+          <div class="inspector-kv-row"><span class="inspector-kv-key">Turn ID</span><span class="inspector-kv-val" id="insp-turn-id">-</span></div>
+          <div class="inspector-kv-row"><span class="inspector-kv-key">Cursor</span><span class="inspector-kv-val" id="insp-cursor">0</span></div>
+          <div class="inspector-kv-row"><span class="inspector-kv-key">Agent Version</span><span class="inspector-kv-val" id="insp-version">v2</span></div>
         </div>
 
-        <div class="inspector-section" id="section-approvals">
-          <span class="section-title" id="lbl-pending-approvals">Ausstehende Freigaben</span>
+        <div class="inspector-card-section" id="section-approvals">
+          <span class="inspector-section-label" id="lbl-pending-approvals">Ausstehende Freigaben</span>
           <div id="inspector-approvals-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
-            <span style="color: var(--text-muted); font-size: 0.8rem;" id="lbl-no-approvals">Keine Freigaben ausstehend.</span>
+            <span style="color: var(--studio-text-tertiary); font-size: 0.78rem;" id="lbl-no-approvals">Keine Freigaben ausstehend.</span>
           </div>
         </div>
 
-        <div class="inspector-section">
-          <span class="section-title" id="lbl-artifacts">Artefakte &amp; Exporte</span>
+        <div class="inspector-card-section">
+          <span class="inspector-section-label" id="lbl-artifacts">Artefakte &amp; Exporte</span>
           <div id="inspector-artifacts-list" style="display: flex; flex-direction: column; gap: 0.4rem;">
-            <span style="color: var(--text-muted); font-size: 0.8rem;" id="lbl-no-artifacts">Keine Artefakte erzeugt.</span>
+            <span style="color: var(--studio-text-tertiary); font-size: 0.78rem;" id="lbl-no-artifacts">Keine Artefakte erzeugt.</span>
           </div>
+        </div>
+
+        <div class="inspector-card-section">
+          <span class="inspector-section-label">Laufzeit &amp; Metriken</span>
+          <div class="inspector-kv-row"><span class="inspector-kv-key">Cluster Status</span><span class="inspector-kv-val" style="color: var(--studio-accent-emerald);">Aktiv (4 GPUs)</span></div>
+          <div class="inspector-kv-row"><span class="inspector-kv-key">Inferenz-Latenz</span><span class="inspector-kv-val">28ms</span></div>
+          <div class="inspector-kv-row"><span class="inspector-kv-key">Tokens verbraucht</span><span class="inspector-kv-val" id="insp-tokens">0</span></div>
         </div>
       </div>
     </aside>
-  </main>
+  </div>
 
+  <!-- ========================================================================
+       STUDIO LOGIC & CONTROLLER SCRIPT
+       ======================================================================== -->
   <script>
-    // State management
     let currentLocale = 'de';
     let currentTab = 'active';
     let composerMode = 'queue';
@@ -648,9 +1452,9 @@
 
     const i18n = {
       de: {
-        pageTitle: "ComputeMesh — Agent Workspace",
-        btnNewTask: "+ Neue Aufgabe",
-        navFleet: "🖥️ Flotte",
+        pageTitle: "ComputeMesh Studio — Autonomous Agent Platform",
+        heroHeadline: "Build your ideas with ComputeMesh",
+        btnNewApp: "+ Neuer Agent / Prompt",
         lblWorkspace: "Workspace:",
         lblBranch: "Branch:",
         lblNode: "Node:",
@@ -660,26 +1464,23 @@
         tabPinned: "Angeheftet",
         tabArchived: "Archiv",
         searchPlaceholder: "Sitzung suchen...",
-        modeQueue: "📥 Turn einreihen (Queue)",
-        modeSteer: "⚡ Turn steuern (Steer)",
-        hintQueue: "Normaler Folgeauftrag — wird nach aktuellem Schritt ausgeführt",
-        hintSteer: "Prioritätssteuerung — unterbricht und steuert den laufenden Agenten",
-        composerPlaceholder: "Anweisung oder Steuerung eingeben... (Strg+Enter zum Senden)",
+        heroPlaceholder: "Describe an app or agent task and let ComputeMesh do the rest",
+        composerPlaceholder: "Anweisung oder Folgeauftrag eingeben... (Strg+Enter zum Senden)",
         btnSend: "Senden",
-        lblInspector: "Inspektor & Status",
+        btnLucky: "I'm feeling lucky",
+        lblInspector: "Inspektor & Parameter",
         lblSessionInfo: "Sitzungsdetails",
         lblPendingApprovals: "Ausstehende Freigaben",
         lblNoApprovals: "Keine Freigaben ausstehend.",
         lblArtifacts: "Artefakte & Exporte",
         lblNoArtifacts: "Keine Artefakte erzeugt.",
-        approveOnce: "Einmalig freigeben",
-        approveTurn: "Für gesamten Turn freigeben",
-        reject: "Ablehnen"
+        hintQueue: "Normaler Folgeauftrag",
+        hintSteer: "⚡ Prioritäts-Steer (Unterbricht aktiven Turn)"
       },
       en: {
-        pageTitle: "ComputeMesh — Agent Workspace",
-        btnNewTask: "+ New Task",
-        navFleet: "🖥️ Fleet",
+        pageTitle: "ComputeMesh Studio — Autonomous Agent Platform",
+        heroHeadline: "Build your ideas with ComputeMesh",
+        btnNewApp: "+ New App / Prompt",
         lblWorkspace: "Workspace:",
         lblBranch: "Branch:",
         lblNode: "Node:",
@@ -689,21 +1490,18 @@
         tabPinned: "Pinned",
         tabArchived: "Archived",
         searchPlaceholder: "Search sessions...",
-        modeQueue: "📥 Queue Turn",
-        modeSteer: "⚡ Steer Turn",
-        hintQueue: "Standard queue — executed after current turn completes",
-        hintSteer: "Priority steering — interrupts and redirects active turn",
-        composerPlaceholder: "Enter instruction or priority steer... (Ctrl+Enter to send)",
+        heroPlaceholder: "Describe an app or agent task and let ComputeMesh do the rest",
+        composerPlaceholder: "Enter instruction or follow-up... (Ctrl+Enter to send)",
         btnSend: "Send",
-        lblInspector: "Inspector & Status",
+        btnLucky: "I'm feeling lucky",
+        lblInspector: "Inspector & Parameters",
         lblSessionInfo: "Session Details",
         lblPendingApprovals: "Pending Approvals",
         lblNoApprovals: "No pending approvals.",
         lblArtifacts: "Artifacts & Exports",
         lblNoArtifacts: "No artifacts generated.",
-        approveOnce: "Approve Once",
-        approveTurn: "Approve Turn",
-        reject: "Reject"
+        hintQueue: "Standard follow-up queue",
+        hintSteer: "⚡ Priority Steer (Interrupts active turn)"
       }
     };
 
@@ -713,38 +1511,77 @@
       document.getElementById('lang-en-btn').classList.toggle('active', loc === 'en');
       const t = i18n[loc];
       document.getElementById('page-title').textContent = t.pageTitle;
-      document.getElementById('btn-new-task').textContent = t.btnNewTask;
-      document.getElementById('lbl-workspace').textContent = t.lblWorkspace;
-      document.getElementById('lbl-branch').textContent = t.lblBranch;
-      document.getElementById('lbl-node').textContent = t.lblNode;
-      document.getElementById('lbl-model').textContent = t.lblModel;
-      document.getElementById('lbl-policy').textContent = t.lblPolicy;
+      document.getElementById('hero-headline').textContent = t.heroHeadline;
+      document.getElementById('btn-new-app-text').textContent = t.btnNewApp;
       document.getElementById('tab-active').textContent = t.tabActive;
       document.getElementById('tab-pinned').textContent = t.tabPinned;
       document.getElementById('tab-archived').textContent = t.tabArchived;
       document.getElementById('sidebar-search-input').placeholder = t.searchPlaceholder;
-      document.getElementById('mode-queue-btn').textContent = t.modeQueue;
-      document.getElementById('mode-steer-btn').textContent = t.modeSteer;
+      document.getElementById('hero-prompt-text').placeholder = t.heroPlaceholder;
       document.getElementById('composer-text').placeholder = t.composerPlaceholder;
-      document.getElementById('btn-send-turn').textContent = t.btnSend;
+      document.getElementById('btn-hero-action-text').textContent = t.btnLucky;
       document.getElementById('lbl-inspector').textContent = t.lblInspector;
       document.getElementById('lbl-session-info').textContent = t.lblSessionInfo;
       document.getElementById('lbl-pending-approvals').textContent = t.lblPendingApprovals;
       document.getElementById('lbl-artifacts').textContent = t.lblArtifacts;
-      updateComposerHint();
       renderSessions();
     }
 
-    function setComposerMode(mode) {
-      composerMode = mode;
-      document.getElementById('mode-queue-btn').classList.toggle('active', mode === 'queue');
-      document.getElementById('mode-steer-btn').classList.toggle('active', mode === 'steer');
-      updateComposerHint();
+    function toggleSidebar() {
+      const sidebar = document.getElementById('studio-sidebar');
+      sidebar.classList.toggle('collapsed');
     }
 
-    function updateComposerHint() {
-      const t = i18n[currentLocale];
-      document.getElementById('composer-hint').textContent = composerMode === 'queue' ? t.hintQueue : t.hintSteer;
+    function toggleInspector() {
+      const drawer = document.getElementById('studio-inspector-drawer');
+      drawer.classList.toggle('collapsed');
+    }
+
+    function togglePluginPopover() {
+      const popover = document.getElementById('hero-plugin-popover');
+      popover.classList.toggle('active');
+    }
+
+    function selectPluginOption(name) {
+      togglePluginPopover();
+      const heroPrompt = document.getElementById('hero-prompt-text');
+      heroPrompt.value = `${name}: ` + heroPrompt.value;
+      heroPrompt.focus();
+    }
+
+    function applySuggestion(text) {
+      const heroPrompt = document.getElementById('hero-prompt-text');
+      heroPrompt.value = text;
+      heroPrompt.focus();
+    }
+
+    function toggleVoiceInput() {
+      alert(currentLocale === 'de' ? 'Spracheingabe (Web Speech) wird initialisiert...' : 'Voice input (Web Speech) initializing...');
+    }
+
+    function openHeroView() {
+      activeSessionId = null;
+      document.getElementById('studio-hero-view').style.display = 'flex';
+      document.getElementById('studio-timeline-view').style.display = 'none';
+      document.getElementById('hero-prompt-text').focus();
+    }
+
+    function openTimelineView() {
+      document.getElementById('studio-hero-view').style.display = 'none';
+      document.getElementById('studio-timeline-view').style.display = 'flex';
+    }
+
+    function showGalleryPrompt() {
+      applySuggestion('Durchsuche den Plugin-Katalog nach Agenten-Tools für GitHub, Web-Search und Code-Analyse');
+    }
+
+    function openKeyModal() {
+      const current = localStorage.getItem('cm_api_key') || '';
+      const key = prompt('ComputeMesh API-Key eingeben:', current);
+      if (key !== null) {
+        localStorage.setItem('cm_api_key', key.trim());
+        loadSessions();
+      }
     }
 
     function switchSidebarTab(tab) {
@@ -755,6 +1592,23 @@
       renderSessions();
     }
 
+    function filterSessions(query) {
+      renderSessions();
+    }
+
+    function toggleSessionList() {
+      const container = document.getElementById('sidebar-sessions-container');
+      container.style.display = container.style.display === 'none' ? 'flex' : 'none';
+    }
+
+    function syncComposerMode(val) {
+      composerMode = val;
+      const hint = document.getElementById('composer-hint');
+      const t = i18n[currentLocale];
+      hint.textContent = val === 'steer' ? t.hintSteer : t.hintQueue;
+    }
+
+    /* Auth & Gateway API */
     async function fetchWithAuth(url, options = {}) {
       let token = localStorage.getItem('cm_auth_token') || localStorage.getItem('cm_session_token') || localStorage.getItem('cm_api_key') || localStorage.getItem('apiKey');
       if (!token) {
@@ -778,19 +1632,16 @@
           const data = await resp.json();
           allSessions = data.sessions || [];
           renderSessions();
-          if (!activeSessionId && allSessions.length > 0) {
-            selectSession(allSessions[0].session_id);
-          }
         }
       } catch (err) {
-        console.warn('Could not load sessions from gateway:', err);
+        console.warn('Could not load sessions:', err);
       }
     }
 
     function renderSessions() {
       const container = document.getElementById('session-list-container');
       const search = document.getElementById('sidebar-search-input').value.toLowerCase();
-      
+
       let filtered = allSessions.filter(s => {
         if (search && !((s.title || s.session_id).toLowerCase().includes(search))) return false;
         if (currentTab === 'pinned') return s.pinned === true;
@@ -799,25 +1650,20 @@
       });
 
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="padding: 1rem; color: var(--text-muted); font-size: 0.85rem; text-align: center;">Keine Sitzungen gefunden.</div>`;
+        container.innerHTML = `<div style="padding: 0.75rem; color: var(--studio-text-tertiary); font-size: 0.75rem; text-align: center;">Keine Sitzungen gefunden.</div>`;
         return;
       }
 
       container.innerHTML = filtered.map(s => {
         const title = s.title || (s.agent_id + ' / ' + s.session_id.slice(-6));
-        const statusClass = `status-${s.status || 'ready'}`;
         const activeClass = s.session_id === activeSessionId ? 'active' : '';
-        const dateStr = new Date((s.updated_at || s.created_at) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateStr = new Date((s.updated_at || s.created_at || Date.now()) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         return `
-          <div class="session-card ${activeClass}" onclick="selectSession('${s.session_id}')">
-            <div class="session-card-header">
-              <span class="session-title">${escapeHtml(title)}</span>
-              <span class="status-badge ${statusClass}">${s.status}</span>
-            </div>
-            <div class="session-meta-row">
-              <span>${s.model || 'qwen2.5:7b'}</span>
-              <span>${dateStr}</span>
+          <div class="sidebar-session-item ${activeClass}" onclick="selectSession('${s.session_id}')">
+            <div class="session-item-row">
+              <span class="session-item-title">${escapeHtml(title)}</span>
+              <span style="font-size: 0.65rem; color: var(--studio-text-tertiary);">${dateStr}</span>
             </div>
           </div>
         `;
@@ -828,6 +1674,7 @@
       activeSessionId = sessionId;
       eventCursor = 0;
       renderSessions();
+      openTimelineView();
 
       const session = allSessions.find(s => s.session_id === sessionId);
       if (session) {
@@ -860,7 +1707,7 @@
       }
 
       clearTimeout(pollTimer);
-      pollTimer = setTimeout(pollEvents, 3000);
+      pollTimer = setTimeout(pollEvents, 2500);
     }
 
     function appendEventsToTimeline(events) {
@@ -876,48 +1723,94 @@
       const type = ev.event_type || '';
       const payload = ev.payload || {};
       const el = document.createElement('div');
+      el.className = 'stream-card';
 
-      if (type === 'turn.created') {
-        el.className = 'timeline-card card-user';
+      if (type === 'turn.created' || type === 'turn_start') {
+        el.classList.add('card-user-turn');
         el.innerHTML = `
-          <div class="card-header"><span>USER INPUT</span><span>Turn ${ev.turn_id || ''}</span></div>
-          <div>${escapeHtml(payload.prompt || payload.message || 'Neue Aufgabe gestartet')}</div>
+          <div class="stream-card-header"><span>👤 USER INPUT</span><span>Turn ${ev.turn_id || ''}</span></div>
+          <div>${escapeHtml(payload.prompt || payload.message || payload.text || 'Neue Aufgabe gestartet')}</div>
         `;
       } else if (type === 'turn.steered') {
-        el.className = 'timeline-card card-steering';
+        el.classList.add('card-user-turn');
+        el.style.borderColor = 'var(--studio-accent-amber)';
         el.innerHTML = `
-          <div class="card-header"><span>⚡ PRIORITY STEER</span><span>Turn ${ev.turn_id || ''}</span></div>
+          <div class="stream-card-header"><span style="color: var(--studio-accent-amber);">⚡ PRIORITY STEER</span><span>Turn ${ev.turn_id || ''}</span></div>
           <div>${escapeHtml(payload.content || 'Eingriff in laufenden Turn')}</div>
         `;
-      } else if (type === 'tool.execution' || type === 'tool.called') {
-        el.className = 'timeline-card card-tool';
+      } else if (type === 'tool.execution' || type === 'tool.called' || type === 'tool_call') {
+        el.classList.add('card-tool-turn');
         el.innerHTML = `
-          <div class="card-header"><span>🔧 TOOL: ${escapeHtml(payload.tool_name || 'execute')}</span><span>${payload.elapsed_seconds ? payload.elapsed_seconds.toFixed(2) + 's' : ''}</span></div>
-          <pre style="margin: 0;">${escapeHtml(JSON.stringify(payload.arguments || {}, null, 2))}</pre>
+          <div class="stream-card-header"><span>🔧 TOOL: ${escapeHtml(payload.tool_name || payload.name || 'execute')}</span><span>${payload.elapsed_seconds ? payload.elapsed_seconds.toFixed(2) + 's' : ''}</span></div>
+          <pre style="margin: 0; color: var(--studio-accent-blue);">${escapeHtml(JSON.stringify(payload.arguments || payload.args || {}, null, 2))}</pre>
         `;
-      } else if (type === 'terminal.output') {
-        el.className = 'timeline-card card-terminal';
-        el.textContent = payload.output || payload.stdout || '';
-      } else if (type === 'approval.requested') {
-        el.className = 'timeline-card card-approval';
+      } else if (type === 'terminal.output' || type === 'tool_result') {
+        el.classList.add('card-tool-turn');
         el.innerHTML = `
-          <div class="card-header"><span style="color: var(--accent-rose);">⚠️ FREIGABE ERFORDERLICH</span><span>${payload.risk_level || 'HIGH'}</span></div>
+          <div class="stream-card-header"><span>📋 TERMINAL OUTPUT</span></div>
+          <pre class="stream-terminal-block">${escapeHtml(payload.output || payload.stdout || payload.result || '')}</pre>
+        `;
+      } else if (type === 'approval.requested' || type === 'approval_requested') {
+        el.classList.add('card-approval-turn');
+        el.innerHTML = `
+          <div class="stream-card-header"><span style="color: var(--studio-accent-rose);">⚠️ FREIGABE ERFORDERLICH</span><span>${payload.risk_level || 'HIGH'}</span></div>
           <div><strong>Werkzeug:</strong> ${escapeHtml(payload.tool_name || '')}</div>
           <div>${escapeHtml(payload.description || 'Aktion erfordert explizite Bestätigung.')}</div>
           <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-            <button class="btn btn-primary btn-sm" onclick="resolveApproval('${payload.approval_id}', 'approved', 'once')">Einmalig freigeben</button>
-            <button class="btn btn-secondary btn-sm" onclick="resolveApproval('${payload.approval_id}', 'approved', 'turn')">Für Turn freigeben</button>
-            <button class="btn btn-secondary btn-sm" onclick="resolveApproval('${payload.approval_id}', 'rejected', 'user_denied')" style="color: var(--accent-rose);">Ablehnen</button>
+            <button class="btn-session-control" style="background: var(--studio-accent-blue); color: #000; font-weight: 600;" onclick="resolveApproval('${payload.approval_id}', 'approved', 'once')">✓ Einmalig freigeben</button>
+            <button class="btn-session-control" onclick="resolveApproval('${payload.approval_id}', 'approved', 'turn')">✓ Für Turn freigeben</button>
+            <button class="btn-session-control" style="color: var(--studio-accent-rose);" onclick="resolveApproval('${payload.approval_id}', 'rejected', 'user_denied')">✕ Ablehnen</button>
           </div>
         `;
       } else {
-        el.className = 'timeline-card';
         el.innerHTML = `
-          <div class="card-header"><span>${escapeHtml(type)}</span></div>
-          <div style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(JSON.stringify(payload))}</div>
+          <div class="stream-card-header"><span>${escapeHtml(type)}</span></div>
+          <div style="font-size: 0.85rem; color: var(--studio-text-secondary);">${escapeHtml(payload.text || payload.content || JSON.stringify(payload))}</div>
         `;
       }
       return el;
+    }
+
+    async function handleHeroKey(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        submitHeroPrompt();
+      }
+    }
+
+    async function submitHeroPrompt() {
+      const text = document.getElementById('hero-prompt-text').value.trim();
+      if (!text) return;
+
+      const model = document.getElementById('cfg-model-select').value;
+      const workspace = document.getElementById('cfg-workspace-path').value;
+      const mode = document.getElementById('hero-mode-select').value;
+
+      try {
+        const resp = await fetchWithAuth('/v1/agents/sessions', {
+          method: 'POST',
+          body: JSON.stringify({
+            agent_id: 'codex_parity_agent',
+            model: model,
+            input: text,
+            title: text.slice(0, 45),
+            workspace: workspace,
+            mode: mode
+          })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          document.getElementById('hero-prompt-text').value = '';
+          await loadSessions();
+          if (data.session && data.session.session_id) {
+            selectSession(data.session.session_id);
+          }
+        } else {
+          alert('Fehler beim Starten des Agenten');
+        }
+      } catch (err) {
+        alert('Netzwerkfehler beim Erstellen der Sitzung');
+      }
     }
 
     async function submitTurn() {
@@ -970,53 +1863,25 @@
       loadSessions();
     }
 
-    async function newSessionModal() {
-      const prompt = window.prompt(currentLocale === 'de' ? 'Beschreibe die neue Aufgabe:' : 'Describe the new task:');
-      if (!prompt) return;
-
-      const model = document.getElementById('cfg-model-select').value;
-      const workspace = document.getElementById('cfg-workspace-path').value;
-
-      try {
-        const resp = await fetchWithAuth('/v1/agents/sessions', {
-          method: 'POST',
-          body: JSON.stringify({
-            agent_id: 'codex_parity_agent',
-            model: model,
-            input: prompt,
-            title: prompt.slice(0, 40),
-            workspace: workspace
-          })
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          await loadSessions();
-          if (data.session && data.session.session_id) {
-            selectSession(data.session.session_id);
-          }
-        }
-      } catch (e) {
-        alert('Fehler beim Erstellen der Sitzung');
-      }
+    async function resolveApproval(approvalId, decision, scope) {
+      await fetchWithAuth(`/v1/agents/approvals/${approvalId}`, {
+        method: 'POST',
+        body: JSON.stringify({ decision, scope })
+      });
+      pollEvents();
     }
+
+    async function loadApprovals() {}
+    async function loadArtifacts() {}
 
     function escapeHtml(str) {
       if (!str) return '';
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // Initialize on page load
     window.addEventListener('DOMContentLoaded', () => {
       loadSessions();
     });
   </script>
-  <script src="/agent-workspace/auth.js"></script>
-  <script src="/agent-workspace/i18n.js"></script>
-  <script src="/agent-workspace/state.js"></script>
-  <script src="/agent-workspace/sidebar.js"></script>
-  <script src="/agent-workspace/timeline.js"></script>
-  <script src="/agent-workspace/composer.js"></script>
-  <script src="/agent-workspace/inspector.js"></script>
-  <script src="/agent-workspace/app.js"></script>
 </body>
 </html>

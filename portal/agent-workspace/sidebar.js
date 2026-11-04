@@ -35,12 +35,12 @@
       const isActive = s.session_id === activeSessionId;
       const statusClass = `status-${(s.status || 'ready').toLowerCase()}`;
       return `
-        <div class="session-card ${isActive ? 'active' : ''}" data-id="${s.session_id}" onclick="AgentApp.selectSession('${s.session_id}')">
+        <div class="sidebar-session-item session-card ${isActive ? 'active' : ''}" data-id="${s.session_id}" onclick="typeof selectSession === 'function' ? selectSession('${s.session_id}') : AgentApp.selectSession('${s.session_id}')">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
-            <span class="session-title">${escapeHtml(s.title || s.session_id)}</span>
+            <span class="session-item-title session-title">${escapeHtml(s.title || s.session_id)}</span>
             <span class="status-badge ${statusClass}">${(s.status || 'READY').toUpperCase()}</span>
           </div>
-          <div class="session-meta">
+          <div class="session-meta" style="display: flex; gap: 0.35rem; font-size: 0.7rem; color: var(--studio-text-tertiary, #94a3b8);">
             <span>${escapeHtml(s.model || 'auto')}</span>
             <span>·</span>
             <span>${formatTime(s.created_at)}</span>

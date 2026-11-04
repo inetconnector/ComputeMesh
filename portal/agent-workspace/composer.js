@@ -34,7 +34,7 @@
   }
 
   async function handleSend() {
-    const input = document.getElementById('composer-textarea');
+    const input = document.getElementById('composer-textarea') || document.getElementById('composer-text') || document.getElementById('hero-prompt-text');
     if (!input) return;
     const text = (input.value || '').trim();
     if (!text) return;
