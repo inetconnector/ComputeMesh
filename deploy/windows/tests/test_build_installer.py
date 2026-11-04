@@ -1,4 +1,5 @@
 """Unit tests for Windows Standalone Executable & Installer Packaging Engine."""
+import importlib.util
 import sys
 import tempfile
 import unittest
@@ -10,6 +11,8 @@ from deploy.windows.build_installer import (
     build_windows_standalone_bundle,
 )
 
+_HAS_PYINSTALLER = importlib.util.find_spec("PyInstaller") is not None
+
 
 class TestWindowsBuildInstaller(unittest.TestCase):
     def setUp(self) -> None:
@@ -19,7 +22,7 @@ class TestWindowsBuildInstaller(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    @unittest.skipUnless(sys.platform == "win32", "real Windows PyInstaller bundle requires Windows CI")
+    @unittest.skipUnless(sys.platform == "win32" and _HAS_PYINSTALLER, "real Windows PyInstaller bundle requires Windows CI with PyInstaller")
     def test_build_standalone_bundle(self) -> None:
         result = build_windows_standalone_bundle(self.output_exe, version="1.0.1")
         self.assertTrue(self.output_exe.exists())

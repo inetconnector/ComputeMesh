@@ -5,24 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <!-- ComputeMesh NodeOS / Windows Provider Dashboard -->
   <title id="page-title">ComputeMesh Dashboard — AI Inference Provider</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-base: #181a1c;
-      --bg-surface: #202325;
-      --bg-card: #272a2c;
-      --bg-card-hover: #303537;
-      --border-color: #383d41;
-      --border-bright: #778c87;
-      --accent-cyan: #b7d3cb;
-      --accent-blue: #b7d3cb;
-      --accent-emerald: #a4c7b0;
-      --accent-amber: #d7c29c;
-      --accent-rose: #e7a3a8;
-      --text-main: #f0f1f2;
-      --text-dim: #b6bbbf;
-      --font-main: Arial, sans-serif;
-      --font-mono: Consolas, monospace;
-      --font-heading: Arial, sans-serif;
+      --bg-base: #131314;
+      --bg-surface: #1e1f20;
+      --bg-card: #1e1f20;
+      --bg-card-hover: #282a2c;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-bright: #8ab4f8;
+      --accent-cyan: #00E5FF;
+      --accent-blue: #8ab4f8;
+      --accent-emerald: #81c995;
+      --accent-amber: #fdd663;
+      --accent-rose: #f28b82;
+      --text-main: #f1f3f4;
+      --text-dim: #9aa0a6;
+      --font-main: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+      --font-heading: 'Google Sans', 'Inter', sans-serif;
     }
     *, *:before, *:after { box-sizing: border-box; margin: 0; padding: 0; }
     html.is-windows .linux-only,
@@ -759,7 +762,8 @@
       <button id="nav-overview" class="nav-tab active" onclick="switchTab('overview', this)">📊 Live Overview</button>
       <button id="nav-models" class="nav-tab" onclick="switchTab('models', this); refreshModels()">Modelle</button>
       <button id="nav-config" class="nav-tab" onclick="switchTab('config', this)">⚙️ Settings & Update</button>
-      <a class="nav-tab" href="/webui/" style="text-decoration: none; color: #00f0ff; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); display: inline-flex; align-items: center;">💬 AI Chat Studio</a>
+      <a class="nav-tab" href="/agent" style="text-decoration: none; color: #8ab4f8; background: rgba(138, 180, 248, 0.1); border: 1px solid rgba(138, 180, 248, 0.3); display: inline-flex; align-items: center; gap: 0.35rem;"><span>🤖 Agent Studio</span></a>
+      <a class="nav-tab" href="/webui/" style="text-decoration: none; color: #00f0ff; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); display: inline-flex; align-items: center; gap: 0.35rem;"><span>💬 AI Chat Studio</span></a>
     </div>
   </header>
 
@@ -807,20 +811,32 @@
 
     <!-- TAB 1: OVERVIEW -->
     <div id="tab-overview" class="tab-content active">
-      <!-- 0. AI CHAT & IMAGE GENERATION QUICK ACCESS -->
-      <div style="background: linear-gradient(135deg, rgba(16, 24, 48, 0.95), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(0, 240, 255, 0.4); box-shadow: 0 0 20px rgba(0, 240, 255, 0.1); border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.5rem;">
-        <div style="display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 260px;">
-          <div style="font-weight: 700; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <span>💬 Lokales AI Chat Studio & Bild-Generator</span>
-            <span style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; font-size: 0.72rem; padding: 0.15rem 0.55rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;">100% Lokal & Privat</span>
+      <!-- 0. GOOGLE AI STUDIO PROMPT & INFERENCE HERO -->
+      <div style="background: #1e1f20; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 24px rgba(0,0,0,0.4); border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #282a2c; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 9999px; padding: 0.3rem 0.8rem; font-size: 0.78rem; font-weight: 500; color: #fff;">
+            <span style="width: 18px; height: 18px; border-radius: 50%; background: #1a73e8; color: #fff; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; justify-content: center;">4</span>
+            <span>ComputeMesh 4 Argon — Windows GPU Provider Engine</span>
           </div>
-          <div style="color: var(--text-dim); font-size: 0.88rem; line-height: 1.4;">
-            Chatte direkt mit deinen lokalen LLM-Modellen (Ollama), nutze autonome Live-Tools & News und rendere KI-Bilder mit deiner lokalen GPU.
+          <div style="display: flex; gap: 0.5rem;">
+            <a href="/agent" class="btn btn-secondary" style="text-decoration: none; font-weight: 600; padding: 0.45rem 1rem; font-size: 0.85rem; border-radius: 9999px; background: #282a2c; border: 1px solid rgba(255,255,255,0.12); color: #fff; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <span>🤖 Agent Studio</span>
+            </a>
+            <a href="/webui/" class="btn btn-primary" style="text-decoration: none; font-weight: 600; padding: 0.45rem 1rem; font-size: 0.85rem; border-radius: 9999px; background: #8ab4f8; color: #000; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <span>💬 AI Chat Studio</span>
+            </a>
           </div>
         </div>
-        <a href="/webui/" class="btn btn-primary" style="text-decoration: none; font-weight: 700; padding: 0.75rem 1.6rem; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; border-radius: 8px;">
-          🚀 Chat Studio öffnen (/webui/)
-        </a>
+        <div style="font-size: 1.5rem; font-weight: 600; color: #fff; letter-spacing: -0.01em;">
+          Build and run autonomous AI on your local GPU
+        </div>
+        <div style="display: flex; gap: 0.5rem; background: #131314; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 0.6rem 0.85rem; align-items: center;">
+          <span style="color: #9aa0a6; font-size: 1.1rem;">✦</span>
+          <input type="text" id="quick-prompt-input" placeholder="Prompt oder Agenten-Aufgabe eingeben... (Enter öffnet Studio)" style="flex: 1; background: transparent; border: none; color: #fff; font-size: 0.95rem; outline: none; font-family: inherit;" onkeydown="if(event.key==='Enter') { window.location.href='/agent?prompt='+encodeURIComponent(this.value); }">
+          <button onclick="window.location.href='/agent?prompt='+encodeURIComponent(document.getElementById('quick-prompt-input').value)" style="background: #282a2c; border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 9999px; padding: 0.4rem 0.9rem; font-size: 0.82rem; font-weight: 600; cursor: pointer;">
+            ✦ Ausführen
+          </button>
+        </div>
       </div>
 
       <!-- 1. LOCAL NODE PERFORMANCE & VRAM (PRIMARY FOCUS) -->
