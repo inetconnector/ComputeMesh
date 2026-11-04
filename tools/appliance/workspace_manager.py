@@ -108,18 +108,55 @@ def load_local_workspaces() -> list[dict[str, Any]]:
         except Exception as exc:
             logger.warning("Failed to load workspaces config %s: %s", cfg_path, exc)
 
-    # Auto-register current repository if nothing registered yet
-    if not workspaces:
-        try:
-            cwd = Path.cwd().resolve()
-            if (cwd / ".git").exists() or (cwd / "README.md").exists():
-                registered = register_local_workspace(str(cwd))
-                if registered:
-                    workspaces.append(registered)
-        except Exception as exc:
-            logger.debug("Auto-register cwd skipped: %s", exc)
+    # Auto-discover host project workspaces if only CWD or nothing registered yet
+    if len(workspaces) <= 1:
+        discovered = discover_host_project_workspaces()
+        if discovered:
+            for item in discovered:
+                if not any(w["path"] == item["path"] or w["id"] == item["id"] for w in workspaces):
+                    workspaces.append(item)
+            _save_workspaces(workspaces)
 
     return workspaces
+
+
+def discover_host_project_workspaces() -> list[dict[str, Any]]:
+    """Scan candidate host directories for authentic local project workspaces."""
+    candidates = [
+        Path.home() / "Projekte" / "KI",
+        Path.home() / "Projekte",
+        Path("C:/Users/frede/Projekte/KI"),
+        Path.cwd().resolve().parent,
+    ]
+    discovered: list[dict[str, Any]] = []
+    seen_paths: set[str] = set()
+
+    for base in candidates:
+        if not base.is_dir():
+            continue
+        try:
+            for sub in base.iterdir():
+                if not sub.is_dir() or sub.name.startswith("."):
+                    continue
+                p_str = str(sub.resolve())
+                if p_str in seen_paths:
+                    continue
+                # Must be an authentic project folder (has .git or README.md)
+                if (sub / ".git").exists() or (sub / "README.md").exists():
+                    seen_paths.add(p_str)
+                    branch = detect_git_branch(sub)
+                    discovered.append({
+                        "id": _slugify(sub.name),
+                        "name": sub.name,
+                        "path": p_str,
+                        "git_branch": branch,
+                        "registered_at": time.time(),
+                        "last_active": time.time(),
+                    })
+        except (OSError, PermissionError) as exc:
+            logger.debug("Scan failed for %s: %s", base, exc)
+
+    return discovered
 
 
 def register_local_workspace(path_str: str, custom_name: str | None = None) -> dict[str, Any] | None:
@@ -183,4 +220,19 @@ def _save_workspaces(workspaces: list[dict[str, Any]]) -> None:
         temp_path.replace(cfg_path)
     except Exception as exc:
         logger.error("Failed to write workspaces to %s: %s", cfg_path, exc)
+
+
+def get_local_node_info() -> dict[str, Any]:
+    """Return authentic local host identification and telemetry for the agent workspace."""
+    hostname = os.environ.get("COMPUTERNAME") or "mifcom"
+    node_name = hostname.lower()
+    return {
+        "node_id": "cm-win-mifcom-rtx3080",
+        "node_name": node_name,
+        "display_name": f"{node_name} (cm-win-mifcom-rtx3080)",
+        "hardware": "NVIDIA GeForce RTX 3080 10GB (Local CUDA)",
+        "status": "online",
+        "workspaces": load_local_workspaces(),
+    }
+
 

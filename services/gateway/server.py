@@ -1516,15 +1516,27 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     entry["node_id"] = node.get("node_id")
                     entry["node_name"] = node.get("display_name")
                     all_ws.append(entry)
-            if not all_ws:
+            if not all_ws or not nodes:
                 try:
-                    from tools.appliance.workspace_manager import load_local_workspaces
+                    from tools.appliance.workspace_manager import get_local_node_info, load_local_workspaces
+                    local_info = get_local_node_info()
                     local_ws = load_local_workspaces()
+                    if not nodes:
+                        nodes = [{
+                            "node_id": local_info["node_id"],
+                            "display_name": local_info["display_name"],
+                            "node_name": local_info["node_name"],
+                            "hardware": local_info["hardware"],
+                            "is_online": True,
+                            "workspaces": local_ws,
+                        }]
+                        active_node_id = local_info["node_id"]
                     for w in local_ws:
-                        entry = dict(w)
-                        entry["node_id"] = active_node_id or "local-node"
-                        entry["node_name"] = "Local Host"
-                        all_ws.append(entry)
+                        if not any(x.get("path") == w.get("path") for x in all_ws):
+                            entry = dict(w)
+                            entry["node_id"] = active_node_id or local_info["node_id"]
+                            entry["node_name"] = local_info["display_name"]
+                            all_ws.append(entry)
                 except Exception:
                     pass
             self._send_json({"workspaces": all_ws, "active_node_id": active_node_id, "nodes": nodes})

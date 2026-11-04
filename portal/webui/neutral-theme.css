@@ -69,10 +69,46 @@ html, html body {
 [data-dialog-content] {
   background: #1e2023 !important;
   background-color: #1e2023 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 16px !important;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75) !important;
   color: #f0f1f2 !important;
+  outline: none !important;
+}
+
+/* Eradicate any neon blue borders, rings, or outlines across all modals, dialogs, popovers */
+[role="dialog"],
+[role="dialog"] div,
+[role="dialog"] span,
+[role="dialog"] input,
+[role="dialog"] select,
+[data-slot="dialog-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"],
+[data-bits-menu-content],
+[data-bits-dropdown-menu-content],
+[data-radix-popper-content-wrapper] > div,
+[data-bits-floating-content-switcher] > div {
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-shadow: none !important;
+  outline-color: transparent !important;
+}
+
+[role="dialog"] [class*="border-"],
+[role="dialog"] div[class*="border"],
+[role="dialog"] [class*="ring-"],
+[role="dialog"] input,
+[role="dialog"] .border-primary,
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"],
+[data-bits-menu-content],
+[data-bits-dropdown-menu-content],
+[data-radix-popper-content-wrapper] > div,
+[data-bits-floating-content-switcher] > div {
+  border-color: rgba(255, 255, 255, 0.12) !important;
   outline: none !important;
 }
 

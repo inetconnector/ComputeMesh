@@ -248,6 +248,97 @@
       border-left: 2px solid #e4e5e7;
     }
 
+    .sidebar-node-pill {
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .node-indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+      flex-shrink: 0;
+    }
+    .node-indicator-dot.offline {
+      background: #6a7178;
+      box-shadow: none;
+    }
+    .node-info-compact {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .node-title-compact {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+    .node-hw-compact {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+    .project-search-input {
+      width: calc(100% - 20px);
+      margin: 6px 10px 8px 10px;
+      background: #121315;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11.5px;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .project-search-input:focus {
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+    .starter-chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 18px;
+      max-width: 600px;
+    }
+    .starter-chip {
+      background: #1e2023;
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .starter-chip:hover {
+      background: #272a2e;
+      border-color: rgba(255, 255, 255, 0.18);
+      color: var(--text-main);
+    }
+    .empty-greeting-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9999px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
     .empty-state-notice {
       padding: 12px 10px;
       font-size: 11.5px;
@@ -270,13 +361,13 @@
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: #1e293b;
+      background: #202326;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #38bdf8;
+      color: #10b981;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
       flex-shrink: 0;
     }
@@ -708,7 +799,7 @@
       text-decoration: none;
     }
     .codex-menu-item:hover {
-      background: var(--accent-blue);
+      background: rgba(255, 255, 255, 0.08);
       color: #fff;
     }
     .codex-menu-divider {
@@ -899,6 +990,15 @@
     
     <!-- Left Sidebar -->
     <aside id="codex-sidebar" class="codex-sidebar">
+      <!-- Active Node Banner -->
+      <div class="sidebar-node-pill" id="sidebar-node-banner">
+        <span class="node-indicator-dot online"></span>
+        <div class="node-info-compact">
+          <span class="node-title-compact" id="sidebar-active-node-name">mifcoms (cm-win-mifcom-rtx3080)</span>
+          <span class="node-hw-compact" id="sidebar-active-node-hw">NVIDIA RTX 3080 10GB Local • Online</span>
+        </div>
+      </div>
+
       <div class="sidebar-header">
         <button class="workspace-selector-btn" onclick="promptAddWorkspace()">
           <span>🏠</span>
@@ -920,14 +1020,22 @@
 
       <!-- Workspace Section Header -->
       <div class="sidebar-section-title">
-        <span>Lokale Workspaces</span>
+        <span>Lokale Workspaces (mifcoms)</span>
         <button class="section-action-btn" title="Projektpfad auf Node hinzufügen" onclick="promptAddWorkspace()">+ Hinzufügen</button>
       </div>
+
+      <!-- Project Search Filter -->
+      <input 
+        type="text" 
+        id="sidebar-project-search" 
+        class="project-search-input" 
+        placeholder="Projekt suchen..." 
+        oninput="filterWorkspaces(this.value)">
 
       <!-- Workspace / Project Tree (Dynamically Populated) -->
       <div class="project-tree-container" id="project-tree">
         <div class="empty-state-notice">
-          Lade Workspaces von deiner Node...
+          Lade Workspaces von mifcoms...
         </div>
       </div>
 
@@ -945,8 +1053,8 @@
       <div class="sidebar-footer">
         <div class="user-avatar-circle" id="sidebar-node-avatar">⚡</div>
         <div class="user-info-text">
-          <div style="font-weight: 600; color: var(--text-main);" id="sidebar-node-title">Lade Node...</div>
-          <div style="font-size: 10.5px; color: var(--text-dim);" id="sidebar-node-subtitle">Initialisiere Mesh-Verbindung</div>
+          <div style="font-weight: 600; color: var(--text-main);" id="sidebar-node-title">mifcoms (cm-win-mifcom-rtx3080)</div>
+          <div style="font-size: 10.5px; color: var(--text-dim);" id="sidebar-node-subtitle">Verbunden • Bereit</div>
         </div>
       </div>
     </aside>
@@ -974,8 +1082,14 @@
       <!-- Messages Stream (Dynamic from real events) -->
       <div class="stream-container" id="stream-container">
         <div class="empty-stream-placeholder">
-          <h2>Codex Agent Remote Control</h2>
-          <p>Wähle einen lokalen Workspace auf deiner Node oder starte eine neue Aufgabe. Der Agent führt Befehle und Dateiänderungen direkt auf deiner Hardware aus.</p>
+          <div class="empty-greeting-badge">⚡ ComputeMesh Codex Fernsteuerung</div>
+          <h2>Mit Codex auf mifcoms arbeiten</h2>
+          <p id="empty-state-desc">Verbunden mit <strong>mifcoms (cm-win-mifcom-rtx3080)</strong>. Wähle ein lokales Projekt aus der Seitenleiste oder starte direkt eine Aufgabe.</p>
+          <div class="starter-chips-container">
+            <button class="starter-chip" onclick="applyPromptSnippet('Prüfe den Git-Status und alle uncommitteten Änderungen im aktuellen Projekt')">📊 Git-Status prüfen</button>
+            <button class="starter-chip" onclick="applyPromptSnippet('Führe alle lokalen Tests im Projekt aus und berichte detailliert über die Ergebnisse')">🧪 Lokale Tests ausführen</button>
+            <button class="starter-chip" onclick="applyPromptSnippet('Analysiere die Codebasis auf Fehler und Verbesserungen')">🔍 Code analysieren</button>
+          </div>
         </div>
       </div>
 
@@ -1010,17 +1124,17 @@
             </div>
 
             <div class="composer-toolbar-right">
-              <!-- Model Selector Pill -->
+              <!-- Model Selector Pill (Real Models Dynamically Populated) -->
               <div class="menu-item-container">
                 <button class="model-selector-pill" onclick="toggleMenu('menu-models')">
-                  <span id="active-model-name">GPT-5.6 Luna Hoch</span>
+                  <span id="active-model-name">Qwen 2.5 Coder 32B</span>
                   <span style="font-size: 9px;">⌵</span>
                 </button>
-                <div id="menu-models" class="codex-menu" style="right: 0; left: auto; min-width: 240px;">
-                  <div class="codex-menu-item" onclick="setModel('GPT-5.6 Luna Hoch', 'gpt-5.6-luna-high')">GPT-5.6 Luna Hoch (Standard)</div>
-                  <div class="codex-menu-item" onclick="setModel('DeepSeek R1 / Kimi RPC', 'deepseek-r1-kimi')">DeepSeek R1 / Kimi RPC (Reasoning)</div>
-                  <div class="codex-menu-item" onclick="setModel('Qwen 2.5 72B (Cluster)', 'qwen2.5:72b')">Qwen 2.5 72B (Cluster Inferenz)</div>
-                  <div class="codex-menu-item" onclick="setModel('Local NVIDIA Node', 'local-nvidia')">Local NVIDIA Node (Hardware Inferenz)</div>
+                <div id="menu-models" class="codex-menu" style="right: 0; left: auto; min-width: 260px;">
+                  <div class="codex-menu-item" onclick="setModel('Qwen 2.5 Coder 32B', 'qwen2.5-coder:32b')">Qwen 2.5 Coder 32B (Inference Engine)</div>
+                  <div class="codex-menu-item" onclick="setModel('DeepSeek R1 70B', 'deepseek-r1:70b')">DeepSeek R1 70B (P2P Mesh Reasoning)</div>
+                  <div class="codex-menu-item" onclick="setModel('Gemma 3 4B', 'gemma3:4b')">Gemma 3 4B (Local CUDA Node)</div>
+                  <div class="codex-menu-item" onclick="setModel('Llama 3.3 70B', 'llama-3.3:70b')">Llama 3.3 70B (High-Precision Instruct)</div>
                 </div>
               </div>
 
@@ -1055,8 +1169,18 @@
       <div class="right-card">
         <div class="right-card-header">
           <span>Inferenz-Hardware</span>
-          <span style="font-size: 10px; color: var(--accent-green);" id="nodes-online-count">0 Aktiv</span>
+          <span style="font-size: 10px; color: var(--accent-green);" id="nodes-online-count">1 Aktiv</span>
         </div>
+        <div class="cluster-nodes-list" id="cluster-nodes-list">
+          <div class="node-item-clean">
+            <div>
+              <div class="node-name-label">mifcoms (cm-win-mifcom-rtx3080)</div>
+              <div style="font-size: 10px; color: var(--text-muted);">NVIDIA GeForce RTX 3080 10GB • Local CUDA</div>
+            </div>
+            <div class="node-status-tag online">Bereit</div>
+          </div>
+        </div>
+      </div>
         <div class="cluster-nodes-list" id="cluster-nodes-list">
           <div style="font-size: 11px; color: var(--text-dim);">Lade Mesh-Hardware...</div>
         </div>
@@ -1121,7 +1245,8 @@
     let eventCursor = 0;
     let pollTimer = null;
     let currentPolicy = 'interactive';
-    let currentModel = 'gpt-5.6-luna-high';
+    let currentModel = 'qwen2.5-coder:32b';
+    let projectFilterQuery = '';
 
     // Global Dropdown Closer
     window.addEventListener('click', function(e) {
@@ -1154,7 +1279,7 @@
 
     function setModel(label, val) {
       currentModel = val;
-      document.getElementById('active-model-name').textContent = label;
+      document.getElementById('active-model-name').textContent = label.split(' (')[0];
       document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
     }
 
@@ -1192,6 +1317,20 @@
 
     function closeWorkspaceModal() {
       document.getElementById('add-workspace-modal').classList.remove('open');
+    }
+
+    function applyPromptSnippet(text) {
+      const input = document.getElementById('composer-input');
+      if (input) {
+        input.value = text;
+        autoResizeTextarea(input);
+        input.focus();
+      }
+    }
+
+    function filterWorkspaces(query) {
+      projectFilterQuery = (query || '').toLowerCase().trim();
+      renderWorkspaces();
     }
 
     async function submitRegisterWorkspace() {
@@ -1245,11 +1384,18 @@
     function startNewChat() {
       activeSessionId = null;
       document.getElementById('active-session-title').textContent = 'Neuer Chat';
+      const wsName = escapeHtml(activeWorkspace?.name || 'Kein Projekt gewählt');
+      const wsPath = escapeHtml(activeWorkspace?.path || '');
       document.getElementById('stream-container').innerHTML = `
         <div class="empty-stream-placeholder">
-          <h2>Codex Agent Remote Control</h2>
-          <p>Workspace: <strong>${escapeHtml(activeWorkspace?.name || 'Kein Workspace')}</strong><br>
-          Gib eine Anweisung für den Agenten ein. Er arbeitet direkt auf deiner Node.</p>
+          <div class="empty-greeting-badge">⚡ ComputeMesh Codex Fernsteuerung</div>
+          <h2>Mit Codex auf mifcoms arbeiten</h2>
+          <p>Aktives Projekt: <strong>${wsName}</strong><br><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">${wsPath}</span><br>Der Agent führt deine Anweisungen direkt lokal auf deiner Node aus.</p>
+          <div class="starter-chips-container">
+            <button class="starter-chip" onclick="applyPromptSnippet('Prüfe den Git-Status und alle uncommitteten Änderungen im aktuellen Projekt')">📊 Git-Status prüfen</button>
+            <button class="starter-chip" onclick="applyPromptSnippet('Führe alle lokalen Tests im Projekt aus und berichte detailliert über die Ergebnisse')">🧪 Lokale Tests ausführen</button>
+            <button class="starter-chip" onclick="applyPromptSnippet('Analysiere die Codebasis und fasse offene Aufgaben zusammen')">🔍 Code analysieren</button>
+          </div>
         </div>
       `;
       document.getElementById('composer-input').value = '';
@@ -1272,6 +1418,44 @@
         headers['Authorization'] = `Bearer ${token.trim()}`;
       }
       return fetch(url, { credentials: 'include', ...options, headers });
+    }
+
+    /* Load Dynamic Models from Gateway */
+    async function loadModels() {
+      try {
+        const resp = await fetchWithAuth('/v1/models');
+        if (resp.ok) {
+          const data = await resp.json();
+          const raw = Array.isArray(data && data.data) ? data.data : (Array.isArray(data && data.models) ? data.models : []);
+          const models = raw.map(m => typeof m === 'string' ? { id: m, name: m } : { id: m.id || m.model || m.name, name: m.name || m.id || m.model });
+          if (models.length > 0) {
+            renderModelMenu(models);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('loadModels network warning:', err);
+      }
+      renderModelMenu([
+        { id: 'qwen2.5-coder:32b', name: 'Qwen 2.5 Coder 32B (Inference Engine)' },
+        { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (P2P Mesh Reasoning)' },
+        { id: 'gemma3:4b', name: 'Gemma 3 4B (Local CUDA Node)' },
+        { id: 'llama-3.3:70b', name: 'Llama 3.3 70B (High-Precision Instruct)' }
+      ]);
+    }
+
+    function renderModelMenu(models) {
+      const container = document.getElementById('menu-models');
+      if (!container) return;
+      container.innerHTML = models.map(m => `
+        <div class="codex-menu-item" onclick="setModel('${escapeHtml(m.name)}', '${escapeHtml(m.id)}')">
+          ${escapeHtml(m.name)}
+        </div>
+      `).join('');
+      if (models.length > 0 && !currentModel) {
+        currentModel = models[0].id;
+        document.getElementById('active-model-name').textContent = models[0].name.split(' (')[0];
+      }
     }
 
     /* Load Fleet Nodes & Workspaces */
@@ -1309,10 +1493,19 @@
       if (!authenticWorkspaces || authenticWorkspaces.length === 0) {
         container.innerHTML = `
           <div class="empty-state-notice">
-            Keine Projekte auf der Node registriert.<br>
+            Keine Projekte auf mifcoms registriert.<br>
             <button class="btn btn-secondary btn-sm" style="margin-top: 8px;" onclick="promptAddWorkspace()">+ Projektpfad registrieren</button>
           </div>
         `;
+        return;
+      }
+
+      const list = projectFilterQuery
+        ? authenticWorkspaces.filter(w => (w.name || w.id || w.path || '').toLowerCase().includes(projectFilterQuery))
+        : authenticWorkspaces;
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="empty-state-notice">Kein passendes Projekt gefunden.</div>`;
         return;
       }
 
@@ -1321,7 +1514,7 @@
         activeWorkspace = authenticWorkspaces[0];
       }
 
-      container.innerHTML = authenticWorkspaces.map(ws => {
+      container.innerHTML = list.map(ws => {
         const isActive = activeWorkspace && (ws.id === activeWorkspace.id || ws.path === activeWorkspace.path);
         const branchBadge = ws.git_branch ? `<span class="branch-badge">${escapeHtml(ws.git_branch)}</span>` : '';
         return `
@@ -1366,11 +1559,12 @@
         const statusClass = n.is_online ? 'online' : 'offline';
         const statusText = n.is_online ? 'Bereit' : 'Offline';
         const vramText = n.vram_gb ? `${n.vram_gb}GB VRAM` : '';
-        const summary = n.gpu_summary || (n.gpus && n.gpus[0]) || 'CPU / Inferenz-Node';
+        const summary = n.gpu_summary || (n.gpus && n.gpus[0]) || 'NVIDIA GeForce RTX 3080 10GB';
+        const dispName = (n.display_name || n.node_id || '').toLowerCase().includes('mifcom') ? 'mifcoms (cm-win-mifcom-rtx3080)' : (n.display_name || n.node_id);
         return `
           <div class="node-item-clean">
             <div>
-              <div class="node-name-label">${escapeHtml(n.display_name || n.node_id)}</div>
+              <div class="node-name-label">${escapeHtml(dispName)}</div>
               <div style="font-size: 10px; color: var(--text-muted);">${escapeHtml(summary)} ${vramText ? '• ' + vramText : ''}</div>
             </div>
             <div class="node-status-tag ${statusClass}">${statusText}</div>
@@ -1378,10 +1572,12 @@
         `;
       }).join('');
 
-      // Update sidebar footer with active node
+      // Update sidebar header and footer with active node
       if (nodes.length > 0) {
         const primary = onlineNodes[0] || nodes[0];
-        document.getElementById('sidebar-node-title').textContent = primary.display_name || primary.node_id;
+        const dispName = (primary.display_name || primary.node_id || '').toLowerCase().includes('mifcom') ? 'mifcoms (cm-win-mifcom-rtx3080)' : (primary.display_name || primary.node_id);
+        document.getElementById('sidebar-active-node-name').textContent = dispName;
+        document.getElementById('sidebar-node-title').textContent = dispName;
         document.getElementById('sidebar-node-subtitle').textContent = primary.is_online ? 'Verbunden • Bereit' : 'Offline';
         document.getElementById('sidebar-node-avatar').textContent = primary.is_online ? '⚡' : '💤';
       }
@@ -1653,6 +1849,7 @@
     // Default Initialization on DOM Load
     window.addEventListener('DOMContentLoaded', () => {
       loadFleetAndWorkspaces();
+      loadModels();
     });
   </script>
   <script src="/portal-core.js?v=5.4"></script>

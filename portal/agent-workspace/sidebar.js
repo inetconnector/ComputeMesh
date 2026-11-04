@@ -68,7 +68,53 @@
     }
   }
 
+  function renderNodeSelector(container, onSelectNode) {
+    if (!container) return;
+    const { nodes, activeNodeId } = AgentState.state;
+    if (!nodes || nodes.length === 0) {
+      container.innerHTML = `
+        <div class="node-pill-status">
+          <span class="status-indicator-dot online"></span>
+          <span class="node-name-label">mifcom (cm-win-mifcom-rtx3080)</span>
+        </div>
+      `;
+      return;
+    }
+    container.innerHTML = `
+      <select class="node-select-dropdown" onchange="typeof selectNode === 'function' ? selectNode(this.value) : (AgentState.state.activeNodeId = this.value)">
+        ${nodes.map(n => `
+          <option value="${escapeHtml(n.node_id)}" ${n.node_id === activeNodeId ? 'selected' : ''}>
+            ${escapeHtml(n.display_name || n.node_name || n.node_id)} ${n.is_online ? '(Online)' : ''}
+          </option>
+        `).join('')}
+      </select>
+    `;
+  }
+
+  function renderWorkspacesList(container, onSelectWorkspace) {
+    if (!container) return;
+    const { workspaces, activeWorkspaceId } = AgentState.state;
+    if (!workspaces || workspaces.length === 0) {
+      container.innerHTML = `<div style="padding: 1rem; color: var(--text-muted); font-size: 0.82rem; text-align: center;">Keine Projekte auf Node registriert.</div>`;
+      return;
+    }
+
+    container.innerHTML = workspaces.map(w => {
+      const isActive = w.id === activeWorkspaceId;
+      const branchBadge = w.git_branch ? `<span class="project-branch-tag">${escapeHtml(w.git_branch)}</span>` : '';
+      return `
+        <div class="sidebar-project-item ${isActive ? 'active' : ''}" data-id="${escapeHtml(w.id)}" onclick="typeof selectWorkspace === 'function' ? selectWorkspace('${escapeHtml(w.id)}') : (AgentState.state.activeWorkspaceId = '${escapeHtml(w.id)}')">
+          <span class="project-item-icon">📁</span>
+          <span class="project-item-name" title="${escapeHtml(w.path)}">${escapeHtml(w.name || w.id)}</span>
+          ${branchBadge}
+        </div>
+      `;
+    }).join('');
+  }
+
   return {
-    renderSessionList
+    renderSessionList,
+    renderNodeSelector,
+    renderWorkspacesList
   };
 });
