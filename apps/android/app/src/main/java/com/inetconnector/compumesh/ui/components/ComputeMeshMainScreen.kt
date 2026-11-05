@@ -24,7 +24,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inetconnector.compumesh.guard.BatteryPolicyGuard
 import com.inetconnector.compumesh.p2p.DirectLanDiscovery
+import com.inetconnector.compumesh.engine.AgentWorkspaceClient
 import com.inetconnector.compumesh.ui.MainActivity
+import com.inetconnector.compumesh.ui.models.AgentTaskItem
+import com.inetconnector.compumesh.ui.models.AgentWorkspaceItem
 import com.inetconnector.compumesh.ui.tabs.ChatTab
 import com.inetconnector.compumesh.ui.tabs.EdgeNodeTab
 import com.inetconnector.compumesh.ui.tabs.LanMeshTab
@@ -59,6 +62,26 @@ fun ComputeMeshMainScreen(
     var currentScreen by remember { mutableStateOf(if (mobilePaired) MainNavigationScreen.CHAT else MainNavigationScreen.CHAT) }
     var guardStatus by remember { mutableStateOf(guard.getStatus()) }
     val context = LocalContext.current
+
+    // Real workspaces and sessions loaded dynamically
+    var drawerWorkspaces by remember { mutableStateOf<List<AgentWorkspaceItem>>(emptyList()) }
+    var drawerSessions by remember { mutableStateOf<List<AgentTaskItem>>(emptyList()) }
+    var isDrawerLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) {
+            isDrawerLoading = true
+            val wsRes = AgentWorkspaceClient.getWorkspaces(currentGatewayUrl, currentOwnerKey)
+            if (wsRes.isSuccess) {
+                drawerWorkspaces = wsRes.getOrNull() ?: emptyList()
+            }
+            val sessRes = AgentWorkspaceClient.getSessions(currentGatewayUrl, currentOwnerKey)
+            if (sessRes.isSuccess) {
+                drawerSessions = sessRes.getOrNull() ?: emptyList()
+            }
+            isDrawerLoading = false
+        }
+    }
 
     // Periodic battery/compute policy polling
     LaunchedEffect(Unit) {
@@ -156,7 +179,7 @@ fun ComputeMeshMainScreen(
                         // SECTION: CHATS & HISTORIE
                         item {
                             Text(
-                                text = "Angeheftet",
+                                text = "Aufgaben & Sitzungen",
                                 color = TextMuted,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -164,21 +187,26 @@ fun ComputeMeshMainScreen(
                             )
                         }
 
-                        val recentChats = listOf(
-                            "ComputeMesh Cluster Setup",
-                            "Security Gate & Test Receipt",
-                            "Inferenz Benchmark (qwen2.5)",
-                            "P2P LAN Mesh Routing"
-                        )
-
-                        items(recentChats) { chatTitle ->
-                            DrawerItemRow(
-                                icon = Icons.Default.ChatBubbleOutline,
-                                title = chatTitle,
-                                isSelected = currentScreen == MainNavigationScreen.CHAT && chatTitle.startsWith("ComputeMesh")
-                            ) {
-                                currentScreen = MainNavigationScreen.CHAT
-                                coroutineScope.launch { drawerState.close() }
+                        if (drawerSessions.isEmpty()) {
+                            item {
+                                Text(
+                                    text = if (isDrawerLoading) "Lade Aufgaben..." else "Keine aktiven Aufgaben",
+                                    color = TextMuted,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
+                                )
+                            }
+                        } else {
+                            items(drawerSessions) { session ->
+                                DrawerItemRow(
+                                    icon = Icons.Default.ChatBubbleOutline,
+                                    title = session.title,
+                                    subtitle = session.workspace.ifBlank { null },
+                                    isSelected = currentScreen == MainNavigationScreen.CHAT
+                                ) {
+                                    currentScreen = MainNavigationScreen.CHAT
+                                    coroutineScope.launch { drawerState.close() }
+                                }
                             }
                         }
 
@@ -194,22 +222,24 @@ fun ComputeMeshMainScreen(
                             )
                         }
 
-                        val workspaces = listOf(
-                            "ComputeMesh-ControlPlane",
-                            "MICA",
-                            "NOMA",
-                            "Momentum",
-                            "SmartXChain"
-                        )
-
-                        items(workspaces) { ws ->
-                            DrawerItemRow(
-                                icon = Icons.Default.Folder,
-                                title = ws,
-                                isSelected = false
-                            ) {
-                                currentScreen = MainNavigationScreen.CHAT
-                                coroutineScope.launch { drawerState.close() }
+                        if (drawerWorkspaces.isEmpty()) {
+                            item {
+                                Text(
+                                    text = if (isDrawerLoading) "Lade Workspaces..." else "Keine Workspaces registriert",
+                                    color = TextMuted,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
+                                )
+                            }
+                        } else {
+                            items(drawerWorkspaces) { ws ->
+                                DrawerWorkspaceRow(
+                                    workspace = ws,
+                                    isSelected = false
+                                ) {
+                                    currentScreen = MainNavigationScreen.CHAT
+                                    coroutineScope.launch { drawerState.close() }
+                                }
                             }
                         }
 
@@ -437,6 +467,66 @@ fun DrawerItemRow(
                         .clip(CircleShape)
                         .background(statusColor)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun DrawerWorkspaceRow(
+    workspace: AgentWorkspaceItem,
+    isSelected: Boolean = false,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) BubbleSurface else Color.Transparent,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 9.dp)
+        ) {
+            Icon(
+                Icons.Default.Folder,
+                contentDescription = null,
+                tint = if (isSelected) TextPrimary else IndigoAccent,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = workspace.name,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                    fontSize = 13.5.sp,
+                    color = if (isSelected) TextPrimary else TextSecondary,
+                    maxLines = 1
+                )
+                Text(
+                    text = "${workspace.displaySource} • ${workspace.nodeId}",
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                    maxLines = 1
+                )
+            }
+            if (workspace.gitBranch.isNotBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = BubbleSurface,
+                    modifier = Modifier.padding(start = 4.dp)
+                ) {
+                    Text(
+                        text = workspace.gitBranch,
+                        fontSize = 10.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
     }

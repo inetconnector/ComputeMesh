@@ -44,6 +44,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.inetconnector.compumesh.engine.InferenceClient
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.inetconnector.compumesh.engine.AgentWorkspaceClient
+import com.inetconnector.compumesh.ui.components.*
+import com.inetconnector.compumesh.ui.models.*
 import com.inetconnector.compumesh.p2p.DirectLanDiscovery
 import com.inetconnector.compumesh.p2p.LocalMeshPeer
 import com.inetconnector.compumesh.ui.theme.*
@@ -124,19 +129,60 @@ fun ChatTab(
     var showAttachmentSheet by remember { mutableStateOf(false) }
     var showVoiceModal by remember { mutableStateOf(false) }
 
-    // PC Node & Workspaces state
+    // PC Node & Real Workspaces / Tasks state (Codex Parity)
     var detectedNode by remember { mutableStateOf<LocalMeshPeer?>(null) }
     var isNodeSearching by remember { mutableStateOf(false) }
-    val nodeWorkspaces = remember {
-        mutableStateListOf(
-            "ComputeMesh-ControlPlane",
-            "MICA",
-            "NOMA",
-            "Momentum",
-            "SmartXChain"
-        )
+
+    var workspacesList by remember { mutableStateOf<List<AgentWorkspaceItem>>(emptyList()) }
+    var activeWorkspaceItem by remember { mutableStateOf<AgentWorkspaceItem?>(null) }
+    var workspaceUiState by remember { mutableStateOf<WorkspaceUiState>(WorkspaceUiState.Loading) }
+
+    var tasksList by remember { mutableStateOf<List<AgentTaskItem>>(emptyList()) }
+    var taskUiState by remember { mutableStateOf<TaskUiState>(TaskUiState.Loading) }
+
+    var showWorkspaceBottomSheet by remember { mutableStateOf(false) }
+    var showProjectDetailsDialog by remember { mutableStateOf(false) }
+    var workspaceToUnregister by remember { mutableStateOf<AgentWorkspaceItem?>(null) }
+    var taskToDelete by remember { mutableStateOf<AgentTaskItem?>(null) }
+
+    fun refreshWorkspaces() {
+        scope.launch {
+            workspaceUiState = WorkspaceUiState.Loading
+            val res = AgentWorkspaceClient.getWorkspaces(gatewayUrl, ownerKey)
+            res.onSuccess { ws ->
+                workspacesList = ws
+                val active = if (activeWorkspaceItem == null && ws.isNotEmpty()) {
+                    ws.first()
+                } else if (activeWorkspaceItem != null && ws.none { it.id == activeWorkspaceItem?.id }) {
+                    ws.firstOrNull()
+                } else {
+                    activeWorkspaceItem
+                }
+                activeWorkspaceItem = active
+                workspaceUiState = if (ws.isEmpty()) WorkspaceUiState.Empty else WorkspaceUiState.Success(ws, active)
+            }.onFailure { err ->
+                workspaceUiState = WorkspaceUiState.Error(err.message ?: "Fehler beim Laden")
+            }
+        }
     }
-    var activeWorkspace by remember { mutableStateOf("ComputeMesh-ControlPlane") }
+
+    fun refreshTasks() {
+        scope.launch {
+            taskUiState = TaskUiState.Loading
+            val res = AgentWorkspaceClient.getSessions(gatewayUrl, ownerKey)
+            res.onSuccess { tasks ->
+                tasksList = tasks
+                taskUiState = if (tasks.isEmpty()) TaskUiState.Empty else TaskUiState.Success(tasks)
+            }.onFailure { err ->
+                taskUiState = TaskUiState.Error(err.message ?: "Fehler beim Laden")
+            }
+        }
+    }
+
+    LaunchedEffect(gatewayUrl, ownerKey) {
+        refreshWorkspaces()
+        refreshTasks()
+    }
 
     // Probe LAN/Fleet for local PC Node (cm-win-mifcom-rtx3080)
     LaunchedEffect(Unit) {
@@ -561,99 +607,37 @@ fun ChatTab(
                                 }
                             }
                         } else {
-                            // Agent Mode Greeting & PC Node Status
-                            Text(
-                                text = "Mit Agent auf mifcoms arbeiten",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Connected Node Card
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = CardSurface,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
-                                modifier = Modifier.fillMaxWidth()
+                            // Agent Workspace View (Codex Parity - Real Data, Provenance, Switcher, Tasks)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(vertical = 12.dp)
                             ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(if (detectedNode != null) EmeraldSuccess else AmberWarning)
+                                AgentWorkspaceView(
+                                    detectedNode = detectedNode,
+                                    activeWorkspaceItem = activeWorkspaceItem,
+                                    tasksList = tasksList,
+                                    taskUiState = taskUiState,
+                                    onSwitchWorkspace = { showWorkspaceBottomSheet = true },
+                                    onShowDetails = { showProjectDetailsDialog = true },
+                                    onUnregister = { workspaceToUnregister = activeWorkspaceItem },
+                                    onSelectTask = { task ->
+                                        messages.clear()
+                                        messages.add(
+                                            ChatMessageItem(
+                                                role = "assistant",
+                                                content = "Aufgabe geladen: ${task.title}\nID: ${task.sessionId}\nStatus: ${task.status}\nErstellt: ${task.createdAt}",
+                                                state = ChatStreamState.COMPLETED
+                                            )
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = if (detectedNode != null) "cm-win-mifcom-rtx3080" else "Keine lokale PC-Node gefunden",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            color = TextPrimary
-                                        )
-                                        Spacer(modifier = Modifier.weight(1f))
-                                        Text(
-                                            text = if (detectedNode != null) "Bereit" else "Suche läuft...",
-                                            fontSize = 12.sp,
-                                            color = if (detectedNode != null) EmeraldSuccess else AmberWarning
-                                        )
+                                    },
+                                    onDeleteTask = { task -> taskToDelete = task },
+                                    onNewTask = {
+                                        messages.clear()
+                                        inputText = ""
                                     }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = detectedNode?.gpuSummary ?: "NVIDIA GeForce RTX 3080 10GB • Local PC",
-                                        fontSize = 12.sp,
-                                        color = TextMuted
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "Aktiver Workspace: $activeWorkspace",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = IndigoAccent
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(20.dp))
-
-                            // Agent Quick Tasks
-                            val agentTasks = listOf(
-                                "Sicherheits-Gate und Tests ausführen",
-                                "Git-Status und uncommitted changes prüfen",
-                                "Neues Projekt in Workspace anlegen"
-                            )
-                            agentTasks.forEach { task ->
-                                Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = PillSurface,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
-                                        .clickable {
-                                            inputText = task
-                                            executeSend(task)
-                                        }
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Terminal,
-                                            contentDescription = null,
-                                            tint = TextMuted,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Text(
-                                            text = task,
-                                            fontSize = 13.5.sp,
-                                            color = TextSecondary
-                                        )
-                                    }
-                                }
+                                )
                             }
                         }
                     }
@@ -1065,6 +1049,62 @@ fun ChatTab(
                 }
             )
         }
+
+        // Project Switcher Bottom Sheet (Codex Parity)
+        ProjectSwitcherBottomSheet(
+            show = showWorkspaceBottomSheet,
+            onDismiss = { showWorkspaceBottomSheet = false },
+            workspaces = workspacesList,
+            activeWorkspace = activeWorkspaceItem,
+            onSelect = { ws ->
+                activeWorkspaceItem = ws
+                showWorkspaceBottomSheet = false
+            }
+        )
+
+        // Project Details Dialog
+        ProjectDetailsDialog(
+            workspace = if (showProjectDetailsDialog) activeWorkspaceItem else null,
+            onDismiss = { showProjectDetailsDialog = false }
+        )
+
+        // Unregister Workspace Confirm Dialog
+        UnregisterWorkspaceConfirmDialog(
+            workspace = workspaceToUnregister,
+            onDismiss = { workspaceToUnregister = null },
+            onConfirm = { ws ->
+                scope.launch {
+                    val res = AgentWorkspaceClient.unregisterWorkspace(gatewayUrl, ownerKey, ws.id)
+                    if (res.isSuccess && res.getOrDefault(false)) {
+                        Toast.makeText(context, "Workspace '${ws.name}' entfernt", Toast.LENGTH_SHORT).show()
+                        refreshWorkspaces()
+                    } else {
+                        val errMsg = res.exceptionOrNull()?.message ?: "Unbekannter Fehler"
+                        Toast.makeText(context, "Fehler beim Entfernen von '${ws.name}': $errMsg", Toast.LENGTH_LONG).show()
+                    }
+                    workspaceToUnregister = null
+                }
+            }
+        )
+
+        // Delete Session Confirm Dialog
+        DeleteSessionConfirmDialog(
+            task = taskToDelete,
+            onDismiss = { taskToDelete = null },
+            onConfirm = { task ->
+                scope.launch {
+                    val res = AgentWorkspaceClient.deleteSession(gatewayUrl, ownerKey, task.sessionId)
+                    if (res.isSuccess && res.getOrDefault(false)) {
+                        Toast.makeText(context, "Aufgabe '${task.title}' gelöscht", Toast.LENGTH_SHORT).show()
+                        refreshTasks()
+                    } else {
+                        val errMsg = res.exceptionOrNull()?.message ?: "Unbekannter Fehler"
+                        Toast.makeText(context, "Fehler beim Löschen der Aufgabe: $errMsg", Toast.LENGTH_LONG).show()
+                    }
+                    taskToDelete = null
+                }
+            }
+        )
     }
 }
 

@@ -843,6 +843,185 @@
       cursor: pointer;
     }
     .modal-close-btn:hover { color: var(--text-main); }
+
+    /* --- Codex Mobile-First & Provenance Extensions --- */
+    .mobile-only {
+      display: none !important;
+    }
+    .source-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-auto {
+      background: rgba(139, 92, 246, 0.2);
+      color: #a78bfa;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+    }
+    .badge-node {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .badge-local {
+      background: rgba(255, 255, 255, 0.08);
+      color: #9da3a8;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .folder-actions-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      opacity: 0.7;
+    }
+    .folder-actions-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      opacity: 1;
+    }
+
+    /* Modal for Dangerous Physical Deletion */
+    .danger-modal-title {
+      color: var(--accent-red);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .danger-confirm-input {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid var(--accent-red);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 8px;
+    }
+
+    /* Drawer Backdrop Overlay */
+    .codex-drawer-backdrop {
+      position: fixed;
+      top: 48px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 1100;
+      backdrop-filter: blur(2px);
+      display: none;
+    }
+    .codex-drawer-backdrop.active {
+      display: block !important;
+    }
+
+    /* Mobile Responsive Rules (< 768px) */
+    @media (max-width: 768px) {
+      .mobile-only {
+        display: flex !important;
+      }
+      header.site-header .nav-sub-row {
+        display: none !important;
+      }
+      header.site-header .nav-top-row .nav-actions .nav-github-btn,
+      header.site-header .nav-top-row .nav-actions button[onclick*="openDepositModal"],
+      header.site-header .nav-top-row .nav-actions button[onclick*="consumer"] {
+        display: none !important;
+      }
+      header.site-header .nav-top-row {
+        padding: 4px 10px !important;
+        min-height: 48px !important;
+      }
+      header.site-header .brand-logo {
+        font-size: 15px !important;
+      }
+
+      .codex-layout {
+        position: relative;
+        width: 100vw;
+        height: calc(100vh - 48px);
+        overflow: hidden;
+      }
+
+      /* Off-Canvas Left Drawer */
+      .codex-sidebar {
+        position: fixed !important;
+        top: 48px !important;
+        bottom: 0 !important;
+        left: -320px !important;
+        width: 300px !important;
+        max-width: 85vw !important;
+        z-index: 1200 !important;
+        box-shadow: 6px 0 24px rgba(0, 0, 0, 0.7);
+        transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        display: flex !important;
+        visibility: visible !important;
+      }
+      .codex-sidebar.open {
+        left: 0 !important;
+      }
+
+      /* Off-Canvas Right Rail */
+      .codex-right-rail {
+        position: fixed !important;
+        top: 48px !important;
+        bottom: 0 !important;
+        right: -320px !important;
+        width: 300px !important;
+        max-width: 85vw !important;
+        z-index: 1200 !important;
+        box-shadow: -6px 0 24px rgba(0, 0, 0, 0.7);
+        transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        display: flex !important;
+      }
+      .codex-right-rail.open {
+        right: 0 !important;
+      }
+
+      /* Full Width Main Area */
+      .codex-main-area {
+        width: 100vw !important;
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+      }
+
+      /* Header & Touch targets */
+      .main-header {
+        padding: 6px 10px;
+        min-height: 48px;
+        gap: 8px;
+      }
+      .sidebar-icon-btn,
+      .mobile-menu-btn {
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+      }
+
+      .composer-wrapper {
+        padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)) 8px;
+      }
+      .composer-textarea {
+        font-size: 14px;
+      }
+      .btn-send-circle {
+        min-width: 44px;
+        min-height: 44px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -987,6 +1166,7 @@
 
   <!-- Codex Main App Layout -->
   <div class="codex-layout">
+    <div id="codex-drawer-backdrop" class="codex-drawer-backdrop" onclick="closeAllDrawers()"></div>
     
     <!-- Left Sidebar -->
     <aside id="codex-sidebar" class="codex-sidebar">
@@ -1063,6 +1243,7 @@
     <main class="codex-main-area">
       <!-- Session Top Bar -->
       <div class="main-header">
+        <button class="sidebar-icon-btn mobile-only mobile-menu-btn" title="Workspaces & Navigation" onclick="toggleSidebar()">☰</button>
         <div class="main-header-title">
           <span>📁</span>
           <span id="active-session-title">Neuer Chat</span>
@@ -1517,13 +1698,25 @@
       container.innerHTML = list.map(ws => {
         const isActive = activeWorkspace && (ws.id === activeWorkspace.id || ws.path === activeWorkspace.path);
         const branchBadge = ws.git_branch ? `<span class="branch-badge">${escapeHtml(ws.git_branch)}</span>` : '';
+        const src = (ws.registration_source || 'user_registered').toLowerCase();
+        let srcBadge = '<span class="source-badge badge-local">Lokal</span>';
+        if (src === 'auto_discovered') {
+          srcBadge = '<span class="source-badge badge-auto">Auto-Scan</span>';
+        } else if (src === 'node_heartbeat') {
+          srcBadge = '<span class="source-badge badge-node">Node</span>';
+        }
+
         return `
           <div class="tree-folder-item ${isActive ? 'active' : ''}" onclick="selectWorkspace('${escapeHtml(ws.id || ws.path)}')">
-            <div class="folder-title-row">
+            <div class="folder-title-row" style="flex: 1; min-width: 0;">
               <span>📁</span>
-              <span title="${escapeHtml(ws.path)}">${escapeHtml(ws.name || ws.id)}</span>
+              <span title="${escapeHtml(ws.path)}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(ws.name || ws.id)}</span>
             </div>
-            ${branchBadge}
+            <div style="display: flex; align-items: center; gap: 4px;">
+              ${srcBadge}
+              ${branchBadge}
+              <button class="folder-actions-btn" title="Optionen" onclick="event.stopPropagation(); openWorkspaceOptions('${escapeHtml(ws.id)}')">•••</button>
+            </div>
           </div>
         `;
       }).join('');
@@ -1536,11 +1729,154 @@
       }
     }
 
+    
+    /* Mobile Drawer Controls */
+    function toggleSidebar() {
+      const sb = document.getElementById('codex-sidebar');
+      const bd = document.getElementById('codex-drawer-backdrop');
+      if (window.innerWidth <= 768) {
+        sb.classList.toggle('open');
+        bd.classList.toggle('active', sb.classList.contains('open'));
+        document.getElementById('codex-right-rail').classList.remove('open');
+      } else {
+        sb.classList.toggle('collapsed');
+      }
+    }
+
+    function toggleRightRail() {
+      const rr = document.getElementById('codex-right-rail');
+      const bd = document.getElementById('codex-drawer-backdrop');
+      if (window.innerWidth <= 768) {
+        rr.classList.toggle('open');
+        bd.classList.toggle('active', rr.classList.contains('open'));
+        document.getElementById('codex-sidebar').classList.remove('open');
+      } else {
+        rr.classList.toggle('open');
+      }
+    }
+
+    function closeAllDrawers() {
+      document.getElementById('codex-sidebar')?.classList.remove('open');
+      document.getElementById('codex-right-rail')?.classList.remove('open');
+      document.getElementById('codex-drawer-backdrop')?.classList.remove('active');
+    }
+
+    /* Workspace Options & Provenance Operations */
+    let currentWorkspaceActionId = null;
+
+    function openWorkspaceOptions(wsId) {
+      const ws = authenticWorkspaces.find(w => w.id === wsId);
+      if (!ws) return;
+      currentWorkspaceActionId = wsId;
+
+      const choice = prompt(`Projekt: ${ws.name || ws.id}\n\nOption wählen:\n1: Details & Quelle anzeigen\n2: Aus Workspace-Liste entfernen (Ordner bleibt erhalten)\n3: Physisch von Festplatte löschen (GEFÄHRLICH)\n\n(1, 2 oder 3 eingeben):`);
+      if (choice === '1') {
+        showWorkspaceDetails(wsId);
+      } else if (choice === '2') {
+        confirmUnregisterWorkspace(wsId);
+      } else if (choice === '3') {
+        openPhysicalDeleteModal(wsId);
+      }
+    }
+
+    function showWorkspaceDetails(wsId) {
+      const ws = authenticWorkspaces.find(w => w.id === wsId);
+      if (!ws) return;
+      document.getElementById('details-modal-title').textContent = `Details: ${ws.name || ws.id}`;
+      document.getElementById('details-modal-content').innerHTML = `
+        <div><strong>Name:</strong> ${escapeHtml(ws.name || ws.id)}</div>
+        <div><strong>ID:</strong> <code>${escapeHtml(ws.id)}</code></div>
+        <div><strong>Pfad:</strong> <code style="word-break: break-all;">${escapeHtml(ws.path)}</code></div>
+        <div><strong>Registrierungs-Quelle:</strong> <span class="source-badge ${ws.registration_source === 'auto_discovered' ? 'badge-auto' : ws.registration_source === 'node_heartbeat' ? 'badge-node' : 'badge-local'}">${escapeHtml(ws.registration_source || 'user_registered')}</span></div>
+        <div><strong>Node:</strong> ${escapeHtml(ws.node_id || '-')}</div>
+        <div><strong>Git-Branch:</strong> ${escapeHtml(ws.git_branch || 'Kein Git')}</div>
+        <div><strong>Status:</strong> ${escapeHtml(ws.status || 'active')}</div>
+      `;
+      document.getElementById('project-details-modal').classList.add('open');
+    }
+
+    function closeDetailsModal() {
+      document.getElementById('project-details-modal').classList.remove('open');
+    }
+
+    async function confirmUnregisterWorkspace(wsId) {
+      const ws = authenticWorkspaces.find(w => w.id === wsId);
+      if (!ws) return;
+      if (!confirm(`Möchtest du das Projekt '${ws.name || ws.id}' aus der Workspace-Liste abmelden?\n\nDer Ordner (${ws.path}) bleibt auf der Festplatte unverändert erhalten.`)) {
+        return;
+      }
+      try {
+        const resp = await fetchWithAuth('/v1/fleet/workspaces/' + encodeURIComponent(wsId), { method: 'DELETE' });
+        if (resp.ok) {
+          authenticWorkspaces = authenticWorkspaces.filter(w => w.id !== wsId);
+          if (activeWorkspace && activeWorkspace.id === wsId) {
+            activeWorkspace = authenticWorkspaces[0] || null;
+          }
+          renderWorkspaces();
+          alert(`Workspace '${ws.name || ws.id}' wurde erfolgreich aus der Liste entfernt.`);
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          alert(`Fehler beim Entfernen: ${err.detail || err.error || 'Serverfehler'}`);
+        }
+      } catch (e) {
+        alert(`Netzwerkfehler: ${e.message}`);
+      }
+    }
+
+    function openPhysicalDeleteModal(wsId) {
+      const ws = authenticWorkspaces.find(w => w.id === wsId);
+      if (!ws) return;
+      currentWorkspaceActionId = wsId;
+      document.getElementById('physical-delete-target-name').textContent = ws.name || ws.id;
+      document.getElementById('physical-delete-path').textContent = ws.path;
+      document.getElementById('physical-delete-confirm-input').value = '';
+      document.getElementById('physical-delete-modal').classList.add('open');
+    }
+
+    function closePhysicalDeleteModal() {
+      document.getElementById('physical-delete-modal').classList.remove('open');
+      currentWorkspaceActionId = null;
+    }
+
+    async function submitPhysicalDeleteWorkspace() {
+      if (!currentWorkspaceActionId) return;
+      const ws = authenticWorkspaces.find(w => w.id === currentWorkspaceActionId);
+      if (!ws) return;
+
+      const inputName = document.getElementById('physical-delete-confirm-input').value.trim();
+      if (inputName !== (ws.name || ws.id)) {
+        alert(`Der eingegebene Name ('${inputName}') stimmt nicht exakt mit '${ws.name || ws.id}' überein! Abbruch.`);
+        return;
+      }
+
+      try {
+        const url = `/v1/fleet/workspaces/${encodeURIComponent(currentWorkspaceActionId)}?delete_physical=true&confirm_name=${encodeURIComponent(inputName)}`;
+        const resp = await fetchWithAuth(url, { method: 'DELETE' });
+        if (resp.ok) {
+          closePhysicalDeleteModal();
+          authenticWorkspaces = authenticWorkspaces.filter(w => w.id !== currentWorkspaceActionId);
+          if (activeWorkspace && activeWorkspace.id === currentWorkspaceActionId) {
+            activeWorkspace = authenticWorkspaces[0] || null;
+          }
+          renderWorkspaces();
+          alert(`Projekt '${ws.name || ws.id}' und Verzeichnis auf der Festplatte wurden endgültig gelöscht.`);
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          alert(`Löschen fehlgeschlagen: ${err.detail || err.error || 'Serverfehler'}`);
+        }
+      } catch (e) {
+        alert(`Netzwerkfehler beim Löschen: ${e.message}`);
+      }
+    }
+
     function selectWorkspace(wsIdOrPath) {
       const found = authenticWorkspaces.find(w => w.id === wsIdOrPath || w.path === wsIdOrPath);
       if (found) {
         activeWorkspace = found;
         renderWorkspaces();
+        if (window.innerWidth <= 768) {
+          closeAllDrawers();
+        }
       }
     }
 
@@ -1853,5 +2189,47 @@
     });
   </script>
   <script src="/portal-core.js?v=5.4"></script>
+
+  <!-- Project Details Modal -->
+  <div id="project-details-modal" class="codex-modal-overlay" onclick="if(event.target===this)closeDetailsModal()">
+    <div class="codex-modal">
+      <div class="modal-header">
+        <span id="details-modal-title">Projekt-Details</span>
+        <button class="modal-close-btn" onclick="closeDetailsModal()">✕</button>
+      </div>
+      <div id="details-modal-content" style="font-size: 13px; line-height: 1.6; color: var(--text-muted); display: flex; flex-direction: column; gap: 8px;">
+      </div>
+      <div style="margin-top: 18px; text-align: right;">
+        <button class="btn btn-secondary btn-sm" onclick="closeDetailsModal()">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dangerous Physical Directory Delete Modal -->
+  <div id="physical-delete-modal" class="codex-modal-overlay" onclick="if(event.target===this)closePhysicalDeleteModal()">
+    <div class="codex-modal" style="border-color: var(--accent-red);">
+      <div class="modal-header">
+        <span class="danger-modal-title">⚠️ Physisches Verzeichnis löschen</span>
+        <button class="modal-close-btn" onclick="closePhysicalDeleteModal()">✕</button>
+      </div>
+      <div style="font-size: 13px; line-height: 1.5; color: var(--text-main); display: flex; flex-direction: column; gap: 10px;">
+        <p style="color: var(--accent-red); font-weight: 600;">
+          ACHTUNG: Dieser Vorgang löscht den Ordner und alle darin enthaltenen Dateien unwiderruflich von der Festplatte!
+        </p>
+        <div style="font-family: var(--font-mono); font-size: 11.5px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; word-break: break-all;" id="physical-delete-path">
+          -
+        </div>
+        <p>
+          Zur Bestätigung tippe bitte den exakten Namen des Projekts ein: <strong id="physical-delete-target-name"></strong>
+        </p>
+        <input type="text" id="physical-delete-confirm-input" class="danger-confirm-input" placeholder="Exakten Projektnamen eingeben" autocomplete="off">
+      </div>
+      <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-secondary btn-sm" onclick="closePhysicalDeleteModal()">Abbrechen</button>
+        <button class="btn btn-sm" style="background: var(--accent-red); color: #fff; font-weight: 600;" onclick="submitPhysicalDeleteWorkspace()">Unwiderruflich löschen</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

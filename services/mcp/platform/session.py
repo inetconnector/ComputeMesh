@@ -2096,6 +2096,32 @@ class AgentSessionStore:
                 self._append_event(connection, str(session_id), "session.restored", {"from_archived": True})
             return self._session(self._require_session(connection, str(session_id)))
 
+    def delete_session(
+        self,
+        session_id: str,
+        *,
+        principal_id: str | None = None,
+        is_admin: bool = False,
+    ) -> bool:
+        """Atomically delete an agent session and all associated turns, items, events, approvals, and controls."""
+        with self._transaction() as connection:
+            row = connection.execute(
+                "SELECT session_id, principal_id FROM agent_sessions WHERE session_id = ?",
+                (str(session_id),),
+            ).fetchone()
+            if not row:
+                return False
+            owner = str(row["principal_id"] or "")
+            if not is_admin and principal_id and owner and owner != str(principal_id):
+                raise PermissionError(f"session {session_id} not owned by {principal_id}")
+            connection.execute("DELETE FROM agent_controls WHERE session_id = ?", (str(session_id),))
+            connection.execute("DELETE FROM agent_approvals WHERE session_id = ?", (str(session_id),))
+            connection.execute("DELETE FROM agent_events WHERE session_id = ?", (str(session_id),))
+            connection.execute("DELETE FROM agent_items WHERE session_id = ?", (str(session_id),))
+            connection.execute("DELETE FROM agent_turns WHERE session_id = ?", (str(session_id),))
+            connection.execute("DELETE FROM agent_sessions WHERE session_id = ?", (str(session_id),))
+            return True
+
     def fork_session(
         self,
         source_session_id: str,

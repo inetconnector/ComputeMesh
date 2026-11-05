@@ -924,6 +924,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
+        query = parse_qs(parsed_path.query)
+
         if self._is_custom_tool_path(clean_path) and not self._require_mcp_admin():
             return
         if clean_path.startswith(("/v1/mcp/custom-tools/", "/api/v1/mcp/custom-tools/")):
@@ -934,6 +936,120 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.inference_engine.tool_registry.unregister_tool(t_name)
             self._send_json({"name": t_name, "deleted": deleted})
             return
+
+        ws_prefix = next(
+            (prefix for prefix in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces") if clean_path.startswith(prefix)),
+            None,
+        )
+        if ws_prefix is not None:
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                            owner_key = candidate
+            owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
+            auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
+
+            if not auth.is_authenticated and not owner_id:
+                self._send_error_response("Authentication required to remove workspace", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+
+            relative = clean_path[len(ws_prefix):].strip("/").split("/") if clean_path[len(ws_prefix):].strip("/") else []
+            ws_target = relative[0] if relative else (query.get("id", [""])[0].strip() or query.get("path", [""])[0].strip())
+
+            # Read optional JSON body
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_length = 0
+            raw_body = self.rfile.read(content_length) if content_length > 0 else b""
+            body = {}
+            if raw_body:
+                try:
+                    body = json.loads(raw_body.decode("utf-8"))
+                except Exception:
+                    pass
+
+            if not ws_target:
+                ws_target = str(body.get("id", "")).strip() or str(body.get("path", "")).strip()
+
+            if not ws_target:
+                self._send_error_response("Workspace ID or path is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+
+            delete_physical = query.get("delete_physical", ["false"])[0].lower() in ("true", "1") or bool(body.get("delete_physical"))
+            confirm_name = query.get("confirm_name", [""])[0].strip() or str(body.get("confirm_name", "")).strip() or None
+            target_node_id = query.get("node_id", [""])[0].strip() or str(body.get("node_id", "")).strip()
+
+            if target_node_id and target_node_id in NODE_TELEMETRY_REGISTRY:
+                node_owner = NODE_TELEMETRY_REGISTRY[target_node_id].get("owner_id")
+                req_owner = owner_id or auth.owner_id or auth.account_id
+                if node_owner and req_owner and node_owner != req_owner and auth.account_id != "admin_root":
+                    self._send_error_response("Forbidden: target node belongs to different owner", "forbidden", HTTPStatus.FORBIDDEN)
+                    return
+
+            from tools.appliance.workspace_manager import unregister_local_workspace
+            res = unregister_local_workspace(ws_target, delete_physical_folder=delete_physical, confirm_name=confirm_name)
+            if not res.get("success", False) and not res.get("unregistered", False):
+                self._send_error_response(res.get("error", "Workspace not found"), "not_found", HTTPStatus.NOT_FOUND)
+                return
+
+            # Atomically update in-memory telemetry & pending queues across nodes
+            ws_id_norm = res.get("id") or ws_target
+            ws_path_norm = res.get("path") or ws_target
+            for nid, nrec in NODE_TELEMETRY_REGISTRY.items():
+                if target_node_id and nid != target_node_id:
+                    continue
+                existing_ws = nrec.get("workspaces", [])
+                nrec["workspaces"] = [w for w in existing_ws if w.get("id") != ws_id_norm and w.get("path") != ws_path_norm]
+                pending = nrec.get("pending_workspaces", [])
+                nrec["pending_workspaces"] = [p for p in pending if p.get("name") != ws_id_norm and p.get("path") != ws_path_norm]
+                removed = nrec.setdefault("removed_workspaces", [])
+                if ws_id_norm not in removed:
+                    removed.append(ws_id_norm)
+                if ws_path_norm not in removed:
+                    removed.append(ws_path_norm)
+
+            self._send_json({"status": "unregistered", "result": res})
+            return
+
+        agent_session_prefix = next(
+            (prefix for prefix in ("/v1/agents/sessions", "/api/v1/agents/sessions") if clean_path.startswith(prefix)),
+            None,
+        )
+        if agent_session_prefix is not None:
+            relative = clean_path[len(agent_session_prefix):].strip("/").split("/") if clean_path[len(agent_session_prefix):].strip("/") else []
+            if len(relative) != 1:
+                self._send_error_response("Invalid agent session delete path", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
+            if not auth.is_authenticated or auth.is_teaser:
+                self._send_error_response(auth.error_message or "Agent session authentication required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            session_id = relative[0]
+            try:
+                store = self._get_agent_session_store()
+                principal_id = auth.owner_id or auth.account_id
+                is_admin = auth.account_id == "admin_root"
+                deleted = store.delete_session(session_id, principal_id=principal_id, is_admin=is_admin)
+                if not deleted:
+                    self._send_error_response(f"Session {session_id} not found", "not_found", HTTPStatus.NOT_FOUND)
+                    return
+                self._send_json({"schema_version": 1, "object": "agent_session_deleted", "session_id": session_id, "deleted": True})
+            except PermissionError as exc:
+                self._send_error_response(str(exc), "forbidden", HTTPStatus.FORBIDDEN)
+            except Exception as exc:
+                logger.error("Failed to delete agent session %s: %s", session_id, exc)
+                self._send_error_response("Internal server error deleting session", "internal_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         self._send_error_response("Method Not Allowed", "invalid_request_error", HTTPStatus.METHOD_NOT_ALLOWED)
 
     def do_GET(self) -> None:
@@ -1508,34 +1624,45 @@ class GatewayHandler(BaseHTTPRequestHandler):
             all_ws = []
             active_node_id = ""
             for node in nodes:
-                n_ws = node.get("workspaces", [])
+                nid = node.get("node_id", "")
+                removed_set = set(NODE_TELEMETRY_REGISTRY.get(nid, {}).get("removed_workspaces", []))
+                n_ws = [w for w in node.get("workspaces", []) if isinstance(w, dict) and w.get("id") not in removed_set and w.get("path") not in removed_set]
                 if node.get("is_online") and not active_node_id:
-                    active_node_id = node.get("node_id", "")
+                    active_node_id = nid
                 for w in n_ws:
                     entry = dict(w)
-                    entry["node_id"] = node.get("node_id")
-                    entry["node_name"] = node.get("display_name")
+                    entry["node_id"] = nid
+                    entry["node_name"] = node.get("display_name") or node.get("node_name") or nid
+                    entry.setdefault("registration_source", "node_heartbeat")
+                    entry.setdefault("status", "active")
                     all_ws.append(entry)
             if not all_ws or not nodes:
                 try:
                     from tools.appliance.workspace_manager import get_local_node_info, load_local_workspaces
                     local_info = get_local_node_info()
                     local_ws = load_local_workspaces()
+                    effective_nid = active_node_id or local_info["node_id"]
+                    removed_set = set(NODE_TELEMETRY_REGISTRY.get(effective_nid, {}).get("removed_workspaces", []))
                     if not nodes:
+                        filtered_local = [w for w in local_ws if w.get("id") not in removed_set and w.get("path") not in removed_set]
                         nodes = [{
                             "node_id": local_info["node_id"],
                             "display_name": local_info["display_name"],
                             "node_name": local_info["node_name"],
                             "hardware": local_info["hardware"],
                             "is_online": True,
-                            "workspaces": local_ws,
+                            "workspaces": filtered_local,
                         }]
                         active_node_id = local_info["node_id"]
                     for w in local_ws:
-                        if not any(x.get("path") == w.get("path") for x in all_ws):
+                        if w.get("id") in removed_set or w.get("path") in removed_set:
+                            continue
+                        if not any(x.get("path") == w.get("path") or x.get("id") == w.get("id") for x in all_ws):
                             entry = dict(w)
-                            entry["node_id"] = active_node_id or local_info["node_id"]
+                            entry["node_id"] = effective_nid
                             entry["node_name"] = local_info["display_name"]
+                            entry.setdefault("registration_source", "user_registered")
+                            entry.setdefault("status", "active")
                             all_ws.append(entry)
                 except Exception:
                     pass
@@ -1921,30 +2048,70 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                            owner_key = candidate
+            owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
+            auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
+
+            if not auth.is_authenticated and not owner_id:
+                self._send_error_response("Authentication required to register workspace", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+
             path_str = str(body.get("path", "")).strip()
             name_str = str(body.get("name", "")).strip() or None
             node_id_req = str(body.get("node_id", "")).strip()
+            create_if_missing = bool(body.get("create_if_missing", False))
+
             if not path_str:
                 self._send_error_response("Path is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
+
+            if "\0" in path_str:
+                self._send_error_response("Null bytes in path are forbidden", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+
+            if node_id_req and node_id_req in NODE_TELEMETRY_REGISTRY:
+                node_owner = NODE_TELEMETRY_REGISTRY[node_id_req].get("owner_id")
+                req_owner = owner_id or auth.owner_id or auth.account_id
+                if node_owner and req_owner and node_owner != req_owner and auth.account_id != "admin_root":
+                    self._send_error_response("Forbidden: Target node belongs to different owner", "forbidden", HTTPStatus.FORBIDDEN)
+                    return
+
             registered = None
             try:
                 from tools.appliance.workspace_manager import register_local_workspace
-                registered = register_local_workspace(path_str, custom_name=name_str)
+                registered = register_local_workspace(
+                    path_str,
+                    custom_name=name_str,
+                    create_if_missing=create_if_missing,
+                    registration_source="user_registered",
+                    node_id=node_id_req or None,
+                )
+            except FileNotFoundError as exc:
+                self._send_error_response(str(exc), "not_found", HTTPStatus.NOT_FOUND)
+                return
+            except ValueError as exc:
+                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
             except Exception as exc:
                 logger.warning("Local workspace register error: %s", exc)
+                self._send_error_response(f"Registration error: {exc}", "internal_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+
             if not registered:
-                from pathlib import Path
-                p = Path(path_str)
-                name = name_str or p.name
-                registered = {
-                    "id": name.lower().replace(" ", "-"),
-                    "name": name,
-                    "path": str(p),
-                    "git_branch": "",
-                    "registered_at": time.time(),
-                    "last_active": time.time(),
-                }
+                self._send_error_response("Could not register workspace", "internal_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+
             target_node = node_id_req
             if not target_node or target_node not in NODE_TELEMETRY_REGISTRY:
                 for nid, nrec in NODE_TELEMETRY_REGISTRY.items():
@@ -1957,13 +2124,21 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             target_node = nid
                             break
             if target_node and target_node in NODE_TELEMETRY_REGISTRY:
-                existing_ws = NODE_TELEMETRY_REGISTRY[target_node].setdefault("workspaces", [])
+                nrec = NODE_TELEMETRY_REGISTRY[target_node]
+                removed = nrec.get("removed_workspaces", [])
+                if registered["id"] in removed:
+                    removed.remove(registered["id"])
+                if registered["path"] in removed:
+                    removed.remove(registered["path"])
+
+                existing_ws = nrec.setdefault("workspaces", [])
                 if not any(w.get("path") == registered["path"] for w in existing_ws):
                     existing_ws.append(registered)
-                NODE_TELEMETRY_REGISTRY[target_node].setdefault("pending_workspaces", []).append({
-                    "path": path_str,
-                    "name": name_str or registered.get("name"),
+                nrec.setdefault("pending_workspaces", []).append({
+                    "path": registered["path"],
+                    "name": registered["name"],
                 })
+
             self._send_json({"status": "registered", "workspace": registered})
             return
 
@@ -2717,7 +2892,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "protocol_version": body.get("protocol_version") or body.get("software", {}).get("protocol_version") or 2,
                 "models": body.get("models") or body.get("inventory", {}).get("models", []),
                 "machine_identity": body.get("machine_identity", {}),
-                "workspaces": body.get("workspaces", []),
+                "workspaces": [
+                    w for w in body.get("workspaces", [])
+                    if isinstance(w, dict) and w.get("id") not in (existing_node.get("removed_workspaces", []) if existing_node else []) and w.get("path") not in (existing_node.get("removed_workspaces", []) if existing_node else [])
+                ],
+                "removed_workspaces": list(existing_node.get("removed_workspaces", [])) if existing_node else [],
                 "clock_skew_ms": body.get("clock_skew_ms", 0),
                 "updated_at": now_iso,
             }
