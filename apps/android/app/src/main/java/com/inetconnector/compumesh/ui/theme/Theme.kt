@@ -11,24 +11,27 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-val DeepVoidBg = Color(0xFF070B12)
-val CardSurface = Color(0xFF0F172A)
-val CardSurfaceBorder = Color(0xFF1E293B)
-val CyanAccent = Color(0xFF38BDF8)
-val CyanGlow = Color(0xFF0284C7)
-val IndigoAccent = Color(0xFF818CF8)
-val EmeraldSuccess = Color(0xFF10B981)
+// Authentic Luxury Dark Theme (exact ChatGPT palette)
+val DeepVoidBg = Color(0xFF000000)        // Pure pitch black canvas
+val CardSurface = Color(0xFF171717)       // Matte dark graphite for drawers, bars & bottom sheets
+val CardSurfaceBorder = Color(0xFF262626) // Ultra-subtle border
+val PillSurface = Color(0xFF212121)       // Dark pill capsules & search bar
+val BubbleSurface = Color(0xFF2F2F2F)     // User bubble & active segment pill
+val CyanAccent = Color(0xFFFFFFFF)        // Pure white primary action / send button
+val CyanGlow = Color(0xFF52525B)          // Muted secondary highlight
+val IndigoAccent = Color(0xFFD4D4D8)      // Light clean grey
+val EmeraldSuccess = Color(0xFF10A37F)    // OpenAI signature emerald for live node status
 val AmberWarning = Color(0xFFF59E0B)
-val RoseDanger = Color(0xFFF43F5E)
-val TextPrimary = Color(0xFFF8FAFC)
-val TextSecondary = Color(0xFF94A3B8)
-val TextMuted = Color(0xFF64748B)
+val RoseDanger = Color(0xFFEF4444)
+val TextPrimary = Color(0xFFECECEC)       // High contrast soft white
+val TextSecondary = Color(0xFFA1A1AA)     // Muted grey text
+val TextMuted = Color(0xFF71717A)         // Dim grey labels
 
 private val DarkColorScheme = darkColorScheme(
     primary = CyanAccent,
     onPrimary = Color.Black,
-    primaryContainer = CardSurface,
-    onPrimaryContainer = CyanAccent,
+    primaryContainer = PillSurface,
+    onPrimaryContainer = TextPrimary,
     secondary = IndigoAccent,
     onSecondary = Color.Black,
     tertiary = EmeraldSuccess,
@@ -36,7 +39,7 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = TextPrimary,
     surface = CardSurface,
     onSurface = TextPrimary,
-    surfaceVariant = CardSurfaceBorder,
+    surfaceVariant = PillSurface,
     onSurfaceVariant = TextSecondary,
     outline = CardSurfaceBorder
 )

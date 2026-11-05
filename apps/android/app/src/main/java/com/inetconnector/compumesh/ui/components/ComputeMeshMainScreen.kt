@@ -4,18 +4,18 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -33,6 +33,13 @@ import com.inetconnector.compumesh.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+enum class MainNavigationScreen {
+    CHAT,
+    EDGE_NODE,
+    LAN_MESH,
+    SETUP
+}
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ComputeMeshMainScreen(
@@ -47,11 +54,10 @@ fun ComputeMeshMainScreen(
     onScanMobileQr: (String) -> Unit,
     mobilePaired: Boolean
 ) {
-    // 4 clean main tabs: Chat (0), Edge Node (1), LAN Mesh (2), Setup & Flotte (3)
-    val pagerState = rememberPagerState(initialPage = if (mobilePaired) 0 else 3, pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var currentScreen by remember { mutableStateOf(if (mobilePaired) MainNavigationScreen.CHAT else MainNavigationScreen.CHAT) }
     var guardStatus by remember { mutableStateOf(guard.getStatus()) }
-    var showQuickMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     // Periodic battery/compute policy polling
@@ -62,310 +68,418 @@ fun ComputeMeshMainScreen(
         }
     }
 
-    if (showQuickMenu) {
-        ModalBottomSheet(
-            onDismissRequest = { showQuickMenu = false },
-            containerColor = CardSurface,
-            scrimColor = Color.Black.copy(alpha = 0.65f),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-        ) {
-            Column(
+    // Modal Navigation Drawer (Exact ChatGPT Sidebar Menu Parity: `02_sidebar_menu.png`)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = currentScreen == MainNavigationScreen.CHAT,
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = CardSurface,
+                drawerShape = RoundedCornerShape(topEnd = 0.dp, bottomEnd = 0.dp),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 32.dp)
+                    .width(310.dp)
+                    .fillMaxHeight()
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Brush.linearGradient(listOf(CyanAccent, IndigoAccent))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Memory,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text("ComputeMesh Menü", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
-                        Text("Schnellnavigation & Bereichsauswahl", color = TextMuted, fontSize = 12.sp)
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = { showQuickMenu = false }) {
-                        Icon(Icons.Default.Close, contentDescription = "Schließen", tint = TextMuted)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = CardSurfaceBorder)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Option 1: KI Chat
-                QuickMenuOption(
-                    icon = Icons.Default.ChatBubble,
-                    title = "KI Chat",
-                    subtitle = "Direkte Inferenz via Mesh-Knoten",
-                    tint = CyanAccent
-                ) {
-                    showQuickMenu = false
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(0)
-                    }
-                }
-
-                // Option 2: Edge Node Tab
-                QuickMenuOption(
-                    icon = Icons.Default.ElectricBolt,
-                    title = "Edge Compute Node",
-                    subtitle = if (guardStatus.isComputePermitted) "Status: Bereit / Aktiv" else "Status: Standby (Akku/Temperatur)",
-                    tint = if (guardStatus.isComputePermitted) EmeraldSuccess else AmberWarning
-                ) {
-                    showQuickMenu = false
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(1)
-                    }
-                }
-
-                // Option 3: LAN Mesh Tab
-                QuickMenuOption(
-                    icon = Icons.Default.Hub,
-                    title = "LAN Mesh Netzwerk",
-                    subtitle = "Lokale Peer-Geräte & KI-Knoten",
-                    tint = IndigoAccent
-                ) {
-                    showQuickMenu = false
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(2)
-                    }
-                }
-
-                // Option 4: Setup & Flotte
-                QuickMenuOption(
-                    icon = Icons.Default.Settings,
-                    title = "Setup & Flotte",
-                    subtitle = "Gateway: ${currentGatewayUrl.ifBlank { "Standard" }}",
-                    tint = TextPrimary
-                ) {
-                    showQuickMenu = false
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(3)
-                    }
-                }
-            }
-        }
-    }
-
-    Scaffold(
-        containerColor = DeepVoidBg,
-        topBar = {
-            TopAppBar(
-                title = {
+                    // Top Row: + Neuer Chat Pill & Search Button
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable { showQuickMenu = true }
-                                .padding(vertical = 4.dp, horizontal = 2.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Brush.linearGradient(listOf(CyanAccent, IndigoAccent))),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Memory,
-                                    contentDescription = "ComputeMesh Menü",
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text("Compute", fontWeight = FontWeight.ExtraBold, color = TextPrimary, fontSize = 20.sp)
-                            Text("Mesh", fontWeight = FontWeight.ExtraBold, color = CyanAccent, fontSize = 20.sp)
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        // Status Chip (Bereit / Standby)
+                        // + Neuer Chat Button
                         Surface(
+                            onClick = {
+                                currentScreen = MainNavigationScreen.CHAT
+                                coroutineScope.launch { drawerState.close() }
+                            },
                             shape = RoundedCornerShape(20.dp),
-                            color = if (guardStatus.isComputePermitted) EmeraldSuccess.copy(alpha = 0.15f) else AmberWarning.copy(alpha = 0.15f),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (guardStatus.isComputePermitted) EmeraldSuccess.copy(alpha = 0.4f) else AmberWarning.copy(alpha = 0.4f)
-                            ),
-                            modifier = Modifier.clickable {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(1)
-                                }
-                            }
+                            color = PillSurface,
+                            modifier = Modifier.weight(1f)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .clip(CircleShape)
-                                        .background(if (guardStatus.isComputePermitted) EmeraldSuccess else AmberWarning)
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = TextPrimary,
+                                    modifier = Modifier.size(18.dp)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (guardStatus.isComputePermitted) "Aktiv" else "Standby",
-                                    color = if (guardStatus.isComputePermitted) EmeraldSuccess else AmberWarning,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = "Neuer Chat",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.5.sp,
+                                    color = TextPrimary
                                 )
                             }
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Quick Navigation Menu Icon
+                        // Search Button
                         IconButton(
-                            onClick = { showQuickMenu = true },
-                            modifier = Modifier.size(36.dp)
+                            onClick = {
+                                // Search filter action
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(PillSurface)
                         ) {
                             Icon(
-                                Icons.Default.Menu,
-                                contentDescription = "Menü öffnen",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(22.dp)
+                                Icons.Default.Search,
+                                contentDescription = "Suche",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DeepVoidBg)
-            )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = CardSurface,
-                tonalElevation = 8.dp
-            ) {
-                val tabs = listOf(
-                    Triple(0, "KI Chat", Icons.Default.ChatBubble),
-                    Triple(1, "Edge Node", Icons.Default.ElectricBolt),
-                    Triple(2, "LAN Mesh", Icons.Default.Hub),
-                    Triple(3, "Setup", Icons.Default.Settings)
-                )
 
-                tabs.forEach { (index, label, icon) ->
-                    val isSelected = pagerState.currentPage == index
-                    NavigationBarItem(
-                        icon = { Icon(icon, contentDescription = label) },
-                        label = { Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                        selected = isSelected,
-                        onClick = {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = CyanAccent,
-                            selectedTextColor = CyanAccent,
-                            unselectedIconColor = TextMuted,
-                            unselectedTextColor = TextMuted,
-                            indicatorColor = CyanAccent.copy(alpha = 0.12f)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Scrollable Drawer List
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                    ) {
+                        // SECTION: CHATS & HISTORIE
+                        item {
+                            Text(
+                                text = "Angeheftet",
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+
+                        val recentChats = listOf(
+                            "ComputeMesh Cluster Setup",
+                            "Security Gate & Test Receipt",
+                            "Inferenz Benchmark (qwen2.5)",
+                            "P2P LAN Mesh Routing"
                         )
-                    )
+
+                        items(recentChats) { chatTitle ->
+                            DrawerItemRow(
+                                icon = Icons.Default.ChatBubbleOutline,
+                                title = chatTitle,
+                                isSelected = currentScreen == MainNavigationScreen.CHAT && chatTitle.startsWith("ComputeMesh")
+                            ) {
+                                currentScreen = MainNavigationScreen.CHAT
+                                coroutineScope.launch { drawerState.close() }
+                            }
+                        }
+
+                        // SECTION: AGENT WORKSPACES (PC Node)
+                        item {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "Agent Workspaces (mifcoms)",
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+
+                        val workspaces = listOf(
+                            "ComputeMesh-ControlPlane",
+                            "MICA",
+                            "NOMA",
+                            "Momentum",
+                            "SmartXChain"
+                        )
+
+                        items(workspaces) { ws ->
+                            DrawerItemRow(
+                                icon = Icons.Default.Folder,
+                                title = ws,
+                                isSelected = false
+                            ) {
+                                currentScreen = MainNavigationScreen.CHAT
+                                coroutineScope.launch { drawerState.close() }
+                            }
+                        }
+
+                        // SECTION: MESH-FLOTTE & HARDWARE
+                        item {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "Hardware & Mesh",
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+
+                        item {
+                            DrawerItemRow(
+                                icon = Icons.Default.ElectricBolt,
+                                title = "Edge Compute Node",
+                                subtitle = if (guardStatus.isComputePermitted) "Status: Aktiv / Bereit" else "Status: Standby",
+                                isSelected = currentScreen == MainNavigationScreen.EDGE_NODE,
+                                statusColor = if (guardStatus.isComputePermitted) EmeraldSuccess else AmberWarning
+                            ) {
+                                currentScreen = MainNavigationScreen.EDGE_NODE
+                                coroutineScope.launch { drawerState.close() }
+                            }
+                        }
+
+                        item {
+                            DrawerItemRow(
+                                icon = Icons.Default.Hub,
+                                title = "LAN Mesh Netzwerk",
+                                subtitle = "Lokale Peer-Geräte & P2P",
+                                isSelected = currentScreen == MainNavigationScreen.LAN_MESH
+                            ) {
+                                currentScreen = MainNavigationScreen.LAN_MESH
+                                coroutineScope.launch { drawerState.close() }
+                            }
+                        }
+
+                        item {
+                            DrawerItemRow(
+                                icon = Icons.Default.Settings,
+                                title = "Setup & Flotte",
+                                subtitle = "Gateway: ${currentGatewayUrl.ifBlank { "Standard" }}",
+                                isSelected = currentScreen == MainNavigationScreen.SETUP
+                            ) {
+                                currentScreen = MainNavigationScreen.SETUP
+                                coroutineScope.launch { drawerState.close() }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = CardSurfaceBorder, thickness = 1.dp)
+
+                    // Bottom Row: Profile / Node Status & Settings
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                currentScreen = MainNavigationScreen.SETUP
+                                coroutineScope.launch { drawerState.close() }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(BubbleSurface),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Memory,
+                                contentDescription = null,
+                                tint = EmeraldSuccess,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(EmeraldSuccess)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "cm-win-mifcom-rtx3080",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.5.sp,
+                                    color = TextPrimary
+                                )
+                            }
+                            Text(
+                                text = "RTX 3080 10GB • Bereit",
+                                fontSize = 11.sp,
+                                color = TextMuted
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                currentScreen = MainNavigationScreen.SETUP
+                                coroutineScope.launch { drawerState.close() }
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Einstellungen",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
-    ) { padding ->
-        HorizontalPager(
-            state = pagerState,
-            userScrollEnabled = true,
-            beyondBoundsPageCount = 3,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) { page ->
-            when (page) {
-                0 -> ChatTab(
+    ) {
+        // Main Screen Viewport based on currentScreen
+        when (currentScreen) {
+            MainNavigationScreen.CHAT -> {
+                ChatTab(
                     gatewayUrl = currentGatewayUrl,
                     ownerKey = currentOwnerKey,
-                    onOpenLanMesh = {
-                        coroutineScope.launch { pagerState.animateScrollToPage(2) }
-                    },
-                    onOpenSetup = {
-                        coroutineScope.launch { pagerState.animateScrollToPage(3) }
-                    }
-                )
-                1 -> EdgeNodeTab(guardStatus, onStartNode, onStopNode)
-                2 -> LanMeshTab(
                     lanDiscovery = lanDiscovery,
-                    currentGatewayUrl = currentGatewayUrl,
-                    currentOwnerKey = currentOwnerKey,
-                    onSaveFleetConfig = onSaveFleetConfig
+                    onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                    onOpenLanMesh = { currentScreen = MainNavigationScreen.LAN_MESH },
+                    onOpenSetup = { currentScreen = MainNavigationScreen.SETUP }
                 )
-                3 -> SetupTab(
-                    currentOwnerKey = currentOwnerKey,
-                    currentGatewayUrl = currentGatewayUrl,
-                    onSaveFleetConfig = onSaveFleetConfig,
-                    onScanMobileQr = onScanMobileQr,
-                    mobilePaired = mobilePaired
-                )
+            }
+            MainNavigationScreen.EDGE_NODE -> {
+                SubScreenContainer(
+                    title = "Edge Compute Node",
+                    onBack = { currentScreen = MainNavigationScreen.CHAT }
+                ) {
+                    EdgeNodeTab(guardStatus, onStartNode, onStopNode)
+                }
+            }
+            MainNavigationScreen.LAN_MESH -> {
+                SubScreenContainer(
+                    title = "LAN Mesh Netzwerk",
+                    onBack = { currentScreen = MainNavigationScreen.CHAT }
+                ) {
+                    LanMeshTab(
+                        lanDiscovery = lanDiscovery,
+                        currentGatewayUrl = currentGatewayUrl,
+                        currentOwnerKey = currentOwnerKey,
+                        onSaveFleetConfig = onSaveFleetConfig
+                    )
+                }
+            }
+            MainNavigationScreen.SETUP -> {
+                SubScreenContainer(
+                    title = "Setup & Flotte",
+                    onBack = { currentScreen = MainNavigationScreen.CHAT }
+                ) {
+                    SetupTab(
+                        currentOwnerKey = currentOwnerKey,
+                        currentGatewayUrl = currentGatewayUrl,
+                        onSaveFleetConfig = onSaveFleetConfig,
+                        onScanMobileQr = onScanMobileQr,
+                        mobilePaired = mobilePaired
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun QuickMenuOption(
+fun DrawerItemRow(
     icon: ImageVector,
     title: String,
-    subtitle: String,
-    tint: Color,
+    subtitle: String? = null,
+    isSelected: Boolean = false,
+    statusColor: Color? = null,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = CardSurfaceBorder.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) BubbleSurface else Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 2.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 14.dp)
+                .padding(horizontal = 10.dp, vertical = 9.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                .background(tint.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(20.dp)
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (isSelected) TextPrimary else TextSecondary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                    fontSize = 13.5.sp,
+                    color = if (isSelected) TextPrimary else TextSecondary,
+                    maxLines = 1
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 11.sp,
+                        color = TextMuted,
+                        maxLines = 1
+                    )
+                }
+            }
+            if (statusColor != null) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(statusColor)
                 )
             }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.SemiBold, color = TextPrimary, fontSize = 15.sp)
-                Text(subtitle, color = TextMuted, fontSize = 12.sp)
-            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SubScreenContainer(
+    title: String,
+    onBack: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Scaffold(
+        containerColor = DeepVoidBg,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = title,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Zurück zum Chat",
+                            tint = TextPrimary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CardSurface)
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            content()
         }
     }
 }

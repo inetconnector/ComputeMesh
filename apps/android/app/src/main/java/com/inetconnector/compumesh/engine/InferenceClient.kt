@@ -30,7 +30,7 @@ object InferenceClient {
     private const val TAG = "InferenceClient"
     const val DEFAULT_GATEWAY = "https://mesh.inetconnector.com"
     const val DEFAULT_MODEL = "qwen2.5:3b"
-    const val VISION_MODEL = "qwen2.5-vl:7b"
+    const val VISION_MODEL = "llava:latest"
 
     private fun sanitizeError(raw: String): String {
         var clean = raw.replace(Regex("<[^>]*>"), " ")
