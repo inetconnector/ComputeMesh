@@ -256,6 +256,33 @@ def test_gateway_workspaces_and_sessions_http_routes(tmp_path):
         assert res.status == HTTPStatus.NOT_FOUND
         res.read()
 
+        # 8. Unauthenticated service control -> 401, service control must never be invoked
+        import services.appliance_dashboard.server as dash_mod
+        calls = []
+        original_ctrl = dash_mod.execute_service_control
+        dash_mod.execute_service_control = lambda action: calls.append(action) or (True, "x")
+        try:
+            payload = json.dumps({"action": "stop"})
+            conn.request(
+                "POST",
+                "/api/appliance/service/control",
+                body=payload,
+                headers={"Content-Type": "application/json", "Content-Length": str(len(payload))},
+            )
+            res = conn.getresponse()
+            assert res.status == HTTPStatus.UNAUTHORIZED
+            res.read()
+            assert calls == []
+        finally:
+            dash_mod.execute_service_control = original_ctrl
+
+        # 9. Service status is readable and reports a known service name
+        conn.request("GET", "/api/appliance/service/status")
+        res = conn.getresponse()
+        assert res.status == HTTPStatus.OK
+        status_body = json.loads(res.read().decode())
+        assert status_body["service_name"] in ("ComputeMeshNode", "computemesh-node")
+
         conn.close()
     finally:
         server.shutdown()

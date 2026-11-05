@@ -2153,6 +2153,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/appliance/service/control", "/appliance/service/control"):
+            svc_auth = self.auth_manager.authenticate_request(
+                self.headers, getattr(self, "client_address", None), allow_teaser=False
+            )
+            if not svc_auth.is_authenticated or svc_auth.is_teaser or not svc_auth.can_use_owner_tools:
+                self._send_error_response(
+                    svc_auth.error_message or "Owner authentication required for service control",
+                    "unauthorized",
+                    HTTPStatus.UNAUTHORIZED,
+                )
+                return
             try:
                 from services.appliance_dashboard.server import execute_service_control
                 act = str(body.get("action", "")).strip().lower() if isinstance(body, dict) else ""
