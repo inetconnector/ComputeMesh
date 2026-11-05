@@ -99,6 +99,70 @@ def _safe_resolve_portal_file(filename: str) -> Path | None:
     return None
 
 
+def get_service_status_payload(server_port: int = 8080) -> dict:
+    """Returns the platform daemon/service state (Windows Service or systemd)."""
+    installed = False
+    status_val = "NOT_INSTALLED"
+
+    if sys.platform == "win32":
+        try:
+            from tools.appliance.windows_service import query_service_status
+            st = query_service_status()
+            status_val = st.get("status", "UNKNOWN")
+            installed = (st.get("installed") == "true")
+        except Exception as e:
+            status_val = f"ERROR: {e}"
+    else:
+        try:
+            res = subprocess.run(["systemctl", "is-active", "computemesh-node"], capture_output=True, text=True, check=False)
+            if res.returncode == 0:
+                status_val = "RUNNING"
+                installed = True
+            elif res.stdout.strip() in ("inactive", "failed"):
+                status_val = "STOPPED"
+                installed = True
+        except Exception:
+            pass
+
+    runner_mode = "service" if status_val == "RUNNING" else "user_process"
+    return {
+        "platform": sys.platform,
+        "service_name": "ComputeMeshNode" if sys.platform == "win32" else "computemesh-node",
+        "is_service_installed": installed,
+        "service_status": status_val,
+        "runner_mode": runner_mode,
+        "port": server_port,
+    }
+
+
+def execute_service_control(action: str) -> tuple[bool, str]:
+    """Control Windows Service or systemd daemon (start, stop, restart)."""
+    action = str(action or "").strip().lower()
+    ok = False
+    msg = ""
+    if sys.platform == "win32":
+        from tools.appliance.windows_service import start_service, stop_service
+        if action == "start":
+            ok = start_service()
+            msg = "Service started" if ok else "Failed to start service"
+        elif action == "stop":
+            ok = stop_service()
+            msg = "Service stopped" if ok else "Failed to stop service"
+        elif action == "restart":
+            stop_service()
+            time.sleep(1.0)
+            ok = start_service()
+            msg = "Service restarted" if ok else "Failed to restart service"
+        else:
+            msg = f"Unknown action: {action}"
+    else:
+        if action in ("start", "stop", "restart"):
+            res = subprocess.run(["systemctl", action, "computemesh-node"], capture_output=True, text=True, check=False)
+            ok = (res.returncode == 0)
+            msg = f"systemctl {action} returned {res.returncode}"
+        else:
+            msg = f"Unknown action: {action}"
+    return ok, msg
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -265,6 +329,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
         return True
 
+    def _handle_service_status(self) -> None:
+        """Returns the platform daemon/service state (Windows Service or systemd)."""
+        server_port = getattr(self.server, "server_port", 8080) if hasattr(self, "server") else 8080
+        payload = get_service_status_payload(server_port=server_port)
+        self._send_json(payload, HTTPStatus.OK)
+
+    def _handle_service_control(self, post_body: bytes) -> None:
+        """Control Windows Service or systemd daemon (start, stop, restart)."""
+        try:
+            data = json.loads(post_body.decode("utf-8")) if post_body else {}
+            action = str(data.get("action", "")).strip().lower()
+            ok, msg = execute_service_control(action)
+            self._send_json({"success": ok, "message": msg, "action": action}, HTTPStatus.OK if ok else HTTPStatus.BAD_REQUEST)
+        except Exception as e:
+            self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
     def do_GET(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
@@ -280,6 +360,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if req_path in ("/api/portal/qr", "/api/v1/qr"):
             self._handle_local_qr(parsed_url)
+            return
+
+        if req_path == "/api/appliance/service/status":
+            self._handle_service_status()
             return
 
         if FanControlHandler.handle_get(self, req_path):
@@ -465,6 +549,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             authorized = self._verify_owner_inference_auth()
         if not authorized:
             self._send_unauthorized()
+            return
+
+        if req_path == "/api/appliance/service/control":
+            self._handle_service_control(post_body)
             return
 
         if MeshShardingHandler.handle_post(self, req_path, post_body):

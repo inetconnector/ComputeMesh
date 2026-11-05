@@ -1669,6 +1669,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json({"workspaces": all_ws, "active_node_id": active_node_id, "nodes": nodes})
             return
 
+        if clean_path in ("/api/appliance/service/status", "/appliance/service/status"):
+            try:
+                from services.appliance_dashboard.server import get_service_status_payload
+                server_port = getattr(self.server, "server_port", 8000) if hasattr(self, "server") else 8000
+                payload = get_service_status_payload(server_port=server_port)
+                self._send_json(payload, HTTPStatus.OK)
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         if clean_path in ("/v1/mcp/tools", "/api/v1/mcp/tools", "/mcp/tools"):
             auth = self.auth_manager.authenticate_request(
                 self.headers, getattr(self, "client_address", None), allow_teaser=True
@@ -2140,6 +2150,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 })
 
             self._send_json({"status": "registered", "workspace": registered})
+            return
+
+        if clean_path in ("/api/appliance/service/control", "/appliance/service/control"):
+            try:
+                from services.appliance_dashboard.server import execute_service_control
+                act = str(body.get("action", "")).strip().lower() if isinstance(body, dict) else ""
+                ok, msg = execute_service_control(act)
+                self._send_json({"success": ok, "message": msg, "action": act}, HTTPStatus.OK if ok else HTTPStatus.BAD_REQUEST)
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
         agent_session_prefix = next(

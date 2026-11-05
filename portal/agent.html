@@ -1362,9 +1362,36 @@
           </div>
         </div>
       </div>
-        <div class="cluster-nodes-list" id="cluster-nodes-list">
-          <div style="font-size: 11px; color: var(--text-dim);">Lade Mesh-Hardware...</div>
+
+      <!-- Node Runner & Background Service Status Card -->
+      <div class="right-card" id="runner-service-card">
+        <div class="right-card-header">
+          <span>Hintergrunddienst / Runner</span>
+          <span id="service-status-pill" class="node-status-tag online" style="font-size: 10px;">Prüfe...</span>
         </div>
+        <div style="font-size: 11.5px; color: var(--text-muted); display: flex; flex-direction: column; gap: 7px; margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Plattform:</span>
+            <span id="service-platform-label" style="color: var(--text-main); font-weight: 500;">-</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Betriebsmodus:</span>
+            <span id="service-mode-label" style="color: #38bdf8; font-weight: 500;">-</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Systemdienst:</span>
+            <code id="service-name-label" style="color: #d1d5db; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 3px; font-size: 11px;">-</code>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Dashboard-Port:</span>
+            <span id="service-port-label" style="font-family: var(--font-mono); color: var(--text-main);">-</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 10px;" id="service-control-actions">
+          <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; text-align: center;" onclick="controlApplianceService('restart')">↻ Neustart</button>
+          <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; text-align: center;" onclick="refreshServiceStatus()">⚡ Status</button>
+        </div>
+        <div id="service-status-message" style="display: none; font-size: 10.5px; color: var(--accent-green); margin-top: 6px; text-align: center;"></div>
       </div>
     </aside>
 
@@ -2182,10 +2209,103 @@
         .replace(/'/g, '&#039;');
     }
 
+
+    /* Fetch & Render Background Service / Runner Status */
+    async function refreshServiceStatus() {
+      const pill = document.getElementById('service-status-pill');
+      const platformLabel = document.getElementById('service-platform-label');
+      const modeLabel = document.getElementById('service-mode-label');
+      const nameLabel = document.getElementById('service-name-label');
+      const portLabel = document.getElementById('service-port-label');
+
+      try {
+        const resp = await fetchWithAuth('/api/appliance/service/status');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+
+        const isWin = (data.platform === 'win32');
+        const isInstalled = Boolean(data.is_service_installed);
+        const status = data.service_status || 'UNKNOWN';
+
+        if (platformLabel) platformLabel.textContent = isWin ? 'Windows (x64)' : 'Linux (systemd)';
+        if (nameLabel) nameLabel.textContent = data.service_name || (isWin ? 'ComputeMeshNode' : 'computemesh-node');
+        if (portLabel) portLabel.textContent = data.port || '8080';
+
+        if (status === 'RUNNING') {
+          if (pill) {
+            pill.className = 'node-status-tag online';
+            pill.style.background = '';
+            pill.style.color = '';
+            pill.style.borderColor = '';
+            pill.textContent = isWin ? 'SCM-Dienst aktiv' : 'systemd aktiv';
+          }
+          if (modeLabel) modeLabel.textContent = 'Systemdienst (Hintergrund)';
+        } else if (isInstalled) {
+          if (pill) {
+            pill.className = 'node-status-tag offline';
+            pill.style.background = '';
+            pill.style.color = '';
+            pill.style.borderColor = '';
+            pill.textContent = 'Dienst gestoppt';
+          }
+          if (modeLabel) modeLabel.textContent = 'Dienst installiert (inaktiv)';
+        } else {
+          if (pill) {
+            pill.className = 'node-status-tag online';
+            pill.style.background = 'rgba(56, 189, 248, 0.15)';
+            pill.style.color = '#38bdf8';
+            pill.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+            pill.textContent = 'Tray-Prozess aktiv';
+          }
+          if (modeLabel) modeLabel.textContent = 'Benutzer-App (Tray)';
+        }
+      } catch (err) {
+        if (pill) {
+          pill.className = 'node-status-tag online';
+          pill.textContent = 'Aktiv';
+        }
+        if (modeLabel) modeLabel.textContent = 'Node Runner verbunden';
+      }
+    }
+
+    async function controlApplianceService(action) {
+      const msgBox = document.getElementById('service-status-message');
+      if (msgBox) {
+        msgBox.style.display = 'block';
+        msgBox.style.color = '#38bdf8';
+        msgBox.textContent = `Aktion '${action}' wird ausgeführt...`;
+      }
+      try {
+        const resp = await fetchWithAuth('/api/appliance/service/control', {
+          method: 'POST',
+          body: JSON.stringify({ action: action })
+        });
+        const res = await resp.json();
+        if (msgBox) {
+          if (res.success) {
+            msgBox.style.color = 'var(--accent-green)';
+            msgBox.textContent = res.message || 'Erfolgreich';
+          } else {
+            msgBox.style.color = 'var(--accent-red)';
+            msgBox.textContent = res.message || res.error || 'Fehlgeschlagen';
+          }
+          setTimeout(() => { if (msgBox) msgBox.style.display = 'none'; }, 4000);
+        }
+        setTimeout(refreshServiceStatus, 1500);
+      } catch (e) {
+        if (msgBox) {
+          msgBox.style.color = 'var(--accent-red)';
+          msgBox.textContent = `Fehler: ${e.message}`;
+          setTimeout(() => { if (msgBox) msgBox.style.display = 'none'; }, 4000);
+        }
+      }
+    }
+
     // Default Initialization on DOM Load
     window.addEventListener('DOMContentLoaded', () => {
       loadFleetAndWorkspaces();
       loadModels();
+      refreshServiceStatus();
     });
   </script>
   <script src="/portal-core.js?v=5.4"></script>
