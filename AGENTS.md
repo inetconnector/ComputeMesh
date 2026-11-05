@@ -71,3 +71,11 @@ A task is complete only when applicable syntax checks, unit tests, integration t
 
 
 GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen
+
+## 10. Verbindliches Mehrsprachigkeits-, NodeOS- und Release-Image-Gate vor jedem Commit und jeder Veröffentlichung
+- **STRIKTE REGEL**: Vor **jedem** Einchecken (`git commit`) und vor **jeder** Veröffentlichung müssen alle automatisierten Portal-, Übersetzungs- und Artefakt-Tests ausgeführt werden und bestehen:
+  - `python tools/release/check_portal_i18n.py --publish`
+  - `python tools/release/check_portal_routes.py`
+  - `COMPUTEMESH_BROWSER_E2E=1 pytest tests/test_portal_pages_browser.py tests/test_portal_image_assets.py tools/release/tests/test_signed_portal_bundle.py tools/release/tests/test_check_portal_i18n.py`
+- Es darf niemals eingecheckt oder veröffentlicht werden, wenn Übersetzungen (`de`/`en`) unvollständig sind, NodeOS-Downloads (`computemesh-nodeos-x86_64.iso`, `computemesh-nodeos-x86_64.img.xz`, `computemesh-nodeos-runtime-x86_64.tar.gz`) auf der Download-Seite fehlen oder Download-Images/Installer nach Codeänderungen nicht neu gebaut und in `portal/updates/version.json` neu signiert wurden.
+

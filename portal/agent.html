@@ -1366,30 +1366,30 @@
       <!-- Node Runner & Background Service Status Card -->
       <div class="right-card" id="runner-service-card">
         <div class="right-card-header">
-          <span>Hintergrunddienst / Runner</span>
-          <span id="service-status-pill" class="node-status-tag online" style="font-size: 10px;">Prüfe...</span>
+          <span data-i18n="agent_service_title">Hintergrunddienst / Runner</span>
+          <span id="service-status-pill" class="node-status-tag online" style="font-size: 10px;" data-i18n="agent_service_checking">Prüfe...</span>
         </div>
         <div style="font-size: 11.5px; color: var(--text-muted); display: flex; flex-direction: column; gap: 7px; margin-top: 4px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Plattform:</span>
+            <span data-i18n="agent_service_platform">Plattform:</span>
             <span id="service-platform-label" style="color: var(--text-main); font-weight: 500;">-</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Betriebsmodus:</span>
+            <span data-i18n="agent_service_mode">Betriebsmodus:</span>
             <span id="service-mode-label" style="color: #38bdf8; font-weight: 500;">-</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Systemdienst:</span>
+            <span data-i18n="agent_service_name">Systemdienst:</span>
             <code id="service-name-label" style="color: #d1d5db; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 3px; font-size: 11px;">-</code>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Dashboard-Port:</span>
+            <span data-i18n="agent_service_port">Dashboard-Port:</span>
             <span id="service-port-label" style="font-family: var(--font-mono); color: var(--text-main);">-</span>
           </div>
         </div>
         <div style="display: flex; gap: 6px; margin-top: 10px;" id="service-control-actions">
-          <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; text-align: center;" onclick="controlApplianceService('restart')">↻ Neustart</button>
-          <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; text-align: center;" onclick="refreshServiceStatus()">⚡ Status</button>
+          <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; text-align: center;" onclick="controlApplianceService('restart')" data-i18n="agent_service_restart">↻ Neustart</button>
+          <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; text-align: center;" onclick="refreshServiceStatus()" data-i18n="agent_service_status_btn">⚡ Status</button>
         </div>
         <div id="service-status-message" style="display: none; font-size: 10.5px; color: var(--accent-green); margin-top: 6px; text-align: center;"></div>
       </div>
@@ -2217,6 +2217,7 @@
       const modeLabel = document.getElementById('service-mode-label');
       const nameLabel = document.getElementById('service-name-label');
       const portLabel = document.getElementById('service-port-label');
+      const isEn = (window.currentLang === 'en' || localStorage.getItem('cm_portal_lang') === 'en');
 
       try {
         const resp = await fetchWithAuth('/api/appliance/service/status');
@@ -2237,43 +2238,46 @@
             pill.style.background = '';
             pill.style.color = '';
             pill.style.borderColor = '';
-            pill.textContent = isWin ? 'SCM-Dienst aktiv' : 'systemd aktiv';
+            pill.textContent = isWin
+              ? (isEn ? 'SCM Service Active' : 'SCM-Dienst aktiv')
+              : (isEn ? 'systemd Active' : 'systemd aktiv');
           }
-          if (modeLabel) modeLabel.textContent = 'Systemdienst (Hintergrund)';
+          if (modeLabel) modeLabel.textContent = isEn ? 'System Service (Background)' : 'Systemdienst (Hintergrund)';
         } else if (isInstalled) {
           if (pill) {
             pill.className = 'node-status-tag offline';
             pill.style.background = '';
             pill.style.color = '';
             pill.style.borderColor = '';
-            pill.textContent = 'Dienst gestoppt';
+            pill.textContent = isEn ? 'Service Stopped' : 'Dienst gestoppt';
           }
-          if (modeLabel) modeLabel.textContent = 'Dienst installiert (inaktiv)';
+          if (modeLabel) modeLabel.textContent = isEn ? 'Service Installed (Inactive)' : 'Dienst installiert (inaktiv)';
         } else {
           if (pill) {
             pill.className = 'node-status-tag online';
             pill.style.background = 'rgba(56, 189, 248, 0.15)';
             pill.style.color = '#38bdf8';
             pill.style.borderColor = 'rgba(56, 189, 248, 0.3)';
-            pill.textContent = 'Tray-Prozess aktiv';
+            pill.textContent = isEn ? 'Tray Process Active' : 'Tray-Prozess aktiv';
           }
-          if (modeLabel) modeLabel.textContent = 'Benutzer-App (Tray)';
+          if (modeLabel) modeLabel.textContent = isEn ? 'User App (Tray)' : 'Benutzer-App (Tray)';
         }
       } catch (err) {
         if (pill) {
           pill.className = 'node-status-tag online';
-          pill.textContent = 'Aktiv';
+          pill.textContent = isEn ? 'Active' : 'Aktiv';
         }
-        if (modeLabel) modeLabel.textContent = 'Node Runner verbunden';
+        if (modeLabel) modeLabel.textContent = isEn ? 'Node Runner Connected' : 'Node Runner verbunden';
       }
     }
 
     async function controlApplianceService(action) {
       const msgBox = document.getElementById('service-status-message');
+      const isEn = (window.currentLang === 'en' || localStorage.getItem('cm_portal_lang') === 'en');
       if (msgBox) {
         msgBox.style.display = 'block';
         msgBox.style.color = '#38bdf8';
-        msgBox.textContent = `Aktion '${action}' wird ausgeführt...`;
+        msgBox.textContent = isEn ? `Running '${action}'...` : `Aktion '${action}' wird ausgeführt...`;
       }
       try {
         const resp = await fetchWithAuth('/api/appliance/service/control', {
@@ -2284,10 +2288,10 @@
         if (msgBox) {
           if (res.success) {
             msgBox.style.color = 'var(--accent-green)';
-            msgBox.textContent = res.message || 'Erfolgreich';
+            msgBox.textContent = res.message || (isEn ? 'Success' : 'Erfolgreich');
           } else {
             msgBox.style.color = 'var(--accent-red)';
-            msgBox.textContent = res.message || res.error || 'Fehlgeschlagen';
+            msgBox.textContent = res.message || res.error || (isEn ? 'Failed' : 'Fehlgeschlagen');
           }
           setTimeout(() => { if (msgBox) msgBox.style.display = 'none'; }, 4000);
         }
@@ -2295,11 +2299,17 @@
       } catch (e) {
         if (msgBox) {
           msgBox.style.color = 'var(--accent-red)';
-          msgBox.textContent = `Fehler: ${e.message}`;
+          msgBox.textContent = isEn ? `Error: ${e.message}` : `Fehler: ${e.message}`;
           setTimeout(() => { if (msgBox) msgBox.style.display = 'none'; }, 4000);
         }
       }
     }
+
+    window.onLanguageChanged = function () {
+      refreshServiceStatus();
+      if (typeof renderWorkspacesList === 'function') renderWorkspacesList();
+      if (typeof renderSessionsList === 'function') renderSessionsList();
+    };
 
     // Default Initialization on DOM Load
     window.addEventListener('DOMContentLoaded', () => {
@@ -2309,6 +2319,7 @@
     });
   </script>
   <script src="/portal-core.js?v=5.4"></script>
+  <script src="/portal.js?v=5.3"></script>
 
   <!-- Project Details Modal -->
   <div id="project-details-modal" class="codex-modal-overlay" onclick="if(event.target===this)closeDetailsModal()">

@@ -144,9 +144,17 @@ def verify_release(root: Path, tag: str, *, artifacts_dir: Path | None = None) -
             raise ReleaseGateError(f"Android asset absent: {name}")
     # Source HTML may not claim a different frozen artifact version.
     download_page = (portal / "downloads.html").read_text(encoding="utf-8")
-    if not all(f'/downloads/{name}' in download_page for name in
-               (REQUIRED["windows-x64"], REQUIRED["installer-script"], ANDROID_FILES[0])):
-        raise ReleaseGateError("download navigation is missing a required installer")
+    required_download_links = (
+        REQUIRED["windows-x64"],
+        REQUIRED["linux-x64"],
+        REQUIRED["nodeos-iso"],
+        REQUIRED["nodeos-img"],
+        REQUIRED["nodeos-runtime-x64"],
+        REQUIRED["installer-script"],
+        ANDROID_FILES[0],
+    )
+    if not all(f'/downloads/{name}' in download_page for name in required_download_links):
+        raise ReleaseGateError("download navigation is missing a required installer or NodeOS image")
     return {
         "schema": 1,
         "tag": tag,

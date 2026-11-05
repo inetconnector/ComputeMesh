@@ -158,10 +158,21 @@ def test_downloads_page_uses_one_language_and_short_windows_button():
         page.wait_for_function("typeof window.switchLanguage === 'function'")
         page.evaluate("switchLanguage('de')")
         assert page.locator('[data-i18n="dl_win_btn"]').inner_text() == "ComputeMesh (.exe) herunterladen"
-        assert page.locator('[data-i18n="dl_android_status"]').inner_text() == "v1.2.164 • Produktionssigniert"
+        assert page.locator('[data-i18n="dl_android_status"]').inner_text() == "v1.2.193 • Produktionssigniert"
+        assert page.locator('[data-i18n="dl_rig_title"]').inner_text() == "Mining-Rig-Appliance (NodeOS)"
+        assert "Installationsskript zuerst prüfen" in page.locator('[data-i18n="dl_linux_cmd_hint"]').inner_text()
         page.evaluate("switchLanguage('en')")
         assert page.locator('[data-i18n="dl_win_btn"]').inner_text() == "Download ComputeMesh (.exe)"
-        assert page.locator('[data-i18n="dl_android_status"]').inner_text() == "v1.2.164 • Production signed"
+        assert page.locator('[data-i18n="dl_android_status"]').inner_text() == "v1.2.193 • Production signed"
+        assert page.locator('[data-i18n="dl_rig_title"]').inner_text() == "Mining Rig Appliance (NodeOS)"
+        assert page.locator('[data-i18n="dl_rig_iso_btn"]').inner_text() == "Download Bootable ISO (.iso)"
+        assert page.locator('[data-i18n="dl_rig_img_btn"]').inner_text() == "Download Flash Image (.img.xz)"
+        assert page.locator('[data-i18n="dl_rig_runtime_btn"]').inner_text() == "NodeOS Runtime Package (.tar.gz)"
+        assert "Inspect the installer script first" in page.locator('[data-i18n="dl_linux_cmd_hint"]').inner_text()
+        body_en = page.locator("main").inner_text()
+        assert "Installationsskript" not in body_en
+        assert "herunterladen" not in body_en
+        assert "ungeprüftes" not in body_en
         assert "Setup" not in page.locator('[data-i18n="dl_win_btn"]').inner_text()
         browser.close()
 
@@ -211,6 +222,16 @@ def test_download_entrypoints_and_translation_keys_are_consistent():
     downloads_index = (PORTAL / "downloads" / "index.html").read_text(encoding="utf-8-sig")
     assert downloads == downloads_index
     assert "ComputeMesh Setup (EXE) herunterladen" not in downloads
+    for artifact in (
+        "/downloads/ComputeMesh-Setup-x64.exe",
+        "/downloads/ComputeMesh-Android.apk",
+        "/downloads/install.sh",
+        "/downloads/computemesh-linux-x86_64.tar.gz",
+        "/downloads/computemesh-nodeos-x86_64.iso",
+        "/downloads/computemesh-nodeos-x86_64.img.xz",
+        "/downloads/computemesh-nodeos-runtime-x86_64.tar.gz",
+    ):
+        assert f'href="{artifact}"' in downloads, artifact
     required_keys = (
         "dl_meta_title",
         "dl_win_status",
@@ -227,7 +248,20 @@ def test_download_entrypoints_and_translation_keys_are_consistent():
         "dl_android_feature_signed",
         "dl_android_store_btn",
         "dl_linux_status",
+        "dl_linux_cmd_hint",
         "dl_linux_platforms",
+        "dl_rig_status",
+        "dl_rig_title",
+        "dl_rig_desc",
+        "dl_rig_feature_boot",
+        "dl_rig_feature_gpus",
+        "dl_rig_feature_verify",
+        "dl_rig_iso_btn",
+        "dl_rig_img_btn",
+        "dl_rig_tar_btn",
+        "dl_rig_runtime_btn",
+        "dl_rig_guide_btn",
+        "dl_rig_platforms",
         "dl_security_title",
         "dl_security_desc",
         "footer_github",

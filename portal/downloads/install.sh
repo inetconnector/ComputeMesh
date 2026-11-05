@@ -151,7 +151,11 @@ cfg_file.parent.mkdir(parents=True, exist_ok=True)
 cfg_file.write_text(json.dumps(data, indent=2), encoding='utf-8')
 " 2>/dev/null || true
 
-echo -e "${GREEN}[6/6] Installing systemd service units...${NC}"
+echo -e "${GREEN}[6/6] Installing systemd service units & desktop tray launcher...${NC}"
+
+if [ -f "${INSTALL_DIR}/deploy/appliance/systemd/computemesh-node.service" ]; then
+    cp -f "${INSTALL_DIR}/deploy/appliance/systemd/computemesh-node.service" /etc/systemd/system/computemesh-node.service
+fi
 
 cat << EOF > /etc/systemd/system/computemesh-dashboard.service
 [Unit]
@@ -170,8 +174,17 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+if [ -f "${INSTALL_DIR}/deploy/appliance/desktop/computemesh-tray.desktop" ]; then
+    mkdir -p /etc/xdg/autostart /usr/share/applications
+    cp -f "${INSTALL_DIR}/deploy/appliance/desktop/computemesh-tray.desktop" /etc/xdg/autostart/computemesh-tray.desktop
+    cp -f "${INSTALL_DIR}/deploy/appliance/desktop/computemesh-tray.desktop" /usr/share/applications/computemesh-tray.desktop
+fi
+
 systemctl daemon-reload
 systemctl enable --now computemesh-dashboard.service
+if [ -f /etc/systemd/system/computemesh-node.service ]; then
+    systemctl enable --now computemesh-node.service || true
+fi
 
 PRIMARY_IP=$(hostname -I | awk '{print $1}')
 

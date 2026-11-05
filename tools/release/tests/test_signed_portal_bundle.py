@@ -65,6 +65,10 @@ class TestSignedPortalBundle(unittest.TestCase):
         self._write_metadata()
         download_links = (
             '<a href="/downloads/ComputeMesh-Setup-x64.exe">Windows</a>'
+            '<a href="/downloads/computemesh-linux-x86_64.tar.gz">Linux Tar</a>'
+            '<a href="/downloads/computemesh-nodeos-x86_64.iso">NodeOS ISO</a>'
+            '<a href="/downloads/computemesh-nodeos-x86_64.img.xz">NodeOS IMG</a>'
+            '<a href="/downloads/computemesh-nodeos-runtime-x86_64.tar.gz">NodeOS Runtime</a>'
             '<a href="/downloads/install.sh">Linux</a>'
             '<a href="/downloads/ComputeMesh-Android.apk">Android</a>'
         )
@@ -189,6 +193,22 @@ class TestSignedPortalBundle(unittest.TestCase):
         manifest_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         self._commit_and_retag()
         with self.assertRaisesRegex(ReleaseGateError, "missing signed platform: android-apk"):
+            self._verify()
+
+    def test_downloads_page_missing_nodeos_iso_is_rejected(self) -> None:
+        incomplete_links = (
+            '<a href="/downloads/ComputeMesh-Setup-x64.exe">Windows</a>'
+            '<a href="/downloads/computemesh-linux-x86_64.tar.gz">Linux Tar</a>'
+            '<a href="/downloads/install.sh">Linux</a>'
+            '<a href="/downloads/ComputeMesh-Android.apk">Android</a>'
+        )
+        (self.portal / "downloads.html").write_text(incomplete_links, encoding="utf-8")
+        (self.downloads / "index.html").write_text(incomplete_links, encoding="utf-8")
+        self._git("add", "portal/downloads.html", "portal/downloads/index.html")
+        self._commit_and_retag()
+        with self.assertRaisesRegex(
+            ReleaseGateError, "download navigation is missing a required installer or NodeOS image"
+        ):
             self._verify()
 
 

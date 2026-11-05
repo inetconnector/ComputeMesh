@@ -99,6 +99,8 @@ def build_windows_standalone_bundle(
         "tools.appliance.appliance_config",
         "tools.appliance.token_metering",
         "tools.appliance.lan_discovery_responder",
+        "tools.appliance.workspace_manager",
+        "tools.appliance.windows_service",
         "tools.security",
         "tools.security.ed25519_verify",
         "tools.security.signing_keys",
@@ -114,6 +116,10 @@ def build_windows_standalone_bundle(
         "win32gui",
         "win32con",
         "win32api",
+        "win32service",
+        "win32serviceutil",
+        "win32event",
+        "servicemanager",
     ]
     hidden_import_args = []
     for h in hidden_imports:

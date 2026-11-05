@@ -137,7 +137,7 @@ def verify_production_signatures(apk: Path, aab: Path) -> str:
 
     apk_result = subprocess.run(
         [str(apksigner), "verify", "--verbose", "--print-certs", str(apk)],
-        capture_output=True, text=True, check=True, timeout=60,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=True, timeout=60,
     )
     apk_digests = re.findall(
         r"Signer\s+#\d+\s+certificate\s+SHA-256\s+digest:\s*([0-9a-fA-F:]+)",
@@ -149,7 +149,7 @@ def verify_production_signatures(apk: Path, aab: Path) -> str:
 
     aab_result = subprocess.run(
         [jarsigner, "-verify", "-verbose", "-certs", str(aab)],
-        capture_output=True, text=True, check=True, timeout=60,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=True, timeout=60,
     )
     aab_out = aab_result.stdout.lower()
     if ("jar verified." not in aab_out and "jar-datei verifiziert." not in aab_out) or "jar is unsigned" in aab_out or "nicht signiert" in aab_out:
@@ -157,7 +157,7 @@ def verify_production_signatures(apk: Path, aab: Path) -> str:
 
     certificate = subprocess.run(
         [keytool, "-printcert", "-jarfile", str(aab)],
-        capture_output=True, text=True, check=True, timeout=60,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=True, timeout=60,
     )
     aab_digests = re.findall(
         r"^\s*SHA256:\s*([0-9a-fA-F:]+)\s*$",

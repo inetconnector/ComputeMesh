@@ -4753,6 +4753,17 @@ for chunk in stream:
       saveFleetMcpSettings();
     }
 
+    function enableAllMcpTools(enable) {
+      if (enable) {
+        currentFleetDisabledTools = [];
+      } else {
+        currentFleetDisabledTools = ALL_MCP_TOOLS.slice();
+      }
+      updateMcpUI();
+      saveFleetMcpSettings();
+    }
+    window.enableAllMcpTools = enableAllMcpTools;
+
     function copyMcpConfigSnippet(btn) {
       const key = (typeof activeOwnerKey !== "undefined" && activeOwnerKey) ? activeOwnerKey : "YOUR_FLEET_OWNER_KEY";
       const config = JSON.stringify({

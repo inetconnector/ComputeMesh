@@ -115,6 +115,6 @@ footer { background: #151718 !important; }
   .product-links, .calc-content { grid-template-columns: 1fr; }
   .calc-tabs { flex-direction: column; overflow: visible; }
   .calc-tab { width: 100%; flex: 1 1 auto; }
-  .dropdown-menu { left: 0; width: 280px; }
+  .dropdown-menu { left: auto; right: 0; min-width: 0; width: min(260px, calc(100vw - 32px)); }
   .section-header h1, .section-header h2 { font-size: 25px !important; }
 }

@@ -167,24 +167,24 @@
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <div class="feature-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue);">🪟</div>
-            <span class="status-pill online" data-i18n="dl_win_status">Windows x64 &bull; SCM-Dienst &amp; Tray</span>
+            <span class="status-pill online" data-i18n="dl_win_status">Windows x64 &bull; Release-Version prüfen</span>
           </div>
-          <h3 data-i18n="dl_win_title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">Windows SCM-Dienst &amp; Tray-Launcher</h3>
+          <h3 data-i18n="dl_win_title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">Windows System-Tray-Client</h3>
           <p data-i18n="dl_win_desc" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem;">
-            Echter nativer Windows-Hintergrunddienst (SCM) für GPU-Erkennung und Inferenzaufträge. Die zentrale Verwaltung und Chat laufen ressourcenschonend im Browser über das Web-Dashboard (<code style="color: #38bdf8;">http://localhost:8080/agent</code>).
+            Windows-Hintergrunddienst für GPU-Erkennung und Rechenaufträge. Die zentrale Verwaltung erfolgt über dein ComputeMesh-Konto im Browser.
           </p>
           <ul style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.8; margin-bottom: 1.5rem; list-style-position: inside;">
-            <li data-i18n="dl_win_feature_cuda">Unterstützt NVIDIA CUDA &amp; AMD ROCm/Vulkan (Zero-Overhead)</li>
-            <li data-i18n="dl_win_feature_webui">1-Klick UAC-Dienst-Setup via <code style="color: #d1d5db;">install_windows_service.bat</code></li>
-            <li data-i18n="dl_win_feature_lan">Schlanker System-Tray-Launcher mit Sofort-Browser-Sprung &amp; Dienst-Steuerung</li>
+            <li data-i18n="dl_win_feature_cuda">Unterstützt NVIDIA CUDA &amp; AMD ROCm/Vulkan</li>
+            <li data-i18n="dl_win_feature_webui">Lokale technische API (Port automatisch gewählt; keine manuelle Einrichtung nötig)</li>
+            <li data-i18n="dl_win_feature_lan">Zero-Config-LAN-Autodiscovery (UDP 13379)</li>
           </ul>
         </div>
         <div>
-          <a href="/downloads/install_windows_service.bat" class="btn btn-primary" data-i18n="dl_win_btn" style="width: 100%; text-align: center; text-decoration: none; font-weight: 600;">
-            ⬇️ Windows-Dienst Installer (.bat) herunterladen
+          <a href="/downloads/ComputeMesh-Setup-x64.exe" class="btn btn-primary" data-i18n="dl_win_btn" style="width: 100%; text-align: center; text-decoration: none; font-weight: 600;">
+            ComputeMesh (.exe) herunterladen
           </a>
           <div style="font-size: 0.75rem; color: var(--text-dim); text-align: center; margin-top: 0.5rem;">
-            <span data-i18n="dl_win_platforms">Windows 10 / 11 (x64) &bull; Dienst ComputeMeshNode &bull; Keine schwere Desktop-GUI</span>
+            <span data-i18n="dl_win_platforms">Windows 10 / 11 (x64) &bull; Version und SHA-256 im Release-Manifest prüfen</span>
           </div>
         </div>
       </div>
@@ -221,22 +221,61 @@
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <div class="feature-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-indigo);">🐧</div>
-            <span class="status-pill online" data-i18n="dl_linux_status">Linux / Debian &bull; systemd &amp; Tray</span>
+            <span class="status-pill online" data-i18n="dl_linux_status">Linux / HiveOS &bull; Headless &amp; Tray</span>
           </div>
-          <h3 data-i18n="dl_linux_title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">Linux (Debian/Ubuntu) systemd-Dienst &amp; Tray</h3>
+          <h3 data-i18n="dl_linux_title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">Linux Daemon &amp; Tray-Installer</h3>
           <p data-i18n="dl_linux_desc" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem;">
-            Für Debian, Ubuntu und Server/Rigs: nativer systemd-Dienst (<code style="color: #38bdf8;">computemesh-node.service</code>) plus optionaler 100% Tkinter-freier Desktop-Tray-Launcher (<code style="color: #d1d5db;">pystray</code>) mit 1-Klick Web-Sprung.
+            Für Ubuntu, Debian und Server-Cluster. Systemd-Hintergrunddienst mit optionalem System-Tray-Starter, GPU-Erkennung und Web-Verwaltung.
           </p>
-          <div style="background: #060911; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm); padding: 0.75rem; font-family: var(--font-mono); font-size: 0.8rem; color: #38bdf8; margin-bottom: 1.5rem; word-break: break-all;">
-            bash tools/appliance/install_linux.sh
+          <div data-i18n="dl_linux_cmd_hint" style="background: #060911; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm); padding: 0.75rem; font-family: var(--font-mono); font-size: 0.8rem; color: #38bdf8; margin-bottom: 1.5rem; word-break: break-all;">
+            Installationsskript zuerst prüfen, dann gezielt ausführen. Kein ungeprüftes curl | bash.
           </div>
         </div>
-        <div>
-          <a href="/downloads/install_linux.sh" class="btn btn-secondary" data-i18n="dl_linux_btn" style="width: 100%; text-align: center; text-decoration: none; font-weight: 600;">
-            ⬇️ Linux-Installer (install_linux.sh) ansehen
+        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+          <a href="/downloads/install.sh" class="btn btn-secondary" data-i18n="dl_linux_btn" style="width: 100%; text-align: center; text-decoration: none; font-weight: 600;">
+            ⬇️ Installationsskript ansehen
           </a>
-          <div style="font-size: 0.75rem; color: var(--text-dim); text-align: center; margin-top: 0.5rem;">
-            <span data-i18n="dl_linux_platforms">Debian 12 &bull; Ubuntu 22.04 / 24.04 LTS &bull; systemd Unit computemesh-node</span>
+          <a href="/downloads/computemesh-linux-x86_64.tar.gz" class="btn btn-secondary btn-sm" data-i18n="dl_rig_tar_btn" style="width: 100%; text-align: center; text-decoration: none;">
+            Linux-Paket herunterladen (.tar.gz)
+          </a>
+          <div style="font-size: 0.75rem; color: var(--text-dim); text-align: center; margin-top: 0.25rem;">
+            <span data-i18n="dl_linux_platforms">Ubuntu 22.04 / 24.04 LTS &bull; Debian 12 / 13 &bull; HiveOS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mining Rig Appliance (NodeOS) -->
+      <div class="feature-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div class="feature-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">⚡</div>
+            <span class="status-pill online" data-i18n="dl_rig_status">Debian 13 Live &bull; Bare-Metal</span>
+          </div>
+          <h3 data-i18n="dl_rig_title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">Mining-Rig-Appliance (NodeOS)</h3>
+          <p data-i18n="dl_rig_desc" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem;">
+            Dediziertes, bootfähiges Bare-Metal-Linux-OS für Multi-GPU-Mining-Rigs (4–12 GPUs) mit Zero-Config-Setup, Web-Cockpit und 1-Klick-SSD-Klonen.
+          </p>
+          <ul style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.8; margin-bottom: 1.5rem; list-style-position: inside;">
+            <li data-i18n="dl_rig_feature_boot">Direkt vom USB-Stick booten oder 1-Klick auf SSD spiegeln</li>
+            <li data-i18n="dl_rig_feature_gpus">Optimiert für 4–12 GPUs (AMD ROCm/Vulkan &amp; NVIDIA CUDA)</li>
+            <li data-i18n="dl_rig_feature_verify">Kryptografisch signierte Images &amp; Live-Runtime-Archiv</li>
+          </ul>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+          <a href="/downloads/computemesh-nodeos-x86_64.iso" class="btn btn-primary" data-i18n="dl_rig_iso_btn" style="width: 100%; text-align: center; text-decoration: none; font-weight: 600;">
+            ⬇️ Bootfähiges ISO herunterladen (.iso)
+          </a>
+          <a href="/downloads/computemesh-nodeos-x86_64.img.xz" class="btn btn-secondary btn-sm" data-i18n="dl_rig_img_btn" style="width: 100%; text-align: center; text-decoration: none;">
+            USB-Flash-Image herunterladen (.img.xz)
+          </a>
+          <a href="/downloads/computemesh-nodeos-runtime-x86_64.tar.gz" class="btn btn-secondary btn-sm" data-i18n="dl_rig_runtime_btn" style="width: 100%; text-align: center; text-decoration: none;">
+            NodeOS-Runtime-Paket (.tar.gz)
+          </a>
+          <a href="/docs#nodeos" class="btn btn-secondary btn-sm" data-i18n="dl_rig_guide_btn" style="width: 100%; text-align: center; text-decoration: none;">
+            NodeOS-Installationsanleitung ↗
+          </a>
+          <div style="font-size: 0.75rem; color: var(--text-dim); text-align: center; margin-top: 0.25rem;">
+            <span data-i18n="dl_rig_platforms">x86_64 UEFI / BIOS &bull; 4–12 GPUs &bull; SHA-256 signiert</span>
           </div>
         </div>
       </div>
@@ -258,7 +297,7 @@
     <div class="container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2.5rem; margin-bottom: 3rem;">
       <div>
         <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
-        <p data-i18n="footer_brand_desc" style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
+        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
           <span data-i18n="footer_brand_desc">Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.</span>
         </p>
       </div>
@@ -311,12 +350,12 @@
           <div class="form-group" style="margin-bottom: 0;">
             <label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Betriebsland der Hardware:</label>
             <select id="cm-provider-country" class="form-control" style="cursor: pointer;">
-              <option value="DE" selected>🇩🇪 Deutschland (DE)</option>
-              <option value="AT">🇦🇹 Österreich (AT)</option>
-              <option value="CH">🇨🇭 Schweiz (CH)</option>
-              <option value="FR">🇫🇷 Frankreich (FR)</option>
-              <option value="NL">🇳🇱 Niederlande (NL)</option>
-              <option value="OTHER">🌍 Anderes EU/EWR-Land</option>
+              <option value="DE" data-i18n="opt_country_de" selected>🇩🇪 Deutschland (DE)</option>
+              <option value="AT" data-i18n="opt_country_at">🇦🇹 Österreich (AT)</option>
+              <option value="CH" data-i18n="opt_country_ch">🇨🇭 Schweiz (CH)</option>
+              <option value="FR" data-i18n="opt_country_fr">🇫🇷 Frankreich (FR)</option>
+              <option value="NL" data-i18n="opt_country_nl">🇳🇱 Niederlande (NL)</option>
+              <option value="OTHER" data-i18n="opt_country_other">🌍 Anderes EU/EWR-Land</option>
             </select>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
