@@ -183,7 +183,14 @@ class MeshRegistryAggregator:
             with self._lock:
                 for v in self._peer_nodes.values():
                     # For direct polled nodes, update status based on last seen age
-                    last_seen_val = float(v.get("last_seen", 0) or 0)
+                    raw_ls = v.get("last_seen", 0) or 0
+                    try:
+                        last_seen_val = float(raw_ls)
+                    except (ValueError, TypeError):
+                        try:
+                            last_seen_val = datetime.fromisoformat(str(raw_ls).replace("Z", "+00:00")).timestamp()
+                        except (ValueError, TypeError):
+                            last_seen_val = 0.0
                     if last_seen_val > 0:
                         age = now_ts - last_seen_val
                         if age > 120.0:
