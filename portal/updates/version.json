@@ -1,6 +1,6 @@
 {
   "version": "1.2.193",
-  "release_date": "2026-11-05T21:56:35.473679+00:00",
+  "release_date": "2026-11-06T16:19:41.969920+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
@@ -59,5 +59,5 @@
       "size_bytes": 781
     }
   },
-  "signature": "8c3459cad5495f6a52a34440009cd383734d3691b140720e00ddef7e297a7a6c62da62ba6ed43d35ddf5a7f177a4159a937601d28d306c1db7eab90cc9620300"
+  "signature": "3cadd9c71eafae080fb2c73143975d896edef77158920bccdd4314b3fcec0039388b067644d26b1739e5e6f35e608420ee4d27ba1f6245fb8da34b33bb79e202"
 }

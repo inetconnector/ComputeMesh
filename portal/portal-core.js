@@ -185,12 +185,12 @@ var translations = window.translations || {
     nav_aichat: "💬 AI-Chat ↗",
     nav_playground: "💬 AI-Chat ↗",
     nav_webui_auth: "💬 AI-Chat ↗",
-    nav_prod_inference: "AI-Chat Studio ↗",
+    nav_prod_inference: "WebUI Studio ↗",
     nav_prod_inference_sub: "Full-featured chat UI with multi-model, PDF/image upload & branching",
-    nav_prod_inference_auth: "💬 AI-Chat Studio ↗",
+    nav_prod_inference_auth: "💬 WebUI Studio ↗",
     nav_prod_inference_sub_auth: "Full-featured chat UI with multi-model, PDF/image upload & branching",
     btn_open_webui: "🚀 Open WebUI Studio ↗",
-    pg_auth_banner_title: "Signed In: Full Llama-UI Workspace Available",
+    pg_auth_banner_title: "Signed In: Full WebUI Studio Workspace Available",
     pg_auth_banner_desc: "Use the built-in llama-server WebUI with multi-model switching, PDF/image uploads, branching, and local chat history.",
     pg_auth_banner_btn: "🚀 Open WebUI Studio ↗",
     nav_prod_market: "GPU Marketplace",
@@ -345,6 +345,20 @@ var translations = window.translations || {
     pg_ollama_desc: "Use ComputeMesh with any existing OpenAI client library, LangChain, LlamaIndex, or Ollama CLI by simply pointing your base URL to our gateway.",
     pg_copy_cmd_btn: "📋 Copy Command",
     pg_copy_code_btn: "📋 Copy Code",
+    pg_studio_name: "WebUI Studio",
+    pg_new_task: "New Task",
+    pg_welcome_title: "How can I help you today?",
+    pg_input_label: "Task for WebUI Studio",
+    pg_composer_hint: "Enter sends · Shift + Enter adds a line",
+    pg_privacy_hint: "Zero-knowledge routing: Prompts are confidential and never shared.",
+    qp_write_title: "Draft Text",
+    qp_write_desc: "Draft an article, email, or summary directly",
+    qp_code_title: "Create Code",
+    qp_code_desc: "Draft a function, query, or technical solution",
+    qp_compare_title: "Compare Options",
+    qp_compare_desc: "Evaluate two approaches with trade-offs",
+    qp_explain_title: "Understand Topics",
+    qp_explain_desc: "Explain a concept or workflow step by step",
 
     // Features Section
     features_tag: "ENTERPRISE ARCHITECTURE",
@@ -930,12 +944,12 @@ var translations = window.translations || {
     nav_aichat: "💬 AI-Chat ↗",
     nav_playground: "💬 AI-Chat ↗",
     nav_webui_auth: "💬 AI-Chat ↗",
-    nav_prod_inference: "AI-Chat Studio ↗",
+    nav_prod_inference: "WebUI Studio ↗",
     nav_prod_inference_sub: "Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching",
-    nav_prod_inference_auth: "💬 AI-Chat Studio ↗",
+    nav_prod_inference_auth: "💬 WebUI Studio ↗",
     nav_prod_inference_sub_auth: "Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching",
     btn_open_webui: "🚀 WebUI Studio öffnen ↗",
-    pg_auth_banner_title: "Angemeldet: Vollwertige Llama-UI verfügbar",
+    pg_auth_banner_title: "Angemeldet: Vollwertiges WebUI Studio verfügbar",
     pg_auth_banner_desc: "Nutze die integrierte llama-server WebUI mit Multi-Modellen, PDF/Bilder-Upload, Branching und unbegrenzter Chat-Historie.",
     pg_auth_banner_btn: "🚀 WebUI Studio öffnen ↗",
     nav_prod_market: "GPU Marketplace",
@@ -1090,6 +1104,20 @@ var translations = window.translations || {
     pg_ollama_desc: "Nutze ComputeMesh mit jedem bestehenden OpenAI SDK, LangChain, LlamaIndex oder dem Ollama CLI – passe einfach deine Base-URL an.",
     pg_copy_cmd_btn: "📋 Befehl kopieren",
     pg_copy_code_btn: "📋 Code kopieren",
+    pg_studio_name: "WebUI Studio",
+    pg_new_task: "Neue Aufgabe",
+    pg_welcome_title: "Wobei kann ich dir helfen?",
+    pg_input_label: "Aufgabe für WebUI Studio",
+    pg_composer_hint: "Enter sendet · Shift + Enter fügt eine Zeile ein",
+    pg_privacy_hint: "Keine Eingabe wird veröffentlicht.",
+    qp_write_title: "Text ausarbeiten",
+    qp_write_desc: "Entwurf, E-Mail oder Zusammenfassung direkt formulieren",
+    qp_code_title: "Code erstellen",
+    qp_code_desc: "Eine Funktion, Abfrage oder Lösungsschritt skizzieren",
+    qp_compare_title: "Optionen vergleichen",
+    qp_compare_desc: "Zwei Ansätze mit Vor- und Nachteilen gegenüberstellen",
+    qp_explain_title: "Thema verstehen",
+    qp_explain_desc: "Einen Begriff oder Ablauf schrittweise auf den Punkt bringen",
 
     // Features Section
     features_tag: "ENTERPRISE-ARCHITEKTUR",
@@ -1769,7 +1797,7 @@ function updateAuthStateUI() {
     };
     if (iconEl) iconEl.textContent = '💬';
     if (titleEl) {
-      titleEl.textContent = isAuth ? (t.nav_prod_inference_auth || '💬 AI-Chat Studio ↗') : (t.nav_prod_inference || 'AI-Chat Studio ↗');
+      titleEl.textContent = isAuth ? (t.nav_prod_inference_auth || '💬 WebUI Studio ↗') : (t.nav_prod_inference || 'WebUI Studio ↗');
       titleEl.setAttribute('data-i18n', isAuth ? 'nav_prod_inference_auth' : 'nav_prod_inference');
     }
     if (subEl) {
@@ -1794,7 +1822,7 @@ function updateAuthStateUI() {
         <div class="pg-auth-banner-content">
           <div class="pg-auth-banner-icon">🚀</div>
           <div class="pg-auth-banner-text">
-            <h4 data-i18n="pg_auth_banner_title">${t.pg_auth_banner_title || (lang === 'de' ? 'Angemeldet: Vollwertige Llama-UI verfügbar' : 'Signed In: Full Llama-UI Workspace Available')}</h4>
+            <h4 data-i18n="pg_auth_banner_title">${t.pg_auth_banner_title || (lang === 'de' ? 'Angemeldet: Vollwertiges WebUI Studio verfügbar' : 'Signed In: Full WebUI Studio Workspace Available')}</h4>
             <p data-i18n="pg_auth_banner_desc">${t.pg_auth_banner_desc || (lang === 'de' ? 'Nutze die integrierte llama-server WebUI mit Multi-Modellen, PDF/Bilder-Upload, Branching und unbegrenzter Chat-Historie.' : 'Use the built-in llama-server WebUI with multi-model switching, PDF/image uploads, branching, and local chat history.')}</p>
           </div>
         </div>
@@ -2859,6 +2887,13 @@ async function runPlaygroundPrompt() {
 
 window.runPlaygroundPrompt = runPlaygroundPrompt;
 
+function resizePlaygroundComposer(inputEl) {
+  if (!inputEl) return;
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(Math.max(inputEl.scrollHeight, 82), 190) + 'px';
+}
+window.resizePlaygroundComposer = resizePlaygroundComposer;
+
 async function sendPlaygroundMessage() {
   if (isPlaygroundInferencing) return;
 
@@ -2886,7 +2921,18 @@ async function sendPlaygroundMessage() {
 
   // Clear input
   inputEl.value = "";
-  inputEl.style.height = "44px";
+  resizePlaygroundComposer(inputEl);
+
+  const welcomeEl = document.getElementById('pg-welcome');
+  if (welcomeEl) welcomeEl.remove();
+  const metricsEl = document.getElementById('playground-live-metrics');
+  const resetBtn = document.getElementById('pg-clear-chat-btn');
+  const quickPrompts = document.querySelector('.pg-quick-prompts');
+  const studioMeta = document.querySelector('.pg-studio-meta');
+  if (metricsEl) metricsEl.hidden = false;
+  if (quickPrompts) quickPrompts.hidden = true;
+  if (resetBtn) resetBtn.hidden = false;
+  if (studioMeta) studioMeta.hidden = true;
 
   // Append user message to UI
   const userMsgHtml = `

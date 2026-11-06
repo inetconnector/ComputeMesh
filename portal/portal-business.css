@@ -118,3 +118,22 @@ footer { background: #151718 !important; }
   .dropdown-menu { left: auto; right: 0; min-width: 0; width: min(260px, calc(100vw - 32px)); }
   .section-header h1, .section-header h2 { font-size: 25px !important; }
 }
+
+/* WebUI Studio Playground Task Surface */
+body.playground-page {
+  background-color: var(--bg-primary);
+}
+.playground-page .pg-input-container:focus-within {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+}
+.playground-page .pg-starter-card {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .playground-page .pg-starter-card {
+    grid-template-columns: 1fr !important;
+  }
+}

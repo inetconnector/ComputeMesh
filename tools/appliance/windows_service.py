@@ -27,6 +27,16 @@ SERVICE_NAME = "ComputeMeshNode"
 SERVICE_DISPLAY_NAME = "ComputeMesh AI Provider Service"
 SERVICE_DESCRIPTION = "ComputeMesh Windows GPU Provider Node, RPC-Inference & Local Web Dashboard Server."
 
+try:
+    import servicemanager
+    import win32event
+    import win32service
+    import win32serviceutil
+
+    HAVE_WIN32SERVICE = True
+except ImportError:
+    HAVE_WIN32SERVICE = False
+
 
 def _log(msg: str) -> None:
     try:
@@ -45,12 +55,12 @@ def install_service(exe_path: str | None = None) -> bool:
         print("[!] Windows Service installation is only supported on Windows.")
         return False
 
+    service_script = Path(__file__).resolve()
     if not exe_path:
         if getattr(sys, "frozen", False):
             target = f'"{sys.executable}" --service'
         else:
-            tray_script = REPO_ROOT / "tools" / "appliance" / "windows_tray_app.py"
-            target = f'"{sys.executable}" "{tray_script}" --service'
+            target = f'"{sys.executable}" "{service_script}" --service'
     else:
         target = f'"{exe_path}" --service'
 
@@ -144,13 +154,13 @@ def query_service_status() -> dict[str, str]:
         return {"status": "ERROR", "error": str(exc)}
 
 
-def run_headless_daemon() -> int:
+def run_headless_daemon(stop_event: threading.Event | None = None) -> int:
     """Runs the headless background daemon executing all node server and telemetry tasks."""
     _log("Starting ComputeMesh Headless Windows Provider Daemon...")
-    from tools.appliance.hardware_detector import scan_rig_hardware_stable
-    from tools.appliance.appliance_config import load_appliance_config
     from services.appliance_dashboard.server import create_dashboard_server
     from services.appliance_dashboard.tunnel_relay import get_default_node_id
+    from tools.appliance.appliance_config import load_appliance_config
+    from tools.appliance.hardware_detector import scan_rig_hardware_stable
     from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
 
     # Scan hardware
@@ -188,15 +198,50 @@ def run_headless_daemon() -> int:
 
     # Keep alive loop
     try:
-        while True:
+        while not (stop_event and stop_event.is_set()):
             time.sleep(1.0)
     except (KeyboardInterrupt, SystemExit):
-        _log("Daemon stopping on signal...")
-        try:
-            server.shutdown()
-        except Exception:
-            pass
-        return 0
+        pass
+    _log("Daemon stopping on signal...")
+    try:
+        server.shutdown()
+    except Exception:
+        pass
+    return 0
+
+
+if HAVE_WIN32SERVICE:
+    class ComputeMeshWindowsService(win32serviceutil.ServiceFramework):
+        _svc_name_ = SERVICE_NAME
+        _svc_display_name_ = SERVICE_DISPLAY_NAME
+        _svc_description_ = SERVICE_DESCRIPTION
+
+        def __init__(self, args: list[str]) -> None:
+            super().__init__(args)
+            self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
+            self.is_running = True
+
+        def SvcStop(self) -> None:
+            self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+            win32event.SetEvent(self.hWaitStop)
+            self.is_running = False
+
+        def SvcDoRun(self) -> None:
+            servicemanager.LogMsg(
+                servicemanager.EVENTLOG_INFORMATION_TYPE,
+                servicemanager.PKEY_INFO_APPLICATION_STARTED,
+                (self._svc_name_, ""),
+            )
+            stop_event = threading.Event()
+
+            def _watcher() -> None:
+                win32event.WaitForSingleObject(self.hWaitStop, win32event.INFINITE)
+                stop_event.set()
+
+            watcher_thread = threading.Thread(target=_watcher, daemon=True)
+            watcher_thread.start()
+
+            run_headless_daemon(stop_event=stop_event)
 
 
 def main() -> int:
@@ -207,7 +252,16 @@ def main() -> int:
     parser.add_argument("--stop", action="store_true", help="Stop Windows Service")
     parser.add_argument("--status", action="store_true", help="Query Windows Service status")
     parser.add_argument("--run-daemon", action="store_true", help="Run background daemon directly")
+    parser.add_argument("--service", action="store_true", help="Run as Windows Service Control Manager worker")
     args = parser.parse_args()
+
+    if args.service or "--service" in sys.argv:
+        if HAVE_WIN32SERVICE:
+            servicemanager.Initialize()
+            servicemanager.PrepareToHostSingle(ComputeMeshWindowsService)
+            servicemanager.StartServiceCtrlDispatcher()
+            return 0
+        return run_headless_daemon()
 
     if args.install:
         return 0 if install_service() else 1

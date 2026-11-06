@@ -2720,9 +2720,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
             registered_pub = str(existing_node.get("public_key", "")).strip() if existing_node else ""
             existing_owner_id = ""
             if existing_node:
-                existing_owner_id = str(existing_node.get("owner_id", "")).strip()
+                existing_owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id) or ""
                 if not existing_owner_id:
-                    existing_owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id) or ""
+                    existing_owner_id = str(existing_node.get("owner_id", "")).strip()
 
             expected_token = str(existing_node.get("auth_token", "")).strip() if existing_node else ""
             token_matches = bool(expected_token and hmac.compare_digest(auth_token, expected_token))
