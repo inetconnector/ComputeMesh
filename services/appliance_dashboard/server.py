@@ -665,6 +665,12 @@ def run_dashboard_server(
 ) -> int:
     if _mesh_poller_enabled():
         GLOBAL_MESH_AGGREGATOR.start()
+    try:
+        from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
+
+        start_cloud_tunnel_relay(node_id=node_id)
+    except Exception as exc:
+        log.debug("Tunnel relay start skipped: %s", exc)
     server, actual_port = create_dashboard_server(host, port, config, inventory, node_id)
     try:
         if sys.stdout is not None:
