@@ -55,11 +55,13 @@ Private fleet orchestration, provider policy, commercial model policy, billing/s
 
 ## Website deployment and single source of truth
 
-- Never edit HTML, CSS, JavaScript, images, or server routes directly on the Plesk server.
-- Make every website change locally first in `portal/` or `services/portal/` and verify it locally.
-- After successful local verification, commit the change and push it to GitHub. `origin/main` is the authoritative source of truth.
-- Deploy only through `deploy/sync_plesk_portal.sh`, or by pulling `origin/main` into `/opt/computemesh` and then using the standardized synchronization into `/var/www/vhosts/inetconnector.com/site2` and `/var/www/vhosts/inetconnector.com/httpdocs`.
-- Preserve binary installers in `downloads/` (`.iso`, `.apk`, `.exe`, and similar); the deployment process must not overwrite them.
+- **STRICT RULE: Absolute prohibition of pushing or deploying without prior clean Git commit**:
+  - It is **strictly forbidden** to push, transfer, upload, or deploy website, portal, or backend changes to any server before they have been **completely and cleanly committed in Git**.
+  - **Clean Working Tree Requirement**: Before any push or deployment, `git status` in both repositories must be 100% clean (`working tree clean`, zero uncommitted or untracked web files).
+  - Never edit HTML, CSS, JavaScript, images, or server routes directly on the production/Plesk server.
+  - Every website change must be made locally first in `portal/` or `services/portal/`, verified with pre-commit gates, committed to Git with an atomic commit message, and only then pushed to GitHub `origin/main`. `origin/main` is the authoritative source of truth.
+  - Deploy only through `deploy/sync_plesk_portal.sh`, or by pulling `origin/main` into `/opt/computemesh` and then using the standardized synchronization into `/var/www/vhosts/inetconnector.com/site2` and `/var/www/vhosts/inetconnector.com/httpdocs`.
+  - Preserve binary installers in `downloads/` (`.iso`, `.apk`, `.exe`, and similar); the deployment process must not overwrite them.
 
 ## Completion gates
 

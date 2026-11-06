@@ -565,7 +565,16 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, set_cookie=cookie)
             return
 
-        if clean_path == "/api/portal/fleet":
+        if clean_path in ("/api/portal/fleet", "/api/portal/fleet/community"):
+            from urllib.parse import parse_qs, urlparse
+            _parsed = urlparse(self.path)
+            _qs = parse_qs(_parsed.query)
+            if clean_path == "/api/portal/fleet/community" or _qs.get("pool", [""])[0] == "community":
+                from services.gateway.server import COMMUNITY_POOL_OWNER_ID, _build_fleet_payload
+                payload = _build_fleet_payload(COMMUNITY_POOL_OWNER_ID, include_remote_urls=False)
+                payload["is_community_pool"] = True
+                self._send_json(payload)
+                return
             account = session_account_from_headers(self.headers)
             owner_key = ""
             if account is not None:

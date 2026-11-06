@@ -115,7 +115,12 @@ def _resolve_owner_account_store_path() -> Path:
         return Path("/tmp/computemesh_owner_accounts.db")
 
 
+COMMUNITY_POOL_OWNER_ID = "community_dev_pool"
 OWNER_ACCOUNT_STORE = OwnerAccountStore(_resolve_owner_account_store_path())
+try:
+    OWNER_ACCOUNT_STORE.ensure_owner(COMMUNITY_POOL_OWNER_ID, display_name="Community Dev Pool")
+except (OSError, RuntimeError, sqlite3.Error):
+    pass
 _NODE_HEARTBEAT_LOCK = threading.RLock()
 _MAX_HEARTBEAT_NONCE_HISTORY = 256
 
@@ -271,7 +276,11 @@ def _build_fleet_payload(
     # All known nodes remain persistent and are classified with explicit status.
 
     bound_node_ids = list(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else []
-    if not bound_node_ids and owner_id is None:
+    if owner_id == COMMUNITY_POOL_OWNER_ID:
+        for nid, nd in NODE_TELEMETRY_REGISTRY.items():
+            if (nd.get("owner_id") == COMMUNITY_POOL_OWNER_ID or nd.get("is_community_pool")) and nid not in bound_node_ids:
+                bound_node_ids.append(nid)
+    elif not bound_node_ids and owner_id is None:
         # Fallback to direct nodes in telemetry registry
         bound_node_ids = [nid for nid, nd in NODE_TELEMETRY_REGISTRY.items() if not nd.get("is_peer_relay", False)]
 
@@ -438,6 +447,7 @@ def _build_fleet_payload(
             "display_name": display_name,
             "status": status,
             "is_online": is_online,
+            "is_community_pool": bool(owner_id == COMMUNITY_POOL_OWNER_ID or n.get("owner_id") == COMMUNITY_POOL_OWNER_ID or n.get("is_community_pool")),
             # Mobile heartbeat proves device presence, not that a tested
             # inference runtime is ready for paid fleet scheduling.
             "available_for_routing": is_online and not c["alias_collision"] and not n.get("mobile_device", False),
@@ -533,6 +543,7 @@ def _build_fleet_payload(
         "has_more": has_more,
         "alias_collisions": alias_collisions,
         "target_software_version": target_version,
+        "is_community_pool": bool(owner_id == COMMUNITY_POOL_OWNER_ID),
         "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
     if is_suspended:
@@ -1773,7 +1784,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
             return
 
-        if clean_path == "/api/portal/fleet":
+        if clean_path in ("/api/portal/fleet", "/api/portal/fleet/community"):
+            if clean_path == "/api/portal/fleet/community" or query.get("pool", [""])[0] == "community":
+                payload = _build_fleet_payload(COMMUNITY_POOL_OWNER_ID, include_remote_urls=False)
+                payload["is_community_pool"] = True
+                self._send_json(payload)
+                return
             account = session_account_from_headers(self.headers)
             owner_key = ""
             if account is not None:
@@ -2689,6 +2705,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 if not existing_owner_id:
                     existing_owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id) or ""
 
+            expected_token = str(existing_node.get("auth_token", "")).strip() if existing_node else ""
+            token_matches = bool(expected_token and hmac.compare_digest(auth_token, expected_token))
             sent_owner_key_pre = str(body.get("owner_key", "")).strip()
             owner_authorized = False
             if sent_owner_key_pre:
@@ -2698,13 +2716,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     or (
                         existing_node is not None
                         and bool(existing_owner_id)
-                        and hmac.compare_digest(existing_owner_id, sender_owner)
+                        and (
+                            hmac.compare_digest(existing_owner_id, sender_owner)
+                            or (existing_owner_id == COMMUNITY_POOL_OWNER_ID and token_matches)
+                        )
                     )
                 ):
                     owner_authorized = True
 
-            expected_token = str(existing_node.get("auth_token", "")).strip() if existing_node else ""
-            token_matches = bool(expected_token and hmac.compare_digest(auth_token, expected_token))
             enrollment_owner_key = ""
             if existing_node and not token_matches and not owner_authorized:
                 enrollment_token = str(body.get("enrollment_token", "")).strip()
@@ -2861,6 +2880,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         token_matches
                         and OWNER_ACCOUNT_STORE.get_owner(owner_id) is not None
                     )
+                    or (
+                        existing_owner_id == COMMUNITY_POOL_OWNER_ID
+                        and (token_matches or incoming_proof_valid)
+                        and (
+                            OWNER_ACCOUNT_STORE.get_owner(owner_id) is not None
+                            or FLEET_ACCOUNT_STORE.get_account_by_owner_key(active_owner_key) is not None
+                        )
+                    )
                 )
                 if not reassignment_authorized:
                     self._send_error_response(
@@ -2872,9 +2899,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if not owner_id and existing_owner_id:
                 # Preserve existing fleet owner binding across reboots
                 owner_id = existing_owner_id
+            if not owner_id:
+                # Auto-assign unallocated/unowned nodes to the Community Dev Pool
+                owner_id = COMMUNITY_POOL_OWNER_ID
             if owner_id:
                 try:
-                    OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
+                    OWNER_ACCOUNT_STORE.ensure_owner(owner_id, display_name="Community Dev Pool" if owner_id == COMMUNITY_POOL_OWNER_ID else "")
                     OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
                 except OwnerAccountStoreError:
                     try:
@@ -2909,6 +2939,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "auth_token": auth_token,
                 "public_key": final_pub,
                 "owner_id": owner_id,
+                "is_community_pool": bool(owner_id == COMMUNITY_POOL_OWNER_ID),
                 "client_ip": str(client_ip),
                 "dashboard_port": dash_port,
                 "network": body.get("network", {}),

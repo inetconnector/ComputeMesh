@@ -41,10 +41,15 @@ class UnifiedOwnerProviderRoutesHandler(ProviderRoutesHandler):
             )
         existing_owner = self.owner_account_store.owner_for_provider_node(provider_node_id)
         if existing_owner and existing_owner != owner_id:
+            msg = (
+                "Community nodes cannot be claimed remotely; configure the owner key directly on the physical node"
+                if existing_owner == "community_dev_pool"
+                else f"Provider node {provider_node_id!r} is already owned by another account"
+            )
             return (
                 provider_node_id,
                 None,
-                f"Provider node {provider_node_id!r} is already owned by another account",
+                msg,
                 HTTPStatus.CONFLICT,
             )
         if bind_provider_if_missing and not existing_owner:
