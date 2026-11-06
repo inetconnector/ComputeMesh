@@ -266,6 +266,7 @@ def _build_fleet_payload(
 ) -> dict[str, Any]:
     """Shared node summary for both the raw owner_key fleet API and the
     passkey-session-authenticated portal fleet view (services/portal/passkey_routes.py)."""
+    from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
     from tools.appliance.hardware_detector import is_integrated_display_adapter
 
     now = datetime.now(UTC)
@@ -276,6 +277,20 @@ def _build_fleet_payload(
     # All known nodes remain persistent and are classified with explicit status.
 
     bound_node_ids = list(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else []
+    if owner_id and owner_id.startswith("facc_"):
+        acc = FLEET_ACCOUNT_STORE.get_account(owner_id)
+        if acc and acc.owner_key:
+            alt_id = owner_id_for_key(acc.owner_key)
+            if alt_id and alt_id != owner_id:
+                for nid in OWNER_ACCOUNT_STORE.list_provider_nodes(alt_id):
+                    if nid not in bound_node_ids:
+                        bound_node_ids.append(nid)
+    elif owner_id and owner_id.startswith("acct_"):
+        for facc in [FLEET_ACCOUNT_STORE.get_account_by_email("frede@inetconnector.com")]:
+            if facc and facc.owner_key and owner_id_for_key(facc.owner_key) == owner_id:
+                for nid in OWNER_ACCOUNT_STORE.list_provider_nodes(facc.account_id):
+                    if nid not in bound_node_ids:
+                        bound_node_ids.append(nid)
     if owner_id == COMMUNITY_POOL_OWNER_ID:
         for nid, nd in NODE_TELEMETRY_REGISTRY.items():
             if (nd.get("owner_id") == COMMUNITY_POOL_OWNER_ID or nd.get("is_community_pool")) and nid not in bound_node_ids:
@@ -1617,6 +1632,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
+            parsed_path = urlparse(self.path)
+            query = parse_qs(parsed_path.query)
             account = session_account_from_headers(self.headers)
             owner_key = ""
             if account is not None:
@@ -2074,6 +2091,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
+            parsed_path = urlparse(self.path)
+            query = parse_qs(parsed_path.query)
             account = session_account_from_headers(self.headers)
             owner_key = ""
             if account is not None:
@@ -2878,7 +2897,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     )
                     or (
                         token_matches
-                        and OWNER_ACCOUNT_STORE.get_owner(owner_id) is not None
+                        and (
+                            OWNER_ACCOUNT_STORE.get_owner(owner_id) is not None
+                            or FLEET_ACCOUNT_STORE.get_account_by_owner_key(active_owner_key) is not None
+                        )
                     )
                     or (
                         existing_owner_id == COMMUNITY_POOL_OWNER_ID
