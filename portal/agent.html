@@ -159,17 +159,27 @@
     /* Left Sidebar */
     .agent-sidebar {
       width: 260px;
+      min-width: 260px;
+      max-width: 260px;
       background: var(--bg-sidebar);
       border-right: 1px solid var(--border-subtle);
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
-      transition: width 0.2s ease;
+      transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.22s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
+      overflow-x: hidden;
+      overflow-y: auto;
+      opacity: 1;
     }
     .agent-sidebar.collapsed {
-      width: 0;
-      overflow: hidden;
-      border-right: none;
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      border-right: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
     }
 
     .sidebar-header {
@@ -791,7 +801,9 @@
 
     /* Right Sources & Context Rail */
     .agent-right-rail {
-      width: 260px;
+      width: 280px;
+      min-width: 280px;
+      max-width: 280px;
       background: var(--bg-sidebar);
       border-left: 1px solid var(--border-subtle);
       display: flex;
@@ -799,14 +811,40 @@
       padding: 16px;
       flex-shrink: 0;
       gap: 16px;
-      transition: width 0.2s ease;
+      transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.22s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1), padding 0.22s ease, opacity 0.18s ease;
+      overflow-x: hidden;
       overflow-y: auto;
+      opacity: 1;
     }
     .agent-right-rail.collapsed {
-      width: 0;
-      padding: 0;
-      overflow: hidden;
-      border-left: none;
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      border-left: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    .right-rail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .right-rail-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-main);
+    }
+    .sidebar-toggle-btn.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
     }
 
     .right-card {
@@ -1154,7 +1192,7 @@
         </button>
         <div class="sidebar-header-actions">
           <button class="sidebar-icon-btn" title="Aktualisieren" onclick="loadFleetAndWorkspaces()">🔄</button>
-          <button class="sidebar-icon-btn" title="Seitenleiste einklappen" onclick="toggleSidebar()">◫</button>
+          <button class="sidebar-icon-btn" title="Seitenleiste einklappen" onclick="toggleSidebar()">◀</button>
         </div>
       </div>
 
@@ -1210,7 +1248,7 @@
     <main class="agent-main-area">
       <!-- Session Top Bar -->
       <div class="main-header">
-        <button class="sidebar-icon-btn mobile-only mobile-menu-btn" title="Workspaces & Navigation" onclick="toggleSidebar()">☰</button>
+        <button class="sidebar-icon-btn sidebar-toggle-btn" id="btn-toggle-left-sidebar" title="Linke Seitenleiste ein-/ausklappen" onclick="toggleSidebar()">☰</button>
         <div class="main-header-title">
           <span>📁</span>
           <span id="active-session-title">Neuer Chat</span>
@@ -1223,7 +1261,7 @@
             <div class="agent-menu-divider"></div>
             <div class="agent-menu-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
           </div>
-          <button class="sidebar-icon-btn" title="Quellen & Hardware-Kontext" onclick="toggleRightRail()">⊞</button>
+          <button class="sidebar-icon-btn sidebar-toggle-btn" id="btn-toggle-right-rail" title="Rechte Kontextleiste ein-/ausklappen" onclick="toggleRightRail()">⊞</button>
         </div>
       </div>
 
@@ -1293,6 +1331,12 @@
 
     <!-- Right Sources & Context Drawer -->
     <aside id="agent-right-rail" class="agent-right-rail">
+      <!-- Right Rail Header & Collapse Button -->
+      <div class="right-rail-header">
+        <span class="right-rail-title">⚙️ Hardware & Kontext</span>
+        <button class="sidebar-icon-btn" title="Rechte Kontextleiste einklappen" onclick="toggleRightRail()">▶</button>
+      </div>
+
       <!-- Active Project Info Card -->
       <div class="right-card">
         <div class="right-card-header">
@@ -1433,14 +1477,6 @@
       const wasOpen = menu.classList.contains('show');
       document.querySelectorAll('.agent-menu').forEach(m => m.classList.remove('show'));
       if (!wasOpen) menu.classList.add('show');
-    }
-
-    function toggleSidebar() {
-      document.getElementById('agent-sidebar').classList.toggle('collapsed');
-    }
-
-    function toggleRightRail() {
-      document.getElementById('agent-right-rail').classList.toggle('collapsed');
     }
 
     function setPolicy(label, val) {
@@ -1722,35 +1758,74 @@
     }
 
     
-    /* Mobile Drawer Controls */
+    /* Sidebar & Right Rail Collapse/Expand Controls */
     function toggleSidebar() {
       const sb = document.getElementById('agent-sidebar');
       const bd = document.getElementById('agent-drawer-backdrop');
       if (window.innerWidth <= 768) {
-        sb.classList.toggle('open');
-        bd.classList.toggle('active', sb.classList.contains('open'));
-        document.getElementById('agent-right-rail').classList.remove('open');
+        const isOpen = sb.classList.toggle('open');
+        bd.classList.toggle('active', isOpen);
+        document.getElementById('agent-right-rail')?.classList.remove('open');
       } else {
-        sb.classList.toggle('collapsed');
+        const isCollapsed = sb.classList.toggle('collapsed');
+        try { localStorage.setItem('cm_sidebar_collapsed', isCollapsed ? '1' : '0'); } catch (_) {}
       }
+      updateSidebarButtonStates();
     }
 
     function toggleRightRail() {
       const rr = document.getElementById('agent-right-rail');
       const bd = document.getElementById('agent-drawer-backdrop');
       if (window.innerWidth <= 768) {
-        rr.classList.toggle('open');
-        bd.classList.toggle('active', rr.classList.contains('open'));
-        document.getElementById('agent-sidebar').classList.remove('open');
+        const isOpen = rr.classList.toggle('open');
+        bd.classList.toggle('active', isOpen);
+        document.getElementById('agent-sidebar')?.classList.remove('open');
       } else {
-        rr.classList.toggle('open');
+        const isCollapsed = rr.classList.toggle('collapsed');
+        try { localStorage.setItem('cm_right_rail_collapsed', isCollapsed ? '1' : '0'); } catch (_) {}
       }
+      updateSidebarButtonStates();
     }
 
     function closeAllDrawers() {
       document.getElementById('agent-sidebar')?.classList.remove('open');
       document.getElementById('agent-right-rail')?.classList.remove('open');
       document.getElementById('agent-drawer-backdrop')?.classList.remove('active');
+    }
+
+    function updateSidebarButtonStates() {
+      const sb = document.getElementById('agent-sidebar');
+      const rr = document.getElementById('agent-right-rail');
+      const btnLeft = document.getElementById('btn-toggle-left-sidebar');
+      const btnRight = document.getElementById('btn-toggle-right-rail');
+      
+      const leftCollapsed = sb && sb.classList.contains('collapsed');
+      const rightCollapsed = rr && rr.classList.contains('collapsed');
+      
+      if (btnLeft) {
+        btnLeft.classList.toggle('active', !leftCollapsed);
+        btnLeft.setAttribute('title', leftCollapsed ? 'Linke Seitenleiste ausklappen' : 'Linke Seitenleiste einklappen');
+      }
+      if (btnRight) {
+        btnRight.classList.toggle('active', !rightCollapsed);
+        btnRight.setAttribute('title', rightCollapsed ? 'Rechte Kontextleiste ausklappen' : 'Rechte Kontextleiste einklappen');
+      }
+    }
+
+    function restoreSidebarStates() {
+      if (window.innerWidth > 768) {
+        const sb = document.getElementById('agent-sidebar');
+        const rr = document.getElementById('agent-right-rail');
+        try {
+          if (localStorage.getItem('cm_sidebar_collapsed') === '1') {
+            sb?.classList.add('collapsed');
+          }
+          if (localStorage.getItem('cm_right_rail_collapsed') === '1') {
+            rr?.classList.add('collapsed');
+          }
+        } catch (_) {}
+        updateSidebarButtonStates();
+      }
     }
 
     /* Workspace Options & Provenance Operations */
@@ -2278,6 +2353,7 @@
 
     // Default Initialization on DOM Load
     window.addEventListener('DOMContentLoaded', () => {
+      restoreSidebarStates();
       loadFleetAndWorkspaces();
       loadModels();
       refreshServiceStatus();
