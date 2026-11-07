@@ -5109,6 +5109,34 @@ for chunk in stream:
         return;
       }
 
+      // Check if URL has owner_key or key
+      const urlKey = urlParams.get("owner_key") || urlParams.get("key");
+      if (urlKey && urlKey.trim()) {
+        const cleanKey = urlKey.trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '');
+        activeOwnerKey = cleanKey;
+        try {
+          localStorage.setItem("cm_fleet_owner_key", cleanKey);
+          localStorage.setItem("cm_owner_key", cleanKey);
+          localStorage.setItem("cm_api_key", cleanKey);
+          localStorage.setItem("cm_token", cleanKey);
+          localStorage.setItem("apiKey", cleanKey);
+        } catch (_) {}
+        const inp = document.getElementById("input-owner-key");
+        if (inp) inp.value = cleanKey;
+        try {
+          const res = await fetch("/api/auth/me", { headers: { "X-Owner-Key": cleanKey } });
+          if (res.ok) {
+            const data = await res.json();
+            onLoggedIn(data);
+            loadFleetMcpSettings();
+            return;
+          }
+        } catch (e) {}
+        onLoggedIn({ owner_key: cleanKey });
+        loadFleetMcpSettings();
+        return;
+      }
+
       // Check localStorage for saved key
       const savedKey = localStorage.getItem("cm_fleet_owner_key");
       if (savedKey) {
