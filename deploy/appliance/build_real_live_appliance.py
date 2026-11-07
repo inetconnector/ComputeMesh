@@ -845,7 +845,8 @@ WantedBy=multi-user.target
     (ISO_DIR / "computemesh.env").write_text(
         """# ComputeMesh NodeOS USB Boot Configuration
 NODE_NAME=cm-node-provider
-COORDINATOR_URL=https://control.example.invalid
+COORDINATOR_URL=https://mesh.inetconnector.com
+OWNER_KEY=
 ENROLLMENT_BUNDLE=/etc/computemesh/enrollment.json
 PERSISTENCE_LABEL=persistence
 AUTO_UPDATE=true

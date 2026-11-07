@@ -144,7 +144,12 @@ if [ -d "${HTTPDOCS_DIR}" ]; then
   rm -rf "${HTTPDOCS_DIR}"/__pycache__ "${HTTPDOCS_DIR}"/tests
 
   mkdir -p "${HTTPDOCS_DIR}/downloads"
+  if [ -d "${SITE2_DIR}/downloads" ]; then
+    rsync -u -a "${SITE2_DIR}/downloads/" "${HTTPDOCS_DIR}/downloads/" 2>/dev/null || true
+    rsync -u -a "${HTTPDOCS_DIR}/downloads/" "${SITE2_DIR}/downloads/" 2>/dev/null || true
+  fi
   chown "${PLESK_USER}:${PLESK_GROUP}" "${HTTPDOCS_DIR}"/* 2>/dev/null || true
+  chown -R "${PLESK_USER}:${PLESK_GROUP}" "${HTTPDOCS_DIR}/downloads" "${SITE2_DIR}/downloads" 2>/dev/null || true
 else
   echo "Warning: ${HTTPDOCS_DIR} not found, skipping."
 fi

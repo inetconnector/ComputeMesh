@@ -26,7 +26,12 @@ RIG_NAME=mining-rig-01
 PROVIDER_ACCOUNT_ID=cm_provider_0x71a9...
 
 # ComputeMesh Coordinator URL
-COORDINATOR_URL=https://coordinator.computemesh.net
+COORDINATOR_URL=https://mesh.inetconnector.com
+
+# Private Fleet Owner Key (from https://mesh.inetconnector.com/fleet)
+# Leave empty to participate in the public Community Dev Pool.
+# Set to your fleet key to attach exclusively to your private fleet.
+OWNER_KEY=
 
 # Network Configuration: "dhcp" or "static"
 NETWORK_MODE=dhcp

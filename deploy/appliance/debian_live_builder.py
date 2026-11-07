@@ -118,6 +118,7 @@ WantedBy=multi-user.target
 NODE_NAME=cm-node-provider
 WALLET_PAYOUT_ADDRESS=
 API_KEY=
+OWNER_KEY=
 COORDINATOR_URL=https://mesh.inetconnector.com
 AUTO_UPDATE=true
 VRAM_RESERVE_MB=512
