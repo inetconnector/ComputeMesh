@@ -261,21 +261,44 @@ class InferenceRouter:
             return True
 
         if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/slots", "/webui/slots", "/api/slots", "/v1/slots", "/tools", "/webui/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
+            # Discover active local model
+            active_model = ""
+            if managed is not None:
+                active_model = managed["engine"]["model_id"]
+            if not active_model:
+                try:
+                    req_tags = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
+                    with urllib.request.urlopen(req_tags, timeout=0.8) as resp_tags:
+                        tdata = json.loads(resp_tags.read().decode("utf-8"))
+                        m_list = tdata.get("models", [])
+                        if m_list:
+                            active_model = m_list[0].get("name") or m_list[0].get("model") or ""
+                except Exception:
+                    pass
+            if not active_model:
+                active_model = "qwen2.5:3b"
+
             if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
                 handler._send_json({
                     "default_generation_settings": {
                         "n_predict": 2048,
                         "temperature": 0.7,
                         "stop": ["<|im_end|>", "<|endoftext|>"],
+                        "n_ctx": 32768,
+                        "model": active_model,
                     },
                     "total_slots": 1,
+                    "model_path": active_model,
+                    "model_alias": active_model,
+                    "build_info": f"ComputeMesh Node Engine v{appliance_version} (Local CUDA)",
+                    "modalities": {"vision": False, "audio": False, "video": False},
                     "webui_settings": {
                         "theme": "Dark",
                         "system_message": "Du bist ComputeMesh AI, ein hochperformanter intelligenter Assistent im dezentralen GPU-Netzwerk mit Live-Werkzeugen.",
                     },
                 })
             elif clean_path in ("/slots", "/webui/slots", "/api/slots", "/v1/slots"):
-                handler._send_json([{"id": 0, "is_processing": False}])
+                handler._send_json([{"id": 0, "is_processing": False, "model": active_model}])
             elif clean_path in ("/api/version", "/version"):
                 handler._send_json({"version": appliance_version})
             else:
@@ -295,11 +318,22 @@ class InferenceRouter:
         ollama_url = raw_ollama if (raw_ollama.startswith(("http://", "https://"))) else f"http://{raw_ollama}"
         managed = _managed_runtime_status()
 
+        # 0. Lifecycle & Props
+        if clean_path in ("/models/load", "/models/unload", "/webui/models/load", "/webui/models/unload"):
+            handler._send_json({"success": True})
+            return True
+
+        if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/slots", "/webui/slots", "/api/slots", "/v1/slots"):
+            return InferenceRouter.handle_get(handler, req_path, "1.2.206")
+
         # 1. Chat completions & Generation with autonomous MCP Tool Execution Loop
         if clean_path in (
             "/v1/chat/completions",
             "/chat/completions",
             "/completions",
+            "/completion",
+            "/complete",
+            "/v1/completions",
             "/api/chat",
             "/api/generate",
             "/webui/chat/completions",
@@ -307,6 +341,8 @@ class InferenceRouter:
             "/webui/completion",
             "/webui/completions",
             "/webui/v1/completions",
+            "/infill",
+            "/webui/infill",
         ):
             try:
                 from runtime.safety.dead_mans_switch import get_lease_guard

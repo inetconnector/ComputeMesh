@@ -4,7 +4,7 @@
 
 Completely replaces legacy Tkinter UI with a modern, professional architecture:
 - Headless systemd Service daemon & local Web Dashboard engine (Port 8080)
-- Google AI Studio / Codex style web interface accessible via browser
+- Google AI Studio style web interface accessible via browser
 - Native Linux System Tray icon (via pystray / AppIndicator) with 1-Click browser launch
 - Single-instance file-lock enforcement (second launch pops up the web dashboard and exits cleanly)
 - Multi-GPU Telemetry (NVIDIA CUDA, AMD ROCm/Vulkan, Intel SYCL), Token Metering & Fleet Heartbeats
@@ -293,8 +293,8 @@ class LinuxComputeMeshProviderApp:
             time.sleep(600)
 
     def open_web_dashboard(self, *args) -> None:
-        """Opens the ultra-clean Codex Agent Workspace in the default browser."""
-        webbrowser.open(f"http://localhost:{self.dashboard_port}/agent")
+        """Opens the local ComputeMesh Node Dashboard in the default browser."""
+        webbrowser.open(f"http://localhost:{self.dashboard_port}/")
 
     def open_agent_studio(self, *args) -> None:
         """Opens the Agent Workspace in the default browser."""

@@ -93,12 +93,9 @@
     } catch (err) {
       console.warn('[AgentState] loadModels error:', err);
     }
-    // Fallback to authentic supported cluster models if endpoint unreachable
+    // Fallback strictly to locally installed active model
     state.models = [
-      { id: 'qwen2.5-coder:32b', name: 'Qwen 2.5 Coder 32B (Inference Engine)' },
-      { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (P2P Cluster / Kimi RPC)' },
-      { id: 'gemma3:4b', name: 'Gemma 3 4B (Local CUDA / Node)' },
-      { id: 'llama-3.3:70b', name: 'Llama 3.3 70B (Mesh Reasoning)' }
+      { id: 'qwen2.5:3b', name: 'qwen2.5:3b (Local CUDA / Node)' }
     ];
     return state.models;
   }

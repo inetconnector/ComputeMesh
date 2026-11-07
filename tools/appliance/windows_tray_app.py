@@ -140,7 +140,7 @@ def _acquire_single_instance_lock() -> bool:
             if last_err == ERROR_ALREADY_EXISTS:
                 # Open Web Dashboard in default browser and exit immediately
                 _log_event("Secondary instance launched: opening web dashboard in browser and exiting.")
-                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/agent")
+                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/")
                 return False
             return True
         except Exception as e:
@@ -157,7 +157,7 @@ def _acquire_single_instance_lock() -> bool:
                 fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except Exception:
                 os.close(lock_fd)
-                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/agent")
+                webbrowser.open(f"http://localhost:{get_active_dashboard_port()}/")
                 return False
             _SINGLE_INSTANCE_LOCK_FD = lock_fd
             return True
@@ -333,9 +333,9 @@ class ComputeMeshProviderApp:
             time.sleep(600)
 
     def open_web_dashboard(self, *args) -> None:
-        """Opens the ultra-clean Codex Agent Workspace in the default browser."""
+        """Opens the local ComputeMesh Node Dashboard in the default browser."""
         self._server_ready_event.wait(timeout=3.0)
-        webbrowser.open(f"http://localhost:{self.dashboard_port}/agent")
+        webbrowser.open(f"http://localhost:{self.dashboard_port}/")
 
     def open_agent_studio(self, *args) -> None:
         """Opens the Agent Workspace in the default browser."""
@@ -447,10 +447,10 @@ class ComputeMeshProviderApp:
         gpu_name = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"
 
         menu = pystray.Menu(
-            pystray.MenuItem("✨ Webseite / Dashboard öffnen", self.open_web_dashboard, default=True),
-            pystray.MenuItem("🤖 Agent Workspace anzeigen (/agent)", self.open_agent_studio),
-            pystray.MenuItem("💬 AI Chat Studio anzeigen (/webui/)", self.open_chat_studio),
-            pystray.MenuItem("🌐 Flotten-Cockpit anzeigen (mesh.inetconnector.com)", self.open_fleet_portal),
+            pystray.MenuItem("📊 Node Dashboard öffnen (Hardware & Status)", self.open_web_dashboard, default=True),
+            pystray.MenuItem("🤖 Agent Workspace öffnen", self.open_agent_studio),
+            pystray.MenuItem("💬 AI Chat Studio öffnen", self.open_chat_studio),
+            pystray.MenuItem("🌐 Online Flotten-Cockpit (mesh.inetconnector.com)", self.open_fleet_portal),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(status_label, lambda item: self.open_web_dashboard()),
             pystray.MenuItem(toggle_label, self.toggle_provider),

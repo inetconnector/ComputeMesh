@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="application-name" content="ComputeMesh Codex - AGENT WORKSPACE">
-  <title>Codex — ComputeMesh Autonomous AI Platform</title>
+  <meta name="application-name" content="ComputeMesh Agent Workspace">
+  <title>ComputeMesh Agent Workspace</title>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/portal.css?v=5.2">
   <link rel="stylesheet" href="/portal-business.css?v=5.1">
@@ -50,16 +50,105 @@
       user-select: none;
     }
 
-    /* Top Website Site-Header */
+    /* Clean Local Workspace Top Bar */
     header.site-header {
-      flex-shrink: 0 !important;
-      position: relative !important;
-      background: #0f172a !important;
+      height: 48px !important;
+      min-height: 48px !important;
+      max-height: 48px !important;
+      background: #111214 !important;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 0 16px !important;
+      flex-shrink: 0 !important;
+      user-select: none !important;
+      position: static !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+    }
+    .workspace-top-bar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .workspace-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .workspace-logo-icon {
+      font-size: 16px;
+      color: #00E5FF;
+    }
+    .workspace-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #f0f1f2;
+      letter-spacing: -0.01em;
+    }
+    .workspace-subtitle {
+      font-weight: 500;
+      color: #9da3a8;
+      font-size: 11.5px;
+      margin-left: 4px;
+    }
+    .workspace-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #10b981;
+    }
+    .workspace-quick-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .quick-nav-link {
+      color: #9da3a8;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .quick-nav-link:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .quick-nav-link.external {
+      color: #8ab4f8;
+      border-color: rgba(138, 180, 248, 0.2);
+    }
+    .quick-nav-link.external:hover {
+      background: rgba(138, 180, 248, 0.1);
     }
 
-    /* Codex Layout */
-    .codex-layout {
+    /* Agent Layout */
+    .agent-layout {
       display: flex;
       flex: 1;
       min-height: 0;
@@ -68,7 +157,7 @@
     }
 
     /* Left Sidebar */
-    .codex-sidebar {
+    .agent-sidebar {
       width: 260px;
       background: var(--bg-sidebar);
       border-right: 1px solid var(--border-subtle);
@@ -77,7 +166,7 @@
       flex-shrink: 0;
       transition: width 0.2s ease;
     }
-    .codex-sidebar.collapsed {
+    .agent-sidebar.collapsed {
       width: 0;
       overflow: hidden;
       border-right: none;
@@ -380,7 +469,7 @@
     }
 
     /* Main Chat Stream Area */
-    .codex-main-area {
+    .agent-main-area {
       flex: 1;
       background: var(--bg-main);
       display: flex;
@@ -579,7 +668,7 @@
       pointer-events: none;
     }
 
-    .codex-composer-box {
+    .agent-composer-box {
       width: 100%;
       max-width: 840px;
       background: var(--bg-composer);
@@ -593,7 +682,7 @@
       pointer-events: auto;
       transition: border-color 0.15s ease;
     }
-    .codex-composer-box:focus-within {
+    .agent-composer-box:focus-within {
       border-color: rgba(255, 255, 255, 0.3);
     }
 
@@ -701,7 +790,7 @@
     }
 
     /* Right Sources & Context Rail */
-    .codex-right-rail {
+    .agent-right-rail {
       width: 260px;
       background: var(--bg-sidebar);
       border-left: 1px solid var(--border-subtle);
@@ -713,7 +802,7 @@
       transition: width 0.2s ease;
       overflow-y: auto;
     }
-    .codex-right-rail.collapsed {
+    .agent-right-rail.collapsed {
       width: 0;
       padding: 0;
       overflow: hidden;
@@ -773,7 +862,7 @@
       position: relative;
       display: inline-block;
     }
-    .codex-menu {
+    .agent-menu {
       position: absolute;
       top: 100%;
       left: 0;
@@ -787,8 +876,8 @@
       display: none;
       padding: 4px 0;
     }
-    .codex-menu.show { display: block; }
-    .codex-menu-item {
+    .agent-menu.show { display: block; }
+    .agent-menu-item {
       padding: 6px 14px;
       display: flex;
       justify-content: space-between;
@@ -798,17 +887,17 @@
       font-size: 12px;
       text-decoration: none;
     }
-    .codex-menu-item:hover {
+    .agent-menu-item:hover {
       background: rgba(255, 255, 255, 0.08);
       color: #fff;
     }
-    .codex-menu-divider {
+    .agent-menu-divider {
       height: 1px;
       background: var(--border-subtle);
       margin: 4px 0;
     }
 
-    .codex-modal-overlay {
+    .agent-modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0, 0, 0, 0.7);
@@ -817,8 +906,8 @@
       justify-content: center;
       z-index: 2000;
     }
-    .codex-modal-overlay.open { display: flex; }
-    .codex-modal {
+    .agent-modal-overlay.open { display: flex; }
+    .agent-modal {
       background: #202020;
       border: 1px solid var(--border-hover);
       border-radius: 12px;
@@ -844,7 +933,7 @@
     }
     .modal-close-btn:hover { color: var(--text-main); }
 
-    /* --- Codex Mobile-First & Provenance Extensions --- */
+    /* --- Agent Mobile-First & Provenance Extensions --- */
     .mobile-only {
       display: none !important;
     }
@@ -910,7 +999,7 @@
     }
 
     /* Drawer Backdrop Overlay */
-    .codex-drawer-backdrop {
+    .agent-drawer-backdrop {
       position: fixed;
       top: 48px;
       left: 0;
@@ -921,7 +1010,7 @@
       backdrop-filter: blur(2px);
       display: none;
     }
-    .codex-drawer-backdrop.active {
+    .agent-drawer-backdrop.active {
       display: block !important;
     }
 
@@ -946,7 +1035,7 @@
         font-size: 15px !important;
       }
 
-      .codex-layout {
+      .agent-layout {
         position: relative;
         width: 100vw;
         height: calc(100vh - 48px);
@@ -954,7 +1043,7 @@
       }
 
       /* Off-Canvas Left Drawer */
-      .codex-sidebar {
+      .agent-sidebar {
         position: fixed !important;
         top: 48px !important;
         bottom: 0 !important;
@@ -967,12 +1056,12 @@
         display: flex !important;
         visibility: visible !important;
       }
-      .codex-sidebar.open {
+      .agent-sidebar.open {
         left: 0 !important;
       }
 
       /* Off-Canvas Right Rail */
-      .codex-right-rail {
+      .agent-right-rail {
         position: fixed !important;
         top: 48px !important;
         bottom: 0 !important;
@@ -984,12 +1073,12 @@
         transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
         display: flex !important;
       }
-      .codex-right-rail.open {
+      .agent-right-rail.open {
         right: 0 !important;
       }
 
       /* Full Width Main Area */
-      .codex-main-area {
+      .agent-main-area {
         width: 100vw !important;
         flex: 1 1 100% !important;
         min-width: 0 !important;
@@ -1026,150 +1115,28 @@
 </head>
 <body>
 
-  <!-- Top Navigation Header (Canonical Site Header) -->
+  <!-- Top App Header for Local Workspace -->
   <header class="site-header">
-    <!-- Row 1: Brand & Actions -->
-    <div class="container nav-top-row">
-      <a href="/" class="brand">
-        <span class="brand-logo">Inet<span class="gradient-text">Connector</span></span>
-        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
-      </a>
-
-      <div class="nav-actions">
-        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
-        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-          </svg>
-          <span>GitHub</span>
-        </a>
-        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
-        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
-        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
-          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
-        </a>
+    <div class="workspace-top-bar-inner">
+      <div class="workspace-brand">
+        <span class="workspace-logo-icon">⚡</span>
+        <span class="workspace-title">ComputeMesh <span class="workspace-subtitle">AGENT WORKSPACE</span></span>
+        <span class="workspace-badge"><span class="badge-dot"></span> mifcoms Local</span>
+      </div>
+      <div class="workspace-quick-nav">
+        <a href="/" class="quick-nav-link" title="Lokales Node Dashboard">📊 Node Dashboard</a>
+        <a href="/webui/" class="quick-nav-link" title="Lokales Chat Studio">💬 Chat Studio</a>
+        <a href="/fleet" target="_blank" rel="noopener noreferrer" class="quick-nav-link external" title="Flotten-Cockpit online öffnen">🌐 Flotten-Cockpit ↗</a>
       </div>
     </div>
-
-    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
-    <nav class="nav-sub-row">
-      <div class="container nav-sub-container">
-        <ul class="nav-links">
-          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
-          <li><a href="/agent" class="nav-link active">🤖 AGENT WORKSPACE</a></li>
-          <li class="nav-item has-dropdown">
-            <a href="/products" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
-            <div class="dropdown-menu">
-              <a href="/playground" class="dropdown-item">
-                <span class="item-icon">⚡</span>
-                <div>
-                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
-                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
-                </div>
-              </a>
-              <a href="/marketplace" class="dropdown-item">
-                <span class="item-icon">🖥️</span>
-                <div>
-                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
-                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
-                </div>
-              </a>
-              <a href="/models" class="dropdown-item">
-                <span class="item-icon">📚</span>
-                <div>
-                  <strong data-i18n="nav_prod_models">Model Library</strong>
-                  <p data-i18n="nav_prod_models_sub">Live-Modellkatalog</p>
-                </div>
-              </a>
-              <a href="/lan-mesh" class="dropdown-item">
-                <span class="item-icon">🏠</span>
-                <div>
-                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
-                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
-                </div>
-              </a>
-            </div>
-          </li>
-          <li class="nav-item has-dropdown">
-            <a href="/projects" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
-            <div class="dropdown-menu">
-              <a href="/downloads" class="dropdown-item">
-                <span class="item-icon">🤖</span>
-                <div>
-                  <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
-                  <p data-i18n="nav_app_localcode_sub">Download &amp; Autonome IDE-Übersicht</p>
-                </div>
-              </a>
-              <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">🛡️</span>
-                <div>
-                  <strong data-i18n="nav_app_aegis">Aegis AI Risk Terminal</strong>
-                  <p data-i18n="nav_app_aegis_sub">Frühwarnsystem für Börsencrashs &amp; Marktrisiken</p>
-                </div>
-              </a>
-              <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">🌳</span>
-                <div>
-                  <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
-                  <p data-i18n="nav_app_ancesora_sub">Genealogieplattform für Familienarchive, Personen &amp; Quellen</p>
-                </div>
-              </a>
-              <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">📅</span>
-                <div>
-                  <strong data-i18n="nav_app_today">Heute &amp; Morgen</strong>
-                  <p data-i18n="nav_app_today_sub">Konzerte heute und morgen nach Ort, PLZ &amp; Radius</p>
-                </div>
-              </a>
-              <a href="https://trade.inetconnector.com/" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">📉</span>
-                <div>
-                  <strong data-i18n="nav_app_causamind">CausaMind Market Predictor</strong>
-                  <p data-i18n="nav_app_causamind_sub">Research-Signale und risikobewusste Kauf-/Verkaufspläne</p>
-                </div>
-              </a>
-              <a href="https://smartx.inetconnector.com/" target="_blank" rel="noopener noreferrer" class="dropdown-item">
-                <span class="item-icon">⛓️</span>
-                <div>
-                  <strong data-i18n="nav_app_smartx">SmartX Blockchain</strong>
-                  <p data-i18n="nav_app_smartx_sub">Blockchain-Projekt und dezentrales Netzwerk von InetConnector</p>
-                </div>
-              </a>
-              <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">📱</span>
-                <div>
-                  <strong data-i18n="nav_app_hub">Google Play Store</strong>
-                  <p data-i18n="nav_app_hub_sub">Offizielle Android-Apps von InetConnector</p>
-                </div>
-              </a>
-              <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">💻</span>
-                <div>
-                  <strong data-i18n="nav_app_github">GitHub Ecosystem</strong>
-                  <p data-i18n="nav_app_github_sub">Open Source, Python SDK, ControlPlane &amp; Tools</p>
-                </div>
-              </a>
-            </div>
-          </li>
-          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
-          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
-          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
-          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
-          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
-          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
-          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
-          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
-        </ul>
-      </div>
-    </nav>
   </header>
 
-  <!-- Codex Main App Layout -->
-  <div class="codex-layout">
-    <div id="codex-drawer-backdrop" class="codex-drawer-backdrop" onclick="closeAllDrawers()"></div>
+  <!-- Agent Main App Layout -->
+  <div class="agent-layout">
+    <div id="agent-drawer-backdrop" class="agent-drawer-backdrop" onclick="closeAllDrawers()"></div>
     
     <!-- Left Sidebar -->
-    <aside id="codex-sidebar" class="codex-sidebar">
+    <aside id="agent-sidebar" class="agent-sidebar">
       <!-- Active Node Banner -->
       <div class="sidebar-node-pill" id="sidebar-node-banner">
         <span class="node-indicator-dot online"></span>
@@ -1240,7 +1207,7 @@
     </aside>
 
     <!-- Center Main Chat Column -->
-    <main class="codex-main-area">
+    <main class="agent-main-area">
       <!-- Session Top Bar -->
       <div class="main-header">
         <button class="sidebar-icon-btn mobile-only mobile-menu-btn" title="Workspaces & Navigation" onclick="toggleSidebar()">☰</button>
@@ -1250,11 +1217,11 @@
         </div>
         <div class="main-header-actions">
           <button class="sidebar-icon-btn" title="Weitere Optionen" onclick="toggleMenu('menu-session-opts')">•••</button>
-          <div id="menu-session-opts" class="codex-menu" style="right: 16px; left: auto;">
-            <div class="codex-menu-item" onclick="renameCurrentSession()">Sitzung umbenennen</div>
-            <div class="codex-menu-item" onclick="archiveCurrentSession()">Archivieren</div>
-            <div class="codex-menu-divider"></div>
-            <div class="codex-menu-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
+          <div id="menu-session-opts" class="agent-menu" style="right: 16px; left: auto;">
+            <div class="agent-menu-item" onclick="renameCurrentSession()">Sitzung umbenennen</div>
+            <div class="agent-menu-item" onclick="archiveCurrentSession()">Archivieren</div>
+            <div class="agent-menu-divider"></div>
+            <div class="agent-menu-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
           </div>
           <button class="sidebar-icon-btn" title="Quellen & Hardware-Kontext" onclick="toggleRightRail()">⊞</button>
         </div>
@@ -1263,8 +1230,8 @@
       <!-- Messages Stream (Dynamic from real events) -->
       <div class="stream-container" id="stream-container">
         <div class="empty-stream-placeholder">
-          <div class="empty-greeting-badge">⚡ ComputeMesh Codex Fernsteuerung</div>
-          <h2>Mit Codex auf mifcoms arbeiten</h2>
+          <div class="empty-greeting-badge">⚡ ComputeMesh Agent Workspace</div>
+          <h2>Mit KI-Agent auf mifcoms arbeiten</h2>
           <p id="empty-state-desc">Verbunden mit <strong>mifcoms (cm-win-mifcom-rtx3080)</strong>. Wähle ein lokales Projekt aus der Seitenleiste oder starte direkt eine Aufgabe.</p>
           <div class="starter-chips-container">
             <button class="starter-chip" onclick="applyPromptSnippet('Prüfe den Git-Status und alle uncommitteten Änderungen im aktuellen Projekt')">📊 Git-Status prüfen</button>
@@ -1274,13 +1241,13 @@
         </div>
       </div>
 
-      <!-- Floating Composer Box (Codex Style) -->
+      <!-- Floating Composer Box -->
       <div class="composer-wrapper">
-        <div class="codex-composer-box">
+        <div class="agent-composer-box">
           <textarea 
             id="composer-input" 
             class="composer-textarea" 
-            placeholder="Mit Codex arbeiten (Anweisung für den Agenten eingeben...)" 
+            placeholder="Anweisung für den lokalen Agenten eingeben..." 
             rows="1"
             onkeydown="handleComposerKeyDown(event)"
             oninput="autoResizeTextarea(this)"></textarea>
@@ -1296,10 +1263,10 @@
                   <span id="policy-label">Für mich genehmigen</span>
                   <span style="font-size: 9px;">⌵</span>
                 </button>
-                <div id="menu-policy" class="codex-menu">
-                  <div class="codex-menu-item" onclick="setPolicy('Für mich genehmigen', 'interactive')">🛡️ Für mich genehmigen (Interaktiv)</div>
-                  <div class="codex-menu-item" onclick="setPolicy('Automatisch ausführen', 'autonomous')">⚡ Automatisch ausführen (Autonom)</div>
-                  <div class="codex-menu-item" onclick="setPolicy('Nur Lesezugriff', 'readonly')">🔒 Nur Lesezugriff (Read-Only)</div>
+                <div id="menu-policy" class="agent-menu">
+                  <div class="agent-menu-item" onclick="setPolicy('Für mich genehmigen', 'interactive')">🛡️ Für mich genehmigen (Interaktiv)</div>
+                  <div class="agent-menu-item" onclick="setPolicy('Automatisch ausführen', 'autonomous')">⚡ Automatisch ausführen (Autonom)</div>
+                  <div class="agent-menu-item" onclick="setPolicy('Nur Lesezugriff', 'readonly')">🔒 Nur Lesezugriff (Read-Only)</div>
                 </div>
               </div>
             </div>
@@ -1308,14 +1275,11 @@
               <!-- Model Selector Pill (Real Models Dynamically Populated) -->
               <div class="menu-item-container">
                 <button class="model-selector-pill" onclick="toggleMenu('menu-models')">
-                  <span id="active-model-name">Qwen 2.5 Coder 32B</span>
+                  <span id="active-model-name">qwen2.5:3b</span>
                   <span style="font-size: 9px;">⌵</span>
                 </button>
-                <div id="menu-models" class="codex-menu" style="right: 0; left: auto; min-width: 260px;">
-                  <div class="codex-menu-item" onclick="setModel('Qwen 2.5 Coder 32B', 'qwen2.5-coder:32b')">Qwen 2.5 Coder 32B (Inference Engine)</div>
-                  <div class="codex-menu-item" onclick="setModel('DeepSeek R1 70B', 'deepseek-r1:70b')">DeepSeek R1 70B (P2P Mesh Reasoning)</div>
-                  <div class="codex-menu-item" onclick="setModel('Gemma 3 4B', 'gemma3:4b')">Gemma 3 4B (Local CUDA Node)</div>
-                  <div class="codex-menu-item" onclick="setModel('Llama 3.3 70B', 'llama-3.3:70b')">Llama 3.3 70B (High-Precision Instruct)</div>
+                <div id="menu-models" class="agent-menu" style="right: 0; left: auto; min-width: 260px;">
+                  <div class="agent-menu-item" onclick="setModel('qwen2.5:3b', 'qwen2.5:3b')">qwen2.5:3b (Lokal aktiv)</div>
                 </div>
               </div>
 
@@ -1328,7 +1292,7 @@
     </main>
 
     <!-- Right Sources & Context Drawer -->
-    <aside id="codex-right-rail" class="codex-right-rail">
+    <aside id="agent-right-rail" class="agent-right-rail">
       <!-- Active Project Info Card -->
       <div class="right-card">
         <div class="right-card-header">
@@ -1398,8 +1362,8 @@
   </div>
 
   <!-- Register Workspace Modal -->
-  <div id="add-workspace-modal" class="codex-modal-overlay" onclick="if(event.target===this)closeWorkspaceModal()">
-    <div class="codex-modal">
+  <div id="add-workspace-modal" class="agent-modal-overlay" onclick="if(event.target===this)closeWorkspaceModal()">
+    <div class="agent-modal">
       <div class="modal-header">
         <span>Lokales Projekt auf mifcoms anlegen / registrieren</span>
         <button class="modal-close-btn" onclick="closeWorkspaceModal()">✕</button>
@@ -1429,8 +1393,8 @@
   </div>
 
   <!-- Diff & Changes Modal -->
-  <div id="diff-modal" class="codex-modal-overlay" onclick="if(event.target===this)closeDiffModal()">
-    <div class="codex-modal" style="max-width: 650px;">
+  <div id="diff-modal" class="agent-modal-overlay" onclick="if(event.target===this)closeDiffModal()">
+    <div class="agent-modal" style="max-width: 650px;">
       <div class="modal-header">
         <span>Projekt-Änderungen & Git Diffs</span>
         <button class="modal-close-btn" onclick="closeDiffModal()">✕</button>
@@ -1453,13 +1417,13 @@
     let eventCursor = 0;
     let pollTimer = null;
     let currentPolicy = 'interactive';
-    let currentModel = 'qwen2.5-coder:32b';
+    let currentModel = 'qwen2.5:3b';
     let projectFilterQuery = '';
 
     // Global Dropdown Closer
     window.addEventListener('click', function(e) {
       if (!e.target.closest('.menu-item-container') && !e.target.closest('.main-header-actions')) {
-        document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
+        document.querySelectorAll('.agent-menu').forEach(m => m.classList.remove('show'));
       }
     });
 
@@ -1467,28 +1431,28 @@
       const menu = document.getElementById(id);
       if (!menu) return;
       const wasOpen = menu.classList.contains('show');
-      document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
+      document.querySelectorAll('.agent-menu').forEach(m => m.classList.remove('show'));
       if (!wasOpen) menu.classList.add('show');
     }
 
     function toggleSidebar() {
-      document.getElementById('codex-sidebar').classList.toggle('collapsed');
+      document.getElementById('agent-sidebar').classList.toggle('collapsed');
     }
 
     function toggleRightRail() {
-      document.getElementById('codex-right-rail').classList.toggle('collapsed');
+      document.getElementById('agent-right-rail').classList.toggle('collapsed');
     }
 
     function setPolicy(label, val) {
       currentPolicy = val;
       document.getElementById('policy-label').textContent = label;
-      document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
+      document.querySelectorAll('.agent-menu').forEach(m => m.classList.remove('show'));
     }
 
     function setModel(label, val) {
       currentModel = val;
       document.getElementById('active-model-name').textContent = label.split(' (')[0];
-      document.querySelectorAll('.codex-menu').forEach(m => m.classList.remove('show'));
+      document.querySelectorAll('.agent-menu').forEach(m => m.classList.remove('show'));
     }
 
     function autoResizeTextarea(el) {
@@ -1596,8 +1560,8 @@
       const wsPath = escapeHtml(activeWorkspace?.path || '');
       document.getElementById('stream-container').innerHTML = `
         <div class="empty-stream-placeholder">
-          <div class="empty-greeting-badge">⚡ ComputeMesh Codex Fernsteuerung</div>
-          <h2>Mit Codex auf mifcoms arbeiten</h2>
+          <div class="empty-greeting-badge">⚡ ComputeMesh Agent Workspace</div>
+          <h2>Mit KI-Agent auf mifcoms arbeiten</h2>
           <p>Aktives Projekt: <strong>${wsName}</strong><br><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">${wsPath}</span><br>Der Agent führt deine Anweisungen direkt lokal auf deiner Node aus.</p>
           <div class="starter-chips-container">
             <button class="starter-chip" onclick="applyPromptSnippet('Prüfe den Git-Status und alle uncommitteten Änderungen im aktuellen Projekt')">📊 Git-Status prüfen</button>
@@ -1645,10 +1609,7 @@
         console.warn('loadModels network warning:', err);
       }
       renderModelMenu([
-        { id: 'qwen2.5-coder:32b', name: 'Qwen 2.5 Coder 32B (Inference Engine)' },
-        { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (P2P Mesh Reasoning)' },
-        { id: 'gemma3:4b', name: 'Gemma 3 4B (Local CUDA Node)' },
-        { id: 'llama-3.3:70b', name: 'Llama 3.3 70B (High-Precision Instruct)' }
+        { id: 'qwen2.5:3b', name: 'qwen2.5:3b (Lokal aktiv)' }
       ]);
     }
 
@@ -1656,13 +1617,17 @@
       const container = document.getElementById('menu-models');
       if (!container) return;
       container.innerHTML = models.map(m => `
-        <div class="codex-menu-item" onclick="setModel('${escapeHtml(m.name)}', '${escapeHtml(m.id)}')">
+        <div class="agent-menu-item" onclick="setModel('${escapeHtml(m.name)}', '${escapeHtml(m.id)}')">
           ${escapeHtml(m.name)}
         </div>
       `).join('');
-      if (models.length > 0 && !currentModel) {
-        currentModel = models[0].id;
-        document.getElementById('active-model-name').textContent = models[0].name.split(' (')[0];
+      if (models.length > 0) {
+        const found = models.find(m => m.id === currentModel);
+        if (!found) {
+          currentModel = models[0].id;
+        }
+        const activeName = (found || models[0]).name.split(' (')[0];
+        document.getElementById('active-model-name').textContent = activeName;
       }
     }
 
@@ -1759,33 +1724,33 @@
     
     /* Mobile Drawer Controls */
     function toggleSidebar() {
-      const sb = document.getElementById('codex-sidebar');
-      const bd = document.getElementById('codex-drawer-backdrop');
+      const sb = document.getElementById('agent-sidebar');
+      const bd = document.getElementById('agent-drawer-backdrop');
       if (window.innerWidth <= 768) {
         sb.classList.toggle('open');
         bd.classList.toggle('active', sb.classList.contains('open'));
-        document.getElementById('codex-right-rail').classList.remove('open');
+        document.getElementById('agent-right-rail').classList.remove('open');
       } else {
         sb.classList.toggle('collapsed');
       }
     }
 
     function toggleRightRail() {
-      const rr = document.getElementById('codex-right-rail');
-      const bd = document.getElementById('codex-drawer-backdrop');
+      const rr = document.getElementById('agent-right-rail');
+      const bd = document.getElementById('agent-drawer-backdrop');
       if (window.innerWidth <= 768) {
         rr.classList.toggle('open');
         bd.classList.toggle('active', rr.classList.contains('open'));
-        document.getElementById('codex-sidebar').classList.remove('open');
+        document.getElementById('agent-sidebar').classList.remove('open');
       } else {
         rr.classList.toggle('open');
       }
     }
 
     function closeAllDrawers() {
-      document.getElementById('codex-sidebar')?.classList.remove('open');
-      document.getElementById('codex-right-rail')?.classList.remove('open');
-      document.getElementById('codex-drawer-backdrop')?.classList.remove('active');
+      document.getElementById('agent-sidebar')?.classList.remove('open');
+      document.getElementById('agent-right-rail')?.classList.remove('open');
+      document.getElementById('agent-drawer-backdrop')?.classList.remove('active');
     }
 
     /* Workspace Options & Provenance Operations */
@@ -2119,7 +2084,7 @@
           const resp = await fetchWithAuth('/v1/agents/sessions', {
             method: 'POST',
             body: JSON.stringify({
-              agent_id: 'codex_remote_agent',
+              agent_id: 'computemesh_local_agent',
               model: currentModel,
               input: text,
               title: text.slice(0, 45),
@@ -2322,8 +2287,8 @@
   <script src="/portal.js?v=5.3"></script>
 
   <!-- Project Details Modal -->
-  <div id="project-details-modal" class="codex-modal-overlay" onclick="if(event.target===this)closeDetailsModal()">
-    <div class="codex-modal">
+  <div id="project-details-modal" class="agent-modal-overlay" onclick="if(event.target===this)closeDetailsModal()">
+    <div class="agent-modal">
       <div class="modal-header">
         <span id="details-modal-title">Projekt-Details</span>
         <button class="modal-close-btn" onclick="closeDetailsModal()">✕</button>
@@ -2337,8 +2302,8 @@
   </div>
 
   <!-- Dangerous Physical Directory Delete Modal -->
-  <div id="physical-delete-modal" class="codex-modal-overlay" onclick="if(event.target===this)closePhysicalDeleteModal()">
-    <div class="codex-modal" style="border-color: var(--accent-red);">
+  <div id="physical-delete-modal" class="agent-modal-overlay" onclick="if(event.target===this)closePhysicalDeleteModal()">
+    <div class="agent-modal" style="border-color: var(--accent-red);">
       <div class="modal-header">
         <span class="danger-modal-title">⚠️ Physisches Verzeichnis löschen</span>
         <button class="modal-close-btn" onclick="closePhysicalDeleteModal()">✕</button>
