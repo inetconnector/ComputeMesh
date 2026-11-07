@@ -77,6 +77,18 @@ def _mesh_poller_enabled() -> bool:
     )
 
 
+def _is_loopback_port_in_use(candidate_port: int) -> bool:
+    """Probes if another process is already listening on 127.0.0.1:candidate_port."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(0.15)
+        try:
+            probe.connect(("127.0.0.1", candidate_port))
+            return True
+        except (OSError, socket.timeout):
+            return False
+
+
 def _safe_resolve_portal_file(filename: str) -> Path | None:
     """Canonicalizes and verifies that a target file strictly resides within PORTAL_DIR or PyInstaller MEIPASS."""
     if "\0" in filename or ".." in filename:
@@ -626,7 +638,17 @@ def create_dashboard_server(
         server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
         actual_port = server_inst.server_address[1]
     else:
-        for candidate_port in [port, 8080, 8081, 8082, 8083, 8084]:
+        candidate_ports: list[int] = []
+        for p in [port, 8080, 8081, 8082, 8083, 8084, 8085]:
+            if p not in candidate_ports:
+                candidate_ports.append(p)
+
+        for candidate_port in candidate_ports:
+            # On Windows/Linux with SO_REUSEADDR, binding 0.0.0.0 may succeed even if
+            # 127.0.0.1:candidate_port is already held by another app (e.g. tunnel-client).
+            # Avoid port shadowing where local requests to localhost hit the other app.
+            if _is_loopback_port_in_use(candidate_port):
+                continue
             try:
                 server_inst = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)
                 actual_port = server_inst.server_address[1]
@@ -637,6 +659,13 @@ def create_dashboard_server(
         if server_inst is None:
             server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
             actual_port = server_inst.server_address[1]
+
+    try:
+        p_file = Path.home() / ".computemesh" / "dashboard_port"
+        p_file.parent.mkdir(parents=True, exist_ok=True)
+        p_file.write_text(str(actual_port), encoding="utf-8")
+    except Exception:
+        pass
 
     try:
         from tools.appliance.lan_discovery_responder import (

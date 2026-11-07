@@ -209,11 +209,13 @@ class ComputeMeshProviderApp:
         self.updater = AutoUpdater(current_version=self.version)
         self.owner_key = owner_key
         self.is_running = True
+        self.is_provider_active = True
         self.total_tokens_served = 0
         self.total_earnings_usd = 0.00
         self.inventory = scan_rig_hardware_stable()
         self.tray_icon = None
         self._stop_event = threading.Event()
+        self._server_ready_event = threading.Event()
 
         # Resolve icon
         icon_path = _find_icon()
@@ -291,6 +293,16 @@ class ComputeMeshProviderApp:
                 pass
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"[{datetime.now(UTC).isoformat()}] Dashboard server listening on http://0.0.0.0:{actual_port}\n")
+            self._server_ready_event.set()
+
+            # Start Cloud Tunnel Relay (Heartbeat & Remote Workspace Sync)
+            try:
+                from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
+                start_cloud_tunnel_relay(node_id=nid)
+                _log_event(f"Cloud tunnel relay active for node {nid}")
+            except Exception as e:
+                _log_event(f"Cloud tunnel relay start warning: {e}")
+
             server.serve_forever()
         except Exception as e:
             _log_event(f"Dashboard server error: {e}")
@@ -321,19 +333,55 @@ class ComputeMeshProviderApp:
 
     def open_web_dashboard(self, *args) -> None:
         """Opens the ultra-clean Codex Agent Workspace in the default browser."""
+        self._server_ready_event.wait(timeout=3.0)
         webbrowser.open(f"http://localhost:{self.dashboard_port}/agent")
 
     def open_agent_studio(self, *args) -> None:
         """Opens the Agent Workspace in the default browser."""
+        self._server_ready_event.wait(timeout=3.0)
         webbrowser.open(f"http://localhost:{self.dashboard_port}/agent")
 
     def open_chat_studio(self, *args) -> None:
         """Opens the Local Chat Studio in the default browser."""
+        self._server_ready_event.wait(timeout=3.0)
         webbrowser.open(f"http://localhost:{self.dashboard_port}/webui/")
 
     def open_fleet_portal(self, *args) -> None:
         """Opens the official ComputeMesh Fleet Cockpit."""
         webbrowser.open("https://mesh.inetconnector.com/fleet")
+
+    def toggle_provider(self, icon=None, item=None) -> None:
+        """Toggles between active and paused provider state."""
+        self.is_provider_active = not self.is_provider_active
+        cfg = load_appliance_config()
+        nid = getattr(cfg, "rig_name", "") or getattr(cfg, "node_id", "") or "cm-win-mifcom-rtx3080"
+        gpu_name = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"
+
+        if self.is_provider_active:
+            _log_event("Provider resumed: starting cloud tunnel relay.")
+            try:
+                from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
+                start_cloud_tunnel_relay(node_id=nid)
+            except Exception as e:
+                _log_event(f"Resume tunnel relay warning: {e}")
+            if self.tray_icon:
+                self.tray_icon.title = f"ComputeMesh Studio — {gpu_name} (Aktiv, Port {self.dashboard_port})"
+        else:
+            _log_event("Provider paused: stopping cloud tunnel relay.")
+            try:
+                import services.appliance_dashboard.tunnel_relay as tr
+                if tr.CLOUD_TUNNEL_RELAY:
+                    tr.CLOUD_TUNNEL_RELAY.stop()
+                    tr.CLOUD_TUNNEL_RELAY = None
+            except Exception as e:
+                _log_event(f"Pause tunnel relay warning: {e}")
+            if self.tray_icon:
+                self.tray_icon.title = f"ComputeMesh — Angehalten (Port {self.dashboard_port})"
+        if self.tray_icon:
+            try:
+                self.tray_icon.update_menu()
+            except Exception:
+                pass
 
     def register_workspace_dialog(self, *args) -> None:
         """Opens a folder selection dialog to register a local project path."""
@@ -385,15 +433,28 @@ class ComputeMeshProviderApp:
         def autostart_checked(item):
             return is_windows_autostart_enabled()
 
+        def status_label(item):
+            if self.is_provider_active:
+                return f"🟢 Status: Bereit & Aktiv (Port {self.dashboard_port})"
+            return f"⏸️ Status: Angehalten (Port {self.dashboard_port})"
+
+        def toggle_label(item):
+            if self.is_provider_active:
+                return "⏸️ Provider stoppen / pausieren"
+            return "▶️ Provider starten"
+
         gpu_name = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"
 
         menu = pystray.Menu(
-            pystray.MenuItem("✨ ComputeMesh Studio & Dashboard", self.open_web_dashboard, default=True),
-            pystray.MenuItem("🤖 Agent Workspace (/agent)", self.open_agent_studio),
-            pystray.MenuItem("📁 Projektpfad registrieren...", self.register_workspace_dialog),
-            pystray.MenuItem("💬 AI Chat Studio (/webui/)", self.open_chat_studio),
-            pystray.MenuItem("🌐 Flotten-Cockpit (mesh.inetconnector.com)", self.open_fleet_portal),
+            pystray.MenuItem("✨ Webseite / Dashboard öffnen", self.open_web_dashboard, default=True),
+            pystray.MenuItem("🤖 Agent Workspace anzeigen (/agent)", self.open_agent_studio),
+            pystray.MenuItem("💬 AI Chat Studio anzeigen (/webui/)", self.open_chat_studio),
+            pystray.MenuItem("🌐 Flotten-Cockpit anzeigen (mesh.inetconnector.com)", self.open_fleet_portal),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem(status_label, lambda item: self.open_web_dashboard()),
+            pystray.MenuItem(toggle_label, self.toggle_provider),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("📁 Projektpfad registrieren...", self.register_workspace_dialog),
             pystray.MenuItem(f"🖥️ GPU: {gpu_name}", lambda item: self.open_web_dashboard()),
             pystray.MenuItem("🚀 Windows Autostart", self.toggle_autostart, checked=autostart_checked),
             pystray.Menu.SEPARATOR,
