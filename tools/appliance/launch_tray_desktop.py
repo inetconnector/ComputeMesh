@@ -87,3 +87,4 @@ def launch_on_default_desktop() -> int:
 
 if __name__ == "__main__":
     sys.exit(launch_on_default_desktop())
+

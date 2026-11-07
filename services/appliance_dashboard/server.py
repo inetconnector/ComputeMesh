@@ -93,7 +93,18 @@ def _safe_resolve_portal_file(filename: str) -> Path | None:
     """Canonicalizes and verifies that a target file strictly resides within PORTAL_DIR or PyInstaller MEIPASS."""
     if "\0" in filename or ".." in filename:
         return None
-    sub_path = filename.lstrip("/\\")
+    raw_sub = filename.lstrip("/\\")
+
+    # Clean URL aliases matching Apache/Nginx portal routing
+    alias_map = {
+        "downloads": "downloads.html",
+        "models": "models.html",
+        "datenschutz": "privacy.html",
+        "kontakt": "contact.html",
+    }
+    clean_sub = raw_sub.rstrip("/\\")
+    sub_path = alias_map.get(clean_sub, raw_sub)
+
     candidates: list[Path] = []
     if hasattr(sys, "_MEIPASS"):
         candidates.append(Path(sys._MEIPASS) / "portal" / sub_path)
@@ -104,8 +115,16 @@ def _safe_resolve_portal_file(filename: str) -> Path | None:
     for c in candidates:
         try:
             resolved = c.resolve()
+            # 1. Exact file match
             if resolved.is_file():
                 return resolved
+            # 2. Directory with index.html
+            if (resolved / "index.html").is_file():
+                return (resolved / "index.html").resolve()
+            # 3. Clean URL without .html extension (e.g. /pricing -> pricing.html)
+            html_candidate = resolved.with_suffix(".html")
+            if html_candidate.is_file():
+                return html_candidate.resolve()
         except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             log.debug("Candidate path resolution skipped: %s", exc)
             continue
@@ -229,19 +248,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return self._verify_admin_auth()
 
     def _verify_owner_inference_auth(self) -> bool:
-        """Allow the paired fleet owner to use inference on this local node.
+        """Allow the paired fleet owner or local loopback client to use inference on this local node.
 
         The node token remains mandatory for dashboard and administrative
         actions. A configured owner key is a separate, narrowly scoped LAN
-        inference grant so paired clients can use the node without copying a
-        node-secret into a phone or URL.
+        inference grant. Loopback clients (127.0.0.1 / localhost) from the
+        local WebUI or tools are authorized while blocking cross-site CSRF.
         """
         client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
         try:
-            if not (ipaddress.ip_address(client_ip).is_private or ipaddress.ip_address(client_ip).is_loopback):
+            ip_obj = ipaddress.ip_address(client_ip)
+            if not (ip_obj.is_private or ip_obj.is_loopback):
                 return False
         except ValueError:
             return False
+
+        if ip_obj.is_loopback:
+            sec_fetch_site = str(self.headers.get("Sec-Fetch-Site", "")).strip().lower()
+            if sec_fetch_site == "cross-site":
+                return False
+            origin = str(self.headers.get("Origin", "")).strip()
+            if origin and not (
+                origin in ALLOWED_CORS_ORIGINS
+                or "127.0.0.1" in origin
+                or "localhost" in origin
+            ):
+                return False
+            return True
+
         configured = getattr(self, "config", None)
         if configured is None:
             configured = getattr(DashboardHandler, "config", None)
@@ -516,6 +550,46 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if WebAppsHandler.handle_get(self, req_path):
+            return
+
+        # General static portal asset resolution (CSS, JS, SVG, images, fonts)
+        portal_asset = _safe_resolve_portal_file(req_path)
+        if portal_asset and portal_asset.is_file():
+            suffix = portal_asset.suffix.lower()
+            content_types = {
+                ".html": "text/html; charset=utf-8",
+                ".js": "application/javascript; charset=utf-8",
+                ".mjs": "application/javascript; charset=utf-8",
+                ".css": "text/css; charset=utf-8",
+                ".json": "application/json; charset=utf-8",
+                ".webmanifest": "application/manifest+json; charset=utf-8",
+                ".svg": "image/svg+xml",
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".gif": "image/gif",
+                ".webp": "image/webp",
+                ".ico": "image/x-icon",
+                ".woff": "font/woff",
+                ".woff2": "font/woff2",
+                ".ttf": "font/ttf",
+                ".wasm": "application/wasm",
+                ".apk": "application/vnd.android.package-archive",
+                ".aab": "application/octet-stream",
+                ".exe": "application/vnd.microsoft.portable-executable",
+                ".iso": "application/x-iso9660-image",
+                ".gz": "application/gzip",
+                ".xz": "application/x-xz",
+                ".zip": "application/zip",
+            }
+            ctype = content_types.get(suffix, "application/octet-stream")
+            data = portal_asset.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", ctype)
+            self._send_cors_headers()
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")

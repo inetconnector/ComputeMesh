@@ -30,6 +30,57 @@ def _managed_runtime_status() -> dict[str, Any] | None:
     return None
 
 
+def _find_ollama_binary() -> str | None:
+    import shutil
+    candidate = shutil.which("ollama")
+    if candidate and Path(candidate).is_file():
+        return candidate
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    if local_app_data:
+        p = Path(local_app_data) / "Programs" / "Ollama" / "ollama.exe"
+        if p.is_file():
+            return str(p)
+    home_p = Path.home() / "AppData" / "Local" / "Programs" / "Ollama" / "ollama.exe"
+    if home_p.is_file():
+        return str(home_p)
+    return None
+
+
+def _ensure_ollama_running(timeout: float = 2.5) -> bool:
+    raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
+    ollama_url = raw_ollama if (raw_ollama.startswith(("http://", "https://"))) else f"http://{raw_ollama}"
+    try:
+        req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=0.8) as resp:
+            if resp.status == 200:
+                return True
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
+        pass
+
+    bin_path = _find_ollama_binary()
+    if not bin_path:
+        return False
+
+    try:
+        flags = 0
+        if sys.platform == "win32":
+            flags = subprocess.CREATE_NEW_PROCESS_GROUP | 0x00000008  # DETACHED_PROCESS
+        subprocess.Popen([bin_path, "serve"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
+        start_t = time.time()
+        while time.time() - start_t < timeout:
+            time.sleep(0.3)
+            try:
+                req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=0.6) as resp:
+                    if resp.status == 200:
+                        return True
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
+                continue
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        log.debug("Auto-spawn ollama error: %s", exc)
+    return False
+
+
 def _looks_like_vision_model(model_name: str) -> bool:
     """Return whether an Ollama model name conventionally accepts images."""
     lowered = str(model_name or "").lower()
@@ -123,6 +174,11 @@ class InferenceRouter:
 
         # 1. Models & Tags listing
         if clean_path in ("/v1/models", "/models", "/api/tags", "/tags", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
+            # If the user in a browser navigates to /models expecting the portal webpage, let DashboardHandler serve models.html
+            if clean_path == "/models" and "text/html" in str(handler.headers.get("Accept", "")).lower() and "application/json" not in str(handler.headers.get("Accept", "")).lower():
+                return False
+
+            _ensure_ollama_running()
             if managed is not None:
                 engine = managed["engine"]
                 if clean_path in ("/api/tags", "/tags"):
@@ -165,44 +221,44 @@ class InferenceRouter:
                     handler.wfile.write(data)
                     return True
             except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
-                try:
-                    from services.gateway.catalog import current_models
-                    models = current_models()
+                pass
+
+            # Check model_manager for locally installed GGUF models
+            try:
+                from services.appliance_dashboard.model_manager import get_model_manager
+                mgr = get_model_manager()
+                installed = mgr.status().get("models", [])
+                if installed:
                     if clean_path in ("/api/tags", "/tags"):
                         handler._send_json({"models": [{
-                            "name": m.id,
-                            "model": m.id,
-                            "size": 0,
-                            "digest": "",
-                            "details": {"format": "computemesh-catalog", "quantization_level": ""},
-                        } for m in models]})
+                            "name": item["model_id"],
+                            "model": item["model_id"],
+                            "size": int(item.get("size_bytes", 0) or 0),
+                            "digest": f"sha256:{item.get('sha256')}" if item.get("sha256") else "",
+                            "details": {"format": "gguf", "quantization_level": item.get("quantization", "")},
+                        } for item in installed]})
                     else:
-                        models_data = [
-                            {
-                                "id": m.id,
-                                "object": "model",
-                                "created": getattr(m, "created", 0),
-                                "owned_by": getattr(m, "owned_by", "computemesh"),
-                                "permission": [],
-                                "root": m.id,
-                                "parent": None,
-                            }
-                            for m in models
-                        ]
+                        models_data = [{
+                            "id": item["model_id"],
+                            "object": "model",
+                            "created": int(time.time()),
+                            "owned_by": "local",
+                            "permission": [],
+                            "root": item["model_id"],
+                            "parent": None,
+                        } for item in installed]
                         handler._send_json({"object": "list", "data": models_data})
                     return True
-                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
-                    handler._send_json(
-                        {
-                            "error": {
-                                "message": "No healthy local model runtime is available",
-                                "type": "service_unavailable",
-                                "code": "model_runtime_unavailable",
-                            }
-                        },
-                        HTTPStatus.SERVICE_UNAVAILABLE,
-                    )
-                    return True
+            except Exception as exc:
+                log.debug("Installed model scan error: %s", exc)
+
+            # Strict node integrity policy: Only models that are actually available locally
+            # may be returned to the WebUI. Never return uninstalled cloud catalog entries.
+            if clean_path in ("/api/tags", "/tags"):
+                handler._send_json({"models": []})
+            else:
+                handler._send_json({"object": "list", "data": []})
+            return True
 
         if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/slots", "/webui/slots", "/api/slots", "/v1/slots", "/tools", "/webui/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
             if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
@@ -271,6 +327,7 @@ class InferenceRouter:
 
             available_models = [managed["engine"]["model_id"]] if managed is not None else []
             if not available_models:
+                _ensure_ollama_running()
                 try:
                     tags_req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
                     with urllib.request.urlopen(tags_req, timeout=3) as tags_resp:
@@ -569,7 +626,9 @@ class InferenceRouter:
                                     gen_dir = REPO_ROOT / "portal" / "generated"
                                     gen_dir.mkdir(parents=True, exist_ok=True)
                                     (gen_dir / fname).write_bytes(raw_bytes)
-                                    item["url"] = f"/generated/{fname}"
+                                    host_hdr = str(handler.headers.get("Host", "") or "").strip()
+                                    scheme = "https" if getattr(getattr(handler, "server", None), "is_tls", False) else "http"
+                                    item["url"] = f"{scheme}://{host_hdr}/generated/{fname}" if host_hdr else f"/generated/{fname}"
                                 except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                                     item["url"] = f"data:image/png;base64,{b64}"
                     handler._send_json(img_data)

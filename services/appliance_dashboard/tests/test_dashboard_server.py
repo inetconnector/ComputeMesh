@@ -379,6 +379,68 @@ class TestDashboardServer(unittest.TestCase):
         start_relay.assert_not_called()
         server.server_close()
 
+    def test_portal_static_assets_served(self) -> None:
+        from services.appliance_dashboard.server import create_dashboard_server
+
+        server, port = create_dashboard_server(host="127.0.0.1", port=0)
+        th = threading.Thread(target=server.serve_forever, daemon=True)
+        th.start()
+        try:
+            for path, expected_ctype in [
+                ("/portal.css", "text/css"),
+                ("/portal-business.css", "text/css"),
+                ("/portal-core.js", "application/javascript"),
+                ("/portal.js", "application/javascript"),
+                ("/agent", "text/html"),
+                ("/downloads", "text/html"),
+                ("/pricing", "text/html"),
+                ("/docs", "text/html"),
+                ("/downloads/ComputeMesh-Setup-x64.exe", "application/vnd.microsoft.portable-executable"),
+            ]:
+                req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", headers={"Accept": "text/html,*/*"})
+                with urllib.request.urlopen(req) as resp:
+                    self.assertEqual(resp.status, 200)
+                    self.assertIn(expected_ctype, resp.headers.get("Content-Type", ""))
+                    content = resp.read()
+                    self.assertGreater(len(content), 0)
+
+            # Test clean /models with HTML Accept header serves models.html
+            models_page_req = urllib.request.Request(f"http://127.0.0.1:{port}/models", headers={"Accept": "text/html,application/xhtml+xml"})
+            with urllib.request.urlopen(models_page_req) as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertIn("text/html", resp.headers.get("Content-Type", ""))
+
+            # Test /v1/models returns JSON and never uninstalled deepseek-r1
+            v1_models_req = urllib.request.Request(f"http://127.0.0.1:{port}/v1/models", headers={"Accept": "application/json"})
+            with urllib.request.urlopen(v1_models_req) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertIn("data", data)
+                model_ids = [m["id"] for m in data["data"]]
+                self.assertNotIn("deepseek-ai/deepseek-r1", model_ids)
+
+            # Test loopback POST to /v1/chat/completions succeeds without 401 Unauthorized
+            chat_payload = json.dumps({
+                "model": "auto",
+                "messages": [{"role": "user", "content": "ping"}],
+                "stream": False,
+            }).encode("utf-8")
+            chat_req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/v1/chat/completions",
+                data=chat_payload,
+                headers={"Content-Type": "application/json", "Origin": f"http://127.0.0.1:{port}"},
+                method="POST",
+            )
+            # Response should either be 200 OK (if Ollama/engine responds) or 503 (if runtime unavailable), but NEVER 401 Unauthorized
+            try:
+                with urllib.request.urlopen(chat_req, timeout=10) as resp:
+                    self.assertIn(resp.status, (200, 503))
+            except urllib.error.HTTPError as exc:
+                self.assertNotEqual(exc.code, 401)
+        finally:
+            server.shutdown()
+            server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()
