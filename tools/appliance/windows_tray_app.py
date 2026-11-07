@@ -467,8 +467,19 @@ class ComputeMeshProviderApp:
             f"ComputeMesh Studio — {gpu_name} (Port {self.dashboard_port})",
             menu=menu,
         )
+
+        def on_tray_ready(icon):
+            icon.visible = True
+            try:
+                icon.notify(
+                    f"ComputeMesh läuft im Infobereich (Port {self.dashboard_port}).\nKlicke auf das Icon (ggf. unter '^'), um das Dashboard zu öffnen.",
+                    "ComputeMesh Studio Aktiv"
+                )
+            except Exception:
+                pass
+
         _log_event("System Tray Icon initialized successfully.")
-        self.tray_icon.run()
+        self.tray_icon.run(setup=on_tray_ready)
 
 
 def main() -> int:

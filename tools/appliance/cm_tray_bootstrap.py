@@ -36,3 +36,29 @@ else:
 
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+
+def ensure_interactive_desktop() -> None:
+    """Ensure process and thread are attached to the interactive desktop (WinSta0\\Default).
+
+    In automated shells, CI, or sandboxed environments, processes may be spawned
+    in an isolated window station/desktop where no Windows Explorer taskbar exists.
+    Switching to WinSta0\\Default ensures the system tray icon appears on the user's
+    real, visible taskbar.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        h_winsta = user32.OpenWindowStationW("WinSta0", False, 0x037F)
+        if h_winsta:
+            user32.SetProcessWindowStation(h_winsta)
+        h_desk = user32.OpenDesktopW("Default", 0, False, 0x01FF)
+        if h_desk:
+            user32.SetThreadDesktop(h_desk)
+    except Exception:
+        pass
+
+
+ensure_interactive_desktop()
