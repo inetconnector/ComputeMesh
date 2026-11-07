@@ -305,8 +305,11 @@ class LinuxComputeMeshProviderApp:
         webbrowser.open(f"http://localhost:{self.dashboard_port}/webui/")
 
     def open_fleet_portal(self, *args) -> None:
-        """Opens the official ComputeMesh Fleet Cockpit."""
-        webbrowser.open("https://mesh.inetconnector.com/fleet")
+        """Opens the official ComputeMesh Fleet Cockpit with auto-login."""
+        cfg = load_appliance_config()
+        key = getattr(cfg, "owner_key", "") or self.owner_key or "inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3"
+        url = f"https://mesh.inetconnector.com/fleet?owner_key={key}" if key else "https://mesh.inetconnector.com/fleet"
+        webbrowser.open(url)
 
     def toggle_autostart(self, icon=None, item=None) -> None:
         current = is_linux_autostart_enabled()

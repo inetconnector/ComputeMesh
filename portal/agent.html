@@ -1164,7 +1164,7 @@
       <div class="workspace-quick-nav">
         <a href="/" class="quick-nav-link" title="Lokales Node Dashboard">📊 Node Dashboard</a>
         <a href="/webui/" class="quick-nav-link" title="Lokales Chat Studio">💬 Chat Studio</a>
-        <a href="/fleet" target="_blank" rel="noopener noreferrer" class="quick-nav-link external" title="Flotten-Cockpit online öffnen">🌐 Flotten-Cockpit ↗</a>
+        <a href="/fleet" id="top-nav-fleet-link" target="_blank" rel="noopener noreferrer" class="quick-nav-link external" title="Flotten-Cockpit online öffnen" onclick="openFleetWithKey(event)">🌐 Flotten-Cockpit ↗</a>
       </div>
     </div>
   </header>
@@ -1470,6 +1470,13 @@
         document.querySelectorAll('.agent-menu').forEach(m => m.classList.remove('show'));
       }
     });
+
+    function openFleetWithKey(e) {
+      if (e) e.preventDefault();
+      const key = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
+      const target = 'https://mesh.inetconnector.com/fleet?owner_key=' + encodeURIComponent(key);
+      window.open(target, '_blank');
+    }
 
     function toggleMenu(id) {
       const menu = document.getElementById(id);
