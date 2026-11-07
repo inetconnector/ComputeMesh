@@ -62,3 +62,13 @@ def ensure_interactive_desktop() -> None:
 
 
 ensure_interactive_desktop()
+
+if sys.platform == "win32":
+    import threading
+    _orig_thread_run = threading.Thread.run
+
+    def _bootstrap_thread_run(self, *args, **kwargs):
+        ensure_interactive_desktop()
+        return _orig_thread_run(self, *args, **kwargs)
+
+    threading.Thread.run = _bootstrap_thread_run

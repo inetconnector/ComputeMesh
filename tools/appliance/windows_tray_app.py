@@ -70,21 +70,22 @@ def get_active_dashboard_port() -> int:
 
 
 def _create_computemesh_icon_image(size: tuple[int, int] = (32, 32)) -> Image.Image:
-    """Generates a crisp branded cyan mesh icon for Windows taskbar & tray."""
+    """Generates a crisp branded high-visibility cyan mesh badge for Windows taskbar & tray."""
     w, h = size
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    pad = max(1, w // 16)
-    draw.ellipse((pad, pad, w - pad, h - pad), fill=(19, 19, 20, 255), outline=(0, 229, 255, 255), width=max(1, w // 16))
+    pad = max(1, w // 32)
+    # Vibrant solid cyan circular badge (matching WhatsApp/Bluetooth visibility on dark taskbars)
+    draw.ellipse((pad, pad, w - pad - 1, h - pad - 1), fill=(0, 215, 255, 255), outline=(255, 255, 255, 200), width=max(1, w // 32))
     cw, ch = w // 2, h // 2
-    cr = max(2, w // 6)
-    draw.ellipse((cw - cr, ch - cr, cw + cr, ch + cr), fill=(0, 229, 255, 255))
-    r_node = max(1, w // 12)
-    dist = w // 3
+    cr = max(2, w // 7)
+    draw.ellipse((cw - cr, ch - cr, cw + cr, ch + cr), fill=(10, 25, 45, 255))
+    dist = int(w * 0.28)
+    r_node = max(1, w // 11)
     nodes = [(cw, ch - dist), (cw + dist, ch), (cw, ch + dist), (cw - dist, ch)]
     for nx, ny in nodes:
-        draw.line([(cw, ch), (nx, ny)], fill=(138, 180, 248, 255), width=max(1, w // 16))
-        draw.ellipse((nx - r_node, ny - r_node, nx + r_node, ny + r_node), fill=(0, 229, 255, 255))
+        draw.line([(cw, ch), (nx, ny)], fill=(10, 25, 45, 220), width=max(1, w // 14))
+        draw.ellipse((nx - r_node, ny - r_node, nx + r_node, ny + r_node), fill=(10, 25, 45, 255))
     return img
 
 
