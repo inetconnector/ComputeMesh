@@ -1213,7 +1213,10 @@
     } catch (e) {}
 
     // Credentials stay in sessionStorage only; never put node tokens in URLs.
-    let dashboardAuthToken = sessionStorage.getItem('computemesh.nodeAuthToken') || '';
+    let dashboardAuthToken = (typeof window !== 'undefined' && window.__CM_NODE_AUTH_TOKEN__) || sessionStorage.getItem('computemesh.nodeAuthToken') || '';
+    if (typeof window !== 'undefined' && window.__CM_NODE_AUTH_TOKEN__) {
+      try { sessionStorage.setItem('computemesh.nodeAuthToken', window.__CM_NODE_AUTH_TOKEN__); } catch (_) {}
+    }
     let authPromptDismissed = false;
     const dashboardTranslations = {
       en: {
@@ -1254,8 +1257,24 @@
       if (status) status.textContent = dashboardText('authRetry');
     }
 
-    function retryDashboardAuth() {
+    async function retryDashboardAuth() {
       authPromptDismissed = false;
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        try {
+          const autoRes = await fetch('/api/appliance/loopback_token', { credentials: 'same-origin' });
+          if (autoRes.ok) {
+            const autoData = await autoRes.json();
+            if (autoData && autoData.token) {
+              dashboardAuthToken = autoData.token;
+              sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);
+              const banner = document.getElementById('auth-required-banner');
+              if (banner) banner.style.display = 'none';
+              updateDashboard();
+              return;
+            }
+          }
+        } catch (_) {}
+      }
       updateDashboard();
     }
 
@@ -1265,6 +1284,30 @@
       if (dashboardAuthToken) headers.set('X-Node-Auth-Token', dashboardAuthToken);
       const response = await fetch(url.pathname + url.search, { ...options, headers, credentials: 'same-origin' });
       if (response.status !== 401) return response;
+
+      // Automatically acquire loopback token without prompting operator on localhost
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        try {
+          const autoRes = await fetch('/api/appliance/loopback_token', { credentials: 'same-origin' });
+          if (autoRes.ok) {
+            const autoData = await autoRes.json();
+            if (autoData && autoData.token) {
+              dashboardAuthToken = autoData.token;
+              sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);
+              const retryHeaders = new Headers(options.headers || {});
+              retryHeaders.set('X-Node-Auth-Token', dashboardAuthToken);
+              const retry = await fetch(url.pathname + url.search, { ...options, headers: retryHeaders, credentials: 'same-origin' });
+              if (retry.status !== 401) {
+                const banner = document.getElementById('auth-required-banner');
+                if (banner) banner.style.display = 'none';
+                authPromptDismissed = false;
+                return retry;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
       // A token stored by an earlier NodeOS process may have expired. Never
       // keep sending it, and give the operator a way to authenticate again.
       dashboardAuthToken = '';

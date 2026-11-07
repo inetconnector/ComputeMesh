@@ -25,6 +25,15 @@ class SystemActionsHandler:
         req_path: str,
         appliance_version: str,
     ) -> bool:
+        if req_path == "/api/config":
+            cfg = getattr(handler, "config", None)
+            if cfg is None:
+                from tools.appliance.appliance_config import load_appliance_config
+                cfg = load_appliance_config()
+            cfg_dict = cfg.to_dict() if hasattr(cfg, "to_dict") else dict(cfg)
+            handler._send_json(cfg_dict, HTTPStatus.OK)
+            return True
+
         if req_path == "/api/action/check_update":
             try:
                 for candidate in [Path("/opt/computemesh"), Path("/root/ComputeMesh"), REPO_ROOT]:

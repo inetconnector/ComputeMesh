@@ -61,6 +61,59 @@ class TestDashboardAdminAuth(unittest.TestCase):
         )
         self.assertFalse(DashboardHandler._verify_owner_inference_auth(public))
 
+    def test_get_dashboard_html_injects_token_when_provided(self) -> None:
+        from services.appliance_dashboard.template_loader import get_dashboard_html
+        anon_html = get_dashboard_html()
+        self.assertNotIn('window.__CM_NODE_AUTH_TOKEN__ = "', anon_html)
+        auth_html = get_dashboard_html(auth_token=NODE_AUTH_TOKEN)
+        self.assertIn(f'window.__CM_NODE_AUTH_TOKEN__ = "{NODE_AUTH_TOKEN}";', auth_html)
+
+    def test_loopback_token_endpoint_blocks_remote_and_cross_site(self) -> None:
+        from http import HTTPStatus
+        import json
+
+        sent_json = []
+        unauth_called = []
+
+        class MockHandler:
+            headers = {}
+            client_address = ("192.168.1.50", 12345)
+            path = "/api/appliance/loopback_token"
+
+            def _send_unauthorized(self):
+                unauth_called.append(True)
+
+            def _send_json(self, payload, status=HTTPStatus.OK):
+                sent_json.append((payload, status))
+
+        # Remote IP -> unauthorized
+        remote_h = MockHandler()
+        DashboardHandler.do_GET(remote_h)
+        self.assertTrue(unauth_called)
+        self.assertEqual(len(sent_json), 0)
+
+        # Cross-site from loopback -> unauthorized
+        unauth_called.clear()
+        cross_h = MockHandler()
+        cross_h.client_address = ("127.0.0.1", 12345)
+        cross_h.headers = {"Sec-Fetch-Site": "cross-site"}
+        DashboardHandler.do_GET(cross_h)
+        self.assertTrue(unauth_called)
+        self.assertEqual(len(sent_json), 0)
+
+        # Same-origin loopback -> succeeds with token
+        unauth_called.clear()
+        loop_h = MockHandler()
+        loop_h.client_address = ("127.0.0.1", 12345)
+        loop_h.headers = {"Sec-Fetch-Site": "same-origin"}
+        DashboardHandler.do_GET(loop_h)
+        self.assertFalse(unauth_called)
+        self.assertEqual(len(sent_json), 1)
+        payload, status = sent_json[0]
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(payload.get("token"), NODE_AUTH_TOKEN)
+        self.assertEqual(payload.get("session"), DASHBOARD_SESSION_TOKEN)
+
 
 if __name__ == "__main__":
     unittest.main()

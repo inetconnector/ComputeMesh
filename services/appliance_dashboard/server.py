@@ -395,6 +395,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
+        client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
+        try:
+            is_loopback = ipaddress.ip_address(client_ip).is_loopback
+        except ValueError:
+            is_loopback = False
+
+        if req_path == "/api/appliance/loopback_token":
+            if not is_loopback:
+                self._send_unauthorized()
+                return
+            sec_fetch_site = str(self.headers.get("Sec-Fetch-Site", "")).strip().lower()
+            if sec_fetch_site == "cross-site":
+                self._send_unauthorized()
+                return
+            self._send_json({
+                "token": _tunnel_relay.NODE_AUTH_TOKEN,
+                "session": DASHBOARD_SESSION_TOKEN,
+            }, HTTPStatus.OK)
+            return
 
         if MeshShardingHandler.handle_get(self, req_path):
             return
@@ -417,7 +436,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if req_path in ("", "/", "/index.html"):
-            html = get_dashboard_html()
+            token_to_inject = _tunnel_relay.NODE_AUTH_TOKEN if is_loopback else None
+            html = get_dashboard_html(auth_token=token_to_inject)
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self._send_cors_headers()
@@ -449,6 +469,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = agent_target.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
                 self._send_cors_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()

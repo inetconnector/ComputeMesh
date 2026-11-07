@@ -437,6 +437,28 @@ class TestDashboardServer(unittest.TestCase):
                     self.assertIn(resp.status, (200, 503))
             except urllib.error.HTTPError as exc:
                 self.assertNotEqual(exc.code, 401)
+
+            # Test loopback root loads with injected node token
+            root_req = urllib.request.Request(f"http://127.0.0.1:{port}/")
+            with urllib.request.urlopen(root_req) as resp:
+                self.assertEqual(resp.status, 200)
+                body = resp.read().decode("utf-8")
+                self.assertIn('window.__CM_NODE_AUTH_TOKEN__ = "', body)
+
+            # Test /api/appliance/loopback_token returns valid tokens on loopback
+            lb_token_req = urllib.request.Request(f"http://127.0.0.1:{port}/api/appliance/loopback_token")
+            with urllib.request.urlopen(lb_token_req) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertIn("token", data)
+                self.assertEqual(data["token"], NODE_AUTH_TOKEN)
+
+            # Test /api/config returns node config JSON
+            cfg_req = urllib.request.Request(f"http://127.0.0.1:{port}/api/config")
+            with urllib.request.urlopen(cfg_req) as resp:
+                self.assertEqual(resp.status, 200)
+                cfg_data = json.loads(resp.read().decode("utf-8"))
+                self.assertTrue(bool(cfg_data.get("rig_name")))
         finally:
             server.shutdown()
             server.server_close()

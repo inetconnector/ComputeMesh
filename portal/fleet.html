@@ -5138,10 +5138,28 @@ for chunk in stream:
       }
 
       // Check localStorage for saved key
-      const savedKey = localStorage.getItem("cm_fleet_owner_key");
+      let savedKey = localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("cm_token") || localStorage.getItem("apiKey");
+      if (!savedKey) {
+        // Try to auto-discover owner key from local node running on loopback (PNA)
+        try {
+          const localRes = await fetch("http://127.0.0.1:8081/api/config");
+          if (localRes.ok) {
+            const localCfg = await localRes.json();
+            if (localCfg && localCfg.owner_key) {
+              savedKey = String(localCfg.owner_key).trim();
+              try {
+                localStorage.setItem("cm_fleet_owner_key", savedKey);
+                localStorage.setItem("cm_owner_key", savedKey);
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      }
+
       if (savedKey) {
         activeOwnerKey = savedKey;
-        document.getElementById("input-owner-key").value = savedKey;
+        const ownerInp = document.getElementById("input-owner-key");
+        if (ownerInp) ownerInp.value = savedKey;
         try {
           const res = await fetch("/api/auth/me", { headers: { "X-Owner-Key": savedKey } });
           if (res.ok) {
