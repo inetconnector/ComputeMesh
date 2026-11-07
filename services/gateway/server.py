@@ -1461,7 +1461,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 return
 
             if sub_path in ("/api/status", "/status"):
-                self._send_json(node_data)
+                clean_node = {k: v for k, v in node_data.items() if k not in ("auth_token", "enrollment_token")}
+                self._send_json(clean_node)
                 return
 
             html = render_node_remote_dashboard_html(node_id, "", node_data)
@@ -2756,6 +2757,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         owner_authorized = True
 
             incoming_proof_valid = False
+            registered_proof_valid = False
             crypto_authorized = False
             if incoming_pub and incoming_sig and incoming_ts is not None and heartbeat_nonce:
                 try:
@@ -2770,6 +2772,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         nonce=heartbeat_nonce,
                         previous_node_id=previous_node_id,
                     )
+                    registered_proof_valid = bool(
+                        incoming_proof_valid
+                        and registered_pub
+                        and incoming_pub.lower() == registered_pub.lower()
+                    )
                     # A key that is not already registered cannot bootstrap a
                     # legacy node on its own.  It may bind only with the
                     # existing bearer token or an explicit owner/enrollment
@@ -2778,7 +2785,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     crypto_authorized = incoming_proof_valid and (
                         not existing_node
                         or token_matches
-                        or bool(registered_pub)
+                        or registered_proof_valid
                         or owner_authorized
                     )
                     if crypto_authorized:
@@ -2904,7 +2911,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     )
                     or (
                         existing_owner_id == COMMUNITY_POOL_OWNER_ID
-                        and (token_matches or incoming_proof_valid)
+                        and (token_matches or registered_proof_valid)
                         and (
                             OWNER_ACCOUNT_STORE.get_owner(owner_id) is not None
                             or FLEET_ACCOUNT_STORE.get_account_by_owner_key(active_owner_key) is not None
@@ -2952,7 +2959,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
             dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
             final_pub = registered_pub
-            if incoming_pub and incoming_proof_valid:
+            if (
+                incoming_pub
+                and incoming_proof_valid
+                and (not registered_pub or registered_proof_valid or owner_authorized)
+            ):
                 final_pub = incoming_pub
 
             heartbeat_record = {

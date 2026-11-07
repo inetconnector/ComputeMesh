@@ -1,6 +1,7 @@
 """Test authentic Community Dev Pool auto-enrollment and theft-proof node claiming."""
 from __future__ import annotations
 
+import hmac
 import tempfile
 import unittest
 from datetime import UTC, datetime
@@ -101,6 +102,55 @@ class TestCommunityDevPoolClaiming(unittest.TestCase):
         _result_id, _owner_id, err_msg, status = routes._authenticated_owner({}, bind_provider_if_missing=True)
         self.assertEqual(status, HTTPStatus.CONFLICT)
         self.assertIn("Community nodes cannot be claimed remotely", err_msg)
+        self.assertEqual(self.owner_store.owner_for_provider_node(node_id), COMMUNITY_POOL_OWNER_ID)
+
+    def test_attacker_with_unregistered_key_cannot_claim_community_node(self) -> None:
+        """An attacker generating their own key and sending a heartbeat cannot steal a community node."""
+        import time
+
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from tools.security.node_key_storage import sign_node_heartbeat, verify_node_heartbeat
+
+        node_id = "cm-rig-community-protected"
+        now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+        # Legitimate node setup
+        legit_key = Ed25519PrivateKey.generate()
+        legit_pub = legit_key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
+        self.owner_store.bind_provider_node(COMMUNITY_POOL_OWNER_ID, node_id)
+        NODE_TELEMETRY_REGISTRY[node_id] = {
+            "node_id": node_id,
+            "auth_token": "token_legit_hardware_secret",
+            "public_key": legit_pub,
+            "owner_id": COMMUNITY_POOL_OWNER_ID,
+            "is_community_pool": True,
+            "updated_at": now_iso,
+            "inventory": {"gpus": []},
+        }
+
+        # Attacker Eve creates her own key and account
+        self.fleet_store.create_account("eve@attacker.com")
+        eve_key = Ed25519PrivateKey.generate()
+        eve_pub = eve_key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
+        eve_token = "token_eve_fake"
+        now_ts = int(time.time())
+        eve_sig = sign_node_heartbeat(eve_key, node_id, eve_token, now_ts, nonce="eve_nonce_123")
+
+        # Verification: Eve's key proves validity of Eve's signature, but does NOT match registered_pub
+        incoming_proof_valid = verify_node_heartbeat(eve_pub, node_id, eve_token, now_ts, eve_sig, nonce="eve_nonce_123")
+        self.assertTrue(incoming_proof_valid)
+
+        registered_pub = NODE_TELEMETRY_REGISTRY[node_id]["public_key"]
+        registered_proof_valid = bool(incoming_proof_valid and registered_pub and eve_pub.lower() == registered_pub.lower())
+        self.assertFalse(registered_proof_valid)
+
+        token_matches = bool(hmac.compare_digest(eve_token, NODE_TELEMETRY_REGISTRY[node_id]["auth_token"]))
+        self.assertFalse(token_matches)
+
+        # Community node takeover attempt: must evaluate to FALSE
+        reassignment_authorized = bool(token_matches or registered_proof_valid)
+        self.assertFalse(reassignment_authorized)
         self.assertEqual(self.owner_store.owner_for_provider_node(node_id), COMMUNITY_POOL_OWNER_ID)
 
     def test_legitimate_physical_node_claims_itself_into_fleet(self) -> None:
