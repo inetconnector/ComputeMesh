@@ -77,6 +77,26 @@ def _mesh_poller_enabled() -> bool:
     )
 
 
+def _normalize_ip(ip_str: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        if hasattr(addr, "ipv4_mapped") and addr.ipv4_mapped:
+            return addr.ipv4_mapped
+        return addr
+    except ValueError:
+        return None
+
+
+def _is_loopback_ip(ip_str: str) -> bool:
+    addr = _normalize_ip(ip_str)
+    return bool(addr and addr.is_loopback)
+
+
+def _is_private_or_loopback_ip(ip_str: str) -> bool:
+    addr = _normalize_ip(ip_str)
+    return bool(addr and (addr.is_loopback or addr.is_private or addr.is_link_local))
+
+
 def _is_loopback_port_in_use(candidate_port: int) -> bool:
     """Probes if another process is already listening on 127.0.0.1:candidate_port."""
     import socket
@@ -252,11 +272,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if allowed.endswith(f"://{raw_host}"):
                 return True
 
-        try:
-            ip = ipaddress.ip_address(raw_host)
-            return ip.is_loopback or ip.is_private or ip.is_link_local
-        except ValueError:
-            pass
+        if _is_private_or_loopback_ip(raw_host):
+            return True
 
         return False
 
@@ -319,18 +336,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         inference on discovered local models while blocking cross-site CSRF.
         """
         client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
-        try:
-            ip_obj = ipaddress.ip_address(client_ip)
-            if not (ip_obj.is_private or ip_obj.is_loopback):
-                return False
-        except ValueError:
+        if not _is_private_or_loopback_ip(client_ip):
             return False
 
         sec_fetch_site = str(self.headers.get("Sec-Fetch-Site", "")).strip().lower()
         if sec_fetch_site == "cross-site":
             return False
 
-        if ip_obj.is_loopback:
+        if _is_loopback_ip(client_ip):
             origin = str(self.headers.get("Origin", "")).strip()
             if origin and not (
                 origin in ALLOWED_CORS_ORIGINS
@@ -408,7 +421,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_local_qr(self, parsed_url: urllib.parse.ParseResult) -> bool:
         """Render a short-lived dashboard QR without a third-party image host."""
-        if not self._verify_admin_auth():
+        client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
+        sec_fetch_site = str(self.headers.get("Sec-Fetch-Site", "")).strip().lower()
+        is_loopback_safe = _is_loopback_ip(client_ip) and sec_fetch_site != "cross-site"
+        if not is_loopback_safe and not self._verify_admin_auth():
             self._send_unauthorized()
             return True
         if not self._qr_rate_allowed():
@@ -480,10 +496,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
         client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
-        try:
-            is_loopback = ipaddress.ip_address(client_ip).is_loopback
-        except ValueError:
-            is_loopback = False
+        is_loopback = _is_loopback_ip(client_ip)
 
         if req_path == "/api/appliance/loopback_token":
             if not is_loopback:
@@ -568,6 +581,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = get_dashboard_html(auth_token=token_to_inject)
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            if is_loopback:
+                self.send_header("Set-Cookie", f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; SameSite=Strict; HttpOnly")
             self._send_cors_headers()
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")
