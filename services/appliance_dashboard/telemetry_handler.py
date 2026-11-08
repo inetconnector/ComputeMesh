@@ -161,7 +161,11 @@ class TelemetryHandler:
                 "config": handler.config.to_dict() if hasattr(handler.config, "to_dict") else {},
                 "inventory": handler.inventory.to_dict(),
                 "network": {
-                    "interfaces": get_network_interfaces(node_id=current_node_id, auth_token=NODE_AUTH_TOKEN),
+                    "interfaces": get_network_interfaces(
+                        node_id=current_node_id,
+                        auth_token=NODE_AUTH_TOKEN,
+                        port=getattr(handler.server, "server_port", 8080) if hasattr(handler, "server") else 8080,
+                    ),
                 },
                 "global_mesh": mesh_stats,
                 "telemetry": {

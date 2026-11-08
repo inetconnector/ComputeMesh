@@ -99,8 +99,16 @@ def _safe_resolve_portal_file(filename: str) -> Path | None:
     alias_map = {
         "downloads": "downloads.html",
         "models": "models.html",
+        "fleet": "fleet.html",
+        "pricing": "pricing.html",
         "datenschutz": "privacy.html",
         "kontakt": "contact.html",
+        "docs": "docs.html",
+        "status": "status.html",
+        "benchmarks": "benchmarks.html",
+        "security": "security.html",
+        "terms": "terms.html",
+        "impressum": "impressum.html",
     }
     clean_sub = raw_sub.rstrip("/\\")
     sub_path = alias_map.get(clean_sub, raw_sub)
@@ -258,13 +266,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not supplied_token and authorization.startswith("Bearer "):
             supplied_token = authorization.removeprefix("Bearer ")
         if not supplied_token:
+            supplied_token = self.headers.get("X-Owner-Key", "")
+        if not supplied_token:
             for item in str(self.headers.get("Cookie", "")).split(";"):
                 name, sep, value = item.strip().partition("=")
                 if sep and name == DASHBOARD_SESSION_COOKIE:
                     supplied_token = value.strip()
                     break
 
-        return bool(supplied_token and (hmac.compare_digest(supplied_token.strip(), _tunnel_relay.NODE_AUTH_TOKEN.strip()) or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())))
+        if not supplied_token:
+            return False
+
+        stripped = supplied_token.strip()
+        if _tunnel_relay.NODE_AUTH_TOKEN and hmac.compare_digest(stripped, _tunnel_relay.NODE_AUTH_TOKEN.strip()):
+            return True
+        if DASHBOARD_SESSION_TOKEN and hmac.compare_digest(stripped, DASHBOARD_SESSION_TOKEN.strip()):
+            return True
+
+        # Check configured owner key
+        configured = getattr(self, "config", None) or getattr(self.__class__, "config", None)
+        if configured is None:
+            try:
+                from tools.appliance.appliance_config import load_appliance_config
+                configured = load_appliance_config()
+            except Exception:
+                configured = None
+        if configured and getattr(configured, "owner_key", None):
+            owner_k = str(configured.owner_key).strip()
+            if owner_k and hmac.compare_digest(stripped, owner_k):
+                return True
+
+        return False
 
     def _send_cors_headers(self) -> None:
         """Allow only the known portal origins to call authenticated APIs."""
@@ -376,13 +408,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_local_qr(self, parsed_url: urllib.parse.ParseResult) -> bool:
         """Render a short-lived dashboard QR without a third-party image host."""
-        client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
-        try:
-            ip_obj = ipaddress.ip_address(client_ip)
-            is_local = ip_obj.is_loopback or ip_obj.is_private
-        except ValueError:
-            is_local = False
-        if not (is_local or self._verify_admin_auth()):
+        if not self._verify_admin_auth():
             self._send_unauthorized()
             return True
         if not self._qr_rate_allowed():
@@ -505,8 +531,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = get_dashboard_html(auth_token=token_to_inject)
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            if is_loopback:
-                self.send_header("Set-Cookie", f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; SameSite=Strict; HttpOnly")
             self._send_cors_headers()
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")

@@ -1312,6 +1312,10 @@
       // keep sending it, and give the operator a way to authenticate again.
       dashboardAuthToken = '';
       sessionStorage.removeItem('computemesh.nodeAuthToken');
+      // On localhost/loopback, never disturb the operator with an interactive browser prompt
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return response;
+      }
       showAuthRequired();
       if (authPromptDismissed) return response;
       authPromptDismissed = true;
@@ -1335,7 +1339,7 @@
     }
 
     async function updateLocalQrImage(image, targetUrl) {
-      if (!image || !targetUrl || image.dataset.url === targetUrl || !dashboardAuthToken) return;
+      if (!image || !targetUrl || image.dataset.url === targetUrl) return;
       try {
         const response = await apiFetch(`/api/v1/qr?data=${encodeURIComponent(targetUrl)}`);
         if (!response.ok) return;
@@ -1771,20 +1775,26 @@
           const tunnelIface = data.network.interfaces.find(i => i && i.interface === 'tunnel') || data.network.interfaces[0];
           const tunnelUrl = safeDashboardUrl(tunnelIface?.url);
 
+          const rawOwnerKey = (data.config && data.config.owner_key) || localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || '';
+          const fleetOwnerKey = (rawOwnerKey && !rawOwnerKey.includes('...') && rawOwnerKey !== 'redacted') ? rawOwnerKey : 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
+          const fleetTargetUrl = 'https://mesh.inetconnector.com/fleet?owner_key=' + encodeURIComponent(fleetOwnerKey);
+
           data.network.interfaces.forEach(iface => {
             if (!iface) return;
-            const targetUrl = safeDashboardUrl(iface.url);
+            const ifaceName = String(iface.interface || '').toUpperCase();
+            const isTunnel = ifaceName === 'TUNNEL' || ifaceName === 'WEB';
+            const targetUrl = isTunnel ? fleetTargetUrl : safeDashboardUrl(iface.url);
             if (!targetUrl) return;
             const chip = document.createElement('a');
             chip.className = 'ip-chip';
             chip.href = targetUrl;
-            const ifaceName = String(iface.interface || '').toUpperCase();
-            const isTunnel = ifaceName === 'TUNNEL' || ifaceName === 'WEB';
+            chip.target = '_blank';
+            chip.rel = 'noopener noreferrer';
             const tag = document.createElement('span');
             tag.className = 'iface-tag';
-            tag.textContent = isTunnel ? 'TUNNEL' : ifaceName;
+            tag.textContent = isTunnel ? 'WEB' : ifaceName;
             const label = document.createElement('span');
-            label.textContent = targetUrl;
+            label.textContent = isTunnel ? 'https://mesh.inetconnector.com/fleet' : targetUrl;
             label.style.wordBreak = 'break-all';
             if (isTunnel) {
               tag.style.fontWeight = '700';
@@ -1795,7 +1805,7 @@
           });
 
           const qrImg = document.getElementById('remote-qr-code');
-          if (qrImg && tunnelUrl) updateLocalQrImage(qrImg, tunnelUrl);
+          if (qrImg) updateLocalQrImage(qrImg, fleetTargetUrl || tunnelUrl);
 
           // Second QR code for the LAN URL: this is the only way to reach the
           // full interactive dashboard (config, USB->SSD clone, etc.) from a

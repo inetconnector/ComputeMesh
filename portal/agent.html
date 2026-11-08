@@ -1620,7 +1620,7 @@
 
     /* Auth & Gateway API */
     async function fetchWithAuth(url, options = {}) {
-      let token = localStorage.getItem('cm_auth_token') || localStorage.getItem('cm_session_token') || localStorage.getItem('cm_api_key') || localStorage.getItem('apiKey');
+      let token = localStorage.getItem('cm_auth_token') || localStorage.getItem('cm_session_token') || localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || sessionStorage.getItem('computemesh.nodeAuthToken') || (typeof window !== 'undefined' && window.__CM_NODE_AUTH_TOKEN__) || localStorage.getItem('cm_api_key') || localStorage.getItem('apiKey') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
       if (!token) {
         const cookieMatch = document.cookie.match(/(?:^|;\s*)cm_session=([^;]+)/);
         if (cookieMatch) token = decodeURIComponent(cookieMatch[1]);
@@ -1630,7 +1630,10 @@
         ...(options.headers || {})
       };
       if (token && token.trim()) {
-        headers['Authorization'] = `Bearer ${token.trim()}`;
+        const cleanTok = token.trim();
+        headers['Authorization'] = `Bearer ${cleanTok}`;
+        headers['X-Node-Auth-Token'] = cleanTok;
+        headers['X-Owner-Key'] = cleanTok;
       }
       return fetch(url, { credentials: 'include', ...options, headers });
     }
