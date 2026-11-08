@@ -297,15 +297,38 @@ def resolve_model_id(raw_model: str) -> str:
 
     model_clean = raw_model.strip().lower()
 
+    def norm(s: str) -> str:
+        return s.replace(".", "").replace("-", "").replace("_", "").lower()
+
+    # 0. Live registered node models from cluster telemetry registry
+    try:
+        from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
+        for nid, nd in NODE_TELEMETRY_REGISTRY.items():
+            cand_models: list[str] = []
+            runtime = nd.get("telemetry", {}).get("model_runtime", {})
+            act_m = runtime.get("model_id") or runtime.get("active_model")
+            if act_m:
+                cand_models.append(str(act_m))
+            for m in nd.get("models") or nd.get("capabilities", {}).get("models") or []:
+                mid = m.get("model_id") if isinstance(m, dict) else (m.get("id") if isinstance(m, dict) else str(m))
+                if mid and str(mid) not in cand_models:
+                    cand_models.append(str(mid))
+            for cand in cand_models:
+                if cand.lower() == model_clean:
+                    return cand
+                c_norm = norm(cand)
+                m_norm = norm(model_clean)
+                if c_norm == m_norm or c_norm in m_norm or m_norm in c_norm:
+                    return cand
+    except Exception:
+        pass
+
     # 1. Exact match on full model ID
     if not resolvable_models:
         raise ValueError("no inference model is currently available")
     for m in resolvable_models:
         if model_clean == m.id.lower():
             return m.id
-
-    def norm(s: str) -> str:
-        return s.replace(".", "").replace("-", "").replace("_", "").lower()
 
     # 2. Vision model specific aliases (e.g. "qwen2.5-vl:7b", "qwen2.5-vl", "vision", "vision-default", "llava:7b")
     if model_clean in {"vision", "vision-default", "qwen-vl", "qwen2.5-vl", "qwen2.5-vl:7b", "qwen2-vl:7b", "qwen2-vl"}:
@@ -333,10 +356,10 @@ def resolve_model_id(raw_model: str) -> str:
             if norm(base) in norm(short_name) and norm(tag) in norm(short_name):
                 return m.id
 
-    # 4. Direct substring match on short name
+    # 4. Direct substring match on short name (bidirectional)
     for m in resolvable_models:
         short_name = m.id.split("/")[-1].lower()
-        if norm(model_clean) in norm(short_name):
+        if norm(model_clean) in norm(short_name) or norm(short_name) in norm(model_clean):
             return m.id
 
     if live_registry:

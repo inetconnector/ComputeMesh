@@ -233,7 +233,7 @@ def build_linux_tarball() -> Path:
     tar_path = DOWNLOADS_DIR / "computemesh-linux-x86_64.tar.gz"
     DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
     commit = _source_commit()
-    include_dirs = {"services", "runtime", "tools", "deploy", "protocol", "config", "apps"}
+    include_dirs = {"services", "runtime", "tools", "deploy", "protocol", "config", "apps", "portal"}
     include_files = {
         "config.py", "cm_project_bootstrap.py", "requirements.txt", "pyproject.toml", "README.md",
         "README.de.md", "ARCHITECTURE.md", "PROTOCOL.md", "SECURITY.md",

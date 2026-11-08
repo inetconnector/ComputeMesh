@@ -1436,7 +1436,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._handle_slots()
                 return
             if sub_path in ("/v1/models", "/models", "/webui/models", "/api/models", "/api/tags", "/api/v1/models"):
-                self._handle_models()
+                self._handle_node_models(node_id)
                 return
             if sub_path in ("/api/version", "/version"):
                 self._send_json({"version": "1.2.156", "node_id": node_id})
@@ -3924,13 +3924,120 @@ class GatewayHandler(BaseHTTPRequestHandler):
         ]
         self._send_json(slots)
 
+    def _handle_node_models(self, node_id: str) -> None:
+        node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
+        runtime = node_data.get("telemetry", {}).get("model_runtime", {})
+        active_m = runtime.get("model_id") or runtime.get("active_model")
+        n_models = node_data.get("models") or node_data.get("capabilities", {}).get("models") or []
+        node_name = str(node_data.get("display_name") or node_data.get("name") or node_id).strip()
+        data = []
+        seen = set()
+        if active_m:
+            seen.add(active_m)
+            data.append({
+                "id": active_m,
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": f"fleet-peer:{node_id}",
+                "node_id": node_id,
+                "node_name": node_name,
+                "permission": [],
+                "root": active_m,
+                "parent": None,
+                "modalities": ["text"],
+                "capabilities": ["text"],
+                "availability": "available_warm",
+                "available": True,
+                "status": "loaded",
+                "is_fleet_node_model": True,
+            })
+        for m in n_models:
+            mid = m.get("model_id") if isinstance(m, dict) else (m.get("id") if isinstance(m, dict) else str(m))
+            if mid and mid not in seen:
+                seen.add(mid)
+                is_act = bool(isinstance(m, dict) and m.get("active"))
+                data.append({
+                    "id": mid,
+                    "object": "model",
+                    "created": int(time.time()),
+                    "owned_by": f"fleet-peer:{node_id}",
+                    "node_id": node_id,
+                    "node_name": node_name,
+                    "permission": [],
+                    "root": mid,
+                    "parent": None,
+                    "modalities": ["text"],
+                    "capabilities": ["text"],
+                    "availability": "available_warm" if is_act else "available_cold",
+                    "available": True,
+                    "status": "loaded" if is_act else "unloaded",
+                    "is_fleet_node_model": True,
+                })
+        if not data:
+            self._handle_models()
+            return
+        self._send_json({"object": "list", "data": data})
+
     def _handle_models(self) -> None:
         models = current_models()
         if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
             self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
             return
         openai_model_list = self.path.partition("?")[0].rstrip("/") in {"/v1/models", "/api/v1/models"}
-        models_data = [
+
+        # Priority 1: Models served by verified, online fleet nodes
+        fleet_models_data: list[dict[str, Any]] = []
+        seen_model_ids: set[str] = set()
+        now = datetime.now(UTC)
+        online_fleet_nodes_exist = False
+
+        for nid, nd in NODE_TELEMETRY_REGISTRY.items():
+            if nd.get("is_peer_relay", False):
+                continue
+            updated_at_str = str(nd.get("updated_at", "")).strip()
+            age_s = float("inf")
+            if updated_at_str:
+                try:
+                    ts = datetime.fromisoformat(updated_at_str)
+                    age_s = (now - ts).total_seconds()
+                except Exception:
+                    pass
+            is_node_online = age_s <= 45 and not bool(nd.get("is_quarantined", False))
+            if is_node_online:
+                online_fleet_nodes_exist = True
+                runtime = nd.get("telemetry", {}).get("model_runtime", {})
+                active_m = runtime.get("model_id") or runtime.get("active_model")
+                node_name = str(nd.get("display_name") or nd.get("name") or nid).strip()
+                n_models = nd.get("models") or nd.get("capabilities", {}).get("models") or []
+                cand_list: list[tuple[str, bool]] = []
+                if active_m:
+                    cand_list.append((str(active_m), True))
+                for m in n_models:
+                    mid = m.get("model_id") if isinstance(m, dict) else (m.get("id") if isinstance(m, dict) else str(m))
+                    if mid and str(mid) not in [c[0] for c in cand_list]:
+                        cand_list.append((str(mid), bool(isinstance(m, dict) and m.get("active"))))
+                for mid, is_act in cand_list:
+                    if mid not in seen_model_ids:
+                        seen_model_ids.add(mid)
+                        fleet_models_data.append({
+                            "id": mid,
+                            "object": "model",
+                            "created": int(time.time()),
+                            "owned_by": f"fleet-peer:{nid}",
+                            "node_id": nid,
+                            "node_name": node_name,
+                            "permission": [],
+                            "root": mid,
+                            "parent": None,
+                            "modalities": ["text"],
+                            "capabilities": ["text"],
+                            "availability": "available_warm" if is_act else "available_cold",
+                            "available": True,
+                            "status": "loaded" if is_act else "unloaded",
+                            "is_fleet_node_model": True,
+                        })
+
+        catalog_models_data = [
             {
                 "id": m.id,
                 "object": "model",
@@ -3941,12 +4048,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "parent": None,
                 "modalities": list(model_modalities(m)) if openai_model_list else model_modality_flags(m),
                 "capabilities": list(model_modalities(m)),
-                "availability": getattr(m, "availability", "catalogued"),
-                "available": getattr(m, "available", True),
+                "availability": getattr(m, "availability", "catalogued") if not online_fleet_nodes_exist else "available_cold",
+                "available": getattr(m, "available", True) if not online_fleet_nodes_exist else False,
+                "status": "unloaded" if online_fleet_nodes_exist else "catalogued",
+                "is_fleet_node_model": False,
             }
             for m in models
+            if m.id not in seen_model_ids
         ]
-        self._send_json({"object": "list", "data": models_data})
+        self._send_json({"object": "list", "data": fleet_models_data + catalog_models_data})
 
     def _handle_ollama_tags(self) -> None:
         models = [model for model in current_models() if bool(getattr(model, "available", False))]

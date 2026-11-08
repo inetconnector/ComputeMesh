@@ -5,6 +5,7 @@
 	var STORAGE_KEY = 'cm_selected_model_id';
 	var DRAFT_KEY = 'cm_model_switch_draft';
 	var models = [];
+	var onlineFleetModels = [];
 	var selectedModel = null;
 	var picker = null;
 	var localNodeEndpoint = null;
@@ -369,14 +370,51 @@
 	}
 
 	async function discoverFleetEndpoints() {
-		var paths = ['/api/v1/mesh/fleet', '/api/portal/fleet'];
+		var paths = ['/api/v1/mesh/fleet', '/api/portal/fleet', '/api/portal/fleet/community'];
 		for (var i = 0; i < paths.length; i++) {
 			try {
 				var payload = await fetchDiscoveryJson(paths[i], 'include');
 				var nodes = Array.isArray(payload && payload.nodes) ? payload.nodes : [];
 				nodes.forEach(function (node) {
 					if (!node || node.is_online === false || node.status === 'offline') return;
-					addMeshEndpoint(node.remote_url || node.endpoint || node.node_url || node.url);
+					var ep = node.remote_url || node.endpoint || node.node_url || node.url;
+					if (ep) addMeshEndpoint(ep);
+					if (Array.isArray(node.candidate_local_urls)) {
+						node.candidate_local_urls.forEach(function (curl) {
+							if (curl) addMeshEndpoint(curl);
+						});
+					}
+					var nodeModels = (node.capabilities && node.capabilities.models) || node.models || [];
+					var runtime = (node.telemetry && node.telemetry.model_runtime) || node.model_runtime || {};
+					var activeM = runtime.model_id || runtime.active_model;
+					var nodeName = String(node.display_name || node.name || node.node_id || '').trim();
+					var modelList = [];
+					if (activeM) modelList.push({ id: String(activeM), active: true });
+					if (Array.isArray(nodeModels)) {
+						nodeModels.forEach(function (m) {
+							var mid = typeof m === 'object' && m ? (m.model_id || m.id) : String(m);
+							if (mid && !modelList.some(function (item) { return item.id === mid; })) {
+								modelList.push({ id: mid, active: Boolean(m && m.active) });
+							}
+						});
+					}
+					modelList.forEach(function (mItem) {
+						if (!onlineFleetModels.some(function (existing) { return existing.id === mItem.id; })) {
+							onlineFleetModels.push({
+								id: mItem.id,
+								name: mItem.id,
+								__nodeId: node.node_id,
+								__nodeName: nodeName,
+								__isOnlineFleetModel: true,
+								__sourceEndpoint: ep || ('/node/' + node.node_id),
+								availability: 'available_warm',
+								status: mItem.active ? 'loaded' : 'available_warm',
+								available: true,
+								capabilities: ['text'],
+								modalities: ['text']
+							});
+						}
+					});
 				});
 			} catch (_) {}
 		}
@@ -409,8 +447,15 @@
 				return localNodeEndpoint;
 			}
 
-			// Probe local appliance on port 8080 (Zero router configuration required - loopback P2P)
+			await discoverFleetEndpoints();
+
+			// Probe local appliance candidates (loopback + LAN peers discovered from fleet)
 			var candidates = ['http://127.0.0.1:8080', 'http://localhost:8080'];
+			meshEndpoints.forEach(function (mep) {
+				if (mep && (mep.startsWith('http://192.168.') || mep.startsWith('http://10.') || mep.startsWith('http://172.'))) {
+					if (!candidates.includes(mep)) candidates.push(mep);
+				}
+			});
 			for (var i = 0; i < candidates.length; i++) {
 				var candidate = candidates[i];
 				try {
@@ -430,7 +475,6 @@
 					}
 				} catch (_) {}
 			}
-			await discoverFleetEndpoints();
 			localNodeChecked = true;
 			return localNodeEndpoint;
 		})();
@@ -465,9 +509,13 @@
 
 	function compareModels(left, right) {
 		function score(model) {
+			var isFleet = Boolean(model && (model.__isOnlineFleetModel || model.is_fleet_node_model || String(model.owned_by || '').startsWith('fleet-peer:')));
 			var status = String(model && model.status && (model.status.value || model.status) || model && model.availability || '').toLowerCase();
 			var capabilities = Array.isArray(model && model.capabilities) ? model.capabilities : [];
-			return modelParameterBillions(model) * 1000 +
+			var isAvail = Boolean(model && model.available !== false && status !== 'unloaded');
+			return (isFleet ? 20000 : 0) +
+				(isAvail ? 5000 : -5000) +
+				modelParameterBillions(model) * 1000 +
 				(status === 'loaded' || status === 'available_warm' ? 100 : 0) +
 				(capabilities.includes('tools') || capabilities.includes('tool_calling') ? 10 : 0);
 		}
@@ -1480,8 +1528,20 @@
 		models.forEach(function (model) {
 			var option = document.createElement('option');
 			var modalities = modalitiesFor(model);
+			var isFleet = Boolean(model && (model.__isOnlineFleetModel || model.is_fleet_node_model || String(model.owned_by || '').startsWith('fleet-peer:')));
+			var isAvailable = Boolean(model && model.available !== false && model.status !== 'unloaded');
+			var name = displayName(model);
+			var modLabel = modalities.includes('vision') ? ' · Bilder' : ' · Text';
+			if (isFleet) {
+				var rigLabel = model.__nodeName || model.node_name || model.__nodeId || model.node_id || 'Mining-Rig';
+				option.textContent = '🟢 ' + name + ' (' + rigLabel + ')' + modLabel;
+			} else if (!isAvailable) {
+				option.textContent = '⚪ ' + name + ' (Offline / Kein Live-Node)' + modLabel;
+				option.disabled = true;
+			} else {
+				option.textContent = '☁️ ' + name + ' (Cloud)' + modLabel;
+			}
 			option.value = model.id;
-			option.textContent = displayName(model) + (modalities.includes('vision') ? ' · Bilder' : ' · Text');
 			select.appendChild(option);
 		});
 		select.value = selectedModel ? selectedModel.id : '';
@@ -1635,23 +1695,26 @@
 				}
 			});
 			var byModelId = new Map();
+			// 1. Add models discovered from fleet endpoints
+			onlineFleetModels.forEach(function (m) {
+				byModelId.set(m.id, m);
+			});
+			// 2. Add models fetched from catalog endpoints
 			catalogResults.flat().forEach(function (model) {
 				var existing = byModelId.get(model.id);
-				if (!existing || compareModels(model, existing) < 0) byModelId.set(model.id, model);
+				if (!existing || compareModels(model, existing) < 0) {
+					byModelId.set(model.id, Object.assign({}, existing || {}, model));
+				}
 			});
 			models = Array.from(byModelId.values()).sort(compareModels);
 			if (!models.length) throw new Error('No selectable models');
 
 			var savedId = '';
 			try { savedId = localStorage.getItem(STORAGE_KEY) || ''; } catch (_) {}
-			selectedModel = models.find(function (model) { return model.id === savedId; }) || null;
+			selectedModel = models.find(function (model) { return model.id === savedId && model.available !== false; }) || null;
 			if (!selectedModel) {
-				selectedModel = models[0];
-				try {
-					var slots = await fetchDiscoveryJson('/slots', 'same-origin');
-					var activeId = Array.isArray(slots) && slots[0] && slots[0].model;
-					selectedModel = models.find(function (model) { return model.id === activeId; }) || selectedModel;
-				} catch (_) {}
+				var liveFleet = models.find(function (model) { return Boolean(model.__isOnlineFleetModel || model.is_fleet_node_model) && model.available !== false; });
+				selectedModel = liveFleet || models.find(function (model) { return model.available !== false; }) || models[0];
 				try { localStorage.setItem(STORAGE_KEY, selectedModel.id); } catch (_) {}
 			}
 			localNodeEndpoint = selectedModel.__sourceEndpoint && selectedModel.__sourceEndpoint !== window.location.origin

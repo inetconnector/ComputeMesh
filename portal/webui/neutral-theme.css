@@ -248,8 +248,8 @@ textarea[placeholder*="Ask"] {
 input::placeholder, textarea::placeholder { color: var(--cm-muted) !important; opacity: .88; }
 
 /* Base button reset: clean neutral surface */
-button,
-[role="button"] {
+button:not(.bg-primary):not([class*="bg-primary"]):not([data-variant="default"]):not([data-variant="destructive"]):not(.text-primary-foreground),
+[role="button"]:not(.bg-primary):not([class*="bg-primary"]):not([data-variant="default"]):not([data-variant="destructive"]):not(.text-primary-foreground) {
   background-image: none !important;
   color: var(--cm-text) !important;
 }
@@ -392,12 +392,83 @@ button.cm-action-icon,
 }
 
 /* ==============================================================================
+   Settings Page Sticky Action Dock & Primary/Outline Buttons
+   ============================================================================== */
+
+div.sticky.bottom-0,
+div[class*="sticky"][class*="bottom-0"] {
+  position: sticky !important;
+  bottom: 0 !important;
+  background-color: #141618 !important;
+  background: linear-gradient(180deg, rgba(20, 22, 24, 0.95) 0%, #141618 100%) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  z-index: 40 !important;
+  padding: 16px 24px !important;
+  margin-top: 24px !important;
+}
+
+/* Primary buttons (e.g. "Einstellungen speichern" / "Save settings"):
+   High contrast dark text on crisp platinum background */
+.bg-primary,
+button.bg-primary,
+[data-slot="button"].bg-primary,
+button[class*="bg-primary"],
+button[data-variant="default"],
+div.sticky.bottom-0 button:not([class*="outline"]) {
+  background-color: #e4e5e7 !important;
+  color: #111827 !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  transition: all 0.15s ease-in-out !important;
+  min-height: 38px !important;
+  padding: 8px 20px !important;
+}
+
+.bg-primary:hover,
+button.bg-primary:hover,
+[data-slot="button"].bg-primary:hover,
+button[class*="bg-primary"]:hover,
+button[data-variant="default"]:hover,
+div.sticky.bottom-0 button:not([class*="outline"]):hover {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Outline buttons (e.g. "Auf Standard zurücksetzen" / "Reset to default"):
+   Clean subtle transparent surface with light grey text */
+div.sticky.bottom-0 button[class*="outline"],
+button[data-variant="outline"] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  min-height: 38px !important;
+  padding: 8px 16px !important;
+  transition: all 0.15s ease-in-out !important;
+}
+
+div.sticky.bottom-0 button[class*="outline"]:hover,
+button[data-variant="outline"]:hover {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* ==============================================================================
    Refined Monochrome Luxury Send Button (No cheap neon cyan/blue)
    ============================================================================== */
 
-/* Send / Submit Button base: Circular pill */
-form button[type="submit"],
-button[type="submit"],
+/* Send / Submit Button base: Circular pill strictly scoped to chat input area */
+[data-slot="input-area"] form button[type="submit"],
+[data-slot="input-area"] button[type="submit"],
+form:has(textarea) button[type="submit"],
 button.rounded-full:has(svg.lucide-arrow-up),
 button.rounded-full:has(svg.lucide-send),
 button:has(svg.lucide-arrow-up),
@@ -419,8 +490,9 @@ button:has(svg.lucide-send),
 }
 
 /* 1. Disabled / Inactive: sleek dark grey circle */
-form button[type="submit"]:disabled,
-button[type="submit"]:disabled,
+[data-slot="input-area"] form button[type="submit"]:disabled,
+[data-slot="input-area"] button[type="submit"]:disabled,
+form:has(textarea) button[type="submit"]:disabled,
 button:disabled:has(svg.lucide-arrow-up),
 button:disabled:has(svg.lucide-send),
 [data-slot="chat-container"] button.rounded-full:last-child:disabled {
@@ -433,8 +505,9 @@ button:disabled:has(svg.lucide-send),
   cursor: not-allowed !important;
 }
 
-form button[type="submit"]:disabled svg,
-button[type="submit"]:disabled svg,
+[data-slot="input-area"] form button[type="submit"]:disabled svg,
+[data-slot="input-area"] button[type="submit"]:disabled svg,
+form:has(textarea) button[type="submit"]:disabled svg,
 button:disabled:has(svg.lucide-arrow-up) svg,
 button:disabled:has(svg.lucide-send) svg {
   color: rgba(255, 255, 255, 0.25) !important;
@@ -442,8 +515,9 @@ button:disabled:has(svg.lucide-send) svg {
 }
 
 /* 2. Active / Ready: Crisp Platinum / Off-White (Apple/ChatGPT/Linear Luxury) */
-form button[type="submit"]:not(:disabled),
-button[type="submit"]:not(:disabled),
+[data-slot="input-area"] form button[type="submit"]:not(:disabled),
+[data-slot="input-area"] button[type="submit"]:not(:disabled),
+form:has(textarea) button[type="submit"]:not(:disabled),
 button:not(:disabled):has(svg.lucide-arrow-up),
 button:not(:disabled):has(svg.lucide-send),
 [data-slot="chat-container"] button.rounded-full:last-child:not(:disabled) {
@@ -455,8 +529,9 @@ button:not(:disabled):has(svg.lucide-send),
   opacity: 1 !important;
 }
 
-form button[type="submit"]:not(:disabled) svg,
-button[type="submit"]:not(:disabled) svg,
+[data-slot="input-area"] form button[type="submit"]:not(:disabled) svg,
+[data-slot="input-area"] button[type="submit"]:not(:disabled) svg,
+form:has(textarea) button[type="submit"]:not(:disabled) svg,
 button:not(:disabled):has(svg.lucide-arrow-up) svg,
 button:not(:disabled):has(svg.lucide-send) svg {
   color: #181a1c !important;
@@ -465,8 +540,9 @@ button:not(:disabled):has(svg.lucide-send) svg {
 }
 
 /* Hover on active button */
-form button[type="submit"]:not(:disabled):hover,
-button[type="submit"]:not(:disabled):hover,
+[data-slot="input-area"] form button[type="submit"]:not(:disabled):hover,
+[data-slot="input-area"] button[type="submit"]:not(:disabled):hover,
+form:has(textarea) button[type="submit"]:not(:disabled):hover,
 button:not(:disabled):has(svg.lucide-arrow-up):hover,
 button:not(:disabled):has(svg.lucide-send):hover {
   background: #ffffff !important;
