@@ -290,6 +290,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if sep and name == DASHBOARD_SESSION_COOKIE:
                     supplied_token = value.strip()
                     break
+        if not supplied_token and hasattr(self, "path"):
+            try:
+                q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                candidate = (
+                    q.get("token", [""])[0].strip()
+                    or q.get("auth", [""])[0].strip()
+                    or q.get("owner_key", [""])[0].strip()
+                    or q.get("key", [""])[0].strip()
+                )
+                if candidate:
+                    supplied_token = candidate
+            except Exception:
+                pass
 
         if not supplied_token:
             return False

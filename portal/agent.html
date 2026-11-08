@@ -1296,7 +1296,7 @@
       <div class="workspace-brand">
         <span class="workspace-logo-icon">⚡</span>
         <span class="workspace-title">ComputeMesh <span class="workspace-subtitle">AGENT WORKSPACE</span></span>
-        <span class="workspace-badge"><span class="badge-dot"></span> mifcoms Local</span>
+        <span class="workspace-badge"><span class="badge-dot"></span> <span id="top-badge-node">mifcoms Local</span></span>
       </div>
       <div class="workspace-quick-nav">
         <a href="/" class="quick-nav-link" title="Lokales Node Dashboard">📊 Node Dashboard</a>
@@ -1314,7 +1314,7 @@
     <!-- Left Sidebar -->
     <aside id="agent-sidebar" class="agent-sidebar">
       <!-- Active Node Banner -->
-      <div class="sidebar-node-pill" id="sidebar-node-banner">
+      <div class="sidebar-node-pill" id="sidebar-node-banner" onclick="cycleActiveNode()" style="cursor: pointer;" title="Klicken, um zwischen Nodes zu wechseln">
         <span class="node-indicator-dot online"></span>
         <div class="node-info-compact">
           <span class="node-title-compact" id="sidebar-active-node-name">mifcoms (cm-win-mifcom-rtx3080)</span>
@@ -1343,7 +1343,7 @@
 
       <!-- Workspace Section Header -->
       <div class="sidebar-section-title">
-        <span>Lokale Workspaces (mifcoms)</span>
+        <span id="sidebar-workspaces-title">Lokale Workspaces (mifcoms)</span>
         <button class="section-action-btn" title="Projektpfad auf Node hinzufügen" onclick="promptAddWorkspace()">+ Hinzufügen</button>
       </div>
 
@@ -1408,7 +1408,7 @@
       <div class="stream-container" id="stream-container">
         <div class="empty-stream-placeholder">
           <div class="empty-greeting-badge">⚡ ComputeMesh Agent Workspace</div>
-          <h2>Mit KI-Agent auf mifcoms arbeiten</h2>
+          <h2 id="empty-state-hero-title">Mit KI-Agent auf mifcoms arbeiten</h2>
           <p id="empty-state-desc">Verbunden mit <strong>mifcoms (cm-win-mifcom-rtx3080)</strong>. Wähle ein lokales Projekt aus der Seitenleiste oder starte direkt eine Aufgabe.</p>
           <div class="starter-chips-container">
             <button class="starter-chip" onclick="applyPromptSnippet('Prüfe den Git-Status und alle uncommitteten Änderungen im aktuellen Projekt')">📊 Git-Status prüfen</button>
@@ -1550,7 +1550,7 @@
   <div id="add-workspace-modal" class="agent-modal-overlay" onclick="if(event.target===this)closeWorkspaceModal()">
     <div class="agent-modal">
       <div class="modal-header">
-        <span>Lokales Projekt auf mifcoms anlegen / registrieren</span>
+        <span data-i18n="agent_modal_register_title">Lokales Projekt auf Node anlegen / registrieren</span>
         <button class="modal-close-btn" onclick="closeWorkspaceModal()">✕</button>
       </div>
       <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -1730,6 +1730,7 @@
     let activeSessionId = null;
     let allSessions = [];
     let authenticWorkspaces = [];
+    let authenticNodes = [];
     let activeWorkspace = null;
     let activeNodeId = '';
     let eventCursor = 0;
@@ -2114,7 +2115,7 @@
       document.getElementById('stream-container').innerHTML = `
         <div class="empty-stream-placeholder">
           <div class="empty-greeting-badge">⚡ ComputeMesh Agent Workspace</div>
-          <h2>Mit KI-Agent auf mifcoms arbeiten</h2>
+          <h2 id="empty-state-hero-title">Mit KI-Agent auf mifcoms arbeiten</h2>
           <p>Aktives Projekt: <strong>${wsName}</strong><br><span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">${wsPath}</span><br>Der Agent führt deine Anweisungen direkt lokal auf deiner Node aus.</p>
           <div class="starter-chips-container">
             <button class="starter-chip" onclick="applyPromptSnippet('Prüfe den Git-Status und alle uncommitteten Änderungen im aktuellen Projekt')">📊 Git-Status prüfen</button>
@@ -2210,7 +2211,10 @@
         if (resp.ok) {
           const data = await resp.json();
           authenticWorkspaces = data.workspaces || [];
-          activeNodeId = data.active_node_id || (data.nodes && data.nodes[0] ? data.nodes[0].node_id : '');
+          authenticNodes = data.nodes || [];
+          if (!activeNodeId || !authenticNodes.some(n => n.node_id === activeNodeId)) {
+            activeNodeId = data.active_node_id || (authenticNodes[0] ? authenticNodes[0].node_id : '');
+          }
           if (data.projects_base_dir) {
             currentProjectsBaseDir = data.projects_base_dir;
             localStorage.setItem('cm_projects_base_dir', data.projects_base_dir);
@@ -2218,19 +2222,23 @@
           }
           
           renderWorkspaces();
-          renderNodesRail(data.nodes || []);
+          renderNodesRail(authenticNodes);
         } else {
           // Fallback to /api/portal/fleet
           const fleetResp = await fetchWithAuth('/api/portal/fleet');
           if (fleetResp.ok) {
             const fData = await fleetResp.json();
             const nodes = fData.nodes || [];
+            authenticNodes = nodes;
             authenticWorkspaces = [];
             nodes.forEach(n => {
               (n.workspaces || []).forEach(w => authenticWorkspaces.push({...w, node_id: n.node_id}));
             });
+            if (!activeNodeId || !authenticNodes.some(n => n.node_id === activeNodeId)) {
+              activeNodeId = authenticNodes[0] ? authenticNodes[0].node_id : '';
+            }
             renderWorkspaces();
-            renderNodesRail(nodes);
+            renderNodesRail(authenticNodes);
           }
         }
       } catch (err) {
@@ -2240,28 +2248,45 @@
 
     function renderWorkspaces() {
       const container = document.getElementById('project-tree');
-      if (!authenticWorkspaces || authenticWorkspaces.length === 0) {
+      
+      const activeNodeObj = authenticNodes.find(n => n.node_id === activeNodeId) || authenticNodes[0] || null;
+      const rawNodeName = activeNodeObj ? (activeNodeObj.display_name || activeNodeObj.node_id) : 'mifcoms';
+      const shortNodeName = rawNodeName.includes('(') ? rawNodeName.split('(')[0].trim() : rawNodeName;
+
+      const titleEl = document.getElementById('sidebar-workspaces-title');
+      if (titleEl) {
+        titleEl.textContent = `Lokale Workspaces (${shortNodeName})`;
+      }
+      const modalLabel = document.getElementById('modal-node-label');
+      if (modalLabel) {
+        modalLabel.textContent = shortNodeName;
+      }
+
+      // Filter by active node if workspaces have node_id
+      let list = authenticWorkspaces;
+      if (activeNodeId) {
+        const nodeWs = authenticWorkspaces.filter(w => !w.node_id || w.node_id === activeNodeId);
+        if (nodeWs.length > 0) {
+          list = nodeWs;
+        }
+      }
+      if (projectFilterQuery) {
+        list = list.filter(w => (w.name || w.id || w.path || '').toLowerCase().includes(projectFilterQuery));
+      }
+
+      if (!list || list.length === 0) {
         container.innerHTML = `
           <div class="empty-state-notice">
-            Keine Projekte auf mifcoms registriert.<br>
+            Keine Projekte auf ${escapeHtml(shortNodeName)} registriert.<br>
             <button class="btn btn-secondary btn-sm" style="margin-top: 8px;" onclick="promptAddWorkspace()">+ Projektpfad registrieren</button>
           </div>
         `;
         return;
       }
 
-      const list = projectFilterQuery
-        ? authenticWorkspaces.filter(w => (w.name || w.id || w.path || '').toLowerCase().includes(projectFilterQuery))
-        : authenticWorkspaces;
-
-      if (list.length === 0) {
-        container.innerHTML = `<div class="empty-state-notice">Kein passendes Projekt gefunden.</div>`;
-        return;
-      }
-
       // If active workspace not set or not in list, select first
-      if (!activeWorkspace || !authenticWorkspaces.some(w => w.id === activeWorkspace.id || w.path === activeWorkspace.path)) {
-        activeWorkspace = authenticWorkspaces[0];
+      if (!activeWorkspace || !list.some(w => w.id === activeWorkspace.id || w.path === activeWorkspace.path)) {
+        activeWorkspace = list[0];
       }
 
       container.innerHTML = list.map(ws => {
@@ -2554,43 +2579,85 @@
       }
     }
 
+    function selectNode(nodeId) {
+      if (!nodeId) return;
+      activeNodeId = nodeId;
+      renderWorkspaces();
+      renderNodesRail(authenticNodes);
+    }
+
+    function cycleActiveNode() {
+      if (!authenticNodes || authenticNodes.length <= 1) return;
+      const idx = authenticNodes.findIndex(n => n.node_id === activeNodeId);
+      const nextIdx = (idx + 1) % authenticNodes.length;
+      selectNode(authenticNodes[nextIdx].node_id);
+    }
+
     function renderNodesRail(nodes) {
+      authenticNodes = nodes || [];
       const list = document.getElementById('cluster-nodes-list');
       const countLabel = document.getElementById('nodes-online-count');
-      const onlineNodes = nodes.filter(n => n.is_online);
+      const onlineNodes = authenticNodes.filter(n => n.is_online || n.status === 'online');
       countLabel.textContent = `${onlineNodes.length} Aktiv`;
 
-      if (nodes.length === 0) {
+      if (authenticNodes.length === 0) {
         list.innerHTML = `<div style="font-size: 11px; color: var(--text-dim);">Keine Inferenz-Knoten gefunden.</div>`;
         return;
       }
 
-      list.innerHTML = nodes.map(n => {
+      list.innerHTML = authenticNodes.map(n => {
         const isOnline = (n.is_online !== undefined) ? n.is_online : (n.status === 'online');
+        const isSelected = activeNodeId && (n.node_id === activeNodeId);
         const statusClass = isOnline ? 'online' : 'offline';
         const statusText = isOnline ? 'Bereit' : 'Offline';
         const vramText = (n.vram_gb && !String(n.hardware || '').includes('GB')) ? `${n.vram_gb}GB VRAM` : '';
-        const summary = n.hardware || n.gpu_summary || (n.gpus && n.gpus[0]) || 'NVIDIA GeForce RTX 3080 10GB';
+        const summary = n.hardware || n.gpu_summary || (n.gpus && n.gpus[0]) || 'GPU Inferenz';
         const dispName = (n.display_name || n.node_id || '').toLowerCase().includes('mifcom') ? 'mifcoms (cm-win-mifcom-rtx3080)' : (n.display_name || n.node_id);
         return `
-          <div class="node-item-clean">
-            <div>
-              <div class="node-name-label">${escapeHtml(dispName)}</div>
-              <div style="font-size: 10px; color: var(--text-muted);">${escapeHtml(summary)} ${vramText ? '• ' + vramText : ''}</div>
+          <div class="node-item-clean ${isSelected ? 'selected' : ''}" 
+               style="cursor: pointer; border-radius: 8px; padding: 8px 10px; transition: all 0.15s ease; ${isSelected ? 'border: 1px solid #8ab4f8; background: rgba(138, 180, 248, 0.12);' : ''}" 
+               onclick="selectNode('${escapeHtml(n.node_id)}')" 
+               title="Klicken, um ${escapeHtml(dispName)} als aktiven Node auszuwählen">
+            <div style="flex: 1; min-width: 0;">
+              <div class="node-name-label" style="display: flex; align-items: center; gap: 6px;">
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(dispName)}</span>
+                ${isSelected ? '<span style="font-size: 9px; background: #8ab4f8; color: #000; padding: 1px 5px; border-radius: 3px; font-weight: 700; flex-shrink: 0;">AKTIV</span>' : ''}
+              </div>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(summary)} ${vramText ? '• ' + vramText : ''}</div>
             </div>
-            <div class="node-status-tag ${statusClass}">${statusText}</div>
+            <div class="node-status-tag ${statusClass}" style="flex-shrink: 0; margin-left: 8px;">${statusText}</div>
           </div>
         `;
       }).join('');
 
-      // Update sidebar header and footer with active node
-      if (nodes.length > 0) {
-        const primary = onlineNodes[0] || nodes[0];
+      // Update sidebar header and hero and footer with active node
+      const primary = authenticNodes.find(n => n.node_id === activeNodeId) || onlineNodes[0] || authenticNodes[0];
+      if (primary) {
+        const isOnline = (primary.is_online !== undefined) ? primary.is_online : (primary.status === 'online');
         const dispName = (primary.display_name || primary.node_id || '').toLowerCase().includes('mifcom') ? 'mifcoms (cm-win-mifcom-rtx3080)' : (primary.display_name || primary.node_id);
-        document.getElementById('sidebar-active-node-name').textContent = dispName;
-        document.getElementById('sidebar-node-title').textContent = dispName;
-        document.getElementById('sidebar-node-subtitle').textContent = primary.is_online ? 'Verbunden • Bereit' : 'Offline';
-        document.getElementById('sidebar-node-avatar').textContent = primary.is_online ? '⚡' : '💤';
+        const shortName = dispName.includes('(') ? dispName.split('(')[0].trim() : dispName;
+        const summary = primary.hardware || primary.gpu_summary || (primary.gpus && primary.gpus[0]) || 'GPU Inferenz';
+        const vramText = (primary.vram_gb && !String(primary.hardware || '').includes('GB')) ? `${primary.vram_gb}GB VRAM` : '';
+        const hwText = `${summary} ${vramText ? '• ' + vramText : ''} • ${isOnline ? 'Online' : 'Offline'}`;
+
+        const sbName = document.getElementById('sidebar-active-node-name');
+        if (sbName) sbName.textContent = dispName;
+        const sbHw = document.getElementById('sidebar-active-node-hw');
+        if (sbHw) sbHw.textContent = hwText;
+        const sbTitle = document.getElementById('sidebar-node-title');
+        if (sbTitle) sbTitle.textContent = dispName;
+        const sbSub = document.getElementById('sidebar-node-subtitle');
+        if (sbSub) sbSub.textContent = isOnline ? 'Verbunden • Bereit' : 'Offline';
+        const sbAvatar = document.getElementById('sidebar-node-avatar');
+        if (sbAvatar) sbAvatar.textContent = isOnline ? '⚡' : '💤';
+
+        const topBadge = document.getElementById('top-badge-node');
+        if (topBadge) topBadge.textContent = `${shortName} ${isOnline ? 'Online' : 'Offline'}`;
+
+        const heroH2 = document.getElementById('empty-state-hero-title');
+        if (heroH2) heroH2.textContent = `Mit KI-Agent auf ${shortName} arbeiten`;
+        const heroDesc = document.getElementById('empty-state-desc');
+        if (heroDesc) heroDesc.innerHTML = `Verbunden mit <strong>${escapeHtml(dispName)}</strong>. Wähle ein lokales Projekt aus der Seitenleiste oder starte direkt eine Aufgabe.`;
 
         const platformLabel = document.getElementById('service-platform-label');
         const modeLabel = document.getElementById('service-mode-label');
@@ -2603,8 +2670,8 @@
         if (portLabel) portLabel.textContent = isWin ? '8081' : '8080';
         if (modeLabel) modeLabel.textContent = isWin ? 'Benutzer-App (Tray)' : 'NodeOS Service';
         if (pill) {
-          pill.className = primary.is_online ? 'node-status-tag online' : 'node-status-tag offline';
-          pill.textContent = primary.is_online ? (isWin ? 'Tray-Prozess aktiv' : 'Service aktiv') : 'Offline';
+          pill.className = isOnline ? 'node-status-tag online' : 'node-status-tag offline';
+          pill.textContent = isOnline ? (isWin ? 'Tray-Prozess aktiv' : 'Service aktiv') : 'Offline';
         }
       }
     }

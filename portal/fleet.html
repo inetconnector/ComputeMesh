@@ -3882,6 +3882,7 @@ for chunk in stream:
         const headers = {};
         if (activeOwnerKey) {
           headers["X-Owner-Key"] = activeOwnerKey;
+          url += (url.includes('?') ? '&' : '?') + `owner_key=${encodeURIComponent(activeOwnerKey)}`;
         }
 
         const res = await fetch(url, { headers });

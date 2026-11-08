@@ -262,10 +262,17 @@ class FleetAccountStore:
                 return candidate
         raise FleetAccountStoreError("Konnte keinen eindeutigen Owner Key generieren. Bitte versuche es erneut.")
 
-    def create_account(self, email: str, *, display_name: str = "") -> FleetAccount:
+    def create_account(
+        self,
+        email: str,
+        *,
+        display_name: str = "",
+        proposed_owner_key: str | None = None,
+        account_id: str | None = None,
+    ) -> FleetAccount:
         cleaned = _clean_email(email)
-        account_id = "facc_" + secrets.token_hex(12)
-        owner_key = self.generate_secure_owner_key()
+        account_id = account_id or ("facc_" + secrets.token_hex(12))
+        owner_key = proposed_owner_key or self.generate_secure_owner_key()
         now = utc_now()
         with self._connection() as conn:
             try:

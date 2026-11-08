@@ -493,6 +493,7 @@ var translations = window.translations || {
     agent_ctx_copy_path: "Copy Folder Path",
     agent_ctx_unregister: "Remove from Workspace List",
     agent_ctx_delete_physical: "Delete Physically from Disk",
+    agent_modal_register_title: "Create / Register Local Project on Node",
 
     // API Section
     api_tag: "DEVELOPER INTEGRATION",
@@ -1281,6 +1282,7 @@ var translations = window.translations || {
     agent_ctx_copy_path: "📋 Pfad kopieren",
     agent_ctx_unregister: "❌ Aus Workspace-Liste entfernen",
     agent_ctx_delete_physical: "🗑️ Physisch von Festplatte löschen",
+    agent_modal_register_title: "Lokales Projekt auf Node anlegen / registrieren",
     // API Section
     api_tag: "ENTWICKLER-SCHNITTSTELLE",
     api_title: "Zwei Zeilen Code. Sofort einsatzbereit.",

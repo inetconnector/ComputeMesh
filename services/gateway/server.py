@@ -1672,7 +1672,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if clean_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
             parsed_path = urlparse(self.path)
             query = parse_qs(parsed_path.query)
-            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session, 4. Query params
             owner_key = self.headers.get("X-Owner-Key", "").strip()
             if not owner_key:
                 auth_hdr = self.headers.get("Authorization", "").strip()
@@ -1680,6 +1680,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     candidate = auth_hdr[7:].strip()
                     if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                         owner_key = candidate
+            if not owner_key:
+                candidate = query.get("owner_key", [""])[0].strip() or query.get("key", [""])[0].strip()
+                if candidate:
+                    owner_key = candidate
             account = session_account_from_headers(self.headers)
             if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
@@ -1692,7 +1696,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             fleet_info = _build_fleet_payload(owner_id, include_remote_urls=False)
             nodes = fleet_info.get("nodes", [])
             all_ws = []
-            active_node_id = ""
+            requested_nid = query.get("node_id", [""])[0].strip()
+            active_node_id = requested_nid if requested_nid and any(n.get("node_id") == requested_nid for n in nodes) else ""
             for node in nodes:
                 nid = node.get("node_id", "")
                 removed_set = set(NODE_TELEMETRY_REGISTRY.get(nid, {}).get("removed_workspaces", []))
@@ -1833,10 +1838,46 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         if clean_path == "/api/auth/me":
             account = session_account_from_headers(self.headers)
+            candidate_key = ""
+            if account is None:
+                candidate_key = self.headers.get("X-Owner-Key", "").strip()
+                if not candidate_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        token = auth_hdr[7:].strip()
+                        if token.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                            candidate_key = token
+                if not candidate_key:
+                    candidate_key = query.get("owner_key", [""])[0].strip() or query.get("key", [""])[0].strip()
+
+                if candidate_key:
+                    acc = FLEET_ACCOUNT_STORE.get_account_by_owner_key(candidate_key)
+                    if acc is None:
+                        derived_id = owner_id_for_key(candidate_key)
+                        if derived_id:
+                            acc = FLEET_ACCOUNT_STORE.create_account(
+                                email=f"{derived_id}@owner.computemesh.local",
+                                proposed_owner_key=candidate_key,
+                                account_id=derived_id,
+                            )
+                    account = acc
+
             if account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
-            self._send_json({"account_id": account.account_id, "email": account.email, "owner_key": account.owner_key})
+
+            cookie_header = None
+            try:
+                from services.portal.passkey_routes import _session_cookie_header
+                sess_token = FLEET_ACCOUNT_STORE.create_session(account.account_id)
+                cookie_header = _session_cookie_header(sess_token)
+            except Exception:
+                pass
+            extra_h = {"Set-Cookie": cookie_header} if cookie_header else None
+            self._send_json(
+                {"account_id": account.account_id, "email": account.email, "owner_key": account.owner_key or candidate_key},
+                extra_headers=extra_h
+            )
             return
 
         if clean_path == "/api/auth/passkeys":
@@ -1855,7 +1896,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 payload["is_community_pool"] = True
                 self._send_json(payload)
                 return
-            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session, 4. Query params
             owner_key = self.headers.get("X-Owner-Key", "").strip()
             if not owner_key:
                 auth_hdr = self.headers.get("Authorization", "").strip()
@@ -1863,6 +1904,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     candidate = auth_hdr[7:].strip()
                     if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                         owner_key = candidate
+            if not owner_key:
+                candidate = query.get("owner_key", [""])[0].strip() or query.get("key", [""])[0].strip()
+                if candidate:
+                    owner_key = candidate
             account = session_account_from_headers(self.headers)
             if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
@@ -1890,7 +1935,27 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 payload["is_suspended"] = True
                 payload["suspension_reason"] = binfo.get("reason", "Administrative suspension")
                 payload["banned_at"] = binfo.get("banned_at")
-            self._send_json(payload)
+
+            extra_h = None
+            if "cm_fleet_session" not in str(self.headers.get("Cookie", "")):
+                try:
+                    eff_acc = facc or account
+                    if eff_acc is None and owner_key:
+                        d_id = derived_owner_id or owner_id_for_key(owner_key)
+                        if d_id:
+                            eff_acc = FLEET_ACCOUNT_STORE.create_account(
+                                email=f"{d_id}@owner.computemesh.local",
+                                proposed_owner_key=owner_key,
+                                account_id=d_id,
+                            )
+                    if eff_acc is not None:
+                        from services.portal.passkey_routes import _session_cookie_header
+                        s_tok = FLEET_ACCOUNT_STORE.create_session(eff_acc.account_id)
+                        extra_h = {"Set-Cookie": _session_cookie_header(s_tok)}
+                except Exception:
+                    pass
+
+            self._send_json(payload, extra_headers=extra_h)
             return
 
         if clean_path == "/api/portal/fleet/payouts":

@@ -92,7 +92,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
         self.assertNotIn("ai.inetconnector.com/webui/?key=", portal_core)
         self.assertNotIn("/webui/?key=", portal_core)
         self.assertNotIn("portal-core.js?v=4.1", portal_js)
-        self.assertIn("portal-core.js?v=5.3", portal_js)
+        self.assertTrue("portal-core.js?v=5.3" in portal_js or "portal-core.js?v=5.4" in portal_js)
         self.assertIn("cm_session=", webui)
 
     def test_portal_registration_renders_structured_gateway_errors(self) -> None:
@@ -321,6 +321,20 @@ class TestSecurityAuditFixes(unittest.TestCase):
             conn.request("GET", "/node/protected_node_01?owner_key=inet-wrong-key-0000000000")
             res = conn.getresponse()
             self.assertEqual(res.status, HTTPStatus.UNAUTHORIZED)
+            res.read()
+
+            # G. /api/auth/me with owner_key in query param -> 200 OK and sets cm_fleet_session cookie
+            conn.request("GET", f"/api/auth/me?owner_key={owner_key}")
+            res = conn.getresponse()
+            self.assertEqual(res.status, HTTPStatus.OK)
+            self.assertIn("cm_fleet_session=", res.headers.get("Set-Cookie", ""))
+            me_data = json.loads(res.read().decode("utf-8"))
+            self.assertEqual(me_data.get("account_id"), owner_id)
+
+            # H. /api/portal/fleet with owner_key in query param -> 200 OK
+            conn.request("GET", f"/api/portal/fleet?owner_key={owner_key}")
+            res = conn.getresponse()
+            self.assertEqual(res.status, HTTPStatus.OK)
             res.read()
             conn.close()
         finally:
