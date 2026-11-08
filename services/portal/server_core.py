@@ -529,8 +529,15 @@ class PortalHandler(BaseHTTPRequestHandler):
             if account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
+            explicit_key = self.headers.get("X-Owner-Key", "").strip()
+            if explicit_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=explicit_key)
+                    account = session_account_from_headers(self.headers) or account
+                except Exception:
+                    pass
             self._send_json(
-                {"account_id": account.account_id, "email": account.email, "owner_key": account.owner_key},
+                {"account_id": account.account_id, "email": account.email, "owner_key": getattr(account, "owner_key", "") or explicit_key},
                 credentialed=True,
             )
             return
@@ -575,21 +582,25 @@ class PortalHandler(BaseHTTPRequestHandler):
                 payload["is_community_pool"] = True
                 self._send_json(payload)
                 return
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        owner_key = candidate
             account = session_account_from_headers(self.headers)
-            owner_key = ""
-            if account is not None:
+            if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
-            else:
-                owner_key = self.headers.get("X-Owner-Key", "").strip()
-                if not owner_key:
-                    auth_hdr = self.headers.get("Authorization", "").strip()
-                    if auth_hdr.startswith("Bearer "):
-                        candidate = auth_hdr[7:].strip()
-                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
-                            owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
+            if account is not None and owner_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=owner_key)
+                except Exception:
+                    pass
 
             from services.gateway.server import _build_fleet_payload, owner_id_for_key
             facc = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key) if owner_key else None
@@ -677,21 +688,25 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path == "/api/portal/fleet/payouts":
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        owner_key = candidate
             account = session_account_from_headers(self.headers)
-            owner_key = ""
-            if account is not None:
+            if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
-            else:
-                owner_key = self.headers.get("X-Owner-Key", "").strip()
-                if not owner_key:
-                    auth_hdr = self.headers.get("Authorization", "").strip()
-                    if auth_hdr.startswith("Bearer "):
-                        candidate = auth_hdr[7:].strip()
-                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
-                            owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
+            if account is not None and owner_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=owner_key)
+                except Exception:
+                    pass
             from services.gateway.server import owner_id_for_key
             owner_id = owner_id_for_key(owner_key)
             if not owner_id:

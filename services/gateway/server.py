@@ -968,18 +968,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
             None,
         )
         if ws_prefix is not None:
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        owner_key = candidate
             account = session_account_from_headers(self.headers)
-            owner_key = ""
-            if account is not None:
+            if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
-            else:
-                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
-                if not owner_key:
-                    auth_hdr = self.headers.get("Authorization", "").strip()
-                    if auth_hdr.startswith("Bearer "):
-                        candidate = auth_hdr[7:].strip()
-                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
-                            owner_key = candidate
+            if account is not None and owner_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=owner_key)
+                except Exception:
+                    pass
             owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
             auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
 
@@ -1635,18 +1639,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if clean_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
             parsed_path = urlparse(self.path)
             query = parse_qs(parsed_path.query)
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        owner_key = candidate
             account = session_account_from_headers(self.headers)
-            owner_key = ""
-            if account is not None:
+            if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
-            else:
-                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
-                if not owner_key:
-                    auth_hdr = self.headers.get("Authorization", "").strip()
-                    if auth_hdr.startswith("Bearer "):
-                        candidate = auth_hdr[7:].strip()
-                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
-                            owner_key = candidate
+            if account is not None and owner_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=owner_key)
+                except Exception:
+                    pass
             owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
             fleet_info = _build_fleet_payload(owner_id, include_remote_urls=False)
             nodes = fleet_info.get("nodes", [])
@@ -1666,35 +1674,41 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     entry.setdefault("status", "active")
                     all_ws.append(entry)
             if not all_ws or not nodes:
-                try:
-                    from tools.appliance.workspace_manager import get_local_node_info, load_local_workspaces
-                    local_info = get_local_node_info()
-                    local_ws = load_local_workspaces()
-                    effective_nid = active_node_id or local_info["node_id"]
-                    removed_set = set(NODE_TELEMETRY_REGISTRY.get(effective_nid, {}).get("removed_workspaces", []))
-                    if not nodes:
-                        filtered_local = [w for w in local_ws if w.get("id") not in removed_set and w.get("path") not in removed_set]
-                        nodes = [{
-                            "node_id": local_info["node_id"],
-                            "display_name": local_info["display_name"],
-                            "node_name": local_info["node_name"],
-                            "hardware": local_info["hardware"],
-                            "is_online": True,
-                            "workspaces": filtered_local,
-                        }]
-                        active_node_id = local_info["node_id"]
-                    for w in local_ws:
-                        if w.get("id") in removed_set or w.get("path") in removed_set:
-                            continue
-                        if not any(x.get("path") == w.get("path") or x.get("id") == w.get("id") for x in all_ws):
-                            entry = dict(w)
-                            entry["node_id"] = effective_nid
-                            entry["node_name"] = local_info["display_name"]
-                            entry.setdefault("registration_source", "user_registered")
-                            entry.setdefault("status", "active")
-                            all_ws.append(entry)
-                except Exception:
-                    pass
+                is_local_appliance = (
+                    sys.platform == "win32"
+                    or os.environ.get("COMPUTEMESH_DESKTOP_APPLIANCE") == "1"
+                    or (hasattr(self, "client_address") and self.client_address[0] in ("127.0.0.1", "::1", "localhost", "testclient"))
+                )
+                if is_local_appliance:
+                    try:
+                        from tools.appliance.workspace_manager import get_local_node_info, load_local_workspaces
+                        local_info = get_local_node_info()
+                        local_ws = load_local_workspaces()
+                        effective_nid = active_node_id or local_info["node_id"]
+                        removed_set = set(NODE_TELEMETRY_REGISTRY.get(effective_nid, {}).get("removed_workspaces", []))
+                        if not nodes:
+                            filtered_local = [w for w in local_ws if w.get("id") not in removed_set and w.get("path") not in removed_set]
+                            nodes = [{
+                                "node_id": local_info["node_id"],
+                                "display_name": local_info["display_name"],
+                                "node_name": local_info["node_name"],
+                                "hardware": local_info["hardware"],
+                                "is_online": True,
+                                "workspaces": filtered_local,
+                            }]
+                            active_node_id = local_info["node_id"]
+                        for w in local_ws:
+                            if w.get("id") in removed_set or w.get("path") in removed_set:
+                                continue
+                            if not any(x.get("path") == w.get("path") or x.get("id") == w.get("id") for x in all_ws):
+                                entry = dict(w)
+                                entry["node_id"] = effective_nid
+                                entry["node_name"] = local_info["display_name"]
+                                entry.setdefault("registration_source", "user_registered")
+                                entry.setdefault("status", "active")
+                                all_ws.append(entry)
+                    except Exception:
+                        pass
             self._send_json({"workspaces": all_ws, "active_node_id": active_node_id, "nodes": nodes})
             return
 
@@ -1808,18 +1822,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 payload["is_community_pool"] = True
                 self._send_json(payload)
                 return
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        owner_key = candidate
             account = session_account_from_headers(self.headers)
-            owner_key = ""
-            if account is not None:
+            if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
-            else:
-                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
-                if not owner_key:
-                    auth_hdr = self.headers.get("Authorization", "").strip()
-                    if auth_hdr.startswith("Bearer "):
-                        candidate = auth_hdr[7:].strip()
-                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
-                            owner_key = candidate
+            if account is not None and owner_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=owner_key)
+                except Exception:
+                    pass
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
@@ -1843,18 +1861,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path == "/api/portal/fleet/payouts":
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        owner_key = candidate
             account = session_account_from_headers(self.headers)
-            owner_key = ""
-            if account is not None:
+            if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
-            else:
-                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
-                if not owner_key:
-                    auth_hdr = self.headers.get("Authorization", "").strip()
-                    if auth_hdr.startswith("Bearer "):
-                        candidate = auth_hdr[7:].strip()
-                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
-                            owner_key = candidate
+            if account is not None and owner_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=owner_key)
+                except Exception:
+                    pass
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
@@ -1926,18 +1948,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/killswitch/status", "/api/killswitch/status"):
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        owner_key = candidate
             account = session_account_from_headers(self.headers)
-            owner_key = ""
-            if account is not None:
+            if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
-            else:
-                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
-                if not owner_key:
-                    auth_hdr = self.headers.get("Authorization", "").strip()
-                    if auth_hdr.startswith("Bearer "):
-                        candidate = auth_hdr[7:].strip()
-                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
-                            owner_key = candidate
+            if account is not None and owner_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=owner_key)
+                except Exception:
+                    pass
             owner_id = owner_id_for_key(owner_key) if owner_key else None
             from runtime.safety.dead_mans_switch import get_lease_guard
             guard = get_lease_guard()
@@ -2094,18 +2120,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if clean_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
             parsed_path = urlparse(self.path)
             query = parse_qs(parsed_path.query)
+            # Priority: 1. Header, 2. Authorization Bearer, 3. Account session
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        owner_key = candidate
             account = session_account_from_headers(self.headers)
-            owner_key = ""
-            if account is not None:
+            if not owner_key and account is not None and getattr(account, "owner_key", ""):
                 owner_key = account.owner_key
-            else:
-                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
-                if not owner_key:
-                    auth_hdr = self.headers.get("Authorization", "").strip()
-                    if auth_hdr.startswith("Bearer "):
-                        candidate = auth_hdr[7:].strip()
-                        if candidate.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
-                            owner_key = candidate
+            if account is not None and owner_key and not getattr(account, "owner_key", ""):
+                try:
+                    FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key=owner_key)
+                except Exception:
+                    pass
             owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
             auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
 

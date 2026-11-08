@@ -2130,7 +2130,18 @@
 
     /* Auth & Gateway API */
     async function fetchWithAuth(url, options = {}) {
-      let token = localStorage.getItem('cm_auth_token') || localStorage.getItem('cm_session_token') || localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || sessionStorage.getItem('computemesh.nodeAuthToken') || (typeof window !== 'undefined' && window.__CM_NODE_AUTH_TOKEN__) || localStorage.getItem('cm_api_key') || localStorage.getItem('apiKey') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('owner_key') || urlParams.get('key') || urlParams.get('token');
+      if (urlKey && urlKey.trim()) {
+        const cleanUrlKey = urlKey.trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '');
+        try {
+          localStorage.setItem('cm_fleet_owner_key', cleanUrlKey);
+          localStorage.setItem('cm_owner_key', cleanUrlKey);
+          localStorage.setItem('cm_auth_token', cleanUrlKey);
+        } catch (_) {}
+      }
+
+      let token = (urlKey && urlKey.trim()) || localStorage.getItem('cm_auth_token') || localStorage.getItem('cm_session_token') || localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || sessionStorage.getItem('computemesh.nodeAuthToken') || (typeof window !== 'undefined' && window.__CM_NODE_AUTH_TOKEN__) || localStorage.getItem('cm_api_key') || localStorage.getItem('apiKey') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
       if (!token) {
         const cookieMatch = document.cookie.match(/(?:^|;\s*)cm_session=([^;]+)/);
         if (cookieMatch) token = decodeURIComponent(cookieMatch[1]);
@@ -2190,7 +2201,12 @@
     /* Load Fleet Nodes & Workspaces */
     async function loadFleetAndWorkspaces() {
       try {
-        const resp = await fetchWithAuth('/api/v1/fleet/workspaces');
+        let wsUrl = '/api/v1/fleet/workspaces';
+        const key = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
+        if (key) {
+          wsUrl += `?owner_key=${encodeURIComponent(key)}`;
+        }
+        const resp = await fetchWithAuth(wsUrl);
         if (resp.ok) {
           const data = await resp.json();
           authenticWorkspaces = data.workspaces || [];
@@ -2425,10 +2441,10 @@
           navigator.clipboard.writeText(ws.path || '').then(() => {
             alert(`Projektpfad in die Zwischenablage kopiert:\n${ws.path}`);
           }).catch(() => {
-            prompt('Projektpfad kopieren:', ws.path);
+            showWorkspaceDetails(wsId);
           });
         } else {
-          prompt('Projektpfad kopieren:', ws.path);
+          showWorkspaceDetails(wsId);
         }
       } else if (action === 'unregister') {
         confirmUnregisterWorkspace(wsId);
@@ -2575,6 +2591,21 @@
         document.getElementById('sidebar-node-title').textContent = dispName;
         document.getElementById('sidebar-node-subtitle').textContent = primary.is_online ? 'Verbunden • Bereit' : 'Offline';
         document.getElementById('sidebar-node-avatar').textContent = primary.is_online ? '⚡' : '💤';
+
+        const platformLabel = document.getElementById('service-platform-label');
+        const modeLabel = document.getElementById('service-mode-label');
+        const nameLabel = document.getElementById('service-name-label');
+        const portLabel = document.getElementById('service-port-label');
+        const pill = document.getElementById('service-status-pill');
+        const isWin = (primary.platform === 'win32' || (primary.node_id && primary.node_id.includes('win')));
+        if (platformLabel) platformLabel.textContent = isWin ? 'Windows (x64)' : 'Linux (systemd)';
+        if (nameLabel) nameLabel.textContent = isWin ? 'ComputeMeshNode' : 'computemesh-node';
+        if (portLabel) portLabel.textContent = isWin ? '8081' : '8080';
+        if (modeLabel) modeLabel.textContent = isWin ? 'Benutzer-App (Tray)' : 'NodeOS Service';
+        if (pill) {
+          pill.className = primary.is_online ? 'node-status-tag online' : 'node-status-tag offline';
+          pill.textContent = primary.is_online ? (isWin ? 'Tray-Prozess aktiv' : 'Service aktiv') : 'Offline';
+        }
       }
     }
 
@@ -2802,14 +2833,49 @@
 
     function renameCurrentSession() {
       if (!activeSessionId) return;
-      const title = prompt('Neuer Sitzungstitel:', document.getElementById('active-session-title').textContent);
-      if (title && title.trim()) {
-        document.getElementById('active-session-title').textContent = title.trim();
-        fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/metadata`, {
-          method: 'POST',
-          body: JSON.stringify({ title: title.trim() })
-        }).then(() => loadSessions(activeWorkspace?.name || activeWorkspace?.path));
-      }
+      const titleSpan = document.getElementById('active-session-title');
+      if (!titleSpan) return;
+      const currentTitle = titleSpan.textContent.trim();
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = currentTitle;
+      input.className = 'session-rename-input';
+      input.style.background = '#1e2124';
+      input.style.color = '#fff';
+      input.style.border = '1px solid var(--accent-cyan)';
+      input.style.borderRadius = '4px';
+      input.style.padding = '2px 8px';
+      input.style.fontSize = '13px';
+      input.style.outline = 'none';
+
+      let finished = false;
+      const save = () => {
+        if (finished) return;
+        finished = true;
+        const newTitle = input.value.trim() || currentTitle;
+        titleSpan.textContent = newTitle;
+        if (newTitle !== currentTitle) {
+          fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/metadata`, {
+            method: 'POST',
+            body: JSON.stringify({ title: newTitle })
+          }).then(() => loadSessions(activeWorkspace?.name || activeWorkspace?.path));
+        }
+      };
+
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          save();
+        } else if (e.key === 'Escape') {
+          finished = true;
+          titleSpan.textContent = currentTitle;
+        }
+      };
+      input.onblur = save;
+
+      titleSpan.textContent = '';
+      titleSpan.appendChild(input);
+      input.focus();
+      input.select();
     }
 
     function archiveCurrentSession() {

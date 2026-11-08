@@ -3822,21 +3822,22 @@ for chunk in stream:
 
       if (data && data.email) activeEmail = data.email;
       updateEmailUI();
-      if (data && data.owner_key) {
-        activeOwnerKey = data.owner_key;
-        document.getElementById("owner-key-val").textContent = data.owner_key;
+      const effectiveOwnerKey = activeOwnerKey || (data && data.owner_key);
+      if (effectiveOwnerKey) {
+        activeOwnerKey = effectiveOwnerKey;
+        document.getElementById("owner-key-val").textContent = effectiveOwnerKey;
         const hintEl = document.getElementById("ollama-owner-key-hint");
-        if (hintEl) hintEl.textContent = data.owner_key;
+        if (hintEl) hintEl.textContent = effectiveOwnerKey;
 
         const curlEl = document.getElementById("curl-quick-cmd");
         if (curlEl) {
-          curlEl.textContent = `curl -sSL -H "X-Owner-Key: ${data.owner_key}" "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux" | bash`;
+          curlEl.textContent = `curl -sSL -H "X-Owner-Key: ${effectiveOwnerKey}" "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux" | bash`;
         }
         const psEl = document.getElementById("ps-quick-cmd");
         if (psEl) {
-          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -Headers @{"X-Owner-Key"="${data.owner_key}"} -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
+          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -Headers @{"X-Owner-Key"="${effectiveOwnerKey}"} -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
-        updateDevApiSnippets(data.owner_key);
+        updateDevApiSnippets(effectiveOwnerKey);
         updateFleetPairQr();
       } else {
         updateDevApiSnippets(activeOwnerKey);
@@ -5189,7 +5190,7 @@ for chunk in stream:
           const res = await fetch("/api/auth/me", { headers: { "X-Owner-Key": cleanKey } });
           if (res.ok) {
             const data = await res.json();
-            onLoggedIn(data);
+            onLoggedIn({ ...data, owner_key: cleanKey });
             loadFleetMcpSettings();
             return;
           }
