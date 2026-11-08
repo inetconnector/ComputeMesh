@@ -1442,6 +1442,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
             node_data = NODE_TELEMETRY_REGISTRY[node_id]
             expected_auth_token = str(node_data.get("auth_token", "")).strip()
 
+            _parsed_node_url = urlparse(self.path)
+            _node_qs = parse_qs(_parsed_node_url.query)
+
             from services.common.node_access import (
                 get_node_session,
                 issue_node_session,
@@ -1449,18 +1452,47 @@ class GatewayHandler(BaseHTTPRequestHandler):
             )
             from_owner_session = session_account_from_headers(self.headers)
             session_owner_id = None
-            if from_owner_session is not None:
+            if from_owner_session is not None and getattr(from_owner_session, "owner_key", ""):
                 session_owner_id = owner_id_for_key(from_owner_session.owner_key)
+
+            # Check explicit owner key from header, Authorization Bearer, or query parameter
+            explicit_owner_key = (
+                self.headers.get("X-Owner-Key", "").strip()
+                or _node_qs.get("owner_key", [""])[0].strip()
+                or _node_qs.get("key", [""])[0].strip()
+            )
+            if not explicit_owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    cand = auth_hdr[7:].strip()
+                    if cand.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                        explicit_owner_key = cand
+            explicit_owner_id = owner_id_for_key(explicit_owner_key) if explicit_owner_key else None
+
             bound_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
             node_session = get_node_session(self.headers, node_id)
-            authorized_by_owner = bool(session_owner_id and bound_owner_id and session_owner_id == bound_owner_id)
+            authorized_by_owner = bool(
+                (session_owner_id and bound_owner_id and session_owner_id == bound_owner_id)
+                or (explicit_owner_id and bound_owner_id and explicit_owner_id == bound_owner_id)
+            )
             authorized_by_session = bool(node_session and node_session.owner_id == bound_owner_id)
+
+            # Check node auth_token in query or header
+            provided_token = (
+                _node_qs.get("auth", [""])[0].strip()
+                or _node_qs.get("token", [""])[0].strip()
+                or self.headers.get("X-Node-Auth-Token", "").strip()
+            )
+            authorized_by_token = False
+            if provided_token and expected_auth_token:
+                import hmac
+                authorized_by_token = hmac.compare_digest(provided_token, expected_auth_token)
 
             # Enforce authentication if node telemetry is protected with an auth token
             if not expected_auth_token:
                 self._send_error_response("Node has no configured authentication token.", "unauthorized", HTTPStatus.UNAUTHORIZED)
                 return
-            if not (authorized_by_owner or authorized_by_session):
+            if not (authorized_by_owner or authorized_by_session or authorized_by_token):
                 self._send_error_response("Unauthorized: Valid node session required to view this node's telemetry.", "unauthorized", HTTPStatus.UNAUTHORIZED)
                 return
 
@@ -1473,11 +1505,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             body = html.encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            if authorized_by_owner and not authorized_by_session:
+            if (authorized_by_owner or authorized_by_token) and not authorized_by_session:
+                effective_owner_id = session_owner_id or explicit_owner_id or bound_owner_id
                 self.send_header(
                     "Set-Cookie",
                     node_session_cookie(
-                        issue_node_session(node_id, session_owner_id),
+                        issue_node_session(node_id, effective_owner_id),
                         secure=str(getattr(CONFIG.endpoints, "scheme", "https")) == "https",
                     ),
                 )

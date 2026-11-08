@@ -3925,7 +3925,11 @@ for chunk in stream:
         selectEl.innerHTML = `<option value="">-- ${getLang() === 'de' ? 'Server auswählen' : 'Select Server'} --</option>`;
         activeNodesList.forEach(n => {
           const opt = document.createElement("option");
-          opt.value = n.remote_url || `/node/${n.node_id}`;
+          let baseTarget = n.remote_url || `/node/${n.node_id}`;
+          if (activeOwnerKey) {
+            baseTarget += (baseTarget.includes('?') ? '&' : '?') + `owner_key=${encodeURIComponent(activeOwnerKey)}`;
+          }
+          opt.value = baseTarget;
           const statusTag = (n.is_online || n.status === 'online') ? '✓ Online' : 'Standby';
           opt.textContent = `${n.node_id} (${n.vram_gb} GB VRAM &middot; ${statusTag})`;
           selectEl.appendChild(opt);
@@ -4001,7 +4005,11 @@ for chunk in stream:
               </div>
             ` : '';
 
-            const targetUrl = n.remote_url || `/node/${n.node_id}`;
+            let targetUrl = n.remote_url || `/node/${n.node_id}`;
+            if (activeOwnerKey) {
+              const sep = targetUrl.includes('?') ? '&' : '?';
+              targetUrl += `${sep}owner_key=${encodeURIComponent(activeOwnerKey)}`;
+            }
 
             let statusBadge = '';
             if (n.status === 'quarantined') {

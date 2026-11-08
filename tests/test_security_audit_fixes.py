@@ -304,6 +304,24 @@ class TestSecurityAuditFixes(unittest.TestCase):
             html_body = res.read().decode("utf-8")
             self.assertIn("protected_node_01", html_body)
             self.assertIn("RTX 4090", html_body)
+
+            # E. Accessing with matching owner_key in query param -> 200 OK & sets session cookie.
+            from services.gateway.server import owner_id_for_key
+            owner_key = "inet-test-owner-key-1234567890"
+            owner_id = owner_id_for_key(owner_key)
+            NODE_TELEMETRY_REGISTRY["protected_node_01"]["owner_id"] = owner_id
+            conn.request("GET", f"/node/protected_node_01?owner_key={owner_key}")
+            res = conn.getresponse()
+            self.assertEqual(res.status, HTTPStatus.OK)
+            set_cookie = res.headers.get("Set-Cookie", "")
+            self.assertIn("cm_node_session=", set_cookie)
+            res.read()
+
+            # F. Accessing with mismatched owner_key in query param -> 401 Unauthorized.
+            conn.request("GET", "/node/protected_node_01?owner_key=inet-wrong-key-0000000000")
+            res = conn.getresponse()
+            self.assertEqual(res.status, HTTPStatus.UNAUTHORIZED)
+            res.read()
             conn.close()
         finally:
             server.shutdown()
