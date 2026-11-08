@@ -1690,6 +1690,26 @@
     </div>
   </div>
 
+  <!-- Workspace Context Menu -->
+  <div id="workspace-context-menu" class="agent-menu" style="position: fixed; z-index: 2500; min-width: 240px; display: none;">
+    <div class="agent-menu-item" onclick="handleWsContextAction('select')">
+      <span data-i18n="agent_ctx_open_project">Open as Active Project</span>
+    </div>
+    <div class="agent-menu-item" onclick="handleWsContextAction('details')">
+      <span data-i18n="agent_ctx_show_details">Show Details & Path</span>
+    </div>
+    <div class="agent-menu-item" onclick="handleWsContextAction('copy_path')">
+      <span data-i18n="agent_ctx_copy_path">Copy Folder Path</span>
+    </div>
+    <div class="agent-menu-divider"></div>
+    <div class="agent-menu-item" onclick="handleWsContextAction('unregister')">
+      <span style="color: #cbd5e1;" data-i18n="agent_ctx_unregister">Remove from Workspace List</span>
+    </div>
+    <div class="agent-menu-item" onclick="handleWsContextAction('delete')" style="color: var(--accent-red);">
+      <span data-i18n="agent_ctx_delete_physical">Delete Physically from Disk</span>
+    </div>
+  </div>
+
   <!-- Diff & Changes Modal -->
   <div id="diff-modal" class="agent-modal-overlay" onclick="if(event.target===this)closeDiffModal()">
     <div class="agent-modal" style="max-width: 650px;">
@@ -1718,10 +1738,23 @@
     let currentModel = 'qwen2.5:3b';
     let projectFilterQuery = '';
 
-    // Global Dropdown Closer
+    // Global Dropdown Closer & Context Menu Handler
     window.addEventListener('click', function(e) {
+      const wsMenu = document.getElementById('workspace-context-menu');
+      if (wsMenu && !wsMenu.contains(e.target) && !e.target.closest('.folder-actions-btn')) {
+        wsMenu.style.display = 'none';
+      }
       if (!e.target.closest('.menu-item-container') && !e.target.closest('.main-header-actions')) {
-        document.querySelectorAll('.agent-menu').forEach(m => m.classList.remove('show'));
+        document.querySelectorAll('.agent-menu').forEach(m => {
+          if (m !== wsMenu) m.classList.remove('show');
+        });
+      }
+    });
+
+    window.addEventListener('contextmenu', function(e) {
+      if (!e.target.closest('.tree-folder-item') && !e.target.closest('.folder-actions-btn')) {
+        const wsMenu = document.getElementById('workspace-context-menu');
+        if (wsMenu) wsMenu.style.display = 'none';
       }
     });
 
@@ -2227,7 +2260,9 @@
         }
 
         return `
-          <div class="tree-folder-item ${isActive ? 'active' : ''}" onclick="selectWorkspace('${escapeHtml(ws.id || ws.path)}')">
+          <div class="tree-folder-item ${isActive ? 'active' : ''}" 
+               onclick="selectWorkspace('${escapeHtml(ws.id || ws.path)}')"
+               oncontextmenu="openWorkspaceContextMenu(event, '${escapeHtml(ws.id)}')">
             <div class="folder-title-row" style="flex: 1; min-width: 0;">
               <span>📁</span>
               <span title="${escapeHtml(ws.path)}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(ws.name || ws.id)}</span>
@@ -2235,7 +2270,7 @@
             <div style="display: flex; align-items: center; gap: 4px;">
               ${srcBadge}
               ${branchBadge}
-              <button class="folder-actions-btn" title="Optionen" onclick="event.stopPropagation(); openWorkspaceOptions('${escapeHtml(ws.id)}')">•••</button>
+              <button class="folder-actions-btn" title="Optionen" onclick="openWorkspaceContextMenu(event, '${escapeHtml(ws.id)}')">•••</button>
             </div>
           </div>
         `;
@@ -2320,20 +2355,84 @@
       }
     }
 
-    /* Workspace Options & Provenance Operations */
+    /* Workspace Context Menu & Provenance Operations */
     let currentWorkspaceActionId = null;
 
-    function openWorkspaceOptions(wsId) {
+    function openWorkspaceContextMenu(event, wsId) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       const ws = authenticWorkspaces.find(w => w.id === wsId);
       if (!ws) return;
       currentWorkspaceActionId = wsId;
 
-      const choice = prompt(`Projekt: ${ws.name || ws.id}\n\nOption wählen:\n1: Details & Quelle anzeigen\n2: Aus Workspace-Liste entfernen (Ordner bleibt erhalten)\n3: Physisch von Festplatte löschen (GEFÄHRLICH)\n\n(1, 2 oder 3 eingeben):`);
-      if (choice === '1') {
+      const menu = document.getElementById('workspace-context-menu');
+      if (!menu) return;
+
+      // Close other open menus
+      document.querySelectorAll('.agent-menu').forEach(m => {
+        if (m !== menu) m.classList.remove('show');
+      });
+
+      menu.style.display = 'block';
+
+      let x = 200;
+      let y = 200;
+
+      if (event && event.currentTarget && event.currentTarget.classList.contains('folder-actions-btn')) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        x = rect.right - 240;
+        y = rect.bottom + 4;
+      } else if (event && typeof event.clientX === 'number') {
+        x = event.clientX;
+        y = event.clientY;
+      }
+
+      const menuWidth = 240;
+      const menuHeight = 180;
+      if (x + menuWidth > window.innerWidth - 10) {
+        x = window.innerWidth - menuWidth - 10;
+      }
+      if (x < 10) x = 10;
+      if (y + menuHeight > window.innerHeight - 10) {
+        y = window.innerHeight - menuHeight - 10;
+      }
+
+      menu.style.left = `${Math.round(x)}px`;
+      menu.style.top = `${Math.round(y)}px`;
+    }
+
+    function openWorkspaceOptions(wsId) {
+      openWorkspaceContextMenu(null, wsId);
+    }
+
+    function handleWsContextAction(action) {
+      const menu = document.getElementById('workspace-context-menu');
+      if (menu) menu.style.display = 'none';
+      if (!currentWorkspaceActionId) return;
+
+      const wsId = currentWorkspaceActionId;
+      const ws = authenticWorkspaces.find(w => w.id === wsId);
+      if (!ws) return;
+
+      if (action === 'select') {
+        selectWorkspace(ws.id || ws.path);
+      } else if (action === 'details') {
         showWorkspaceDetails(wsId);
-      } else if (choice === '2') {
+      } else if (action === 'copy_path') {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(ws.path || '').then(() => {
+            alert(`Projektpfad in die Zwischenablage kopiert:\n${ws.path}`);
+          }).catch(() => {
+            prompt('Projektpfad kopieren:', ws.path);
+          });
+        } else {
+          prompt('Projektpfad kopieren:', ws.path);
+        }
+      } else if (action === 'unregister') {
         confirmUnregisterWorkspace(wsId);
-      } else if (choice === '3') {
+      } else if (action === 'delete') {
         openPhysicalDeleteModal(wsId);
       }
     }

@@ -485,6 +485,11 @@ var translations = window.translations || {
     agent_settings_cancel_btn: "Cancel",
     agent_settings_open_btn: "Settings",
     agent_settings_adjust_path: "Adjust base path",
+    agent_ctx_open_project: "Open as Active Project",
+    agent_ctx_show_details: "Show Details & Path",
+    agent_ctx_copy_path: "Copy Folder Path",
+    agent_ctx_unregister: "Remove from Workspace List",
+    agent_ctx_delete_physical: "Delete Physically from Disk",
 
     // API Section
     api_tag: "DEVELOPER INTEGRATION",
@@ -1265,6 +1270,11 @@ var translations = window.translations || {
     agent_settings_cancel_btn: "Abbrechen",
     agent_settings_open_btn: "Einstellungen",
     agent_settings_adjust_path: "Basispfad anpassen",
+    agent_ctx_open_project: "📂 Als aktives Projekt öffnen",
+    agent_ctx_show_details: "ℹ️ Details & Pfad anzeigen",
+    agent_ctx_copy_path: "📋 Pfad kopieren",
+    agent_ctx_unregister: "❌ Aus Workspace-Liste entfernen",
+    agent_ctx_delete_physical: "🗑️ Physisch von Festplatte löschen",
     // API Section
     api_tag: "ENTWICKLER-SCHNITTSTELLE",
     api_title: "Zwei Zeilen Code. Sofort einsatzbereit.",
