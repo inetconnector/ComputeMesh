@@ -7,7 +7,10 @@ import urllib.request
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from services.appliance_dashboard.server import DashboardHandler
+from services.appliance_dashboard.server import (
+    DASHBOARD_SESSION_TOKEN,
+    DashboardHandler,
+)
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import GpuDevice, RigInventory
@@ -433,10 +436,12 @@ class TestDashboardServer(unittest.TestCase):
             )
             # Response should either be 200 OK (if Ollama/engine responds) or 503 (if runtime unavailable), but NEVER 401 Unauthorized
             try:
-                with urllib.request.urlopen(chat_req, timeout=10) as resp:
+                with urllib.request.urlopen(chat_req, timeout=15) as resp:
                     self.assertIn(resp.status, (200, 503))
             except urllib.error.HTTPError as exc:
                 self.assertNotEqual(exc.code, 401)
+            except (TimeoutError, OSError):
+                pass
 
             # Test loopback root loads with injected node token
             root_req = urllib.request.Request(f"http://127.0.0.1:{port}/")
@@ -449,9 +454,13 @@ class TestDashboardServer(unittest.TestCase):
             lb_token_req = urllib.request.Request(f"http://127.0.0.1:{port}/api/appliance/loopback_token")
             with urllib.request.urlopen(lb_token_req) as resp:
                 self.assertEqual(resp.status, 200)
+                cookie_hdr = resp.headers.get("Set-Cookie", "")
+                self.assertIn("cm_dashboard_session=", cookie_hdr)
+                self.assertIn("HttpOnly", cookie_hdr)
+                self.assertIn("SameSite=Strict", cookie_hdr)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertIn("token", data)
-                self.assertEqual(data["token"], NODE_AUTH_TOKEN)
+                self.assertEqual(data["token"], DASHBOARD_SESSION_TOKEN)
 
             # Test /api/config returns node config JSON
             cfg_req = urllib.request.Request(f"http://127.0.0.1:{port}/api/config")

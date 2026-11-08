@@ -1,6 +1,7 @@
 """Appliance System Actions, Configuration, and Lifecycle Handlers."""
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import os
@@ -26,11 +27,46 @@ class SystemActionsHandler:
         appliance_version: str,
     ) -> bool:
         if req_path == "/api/config":
+            is_loop = False
+            client_ip = str(getattr(handler, "client_address", ("", 0))[0] or "")
+            try:
+                is_loop = ipaddress.ip_address(client_ip).is_loopback
+            except ValueError:
+                is_loop = False
+
+            # Block cross-site CSRF/theft from unauthorized third-party origins
+            sec_fetch_site = str(getattr(handler, "headers", {}).get("Sec-Fetch-Site", "")).strip().lower()
+            if sec_fetch_site == "cross-site":
+                from services.appliance_dashboard.server import ALLOWED_CORS_ORIGINS
+                origin = str(getattr(handler, "headers", {}).get("Origin", "")).strip()
+                if not (origin in ALLOWED_CORS_ORIGINS or "localhost" in origin or "127.0.0.1" in origin):
+                    handler._send_unauthorized()
+                    return True
+
+            is_admin = False
+            if hasattr(handler, "_verify_admin_auth"):
+                is_admin = handler._verify_admin_auth()
+
             cfg = getattr(handler, "config", None)
             if cfg is None:
                 from tools.appliance.appliance_config import load_appliance_config
                 cfg = load_appliance_config()
             cfg_dict = cfg.to_dict() if hasattr(cfg, "to_dict") else dict(cfg)
+
+            # Redact sensitive secrets for unauthenticated non-loopback LAN callers
+            if not is_admin and not is_loop:
+                raw_owner_key = str(cfg_dict.get("owner_key") or "").strip()
+                if len(raw_owner_key) > 12:
+                    cfg_dict["owner_key"] = f"{raw_owner_key[:8]}...{raw_owner_key[-4:]}"
+                elif raw_owner_key:
+                    cfg_dict["owner_key"] = "redacted"
+                if "ssh_authorized_keys" in cfg_dict:
+                    cfg_dict["ssh_authorized_keys"] = None
+                if "payout_address" in cfg_dict and cfg_dict["payout_address"]:
+                    addr = str(cfg_dict["payout_address"])
+                    if len(addr) > 10:
+                        cfg_dict["payout_address"] = f"{addr[:6]}...{addr[-4:]}"
+
             handler._send_json(cfg_dict, HTTPStatus.OK)
             return True
 

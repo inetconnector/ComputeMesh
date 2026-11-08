@@ -80,11 +80,34 @@ class TestDashboardAdminAuth(unittest.TestCase):
             client_address = ("192.168.1.50", 12345)
             path = "/api/appliance/loopback_token"
 
+            def _verify_host_header(self):
+                return True
+
             def _send_unauthorized(self):
                 unauth_called.append(True)
 
             def _send_json(self, payload, status=HTTPStatus.OK):
                 sent_json.append((payload, status))
+
+            def send_response(self, status):
+                self._status = status
+
+            def send_header(self, k, v):
+                pass
+
+            def _send_cors_headers(self):
+                pass
+
+            def end_headers(self):
+                pass
+
+            class _WFile:
+                def write(self, b):
+                    try:
+                        sent_json.append((json.loads(b.decode("utf-8")), HTTPStatus.OK))
+                    except Exception:
+                        pass
+            wfile = _WFile()
 
         # Remote IP -> unauthorized
         remote_h = MockHandler()
@@ -111,7 +134,7 @@ class TestDashboardAdminAuth(unittest.TestCase):
         self.assertEqual(len(sent_json), 1)
         payload, status = sent_json[0]
         self.assertEqual(status, HTTPStatus.OK)
-        self.assertEqual(payload.get("token"), NODE_AUTH_TOKEN)
+        self.assertEqual(payload.get("token"), DASHBOARD_SESSION_TOKEN)
         self.assertEqual(payload.get("session"), DASHBOARD_SESSION_TOKEN)
 
 

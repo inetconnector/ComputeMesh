@@ -222,6 +222,36 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
+    def _verify_host_header(self) -> bool:
+        """Validates the HTTP Host header against DNS-rebinding attacks."""
+        host_header = str(self.headers.get("Host", "")).strip()
+        if not host_header:
+            return True
+
+        if host_header.startswith("["):
+            bracket_end = host_header.find("]")
+            if bracket_end != -1:
+                raw_host = host_header[1:bracket_end]
+            else:
+                return False
+        else:
+            raw_host = host_header.split(":")[0].strip().lower()
+
+        if raw_host in {"localhost", "localhost.localdomain"}:
+            return True
+
+        for allowed in ALLOWED_CORS_ORIGINS:
+            if allowed.endswith(f"://{raw_host}"):
+                return True
+
+        try:
+            ip = ipaddress.ip_address(raw_host)
+            return ip.is_loopback or ip.is_private or ip.is_link_local
+        except ValueError:
+            pass
+
+        return False
+
     def _verify_admin_auth(self) -> bool:
         supplied_token = self.headers.get("X-Node-Auth-Token", "")
         authorization = self.headers.get("Authorization", "")
@@ -290,6 +320,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return bool(supplied_key) and hmac.compare_digest(supplied_key, configured_key)
 
     def do_OPTIONS(self) -> None:
+        if not self._verify_host_header():
+            self.send_response(HTTPStatus.FORBIDDEN)
+            self.end_headers()
+            return
         self.send_response(HTTPStatus.OK)
         self._send_cors_headers()
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
@@ -393,6 +427,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def do_GET(self) -> None:
+        if not self._verify_host_header():
+            self._send_json({"error": {"message": "Forbidden: invalid host header", "code": 403}}, HTTPStatus.FORBIDDEN)
+            return
+
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
         client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
@@ -409,10 +447,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if sec_fetch_site == "cross-site":
                 self._send_unauthorized()
                 return
-            self._send_json({
-                "token": _tunnel_relay.NODE_AUTH_TOKEN,
+            resp_body = json.dumps({
+                "token": DASHBOARD_SESSION_TOKEN,
                 "session": DASHBOARD_SESSION_TOKEN,
-            }, HTTPStatus.OK)
+            }).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Set-Cookie", f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; SameSite=Strict; HttpOnly")
+            self._send_cors_headers()
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
             return
 
         if MeshShardingHandler.handle_get(self, req_path):
@@ -436,7 +481,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if req_path in ("", "/", "/index.html"):
-            token_to_inject = _tunnel_relay.NODE_AUTH_TOKEN if is_loopback else None
+            token_to_inject = DASHBOARD_SESSION_TOKEN if is_loopback else None
             html = get_dashboard_html(auth_token=token_to_inject)
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -618,6 +663,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def do_POST(self) -> None:
+        if not self._verify_host_header():
+            self._send_json({"error": {"message": "Forbidden: invalid host header", "code": 403}}, HTTPStatus.FORBIDDEN)
+            return
+
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
         try:
