@@ -3843,6 +3843,15 @@ for chunk in stream:
       const effectiveOwnerKey = activeOwnerKey || (data && data.owner_key);
       if (effectiveOwnerKey) {
         activeOwnerKey = effectiveOwnerKey;
+        try {
+          var isSecure = window.location.protocol === 'https:';
+          var cookieVal = encodeURIComponent(effectiveOwnerKey);
+          var cookieDomain = window.location.hostname.endsWith('inetconnector.com') ? '; Domain=.inetconnector.com' : '';
+          var secureFlag = isSecure ? '; Secure' : '';
+          var cookieStr = 'cm_fleet_session=' + cookieVal + '; Path=/; Max-Age=31536000; SameSite=Lax' + cookieDomain + secureFlag;
+          document.cookie = cookieStr;
+          document.cookie = cookieStr.replace('cm_fleet_session=', 'cm_session=');
+        } catch (_) {}
         document.getElementById("owner-key-val").textContent = effectiveOwnerKey;
         const hintEl = document.getElementById("ollama-owner-key-hint");
         if (hintEl) hintEl.textContent = effectiveOwnerKey;
@@ -4116,7 +4125,7 @@ for chunk in stream:
 
               <div>
                 <div style="display:flex;gap:0.5rem;align-items:center;">
-                  <a href="${targetUrl}" target="_self" class="btn btn-primary" style="flex:1;text-align:center;display:block;padding:0.65rem 0.75rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
+                  <a href="${targetUrl}" onclick="openNodeServerInfo(event, '${targetUrl}')" target="_self" class="btn btn-primary" style="flex:1;text-align:center;display:block;padding:0.65rem 0.75rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
                     ⚡ ${getLang() === 'de' ? 'Server Info →' : 'Server Info →'}
                   </a>
                   <button type="button" class="btn-node-delete" onclick="confirmDeleteNode('${escapeHtml(n.node_id)}')" title="${getLang() === 'de' ? 'Knoten aus Flotte entfernen' : 'Remove node from fleet'}">
@@ -4429,9 +4438,26 @@ for chunk in stream:
       }
     }
 
+    function openNodeServerInfo(e, targetUrl) {
+      if (e) e.preventDefault();
+      var key = activeOwnerKey || localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || "";
+      if (key) {
+        try {
+          var isSecure = window.location.protocol === 'https:';
+          var cookieVal = encodeURIComponent(key);
+          var cookieDomain = window.location.hostname.endsWith('inetconnector.com') ? '; Domain=.inetconnector.com' : '';
+          var secureFlag = isSecure ? '; Secure' : '';
+          var cookieStr = 'cm_fleet_session=' + cookieVal + '; Path=/; Max-Age=31536000; SameSite=Lax' + cookieDomain + secureFlag;
+          document.cookie = cookieStr;
+          document.cookie = cookieStr.replace('cm_fleet_session=', 'cm_session=');
+        } catch (_) {}
+      }
+      window.location.href = targetUrl;
+    }
+
     function onQuickServerSelect(targetUrl) {
       if (targetUrl) {
-        window.location.href = targetUrl;
+        openNodeServerInfo(null, targetUrl);
       }
     }
 
