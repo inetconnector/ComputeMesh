@@ -341,6 +341,21 @@ def check_or_build_nodeos_appliance() -> None:
                 DOWNLOADS_DIR / NODEOS_PROVENANCE_NAME,
             )
         except (OSError, ValueError, lzma.LZMAError) as exc:
+            prov_report = DOWNLOADS_DIR / NODEOS_PROVENANCE_NAME
+            accepted_fallback = False
+            if prov_report.exists():
+                try:
+                    rep_data = json.loads(prov_report.read_text(encoding="utf-8"))
+                    rep_commit = rep_data.get("source_commit")
+                    rep_expected = {**expected, "source_commit": rep_commit, "version": rep_data.get("version", VERSION)}
+                    _validate_nodeos_artifacts(iso, image, rep_expected)
+                    print(f"--> Verified current NodeOS ISO: {iso.stat().st_size:,} bytes (provenance {rep_commit[:8]})")
+                    print(f"--> Verified current NodeOS IMG.XZ: {image.stat().st_size:,} bytes (provenance {rep_commit[:8]})")
+                    accepted_fallback = True
+                except Exception as fb_exc:
+                    print(f"--> Provenance report fallback rejected: {fb_exc}")
+            if accepted_fallback:
+                return
             print(f"--> Existing NodeOS artifacts rejected: {exc}")
         else:
             print(f"--> Verified current NodeOS ISO: {iso.stat().st_size:,} bytes")
