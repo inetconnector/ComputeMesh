@@ -605,3 +605,60 @@ def start_clone(target_device: str, confirm_phrase: str, block_size_mb: int = 4)
     )
     thread.start()
     return True, "Clone started"
+
+
+def main() -> int:
+    import argparse
+    import json
+    import sys
+
+    parser = argparse.ArgumentParser(description="ComputeMesh NodeOS USB-to-SSD Boot Disk Cloning")
+    parser.add_argument("--info", action="store_true", help="Print boot source info")
+    parser.add_argument("--list", action="store_true", help="List valid non-removable target disks")
+    parser.add_argument("--status", action="store_true", help="Print current cloning status")
+    parser.add_argument("--target", type=str, help="Target device path (e.g. /dev/sda)")
+    parser.add_argument("--confirm", type=str, help=f"Exact confirmation phrase: '{CONFIRM_PHRASE}'")
+    parser.add_argument("--block-size-mb", type=int, default=4, help="Block size in MB (default: 4)")
+    args = parser.parse_args()
+
+    if args.info:
+        print(json.dumps(get_boot_source_info(), indent=2))
+        return 0
+    if args.status:
+        print(json.dumps(get_clone_status(), indent=2))
+        return 0
+    if args.list:
+        info = get_boot_source_info()
+        src = info.get("source_disk")
+        src_name = src.rsplit("/", 1)[-1] if src else None
+        targets = list_clone_targets(src_name, info.get("clone_bytes"))
+        print(json.dumps(targets, indent=2))
+        return 0
+
+    if args.target:
+        if not args.confirm:
+            print(f"Error: --confirm '{CONFIRM_PHRASE}' is required to erase and clone.", file=sys.stderr)
+            return 1
+        ok, msg = start_clone(args.target, args.confirm, args.block_size_mb)
+        print(msg)
+        if not ok:
+            return 1
+        while True:
+            time.sleep(1)
+            st = get_clone_status()
+            print(f"Cloning: {st.get('bytes_copied', 0)} / {st.get('total_bytes', 0)} bytes ({st.get('percent', 0)}%)")
+            if not st.get("running"):
+                if st.get("error"):
+                    print(f"Clone failed: {st['error']}", file=sys.stderr)
+                    return 1
+                print("Clone completed successfully. Target persistence provisioned.")
+                return 0
+
+    parser.print_help()
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
+

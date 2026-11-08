@@ -466,7 +466,7 @@ def build_appliance(
         "--variant=minbase",
         "--keyring",
         str(debian_keyring),
-        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc,spirv-headers,libgomp1",
+        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,python3-cryptography,python3-jsonschema,python3-psutil,python3-yaml,python3-requests,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc,spirv-headers,libgomp1",
         "trixie",
         str(CHROOT_DIR),
         debian_mirror,

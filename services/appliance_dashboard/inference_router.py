@@ -27,6 +27,30 @@ def _managed_runtime_status() -> dict[str, Any] | None:
             return status
     except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         log.debug("Managed engine status probe skipped: %s", exc)
+    try:
+        raw_port = os.environ.get("COMPUTEMESH_LLAMA_PORT", "8081")
+        req = urllib.request.Request(f"http://127.0.0.1:{raw_port}/health")
+        with urllib.request.urlopen(req, timeout=0.5) as resp:
+            if resp.status == 200:
+                mid = ""
+                try:
+                    m_req = urllib.request.Request(f"http://127.0.0.1:{raw_port}/v1/models")
+                    with urllib.request.urlopen(m_req, timeout=0.5) as m_resp:
+                        d = json.loads(m_resp.read().decode())
+                        if d.get("data"):
+                            mid = str(d["data"][0].get("id", "")).strip()
+                except Exception:
+                    pass
+                return {
+                    "engine": {
+                        "ready": True,
+                        "endpoint": f"http://127.0.0.1:{raw_port}",
+                        "model_id": mid or "bartowski/qwen2.5-7b-instruct-gguf",
+                    },
+                    "models": [],
+                }
+    except Exception:
+        pass
     return None
 
 
@@ -602,7 +626,7 @@ class InferenceRouter:
                         "temperature": float(payload.get("temperature", 0.7) or 0.7),
                         "max_tokens": min(512, int(payload.get("max_tokens", 512) or 512)),
                     }
-                    if tools_list:
+                    if tools_list and ("tools" in payload or payload.get("enable_tools")):
                         openai_req["tools"] = tools_list
                     req = urllib.request.Request(
                         f"{managed['engine']['endpoint']}/v1/chat/completions",

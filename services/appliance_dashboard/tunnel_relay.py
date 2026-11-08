@@ -286,9 +286,12 @@ class CloudTunnelRelay:
                 gpu_thermals = [item.to_dict() for item in read_all_thermals(inv)]
             except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 gpu_thermals = []
+            installed_models = []
             try:
                 from services.appliance_dashboard.model_manager import get_model_manager
-                model_runtime = get_model_manager().status().get("engine", {})
+                mm = get_model_manager()
+                model_runtime = mm.status().get("engine", {})
+                installed_models = mm.list_models()
             except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 model_runtime = {"state": "unavailable", "ready": False, "last_error": str(exc)}
         local_vram_gb = round(inv.total_vram_bytes / (1024**3), 1)
@@ -296,6 +299,7 @@ class CloudTunnelRelay:
             "node_id": self.node_id,
             "status": "online",
             "inventory": inv.to_dict(),
+            "models": installed_models,
             "telemetry": {
                 "tokens_processed": toks_processed,
                 "earnings_cm": earnings_cm,
@@ -368,6 +372,7 @@ class CloudTunnelRelay:
                 "lan_ips": lan_ips,
             },
             "inventory": inv.to_dict(),
+            "models": installed_models,
             "workspaces": node_workspaces,
             "telemetry": {
                 "tokens_processed": toks_processed,

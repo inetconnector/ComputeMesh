@@ -56,7 +56,7 @@ class ModelEngineService:
         executable: str | None = None,
         host: str = "127.0.0.1",
         port: int = 8081,
-        startup_timeout_seconds: float = 90.0,
+        startup_timeout_seconds: float = float(os.environ.get("COMPUTEMESH_LLAMA_STARTUP_TIMEOUT", "180.0")),
         process_factory: Callable[..., subprocess.Popen[Any]] = subprocess.Popen,
         runtime_probe: RuntimeProbe | None = None,
     ) -> None:
@@ -276,6 +276,35 @@ class ModelEngineService:
     def status(self) -> dict[str, Any]:
         with self._lock:
             running = self._process is not None and self._process.poll() is None
+            if not running and self._health(timeout=0.5):
+                active_model_id = self._model.model_id if self._model else ""
+                if not active_model_id:
+                    try:
+                        req = urllib.request.Request(
+                            f"http://{self.host}:{self.port}/v1/models",
+                            headers={"Accept": "application/json"},
+                        )
+                        with urllib.request.urlopen(req, timeout=0.5) as resp:
+                            m_data = json.loads(resp.read().decode())
+                            if m_data.get("data") and isinstance(m_data["data"], list):
+                                active_model_id = str(m_data["data"][0].get("id", "")).strip()
+                    except Exception:
+                        pass
+                return {
+                    "state": "ready",
+                    "ready": True,
+                    "inference_state": "INFERENCE_READY",
+                    "runtime_verified": True,
+                    "runtime_detail": "external_service",
+                    "model_id": active_model_id or "bartowski/qwen2.5-7b-instruct-gguf",
+                    "model_sha256": self._model.sha256 if self._model else "",
+                    "model_size_bytes": self._model.size_bytes if self._model else 0,
+                    "endpoint": f"http://{self.host}:{self.port}",
+                    "pid": None,
+                    "started_at_unix": self._started_at or None,
+                    "last_error": "",
+                    "allocation": self._plan.to_dict() if self._plan else None,
+                }
             healthy = running and self._health(timeout=0.5)
             ready = bool(healthy and self._runtime_verified)
             model = self._model

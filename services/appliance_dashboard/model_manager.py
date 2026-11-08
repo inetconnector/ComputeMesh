@@ -378,7 +378,7 @@ class ModelManager:
         threading.Thread(target=worker, name=f"model-download-{download_id}", daemon=True).start()
         return {"accepted": True, "download_id": download_id, "model_id": model_id, "state": "queued"}
 
-    def activate(self, model_id: str, *, context_size: int = 4096) -> dict[str, Any]:
+    def activate(self, model_id: str, *, context_size: int = 8192) -> dict[str, Any]:
         with self._lock:
             model = self._load().get(model_id)
         if model is None:
@@ -557,10 +557,16 @@ class ModelManager:
 
         if total_vram_gb >= 36.0:
             tier_preferences = ["32b", "30b", "27b", "14b", "8b", "7b", "3b", "1.5b", "0.5b"]
+            tier_target = "bartowski/qwen2.5-32b-instruct-gguf"
+            tier_name = "48GB_TIER"
         elif total_vram_gb >= 12.0:
             tier_preferences = ["14b", "8b", "7b", "3b", "1.5b", "0.5b"]
+            tier_target = "bartowski/qwen2.5-14b-instruct-gguf"
+            tier_name = "16GB_TIER"
         else:
             tier_preferences = ["3b", "1.5b", "0.5b"]
+            tier_target = "bartowski/qwen2.5-7b-instruct-gguf"
+            tier_name = "8GB_TIER"
 
         with self._lock:
             models = self._load()
@@ -593,6 +599,9 @@ class ModelManager:
                     "model_id": best_model.model_id,
                     "status": "already_active",
                     "total_vram_gb": round(total_vram_gb, 1),
+                    "target_model_id": tier_target,
+                    "tier": tier_name,
+                    "tier_target_active": bool(best_model.model_id == tier_target or tier_preferences[0] in (best_model.model_id + " " + best_model.filename).lower()),
                 }
 
         result = self.activate(best_model.model_id)
@@ -600,6 +609,9 @@ class ModelManager:
             "model_id": best_model.model_id,
             "status": "activated",
             "total_vram_gb": round(total_vram_gb, 1),
+            "target_model_id": tier_target,
+            "tier": tier_name,
+            "tier_target_active": bool(best_model.model_id == tier_target or tier_preferences[0] in (best_model.model_id + " " + best_model.filename).lower()),
             "engine": result,
         }
 
