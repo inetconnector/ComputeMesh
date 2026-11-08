@@ -421,10 +421,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_local_qr(self, parsed_url: urllib.parse.ParseResult) -> bool:
         """Render a short-lived dashboard QR without a third-party image host."""
-        client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
-        sec_fetch_site = str(self.headers.get("Sec-Fetch-Site", "")).strip().lower()
-        is_loopback_safe = _is_loopback_ip(client_ip) and sec_fetch_site != "cross-site"
-        if not is_loopback_safe and not self._verify_admin_auth():
+        if not self._verify_admin_auth():
             self._send_unauthorized()
             return True
         if not self._qr_rate_allowed():
@@ -524,16 +521,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 from tools.appliance.workspace_manager import (
                     load_local_workspaces,
                     get_local_node_info,
+                    get_fleet_nodes_info,
                     get_projects_base_dir,
                 )
                 node_info = get_local_node_info()
                 workspaces = load_local_workspaces()
                 base_dir = get_projects_base_dir()
+                nodes = get_fleet_nodes_info()
                 self._send_json({
                     "active_node_id": node_info.get("node_id", getattr(self, "node_id", "cm-win-mifcom-rtx3080")),
                     "projects_base_dir": str(base_dir),
                     "workspaces": workspaces,
-                    "nodes": [node_info],
+                    "nodes": nodes,
                 })
                 return
             except Exception as exc:
@@ -581,8 +580,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = get_dashboard_html(auth_token=token_to_inject)
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            if is_loopback:
-                self.send_header("Set-Cookie", f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; SameSite=Strict; HttpOnly")
             self._send_cors_headers()
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")

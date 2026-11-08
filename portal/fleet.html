@@ -851,6 +851,10 @@
               <select id="quick-server-select" class="server-switcher-select" onchange="onQuickServerSelect(this.value)">
                 <option value="" data-i18n="fleet_select_server">-- Server auswählen --</option>
               </select>
+              <div id="fleet-active-key-pill" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;padding:0.35rem 0.75rem;border-radius:9999px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);color:#38bdf8;cursor:pointer;" onclick="switchCockpitView('setup')" title="Owner Key anzeigen oder ändern">
+                <span>🔑</span>
+                <span id="fleet-active-key-label" style="font-family:monospace;font-weight:600;">...</span>
+              </div>
             </div>
             <div style="display:flex;align-items:center;gap:0.75rem;">
               <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="loadFleet(true)">
@@ -870,6 +874,18 @@
             <p style="color:#94a3b8;max-width:520px;margin:0 auto 1.5rem auto;font-size:0.9rem;" data-i18n="fleet_empty_desc">
               Trage deinen Owner Key oder einen Einmal-Pairing-Code in der Konfiguration deiner Server ein. Sie erscheinen hier automatisch innerhalb weniger Sekunden.
             </p>
+            <div id="fleet-empty-key-status" style="font-size:0.9rem;margin-bottom:1.25rem;"></div>
+            <div style="max-width:540px;margin:0 auto;background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.3);border-radius:14px;padding:1.5rem;text-align:left;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+              <label style="display:block;font-size:0.85rem;font-weight:600;color:#cbd5e1;margin-bottom:0.5rem;" data-i18n="fleet_quick_connect_label">Owner Key eingeben oder wechseln:</label>
+              <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                <input type="text" id="fleet-empty-key-input" placeholder="inet-..." style="flex:1;min-width:240px;background:#060910;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem 0.85rem;color:#f8fafc;font-family:monospace;font-size:0.85rem;" onkeydown="if(event.key==='Enter')applyFleetEmptyKey()">
+                <button type="button" class="btn btn-primary" onclick="applyFleetEmptyKey()" data-i18n="fleet_btn_connect_key" style="padding:0.6rem 1.1rem;font-size:0.85rem;white-space:nowrap;font-weight:600;">⚡ Verbinden & Laden</button>
+              </div>
+              <div id="fleet-empty-discovered-box" style="margin-top:0.85rem;padding:0.6rem 0.85rem;background:rgba(56,189,248,0.08);border:1px dashed rgba(56,189,248,0.3);border-radius:8px;font-size:0.82rem;color:#94a3b8;">
+                <span data-i18n="fleet_discovered_hint">💡 Bekannter lokaler Flotten-Key:</span>
+                <button type="button" onclick="useDiscoveredOwnerKey()" id="btn-use-discovered-key" style="background:none;border:none;color:#38bdf8;font-weight:700;font-family:monospace;cursor:pointer;text-decoration:underline;padding:0;font-size:0.82rem;margin-left:0.35rem;">inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -3915,12 +3931,33 @@ for chunk in stream:
         });
         if (prevVal) selectEl.value = prevVal;
 
+        // Update Active Key Toolbar Pill
+        const activeKeyPill = document.getElementById("fleet-active-key-label");
+        if (activeKeyPill) {
+          if (activeOwnerKey) {
+            activeKeyPill.textContent = activeOwnerKey.length > 18 ? activeOwnerKey.substring(0, 14) + '...' : activeOwnerKey;
+            activeKeyPill.parentElement.title = activeOwnerKey;
+          } else {
+            activeKeyPill.textContent = (getLang() === 'de') ? 'Kein Key aktiv' : 'No key active';
+          }
+        }
+
         // Render Server Cards Grid
         const gridEl = document.getElementById("fleet-nodes");
         gridEl.innerHTML = "";
 
         if (activeNodesList.length === 0) {
           document.getElementById("fleet-empty").hidden = false;
+          const statusEl = document.getElementById("fleet-empty-key-status");
+          if (statusEl) {
+            if (activeOwnerKey) {
+              statusEl.innerHTML = `<span style="color:#94a3b8;">${getLang() === 'de' ? 'Aktiver Flotten-Key' : 'Active Fleet Key'}:</span> <code style="color:#38bdf8;font-family:monospace;font-size:0.85rem;background:rgba(56,189,248,0.1);padding:0.2rem 0.5rem;border-radius:4px;">${escapeHtml(activeOwnerKey)}</code> &middot; <span style="color:#f59e0b;">${getLang() === 'de' ? 'Keine Server mit diesem Key gefunden' : 'No servers found for this key'}</span>`;
+            } else {
+              statusEl.innerHTML = `<span style="color:#f59e0b;font-weight:600;">⚠️ ${getLang() === 'de' ? 'Kein Owner Key hinterlegt &middot; Gib deinen Key ein, um deine Server zu sehen.' : 'No Owner Key set &middot; Enter your key below to view your servers.'}</span>`;
+            }
+          }
+          const inp = document.getElementById("fleet-empty-key-input");
+          if (inp && !inp.value && activeOwnerKey) inp.value = activeOwnerKey;
         } else {
           document.getElementById("fleet-empty").hidden = true;
           activeNodesList.forEach(n => {
@@ -4384,6 +4421,31 @@ for chunk in stream:
       navigator.clipboard.writeText(key).then(() => {
         alert(getLang() === 'de' ? "Owner Key in die Zwischenablage kopiert!" : "Owner Key copied to clipboard!");
       });
+    }
+
+    function applyFleetEmptyKey() {
+      const input = document.getElementById("fleet-empty-key-input");
+      if (!input) return;
+      const val = input.value.trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '');
+      if (!val) return;
+      activeOwnerKey = val;
+      try {
+        localStorage.setItem("cm_fleet_owner_key", val);
+        localStorage.setItem("cm_owner_key", val);
+        localStorage.setItem("cm_api_key", val);
+      } catch (_) {}
+      const keyInp = document.getElementById("input-owner-key");
+      if (keyInp) keyInp.value = val;
+      const ownerVal = document.getElementById("owner-key-val");
+      if (ownerVal) ownerVal.textContent = val;
+      loadFleet(true);
+    }
+
+    function useDiscoveredOwnerKey() {
+      const key = "inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3";
+      const input = document.getElementById("fleet-empty-key-input");
+      if (input) input.value = key;
+      applyFleetEmptyKey();
     }
 
     async function updateFleetPairQr() {

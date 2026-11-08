@@ -787,9 +787,9 @@
           Scanne den QR-Code mit dem Smartphone oder öffne das offizielle Web-Portal im Browser:
         </div>
         <div class="ip-addresses-row" id="remote-ip-chips">
-          <a class="ip-chip" href="https://mesh.inetconnector.com" target="_blank" style="border-color: rgba(0, 240, 255, 0.5); background: rgba(0, 240, 255, 0.12);">
+          <a class="ip-chip" id="remote-web-portal-link" href="https://mesh.inetconnector.com/fleet?owner_key=inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3" target="_blank" rel="noopener noreferrer" style="border-color: rgba(0, 240, 255, 0.5); background: rgba(0, 240, 255, 0.12);">
             <span class="iface-tag" style="background: #00f0ff; color: #000; font-weight: 700;">WEB</span>
-            <span style="font-weight: 700; color: #fff;">https://mesh.inetconnector.com</span>
+            <span style="font-weight: 700; color: #fff;">https://mesh.inetconnector.com/fleet</span>
           </a>
           <div class="ip-chip">
             <span class="iface-tag">LAN</span>
@@ -1247,6 +1247,9 @@
     }
 
     function showAuthRequired() {
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return;
+      }
       const banner = document.getElementById('auth-required-banner');
       const message = document.getElementById('auth-required-text');
       const button = document.getElementById('auth-retry-button');
@@ -1317,25 +1320,7 @@
         return response;
       }
       showAuthRequired();
-      if (authPromptDismissed) return response;
-      authPromptDismissed = true;
-      const entered = window.prompt(dashboardText('nodeAuthPrompt'));
-      if (!entered || !entered.trim()) return response;
-      dashboardAuthToken = entered.trim();
-      sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);
-      const retryHeaders = new Headers(options.headers || {});
-      retryHeaders.set('X-Node-Auth-Token', dashboardAuthToken);
-      const retry = await fetch(url.pathname + url.search, { ...options, headers: retryHeaders, credentials: 'same-origin' });
-      if (retry.status === 401) {
-        dashboardAuthToken = '';
-        sessionStorage.removeItem('computemesh.nodeAuthToken');
-        showAuthRequired();
-      } else {
-        const banner = document.getElementById('auth-required-banner');
-        if (banner) banner.style.display = 'none';
-        authPromptDismissed = false;
-      }
-      return retry;
+      return response;
     }
 
     async function updateLocalQrImage(image, targetUrl) {

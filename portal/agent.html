@@ -2550,10 +2550,11 @@
       }
 
       list.innerHTML = nodes.map(n => {
-        const statusClass = n.is_online ? 'online' : 'offline';
-        const statusText = n.is_online ? 'Bereit' : 'Offline';
-        const vramText = n.vram_gb ? `${n.vram_gb}GB VRAM` : '';
-        const summary = n.gpu_summary || (n.gpus && n.gpus[0]) || 'NVIDIA GeForce RTX 3080 10GB';
+        const isOnline = (n.is_online !== undefined) ? n.is_online : (n.status === 'online');
+        const statusClass = isOnline ? 'online' : 'offline';
+        const statusText = isOnline ? 'Bereit' : 'Offline';
+        const vramText = (n.vram_gb && !String(n.hardware || '').includes('GB')) ? `${n.vram_gb}GB VRAM` : '';
+        const summary = n.hardware || n.gpu_summary || (n.gpus && n.gpus[0]) || 'NVIDIA GeForce RTX 3080 10GB';
         const dispName = (n.display_name || n.node_id || '').toLowerCase().includes('mifcom') ? 'mifcoms (cm-win-mifcom-rtx3080)' : (n.display_name || n.node_id);
         return `
           <div class="node-item-clean">
