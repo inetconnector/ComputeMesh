@@ -389,7 +389,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         # On the private local LAN network, allow zero-config P2P inference requests
         # from local clients (phones, desktop apps) while blocking cross-site CSRF.
-        return bool(ip_obj.is_private)
+        return _is_private_or_loopback_ip(client_ip)
 
     def do_OPTIONS(self) -> None:
         if not self._verify_host_header():
