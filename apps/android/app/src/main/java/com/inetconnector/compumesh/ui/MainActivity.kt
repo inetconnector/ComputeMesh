@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
                     currentGatewayUrl = gatewayUrlState.value,
                     onStartNode = { startNodeService() },
                     onStopNode = { stopNodeService() },
-                    onSaveFleetConfig = { _, gateway -> saveFleetConfig("", gateway) },
+                    onSaveFleetConfig = { key, gateway -> saveFleetConfig(key, gateway) },
                     onScanMobileQr = { inviteQr -> pairMobileFromQr(inviteQr) },
                     mobilePaired = mobilePairedState.value
                 )

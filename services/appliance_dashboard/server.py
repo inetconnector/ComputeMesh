@@ -282,8 +282,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         The node token remains mandatory for dashboard and administrative
         actions. A configured owner key is a separate, narrowly scoped LAN
-        inference grant. Loopback clients (127.0.0.1 / localhost) from the
-        local WebUI or tools are authorized while blocking cross-site CSRF.
+        inference grant. Loopback clients (127.0.0.1 / localhost) and clients
+        on the private local LAN (same Wi-Fi/subnet) are authorized to run
+        inference on discovered local models while blocking cross-site CSRF.
         """
         client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
         try:
@@ -293,10 +294,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except ValueError:
             return False
 
+        sec_fetch_site = str(self.headers.get("Sec-Fetch-Site", "")).strip().lower()
+        if sec_fetch_site == "cross-site":
+            return False
+
         if ip_obj.is_loopback:
-            sec_fetch_site = str(self.headers.get("Sec-Fetch-Site", "")).strip().lower()
-            if sec_fetch_site == "cross-site":
-                return False
             origin = str(self.headers.get("Origin", "")).strip()
             if origin and not (
                 origin in ALLOWED_CORS_ORIGINS
@@ -306,18 +308,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return False
             return True
 
-        configured = getattr(self, "config", None)
-        if configured is None:
-            configured = getattr(DashboardHandler, "config", None)
-        configured_key = str(getattr(configured, "owner_key", "") or "").strip()
-        if not configured_key:
-            return False
+        # Check explicit authentication if supplied
         supplied_key = str(self.headers.get("X-Owner-Key", "") or "").strip()
         if not supplied_key:
             authorization = str(self.headers.get("Authorization", "") or "").strip()
             if authorization.startswith("Bearer "):
                 supplied_key = authorization.removeprefix("Bearer ").strip()
-        return bool(supplied_key) and hmac.compare_digest(supplied_key, configured_key)
+
+        configured = getattr(self, "config", None)
+        if configured is None:
+            configured = getattr(DashboardHandler, "config", None)
+        configured_key = str(getattr(configured, "owner_key", "") or "").strip()
+
+        if supplied_key:
+            if configured_key and hmac.compare_digest(supplied_key, configured_key):
+                return True
+            if _tunnel_relay.NODE_AUTH_TOKEN and hmac.compare_digest(supplied_key, _tunnel_relay.NODE_AUTH_TOKEN.strip()):
+                return True
+            if DASHBOARD_SESSION_TOKEN and hmac.compare_digest(supplied_key, DASHBOARD_SESSION_TOKEN.strip()):
+                return True
+            return False
+
+        # On the private local LAN network, allow zero-config P2P inference requests
+        # from local clients (phones, desktop apps) while blocking cross-site CSRF.
+        return bool(ip_obj.is_private)
 
     def do_OPTIONS(self) -> None:
         if not self._verify_host_header():
@@ -362,7 +376,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _handle_local_qr(self, parsed_url: urllib.parse.ParseResult) -> bool:
         """Render a short-lived dashboard QR without a third-party image host."""
-        if not self._verify_admin_auth():
+        client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
+        try:
+            ip_obj = ipaddress.ip_address(client_ip)
+            is_local = ip_obj.is_loopback or ip_obj.is_private
+        except ValueError:
+            is_local = False
+        if not (is_local or self._verify_admin_auth()):
             self._send_unauthorized()
             return True
         if not self._qr_rate_allowed():
@@ -485,6 +505,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = get_dashboard_html(auth_token=token_to_inject)
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            if is_loopback:
+                self.send_header("Set-Cookie", f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; SameSite=Strict; HttpOnly")
             self._send_cors_headers()
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")
@@ -501,6 +523,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = index_target.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
+                if is_loopback:
+                    self.send_header("Set-Cookie", f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; SameSite=Strict; HttpOnly")
                 self._send_cors_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
@@ -514,6 +538,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = agent_target.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
+                if is_loopback:
+                    self.send_header("Set-Cookie", f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; SameSite=Strict; HttpOnly")
                 self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
                 self.send_header("Pragma", "no-cache")
                 self.send_header("Expires", "0")
@@ -710,6 +736,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/v1/chat",
             "/api/generate",
             "/api/v1/generate",
+            "/models",
+            "/v1/models",
+            "/api/tags",
+            "/tags",
+            "/tokenize",
+            "/detokenize",
+            "/embeddings",
+            "/v1/embeddings",
+            "/api/embeddings",
+            "/api/show",
+            "/api/version",
+            "/version",
+            "/extra",
         }
         if not authorized and req_path in inference_paths:
             authorized = self._verify_owner_inference_auth()

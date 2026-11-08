@@ -23,7 +23,11 @@ from config import CONFIG
 
 DEFAULT_BOOT_CONFIG = Path("/boot/computemesh.env")
 DEFAULT_LIVE_BOOT_CONFIG = Path("/live/image/computemesh.env")
-DEFAULT_SYSTEM_CONFIG = Path("/etc/computemesh/config.json")
+DEFAULT_SYSTEM_CONFIG = (
+    Path(os.environ.get("ProgramData", "C:/ProgramData")) / "ComputeMesh" / "config.json"
+    if sys.platform == "win32"
+    else Path("/etc/computemesh/config.json")
+)
 
 
 @dataclass(frozen=True)
@@ -147,7 +151,18 @@ def load_appliance_config(
     dns = env_vars.get("DNS") or system_data.get("dns")
     
     enable_web = env_vars.get("ENABLE_WEB_DASHBOARD", "true").lower() in ("true", "1", "yes")
-    dash_port = int(env_vars.get("DASHBOARD_PORT") or system_data.get("dashboard_port") or 8080)
+    dash_port = int(env_vars.get("DASHBOARD_PORT") or system_data.get("dashboard_port") or 0)
+    if dash_port <= 0:
+        active_port_file = Path.home() / ".computemesh" / "dashboard_port"
+        if active_port_file.exists():
+            try:
+                candidate_p = int(active_port_file.read_text(encoding="utf-8").strip())
+                if candidate_p > 0:
+                    dash_port = candidate_p
+            except (ValueError, OSError):
+                pass
+    if dash_port <= 0:
+        dash_port = 8080
     allow_ssh = env_vars.get("ALLOW_SSH", "true").lower() in ("true", "1", "yes")
     ssh_keys = env_vars.get("SSH_AUTHORIZED_KEYS") or system_data.get("ssh_authorized_keys")
 

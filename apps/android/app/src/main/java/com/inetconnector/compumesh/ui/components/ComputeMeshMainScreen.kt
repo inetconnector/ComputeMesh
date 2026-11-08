@@ -100,7 +100,8 @@ fun ComputeMeshMainScreen(
                 drawerContainerColor = CardSurface,
                 drawerShape = RoundedCornerShape(topEnd = 0.dp, bottomEnd = 0.dp),
                 modifier = Modifier
-                    .width(310.dp)
+                    .widthIn(min = 320.dp, max = 360.dp)
+                    .fillMaxWidth(0.85f)
                     .fillMaxHeight()
             ) {
                 Column(
@@ -505,13 +506,15 @@ fun DrawerWorkspaceRow(
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                     fontSize = 13.5.sp,
                     color = if (isSelected) TextPrimary else TextSecondary,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${workspace.displaySource} • ${workspace.nodeId}",
                     fontSize = 11.sp,
                     color = TextMuted,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
             if (workspace.gitBranch.isNotBlank()) {

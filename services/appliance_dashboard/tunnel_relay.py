@@ -189,10 +189,12 @@ class CloudTunnelRelay:
         )
         self.public_key_hex = raw_pub.hex()
         try:
+            from tools.appliance.appliance_config import load_appliance_config
             from tools.appliance.lan_discovery_responder import (
                 start_lan_discovery_responder,
             )
-            start_lan_discovery_responder(node_id=self.node_id, port=8000, gpu_summary="ComputeMesh Node")
+            init_port = int(getattr(load_appliance_config(), "dashboard_port", 8081) or 8081)
+            start_lan_discovery_responder(node_id=self.node_id, port=init_port, gpu_summary="ComputeMesh Node")
         except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             logger.debug("Initial LAN discovery responder start skipped: %s", exc)
         if autostart:
@@ -313,7 +315,7 @@ class CloudTunnelRelay:
         if not gm.get("total_nodes_online"):
             gm["total_nodes_online"] = 1
 
-        dash_port = int(getattr(cfg_now, "dashboard_port", 8080) or 8080) if cfg_now else 8080
+        dash_port = int(getattr(cfg_now, "dashboard_port", 8081) or 8081) if cfg_now else 8081
         try:
             from tools.appliance.lan_discovery_responder import (
                 start_lan_discovery_responder,

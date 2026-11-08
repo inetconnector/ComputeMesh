@@ -124,10 +124,18 @@ object InferenceClient {
         // Build candidate URLs list
         val candidates = mutableListOf<String>()
         if (gatewayUrl.isNotBlank() && gatewayUrl != DEFAULT_GATEWAY) {
-            val target = if (gatewayUrl.endsWith("/v1/chat/completions")) gatewayUrl else "${gatewayUrl.trimEnd('/')}/v1/chat/completions"
+            val base = gatewayUrl.trimEnd('/')
+            val target = if (base.endsWith("/v1/chat/completions")) base else "$base/v1/chat/completions"
             if (!candidates.contains(target)) candidates.add(target)
-            if (gatewayUrl.contains(":8080")) {
-                val ollamaPort = gatewayUrl.replace(":8080", ":11434").trimEnd('/') + "/v1/chat/completions"
+            if (base.contains(":8080")) {
+                val p8081 = base.replace(":8080", ":8081") + "/v1/chat/completions"
+                if (!candidates.contains(p8081)) candidates.add(p8081)
+                val ollamaPort = base.replace(":8080", ":11434") + "/v1/chat/completions"
+                if (!candidates.contains(ollamaPort)) candidates.add(ollamaPort)
+            } else if (base.contains(":8081")) {
+                val p8080 = base.replace(":8081", ":8080") + "/v1/chat/completions"
+                if (!candidates.contains(p8080)) candidates.add(p8080)
+                val ollamaPort = base.replace(":8081", ":11434") + "/v1/chat/completions"
                 if (!candidates.contains(ollamaPort)) candidates.add(ollamaPort)
             }
         }

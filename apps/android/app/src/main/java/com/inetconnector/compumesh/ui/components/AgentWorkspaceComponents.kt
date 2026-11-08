@@ -109,7 +109,8 @@ fun AgentWorkspaceView(
                         fontSize = 15.sp,
                         color = TextPrimary,
                         modifier = Modifier.weight(1f),
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     if (activeWorkspaceItem != null) {
                         Surface(
@@ -148,7 +149,8 @@ fun AgentWorkspaceView(
                         fontSize = 11.5.sp,
                         fontFamily = FontFamily.Monospace,
                         color = TextMuted,
-                        maxLines = 2
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
 

@@ -292,6 +292,16 @@ class ComputeMeshProviderApp:
                 p_file.write_text(str(actual_port), encoding="utf-8")
             except Exception:
                 pass
+            try:
+                gpu_desc = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"
+                from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+                start_lan_discovery_responder(
+                    node_id=nid,
+                    port=actual_port,
+                    gpu_summary=f"{gpu_desc} ({self._calculate_local_tflops()} TFLOPS)",
+                )
+            except Exception:
+                pass
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"[{datetime.now(UTC).isoformat()}] Dashboard server listening on http://0.0.0.0:{actual_port}\n")
             self._server_ready_event.set()

@@ -663,10 +663,18 @@ class LocalChatServer(
 
         // 1. Custom LAN / Fleet Gateway if configured
         if (rawGateway.isNotBlank() && rawGateway != "https://mesh.inetconnector.com") {
-            val target = if (rawGateway.endsWith("/v1/chat/completions")) rawGateway else "${rawGateway.trimEnd('/')}/v1/chat/completions"
+            val base = rawGateway.trimEnd('/')
+            val target = if (base.endsWith("/v1/chat/completions")) base else "$base/v1/chat/completions"
             if (!candidates.contains(target)) candidates.add(target)
-            if (rawGateway.contains(":8080")) {
-                val ollamaPortUrl = rawGateway.replace(":8080", ":11434").trimEnd('/') + "/v1/chat/completions"
+            if (base.contains(":8080")) {
+                val p8081 = base.replace(":8080", ":8081") + "/v1/chat/completions"
+                if (!candidates.contains(p8081)) candidates.add(p8081)
+                val ollamaPortUrl = base.replace(":8080", ":11434") + "/v1/chat/completions"
+                if (!candidates.contains(ollamaPortUrl)) candidates.add(ollamaPortUrl)
+            } else if (base.contains(":8081")) {
+                val p8080 = base.replace(":8081", ":8080") + "/v1/chat/completions"
+                if (!candidates.contains(p8080)) candidates.add(p8080)
+                val ollamaPortUrl = base.replace(":8081", ":11434") + "/v1/chat/completions"
                 if (!candidates.contains(ollamaPortUrl)) candidates.add(ollamaPortUrl)
             }
         }
@@ -962,6 +970,9 @@ class LocalChatServer(
                             setRequestProperty("Content-Type", "application/json; charset=utf-8")
                             if (hasExplicitOwnerKey || !isLanCandidate(candidateUrl)) {
                                 setRequestProperty("Authorization", "Bearer $key")
+                                if (hasExplicitOwnerKey) {
+                                    setRequestProperty("X-Owner-Key", key)
+                                }
                             }
                             setRequestProperty("Accept", "text/event-stream")
                             setRequestProperty("Accept-Encoding", "identity")
@@ -1118,6 +1129,9 @@ class LocalChatServer(
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     if (hasExplicitOwnerKey || !isLanCandidate(candidateUrl)) {
                         setRequestProperty("Authorization", "Bearer $key")
+                        if (hasExplicitOwnerKey) {
+                            setRequestProperty("X-Owner-Key", key)
+                        }
                     }
                     setRequestProperty("Accept", "application/json")
                     setRequestProperty("Accept-Encoding", "identity")

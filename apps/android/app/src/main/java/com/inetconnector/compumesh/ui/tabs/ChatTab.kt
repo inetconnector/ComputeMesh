@@ -189,31 +189,33 @@ fun ChatTab(
         isNodeSearching = true
         if (lanDiscovery != null) {
             try {
-                val peers = lanDiscovery.discoverFleetPeers(gatewayUrl, ownerKey)
+                val peers = lanDiscovery.discoverAllPeers(gatewayUrl, ownerKey)
                 val targetNode = peers.firstOrNull {
                     it.nodeId.contains("mifcom", ignoreCase = true) ||
                     it.nodeId.contains("win", ignoreCase = true) ||
                     it.gpuSummary.contains("3080", ignoreCase = true)
-                } ?: peers.firstOrNull()
+                } ?: peers.firstOrNull { it.isLocalLan } ?: peers.firstOrNull()
                 if (targetNode != null) {
                     detectedNode = targetNode
                 } else {
-                    // Fallback to registered host node if discovery returned 0 but heartbeat is active
+                    // Fallback to primary gateway without loopback
                     detectedNode = LocalMeshPeer(
                         nodeId = "cm-win-mifcom-rtx3080",
-                        ipAddress = "127.0.0.1",
-                        port = 8080,
+                        ipAddress = "",
+                        port = 8081,
                         gpuSummary = "NVIDIA GeForce RTX 3080 10GB",
-                        lifecycle = "available"
+                        lifecycle = "available",
+                        remoteUrl = gatewayUrl
                     )
                 }
             } catch (e: Exception) {
                 detectedNode = LocalMeshPeer(
                     nodeId = "cm-win-mifcom-rtx3080",
-                    ipAddress = "127.0.0.1",
-                    port = 8080,
+                    ipAddress = "",
+                    port = 8081,
                     gpuSummary = "NVIDIA GeForce RTX 3080 10GB",
-                    lifecycle = "available"
+                    lifecycle = "available",
+                    remoteUrl = gatewayUrl
                 )
             } finally {
                 isNodeSearching = false
@@ -221,10 +223,11 @@ fun ChatTab(
         } else {
             detectedNode = LocalMeshPeer(
                 nodeId = "cm-win-mifcom-rtx3080",
-                ipAddress = "127.0.0.1",
-                port = 8080,
+                ipAddress = "",
+                port = 8081,
                 gpuSummary = "NVIDIA GeForce RTX 3080 10GB",
-                lifecycle = "available"
+                lifecycle = "available",
+                remoteUrl = gatewayUrl
             )
             isNodeSearching = false
         }
@@ -354,10 +357,19 @@ fun ChatTab(
         // In AGENT mode, use selected model (e.g. qwen2.5:3b)
         val effectiveModel = selectedModel
 
+        val effectiveGateway = when {
+            detectedNode != null && detectedNode?.remoteUrl?.isNotBlank() == true && !detectedNode!!.remoteUrl.contains("127.0.0.1") ->
+                detectedNode!!.remoteUrl
+            detectedNode != null && detectedNode?.isLocalLan == true && detectedNode?.ipAddress.orEmpty().isNotBlank() && detectedNode?.ipAddress != "127.0.0.1" ->
+                "http://${detectedNode!!.ipAddress}:${detectedNode!!.port}"
+            gatewayUrl.isNotBlank() -> gatewayUrl
+            else -> "https://mesh.inetconnector.com"
+        }
+
         activeJob = scope.launch(Dispatchers.IO) {
             try {
                 InferenceClient.streamChatCompletion(
-                    gatewayUrl = gatewayUrl,
+                    gatewayUrl = effectiveGateway,
                     apiKey = ownerKey,
                     model = effectiveModel,
                     messages = historyPayload,
