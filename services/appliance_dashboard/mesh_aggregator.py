@@ -85,6 +85,13 @@ class MeshRegistryAggregator:
             local_nid = str(getattr(self, "_local_status", {}).get("node_id", "")).strip()
             local_sig = _extract_discrete_gpu_signature(getattr(self, "_local_status", {})) if hasattr(self, "_local_status") else ()
             now_ts = time.time()
+            owner_key = ""
+            try:
+                from tools.appliance.appliance_config import load_appliance_config
+                cfg = load_appliance_config()
+                owner_key = getattr(cfg, "owner_key", "")
+            except Exception:
+                pass
 
             # 1. Direct LAN peer polling (excluding local machine IPs)
             for peer in self.known_peers:
@@ -95,7 +102,10 @@ class MeshRegistryAggregator:
                         continue
 
                     url = peer.rstrip("/") + "/api/status"
-                    req = urllib.request.Request(url, headers={"User-Agent": "ComputeMesh-Aggregator/1.2"})
+                    headers = {"User-Agent": "ComputeMesh-Aggregator/1.2"}
+                    if owner_key:
+                        headers["X-Owner-Key"] = owner_key
+                    req = urllib.request.Request(url, headers=headers)
                     with urllib.request.urlopen(req, timeout=1.5) as resp:
                         if resp.status == 200:
                             d = json.loads(resp.read().decode("utf-8"))
@@ -104,12 +114,22 @@ class MeshRegistryAggregator:
                             # If peer is actually the local machine under another name, skip
                             if nid == local_nid or (local_sig and peer_sig == local_sig):
                                 continue
+                            m_runtime = d.get("model_runtime", {})
+                            models_list = m_runtime.get("models", [])
+                            active_m = m_runtime.get("engine", {}).get("model_id", "")
+                            ready_eng = bool(m_runtime.get("engine", {}).get("ready", False))
                             with self._lock:
                                 self._peer_nodes[nid] = {
                                     "node_id": nid,
+                                    "endpoint": peer.rstrip("/"),
+                                    "candidate_local_urls": [peer.rstrip("/")],
                                     "status": "online",
                                     "inventory": d.get("inventory", {}),
                                     "telemetry": d.get("telemetry", {}),
+                                    "model_runtime": m_runtime,
+                                    "models": models_list,
+                                    "active_model": active_m,
+                                    "engine_ready": ready_eng,
                                     "last_seen": now_ts,
                                 }
                 except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
@@ -118,9 +138,6 @@ class MeshRegistryAggregator:
             # 2. Coordinator Fleet Sync via owner_key
             try:
                 from config import CONFIG
-                from tools.appliance.appliance_config import load_appliance_config
-                cfg = load_appliance_config()
-                owner_key = getattr(cfg, "owner_key", "")
                 if owner_key:
                     fleet_url = f"{CONFIG.endpoints.base_url}/api/v1/mesh/fleet"
                     req = urllib.request.Request(
@@ -144,6 +161,9 @@ class MeshRegistryAggregator:
 
                                 gpus_list = n.get("gpus", [])
                                 vram_total = int(float(n.get("vram_gb", 0) or 0) * (1024**3))
+                                cand_urls = n.get("candidate_local_urls", [])
+                                best_endpoint = cand_urls[0] if cand_urls else ""
+                                raw_m_runtime = n.get("model_runtime", {})
 
                                 peer_dict = {
                                     "node_id": nid,
@@ -151,6 +171,12 @@ class MeshRegistryAggregator:
                                     "status": node_status,
                                     "software_version": n.get("software_version") or n.get("version") or "unknown",
                                     "update_status": n.get("update_status", "UNKNOWN"),
+                                    "endpoint": best_endpoint,
+                                    "candidate_local_urls": cand_urls,
+                                    "model_runtime": raw_m_runtime,
+                                    "models": raw_m_runtime.get("models", []) if isinstance(raw_m_runtime, dict) else [],
+                                    "active_model": (raw_m_runtime.get("model_id") or raw_m_runtime.get("engine", {}).get("model_id", "")) if isinstance(raw_m_runtime, dict) else "",
+                                    "engine_ready": bool(n.get("inference_ready", False)),
                                     "inventory": {
                                         "total_vram_bytes": vram_total,
                                         "gpus": [
@@ -332,7 +358,35 @@ class MeshRegistryAggregator:
             "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
+    def get_online_peers(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return [dict(p) for p in self._peer_nodes.values() if p.get("status") == "online"]
+
+    def find_peer_for_model(self, requested_model: str) -> dict[str, Any] | None:
+        """Find an online peer node hosting or capable of running the requested model."""
+        target = requested_model.lower().strip()
+        with self._lock:
+            peers = [dict(p) for p in self._peer_nodes.values() if p.get("status") == "online"]
+
+        # 1. Exact or substring match on active_model or installed models
+        for peer in peers:
+            active = str(peer.get("active_model", "")).lower()
+            if target and target in active:
+                return peer
+            for m in peer.get("models", []):
+                mid = str(m.get("model_id") if isinstance(m, dict) else m).lower()
+                if target and (target == mid or target in mid):
+                    return peer
+
+        # 2. If requested "auto", "default", or heavy model (32b/70b), pick highest VRAM peer
+        if not target or target in ("default", "auto", "computemesh", "cluster") or any(t in target for t in ("32b", "70b")):
+            peers.sort(key=lambda p: int(p.get("inventory", {}).get("total_vram_bytes", 0) or 0), reverse=True)
+            if peers:
+                return peers[0]
+
+        return None
+
 
 GLOBAL_MESH_AGGREGATOR = MeshRegistryAggregator(
-    autostart=os.environ.get("COMPUTEMESH_AUTOSTART_MESH_POLLER", "1").strip().lower() not in ("0", "false", "no", "off")
+    autostart=False
 )

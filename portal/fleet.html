@@ -3843,15 +3843,6 @@ for chunk in stream:
       const effectiveOwnerKey = activeOwnerKey || (data && data.owner_key);
       if (effectiveOwnerKey) {
         activeOwnerKey = effectiveOwnerKey;
-        try {
-          var isSecure = window.location.protocol === 'https:';
-          var cookieVal = encodeURIComponent(effectiveOwnerKey);
-          var cookieDomain = window.location.hostname.endsWith('inetconnector.com') ? '; Domain=.inetconnector.com' : '';
-          var secureFlag = isSecure ? '; Secure' : '';
-          var cookieStr = 'cm_fleet_session=' + cookieVal + '; Path=/; Max-Age=31536000; SameSite=Lax' + cookieDomain + secureFlag;
-          document.cookie = cookieStr;
-          document.cookie = cookieStr.replace('cm_fleet_session=', 'cm_session=');
-        } catch (_) {}
         document.getElementById("owner-key-val").textContent = effectiveOwnerKey;
         const hintEl = document.getElementById("ollama-owner-key-hint");
         if (hintEl) hintEl.textContent = effectiveOwnerKey;
@@ -3911,7 +3902,7 @@ for chunk in stream:
           headers["X-Owner-Key"] = activeOwnerKey;
         }
 
-        const res = await fetch(url, { headers });
+        const res = await fetch(url, { headers, credentials: "include" });
         if (!res.ok) {
           if (res.status === 401 && !activeOwnerKey) {
             isLoggedIn = false;
@@ -4091,7 +4082,10 @@ for chunk in stream:
                 <div class="node-card-header">
                   <div>
                     <div class="node-id-title">${displayNameStr}</div>
-                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">${getLang() === 'de' ? 'Knoten-ID' : 'Node ID'}: ${escapeHtml(n.node_id)} &middot; ${isOnline ? (isMobile ? 'Mobile Node' : 'Live Stream') : (getLang() === 'de' ? 'Nicht erreichbar' : 'Unreachable')}</div>
+                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">
+                      ${getLang() === 'de' ? 'Knoten-ID' : 'Node ID'}: ${escapeHtml(n.node_id)} &middot; ${isOnline ? (isMobile ? 'Mobile Node' : 'Live Stream') : (getLang() === 'de' ? 'Nicht erreichbar' : 'Unreachable')}
+                      ${n.claimed ? `<span style="color:#10b981;font-weight:600;margin-left:6px;">✓ ${getLang() === 'de' ? 'Beansprucht' : 'Claimed'}</span>` : `<span style="color:#94a3b8;margin-left:6px;">(${getLang() === 'de' ? 'Community Pool' : 'Community Pool'})</span>`}
+                    </div>
                     ${inferenceBadge}
                   </div>
                   ${statusBadge}
@@ -4125,9 +4119,9 @@ for chunk in stream:
 
               <div>
                 <div style="display:flex;gap:0.5rem;align-items:center;">
-                  <a href="${targetUrl}" onclick="openNodeServerInfo(event, '${targetUrl}')" target="_self" class="btn btn-primary" style="flex:1;text-align:center;display:block;padding:0.65rem 0.75rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
+                  <button type="button" onclick="openServerInfo('${escapeHtml(n.node_id)}', '${escapeHtml(targetUrl)}')" class="btn btn-primary" style="flex:1;text-align:center;display:block;padding:0.65rem 0.75rem;font-size:0.9rem;font-weight:600;text-decoration:none;border:none;cursor:pointer;">
                     ⚡ ${getLang() === 'de' ? 'Server Info →' : 'Server Info →'}
-                  </a>
+                  </button>
                   <button type="button" class="btn-node-delete" onclick="confirmDeleteNode('${escapeHtml(n.node_id)}')" title="${getLang() === 'de' ? 'Knoten aus Flotte entfernen' : 'Remove node from fleet'}">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="3 6 5 6 21 6"></polyline>
@@ -4438,27 +4432,35 @@ for chunk in stream:
       }
     }
 
-    function openNodeServerInfo(e, targetUrl) {
-      if (e) e.preventDefault();
-      var key = activeOwnerKey || localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || "";
-      if (key) {
+    async function openServerInfo(nodeId, targetUrl) {
+      if (activeOwnerKey) {
         try {
-          var isSecure = window.location.protocol === 'https:';
-          var cookieVal = encodeURIComponent(key);
-          var cookieDomain = window.location.hostname.endsWith('inetconnector.com') ? '; Domain=.inetconnector.com' : '';
-          var secureFlag = isSecure ? '; Secure' : '';
-          var cookieStr = 'cm_fleet_session=' + cookieVal + '; Path=/; Max-Age=31536000; SameSite=Lax' + cookieDomain + secureFlag;
-          document.cookie = cookieStr;
-          document.cookie = cookieStr.replace('cm_fleet_session=', 'cm_session=');
+          await fetch('/api/portal/fleet/session_exchange', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Owner-Key': activeOwnerKey },
+            credentials: 'include',
+            body: JSON.stringify({ node_id: nodeId }),
+          });
+        } catch (_) {}
+      }
+      window.location.href = targetUrl || `/node/${encodeURIComponent(nodeId)}`;
+    }
+
+    async function onQuickServerSelect(targetUrl) {
+      if (!targetUrl) return;
+      const parts = targetUrl.split("/node/");
+      if (parts.length > 1 && activeOwnerKey) {
+        const nid = parts[1].split("/")[0].split("?")[0];
+        try {
+          await fetch('/api/portal/fleet/session_exchange', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Owner-Key': activeOwnerKey },
+            credentials: 'include',
+            body: JSON.stringify({ node_id: nid }),
+          });
         } catch (_) {}
       }
       window.location.href = targetUrl;
-    }
-
-    function onQuickServerSelect(targetUrl) {
-      if (targetUrl) {
-        openNodeServerInfo(null, targetUrl);
-      }
     }
 
     function copyOwnerKey() {
@@ -4792,7 +4794,7 @@ for chunk in stream:
 
         let url = "/api/portal/fleet/mcp_settings";
 
-        const res = await fetch(url, { headers });
+        const res = await fetch(url, { headers, credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data.disabled_tools)) {
@@ -4938,7 +4940,7 @@ for chunk in stream:
 
         let url = "/api/portal/fleet/provider-identity";
 
-        const res = await fetch(url, { headers });
+        const res = await fetch(url, { headers, credentials: "include" });
         if (!res.ok) {
           if (res.status === 401 && badge) {
             badge.className = "sec-badge sec-badge-warn";

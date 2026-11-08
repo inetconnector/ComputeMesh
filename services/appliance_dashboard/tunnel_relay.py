@@ -304,6 +304,7 @@ class CloudTunnelRelay:
                 "compute_measurement": "unavailable",
                 "gpu_thermals": gpu_thermals,
                 "model_runtime": model_runtime,
+                "model_engine": model_runtime,
                 "is_simulated": False,
             },
         }
@@ -376,6 +377,7 @@ class CloudTunnelRelay:
                 "compute_measurement": "unavailable",
                 "gpu_thermals": gpu_thermals,
                 "model_runtime": model_runtime,
+                "model_engine": model_runtime,
                 "is_simulated": False,
             },
             "global_mesh": gm,

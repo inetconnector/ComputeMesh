@@ -81,6 +81,51 @@ def _ensure_ollama_running(timeout: float = 2.5) -> bool:
     return False
 
 
+def _proxy_inference_to_peer(handler: Any, peer: dict[str, Any], payload: dict[str, Any], clean_path: str, is_stream: bool) -> bool:
+    endpoint = peer.get("endpoint") or (peer.get("candidate_local_urls", [""])[0] if peer.get("candidate_local_urls") else "")
+    if not endpoint:
+        return False
+    target_url = f"{endpoint.rstrip('/')}{clean_path}"
+    body_bytes = json.dumps(payload).encode("utf-8")
+
+    owner_key = ""
+    try:
+        from tools.appliance.appliance_config import load_appliance_config
+        cfg = load_appliance_config()
+        owner_key = getattr(cfg, "owner_key", "")
+    except Exception:
+        pass
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream" if is_stream else "application/json",
+        "User-Agent": "ComputeMesh-FleetProxy/1.2",
+    }
+    if owner_key:
+        headers["X-Owner-Key"] = owner_key
+
+    req = urllib.request.Request(target_url, data=body_bytes, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            handler.send_response(resp.status)
+            for h_k, h_v in resp.headers.items():
+                if h_k.lower() in ("content-type", "transfer-encoding", "cache-control"):
+                    handler.send_header(h_k, h_v)
+            handler._send_cors_headers()
+            handler.end_headers()
+
+            while True:
+                chunk = resp.read(4096)
+                if not chunk:
+                    break
+                handler.wfile.write(chunk)
+                handler.wfile.flush()
+            return True
+    except Exception as exc:
+        log.warning("Peer offloading to %s failed: %s", target_url, exc)
+        return False
+
+
 def _looks_like_vision_model(model_name: str) -> bool:
     """Return whether an Ollama model name conventionally accepts images."""
     lowered = str(model_name or "").lower()
@@ -179,85 +224,120 @@ class InferenceRouter:
                 return False
 
             _ensure_ollama_running()
+            combined_models: list[dict[str, Any]] = []
+            seen_model_ids: set[str] = set()
+
+            # 1. Local managed model
             if managed is not None:
                 engine = managed["engine"]
-                if clean_path in ("/api/tags", "/tags"):
-                    installed = next((item for item in managed.get("models", []) if item.get("model_id") == engine["model_id"]), {})
-                    handler._send_json({"models": [{
-                        "name": engine["model_id"],
-                        "model": engine["model_id"],
+                mid = str(engine.get("model_id", "")).strip()
+                if mid:
+                    installed = next((item for item in managed.get("models", []) if item.get("model_id") == mid), {})
+                    combined_models.append({
+                        "id": mid,
+                        "name": mid,
+                        "model": mid,
                         "size": int(installed.get("size_bytes", 0) or 0),
                         "digest": f"sha256:{installed.get('sha256')}" if installed.get("sha256") else "",
-                        "details": {
-                            "format": "gguf",
-                            "quantization_level": installed.get("quantization", ""),
-                        },
-                    }]})
-                    return True
-                target = f"{engine['endpoint']}/v1/models"
-                try:
-                    req = urllib.request.Request(target, headers={"Accept": "application/json"})
-                    with urllib.request.urlopen(req, timeout=4) as resp:
-                        data = resp.read()
-                    handler.send_response(HTTPStatus.OK)
-                    handler.send_header("Content-Type", "application/json; charset=utf-8")
-                    handler._send_cors_headers()
-                    handler.send_header("Content-Length", str(len(data)))
-                    handler.end_headers()
-                    handler.wfile.write(data)
-                    return True
-                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
-                    log.debug("Managed model endpoint probe skipped: %s", exc)
-            try:
-                target = f"{ollama_url}/v1/models" if "/models" in clean_path else f"{ollama_url}/api/tags"
-                req = urllib.request.Request(target, headers={"Accept": "application/json"})
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    data = resp.read()
-                    handler.send_response(HTTPStatus.OK)
-                    handler.send_header("Content-Type", "application/json; charset=utf-8")
-                    handler._send_cors_headers()
-                    handler.send_header("Content-Length", str(len(data)))
-                    handler.end_headers()
-                    handler.wfile.write(data)
-                    return True
-            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
-                pass
+                        "owned_by": "local-managed",
+                        "details": {"format": "gguf", "quantization_level": installed.get("quantization", "")},
+                    })
+                    seen_model_ids.add(mid)
 
-            # Check model_manager for locally installed GGUF models
+            # 2. Local installed GGUF models in model_manager
             try:
                 from services.appliance_dashboard.model_manager import get_model_manager
-                mgr = get_model_manager()
-                installed = mgr.status().get("models", [])
-                if installed:
-                    if clean_path in ("/api/tags", "/tags"):
-                        handler._send_json({"models": [{
-                            "name": item["model_id"],
-                            "model": item["model_id"],
+                installed_mgr = get_model_manager().status().get("models", [])
+                for item in installed_mgr:
+                    mid = str(item.get("model_id", "")).strip()
+                    if mid and mid not in seen_model_ids:
+                        combined_models.append({
+                            "id": mid,
+                            "name": mid,
+                            "model": mid,
                             "size": int(item.get("size_bytes", 0) or 0),
                             "digest": f"sha256:{item.get('sha256')}" if item.get("sha256") else "",
-                            "details": {"format": "gguf", "quantization_level": item.get("quantization", "")},
-                        } for item in installed]})
-                    else:
-                        models_data = [{
-                            "id": item["model_id"],
-                            "object": "model",
-                            "created": int(time.time()),
                             "owned_by": "local",
-                            "permission": [],
-                            "root": item["model_id"],
-                            "parent": None,
-                        } for item in installed]
-                        handler._send_json({"object": "list", "data": models_data})
-                    return True
+                            "details": {"format": "gguf", "quantization_level": item.get("quantization", "")},
+                        })
+                        seen_model_ids.add(mid)
             except Exception as exc:
                 log.debug("Installed model scan error: %s", exc)
 
-            # Strict node integrity policy: Only models that are actually available locally
-            # may be returned to the WebUI. Never return uninstalled cloud catalog entries.
+            # 3. Local Ollama models
+            try:
+                req_ol = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req_ol, timeout=2.5) as resp_ol:
+                    if resp_ol.status == 200:
+                        ol_data = json.loads(resp_ol.read().decode("utf-8"))
+                        for item in ol_data.get("models", []):
+                            mid = str(item.get("name") or item.get("model") or "").strip()
+                            if mid and mid not in seen_model_ids:
+                                combined_models.append({
+                                    "id": mid,
+                                    "name": mid,
+                                    "model": mid,
+                                    "size": int(item.get("size", 0) or 0),
+                                    "digest": str(item.get("digest", "")),
+                                    "owned_by": "local-ollama",
+                                    "details": item.get("details", {}),
+                                })
+                                seen_model_ids.add(mid)
+            except Exception:
+                pass
+
+            # 4. Fleet Peer Models from cluster
+            try:
+                from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+                for peer in GLOBAL_MESH_AGGREGATOR.get_online_peers():
+                    peer_nid = peer.get("node_id", "peer")
+                    active_p = str(peer.get("active_model", "")).strip()
+                    if active_p and active_p not in seen_model_ids:
+                        combined_models.append({
+                            "id": active_p,
+                            "name": active_p,
+                            "model": active_p,
+                            "size": 0,
+                            "digest": "",
+                            "owned_by": f"fleet-peer:{peer_nid}",
+                            "details": {"format": "gguf", "fleet_peer": peer_nid},
+                        })
+                        seen_model_ids.add(active_p)
+                    for pm in peer.get("models", []):
+                        pm_id = str(pm.get("model_id") if isinstance(pm, dict) else pm).strip()
+                        if pm_id and pm_id not in seen_model_ids:
+                            combined_models.append({
+                                "id": pm_id,
+                                "name": pm_id,
+                                "model": pm_id,
+                                "size": int(pm.get("size_bytes", 0) or 0) if isinstance(pm, dict) else 0,
+                                "digest": f"sha256:{pm.get('sha256')}" if (isinstance(pm, dict) and pm.get("sha256")) else "",
+                                "owned_by": f"fleet-peer:{peer_nid}",
+                                "details": {"format": "gguf", "fleet_peer": peer_nid},
+                            })
+                            seen_model_ids.add(pm_id)
+            except Exception as exc:
+                log.debug("Peer model enumeration skipped: %s", exc)
+
             if clean_path in ("/api/tags", "/tags"):
-                handler._send_json({"models": []})
+                handler._send_json({"models": [{
+                    "name": m["name"],
+                    "model": m["model"],
+                    "size": m.get("size", 0),
+                    "digest": m.get("digest", ""),
+                    "details": m.get("details", {}),
+                } for m in combined_models]})
             else:
-                handler._send_json({"object": "list", "data": []})
+                models_data = [{
+                    "id": m["id"],
+                    "object": "model",
+                    "created": int(time.time()),
+                    "owned_by": m.get("owned_by", "local"),
+                    "permission": [],
+                    "root": m["id"],
+                    "parent": None,
+                } for m in combined_models]
+                handler._send_json({"object": "list", "data": models_data})
             return True
 
         if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/slots", "/webui/slots", "/api/slots", "/v1/slots", "/tools", "/webui/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
@@ -361,16 +441,35 @@ class InferenceRouter:
             except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 payload = {}
 
-            available_models = [managed["engine"]["model_id"]] if managed is not None else []
-            if not available_models:
+            local_models = [managed["engine"]["model_id"]] if managed is not None else []
+            if not local_models:
                 _ensure_ollama_running()
                 try:
                     tags_req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
                     with urllib.request.urlopen(tags_req, timeout=3) as tags_resp:
                         tags_data = json.loads(tags_resp.read().decode("utf-8"))
-                        available_models = [m.get("name") or m.get("model") for m in tags_data.get("models", []) if m]
+                        local_models = [m.get("name") or m.get("model") for m in tags_data.get("models", []) if m]
                 except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     log.debug("Local Ollama tags probe skipped: %s", exc)
+
+            available_models = list(local_models)
+            peer_models: dict[str, dict[str, Any]] = {}
+            try:
+                from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+                for peer in GLOBAL_MESH_AGGREGATOR.get_online_peers():
+                    active_p = str(peer.get("active_model", "")).strip()
+                    if active_p:
+                        peer_models[active_p] = peer
+                        if active_p not in available_models:
+                            available_models.append(active_p)
+                    for pm in peer.get("models", []):
+                        pm_id = str(pm.get("model_id") if isinstance(pm, dict) else pm).strip()
+                        if pm_id:
+                            peer_models[pm_id] = peer
+                            if pm_id not in available_models:
+                                available_models.append(pm_id)
+            except Exception:
+                pass
 
             requested_model = str(payload.get("model", "")).strip()
             messages = payload.get("messages", [])
@@ -396,14 +495,10 @@ class InferenceRouter:
                     else:
                         target_model = available_models[0]
                 elif requested_model not in available_models:
-                    # An explicit model request is a contract. Never silently
-                    # replace it with the first locally available model: that
-                    # makes the UI, billing and response metadata lie about
-                    # which model processed the request.
                     handler._send_json(
                         {
                             "error": {
-                                "message": f"Requested model is not available on this node: {requested_model}",
+                                "message": f"Requested model is not available on this node or connected fleet peers: {requested_model}",
                                 "type": "invalid_request_error",
                                 "code": "model_not_available",
                                 "available_models": available_models,
@@ -428,7 +523,7 @@ class InferenceRouter:
                 handler._send_json(
                     {
                         "error": {
-                            "message": "No healthy local model runtime is available",
+                            "message": "No healthy local model runtime or fleet peer is available",
                             "type": "service_unavailable",
                             "code": "model_runtime_unavailable",
                         }
@@ -438,6 +533,18 @@ class InferenceRouter:
                 return True
             if not target_model:
                 target_model = "qwen2.5-coder:7b" if is_coding_query else "qwen2.5:7b"
+
+            is_stream = payload.get("stream", True)
+
+            # Check if execution should be offloaded to an online fleet peer
+            if target_model in peer_models and target_model not in local_models:
+                target_peer = peer_models[target_model]
+                if _proxy_inference_to_peer(handler, target_peer, payload, clean_path, is_stream):
+                    return True
+            elif not local_models and peer_models:
+                target_peer = peer_models.get(target_model) or next(iter(peer_models.values()))
+                if _proxy_inference_to_peer(handler, target_peer, payload, clean_path, is_stream):
+                    return True
 
             if has_image_input and not _looks_like_vision_model(target_model):
                 vision_models = [model for model in available_models if _looks_like_vision_model(model)]

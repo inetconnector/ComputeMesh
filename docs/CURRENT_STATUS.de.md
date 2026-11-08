@@ -1,6 +1,8 @@
-# ComputeMesh – aktueller öffentlicher Status
+# ComputeMesh – öffentlicher Status
 
-**Stand:** 3. September 2026
+> **AKTUELLER HANDOFF 2026-11-08:** Öffentlicher `main` und `origin/main` stehen auf Release `v1.2.210`, Commit `aba2bd5e9ebd3448b58424a797c6b5eac66c71a6`; der ControlPlane-Gitlink zeigt auf denselben SHA. Das Live-Manifest (`1.2.193`, `2026-11-08T17:39:07+01:00`) stimmt mit dem lokalen Manifest in allen deklarierten Signatur-, Größen- und SHA-256-Feldern überein. Das beweist keine Source-Commit-Provenienz, keine physische Multi-Host-/WAN-Abnahme und keine Produktionsfreigabe. Die lokale Public-Arbeitskopie war während der Prüfung durch Antigravity verändert; der Volltest war wegen fehlender `llama.dll` sowie nicht verfügbarer Chrome-/ADB-Scratch-Tests nicht vollständig sammelbar. **RELEASE_NO_GO** bleibt verbindlich. Die ausführliche Historie darunter ist bewusst nicht als aktueller Commit- oder Releasebeleg zu lesen.
+
+**Historischer Basisstand:** 3. September 2026; der aktuelle Handoff steht oben.
 
 Dieses Dokument ist die öffentliche Statuszusammenfassung. Es ist bewusst getrennt von `ComputeMesh-ControlPlane/STATE.md`, das proprietäre Placement-, Ranking- und Betriebsdetails enthält.
 

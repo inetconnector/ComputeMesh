@@ -115,6 +115,48 @@ class TestModelEngineService(unittest.TestCase):
             with self.assertRaisesRegex(ModelEngineError, "beneath"):
                 service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 32))
 
+    def test_starts_vulkan_multi_gpu_with_explicit_devices(self) -> None:
+        def vulkan_inventory() -> RigInventory:
+            return RigInventory(
+                schema_version=1,
+                captured_at="2026-08-22T12:00:00Z",
+                host_architecture="linux",
+                total_gpus=2,
+                total_vram_bytes=16 * 1024 * 1024 * 1024,
+                gpus=[
+                    GpuDevice(0, "0000:01:00.0", "amd", "Radeon RX 470", 8 * 1024**3, 3, 16, "vulkan", False, True),
+                    GpuDevice(1, "0000:02:00.0", "amd", "Radeon RX 470", 8 * 1024**3, 3, 16, "vulkan", False, True),
+                ],
+                pcie_riser_warning=False,
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "model.gguf"
+            artifact.write_bytes(b"GGUF" + b"x" * 64)
+            digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+            process = FakeProcess([])
+
+            def factory(command, **kwargs):
+                process.command = command
+                return process
+
+            service = ModelEngineService(
+                model_root=root,
+                inventory_provider=vulkan_inventory,
+                executable=str(root / "llama-server"),
+                process_factory=factory,
+                startup_timeout_seconds=0.2,
+                runtime_probe=lambda _binary, _plan: (True, "vulkan_runtime_verified"),
+            )
+            (root / "llama-server").write_bytes(b"binary")
+            with patch.object(service, "_health", return_value=True):
+                status = service.start(EngineModel("test/vulkan-model", artifact, digest, artifact.stat().st_size, 32))
+
+            self.assertTrue(status["ready"])
+            self.assertIn("--device", process.command)
+            self.assertEqual(process.command[process.command.index("--device") + 1], "Vulkan0,Vulkan1")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -466,7 +466,7 @@ def build_appliance(
         "--variant=minbase",
         "--keyring",
         str(debian_keyring),
-        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc,spirv-headers",
+        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc,spirv-headers,libgomp1",
         "trixie",
         str(CHROOT_DIR),
         debian_mirror,
@@ -788,12 +788,51 @@ WantedBy=multi-user.target
             encoding="utf-8",
         )
 
+        # Install persistent swap and model storage initializer service
+        mount_models_sh = CHROOT_DIR / "usr" / "local" / "bin" / "computemesh-mount-models.sh"
+        mount_models_sh.parent.mkdir(parents=True, exist_ok=True)
+        mount_models_sh.write_text(
+            """#!/bin/bash
+for sw in /run/live/persistence/*/swapfile /swapfile; do
+    if [ -f "$sw" ]; then
+        chmod 600 "$sw" 2>/dev/null || true
+        swapon "$sw" 2>/dev/null || true
+    fi
+done
+mkdir -p /var/lib/computemesh/models
+chmod 755 /var/lib/computemesh/models
+exit 0
+""",
+            encoding="utf-8",
+        )
+        chroot_exec("chmod +x /usr/local/bin/computemesh-mount-models.sh")
+
+        mount_models_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-mount-models.service"
+        mount_models_unit.write_text(
+            """[Unit]
+Description=ComputeMesh Native Persistence & Models Setup
+DefaultDependencies=no
+After=local-fs.target
+Before=computemesh-appliance.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/computemesh-mount-models.sh
+
+[Install]
+WantedBy=multi-user.target
+""",
+            encoding="utf-8",
+        )
+
         # Ensure daemon service user computemesh exists and state directories are secured (0700)
         chroot_exec("id -u computemesh >/dev/null 2>&1 || useradd -r -s /bin/false -d /var/lib/computemesh -m computemesh")
         chroot_exec("chown -R computemesh:computemesh /var/lib/computemesh /etc/computemesh")
         chroot_exec("chmod 700 /var/lib/computemesh /etc/computemesh")
 
         # Enable services in chroot
+        chroot_exec("systemctl enable computemesh-mount-models.service")
         chroot_exec("systemctl enable computemesh-node-preflight.service")
         chroot_exec("systemctl enable computemesh-node-heartbeat.service")
         chroot_exec("systemctl enable computemesh-appliance.service")

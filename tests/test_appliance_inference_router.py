@@ -161,6 +161,63 @@ class TestStrictLocalModelSelection(unittest.TestCase):
         self.assertEqual(payload["usage"]["total_tokens"], 12)
         meter.assert_called_once_with(prompt_tokens=7, completion_tokens=5)
 
+    def test_peer_models_aggregated_in_models_list(self):
+        handler = _Handler()
+        mock_peers = [
+            {
+                "node_id": "cm-inference-node-01",
+                "endpoint": "http://192.168.1.27:8080",
+                "active_model": "qwen2.5:32b",
+                "models": [{"model_id": "qwen2.5:32b", "size_bytes": 20 * 1024**3}],
+                "status": "online",
+            }
+        ]
+        with patch("services.appliance_dashboard.inference_router._managed_runtime_status", return_value=None), patch(
+            "services.appliance_dashboard.inference_router._ensure_ollama_running", return_value=False
+        ), patch("services.appliance_dashboard.mesh_aggregator.GLOBAL_MESH_AGGREGATOR.get_online_peers", return_value=mock_peers):
+            handled = InferenceRouter.handle_get(handler, "/v1/models", "1.2.206")
+
+        self.assertTrue(handled)
+        status, payload = handler.responses[-1]
+        self.assertEqual(status, HTTPStatus.OK)
+        model_ids = [m["id"] for m in payload.get("data", [])]
+        self.assertIn("qwen2.5:32b", model_ids)
+        peer_entry = next(m for m in payload["data"] if m["id"] == "qwen2.5:32b")
+        self.assertEqual(peer_entry["owned_by"], "fleet-peer:cm-inference-node-01")
+
+    def test_chat_completion_offloaded_to_peer_node(self):
+        handler = _Handler()
+        mock_peers = [
+            {
+                "node_id": "cm-inference-node-01",
+                "endpoint": "http://192.168.1.27:8080",
+                "active_model": "qwen2.5:32b",
+                "models": [{"model_id": "qwen2.5:32b"}],
+                "status": "online",
+            }
+        ]
+        with patch("services.appliance_dashboard.inference_router._managed_runtime_status", return_value=None), patch(
+            "services.appliance_dashboard.inference_router._ensure_ollama_running", return_value=False
+        ), patch(
+            "services.appliance_dashboard.mesh_aggregator.GLOBAL_MESH_AGGREGATOR.get_online_peers", return_value=mock_peers
+        ), patch(
+            "services.appliance_dashboard.inference_router._proxy_inference_to_peer", return_value=True
+        ) as mock_proxy:
+            handled = InferenceRouter.handle_post(
+                handler,
+                "/v1/chat/completions",
+                json.dumps({
+                    "model": "qwen2.5:32b",
+                    "messages": [{"role": "user", "content": "Complex prompt for 32B model"}],
+                    "stream": False,
+                }).encode("utf-8"),
+            )
+
+        self.assertTrue(handled)
+        mock_proxy.assert_called_once()
+        peer_arg = mock_proxy.call_args[0][1]
+        self.assertEqual(peer_arg["node_id"], "cm-inference-node-01")
+
 
 if __name__ == "__main__":
     unittest.main()

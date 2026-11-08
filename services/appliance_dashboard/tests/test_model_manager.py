@@ -212,6 +212,100 @@ class TestModelManager(unittest.TestCase):
             with self.assertRaisesRegex(ModelManagerError, "corrupt"):
                 manager.list_models()
 
+    def test_discover_and_register_local_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gguf_path = root / "qwen2.5-32b-instruct.gguf"
+            # 1.5 MB dummy GGUF
+            content = b"GGUF" + b"\x00" * (1024 * 1024 + 100)
+            gguf_path.write_bytes(content)
+
+            manifest_path = root / "qwen2.5-32b-instruct.computemesh-model-manifest.json"
+            manifest = {
+                "model_id": "qwen2.5-32b-instruct",
+                "layer_count": 64,
+                "quantizations": ["Q4_K_M"],
+                "artifacts": [{"digest": f"sha256:{hashlib.sha256(content).hexdigest()}"}],
+                "license": {"id": "apache-2.0"},
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            manager = ModelManager(root, engine=FakeEngine())
+            discovered = manager.discover_and_register_local_artifacts()
+            self.assertEqual(discovered, ["qwen2.5-32b-instruct"])
+
+            models = manager.list_models()
+            self.assertEqual(len(models), 1)
+            self.assertEqual(models[0]["model_id"], "qwen2.5-32b-instruct")
+            self.assertEqual(models[0]["layer_count"], 64)
+            self.assertEqual(models[0]["quantization"], "Q4_K_M")
+
+    def test_ensure_best_model_for_rig_tiering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            engine = FakeEngine()
+            manager = ModelManager(root, engine=engine)
+
+            # Install a 32b and a 7b model
+            body_32b = b"GGUF" + b"\x01" * 1024
+            body_7b = b"GGUF" + b"\x02" * 1024
+            (root / "model-32b.gguf").write_bytes(body_32b)
+            (root / "model-7b.gguf").write_bytes(body_7b)
+
+            models_data = {
+                "schema_version": 1,
+                "models": [
+                    {
+                        "model_id": "qwen2.5-32b",
+                        "filename": "model-32b.gguf",
+                        "sha256": hashlib.sha256(body_32b).hexdigest(),
+                        "size_bytes": len(body_32b),
+                        "layer_count": 64,
+                        "quantization": "Q4_K_M",
+                        "license_id": "apache-2.0",
+                        "source_repo": "local/qwen2.5-32b",
+                        "source_revision": "0" * 40,
+                        "installed_at": "2026-11-08T00:00:00Z",
+                    },
+                    {
+                        "model_id": "qwen2.5-7b",
+                        "filename": "model-7b.gguf",
+                        "sha256": hashlib.sha256(body_7b).hexdigest(),
+                        "size_bytes": len(body_7b),
+                        "layer_count": 32,
+                        "quantization": "Q4_K_M",
+                        "license_id": "apache-2.0",
+                        "source_repo": "local/qwen2.5-7b",
+                        "source_revision": "0" * 40,
+                        "installed_at": "2026-11-08T00:00:00Z",
+                    },
+                ],
+            }
+            (root / "catalog.json").write_text(json.dumps(models_data), encoding="utf-8")
+
+            # 1. 48 GB Rig (6x 8GB GPUs) -> Should pick 32b model
+            inventory_48gb = {
+                "gpus": [
+                    {"vendor": "amd", "model_name": "Radeon RX 470", "vram_bytes": 8 * 1024**3, "healthy": True}
+                    for _ in range(6)
+                ]
+            }
+            res_48 = manager.ensure_best_model_for_rig(inventory_48gb)
+            self.assertIsNotNone(res_48)
+            self.assertEqual(res_48["model_id"], "qwen2.5-32b")
+            self.assertEqual(engine.current, "qwen2.5-32b")
+
+            # 2. 16 GB PC (1x RTX 3080) -> Should pick 7b model
+            inventory_16gb = {
+                "gpus": [
+                    {"vendor": "nvidia", "model_name": "GeForce RTX 3080", "vram_bytes": 16 * 1024**3, "healthy": True}
+                ]
+            }
+            res_16 = manager.ensure_best_model_for_rig(inventory_16gb)
+            self.assertIsNotNone(res_16)
+            self.assertEqual(res_16["model_id"], "qwen2.5-7b")
+            self.assertEqual(engine.current, "qwen2.5-7b")
+
 
 if __name__ == "__main__":
     unittest.main()

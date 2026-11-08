@@ -115,6 +115,22 @@ class TestDiskCloneSafety(unittest.TestCase):
         self.assertIn("size_formatted", targets[0])
         self.assertIn("has_existing_os", targets[0])
 
+    @patch("tools.appliance.disk_clone.subprocess.run")
+    def test_provision_target_persistence_already_present(self, mock_subproc) -> None:
+        mock_subproc.return_value.returncode = 0
+        mock_subproc.return_value.stdout = "sda1 \nsda2 \nsda3 persistence\n"
+        self.assertTrue(disk_clone._provision_target_persistence("/dev/sda"))
+
+    @patch("tools.appliance.disk_clone._block_disk_size_bytes")
+    @patch("tools.appliance.disk_clone._source_used_extent_bytes")
+    @patch("tools.appliance.disk_clone.subprocess.run")
+    def test_provision_target_persistence_insufficient_space(self, mock_subproc, mock_used, mock_size) -> None:
+        mock_subproc.return_value.returncode = 0
+        mock_subproc.return_value.stdout = "sda1 \nsda2 \n"
+        mock_size.return_value = 4 * 1024 * 1024 * 1024
+        mock_used.return_value = 3900 * 1024 * 1024  # Less than 1GB free
+        self.assertFalse(disk_clone._provision_target_persistence("/dev/sda"))
+
 
 if __name__ == "__main__":
     unittest.main()

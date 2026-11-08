@@ -414,6 +414,195 @@ class ModelManager:
             self._save(models)
         return {"deleted": True, "model_id": model_id}
 
+    def discover_and_register_local_artifacts(self) -> list[str]:
+        """Scan model_root for valid GGUF files and register any missing into catalog.json."""
+        with self._lock:
+            models = self._load()
+            registered_filenames = {m.filename for m in models.values()}
+            registered_ids = set(models.keys())
+            discovered: list[str] = []
+
+            for gguf_file in sorted(self.model_root.glob("*.gguf")):
+                if gguf_file.is_symlink() or not gguf_file.is_file():
+                    continue
+                if gguf_file.name in registered_filenames:
+                    continue
+
+                size = gguf_file.stat().st_size
+                if size < 1024 * 1024:
+                    continue
+
+                manifest_data: dict[str, Any] = {}
+                candidate_manifests = [
+                    gguf_file.with_suffix(".computemesh-model-manifest.json"),
+                    gguf_file.with_suffix(".json"),
+                    self.model_root / f"{gguf_file.stem}.computemesh-model-manifest.json",
+                ]
+                for cm in candidate_manifests:
+                    if cm.is_file():
+                        try:
+                            manifest_data = json.loads(cm.read_text(encoding="utf-8"))
+                            break
+                        except Exception:
+                            pass
+
+                model_id = str(manifest_data.get("model_id") or gguf_file.stem).lower()
+                model_id = re.sub(r"[^A-Za-z0-9._/-]", "-", model_id).strip("-")
+                if not model_id:
+                    model_id = f"local-model-{len(models) + 1}"
+
+                if model_id in registered_ids:
+                    model_id = f"{model_id}-{len(models) + 1}"
+
+                digest = ""
+                art_list = manifest_data.get("artifacts", [])
+                if art_list and isinstance(art_list[0], dict) and art_list[0].get("digest"):
+                    raw_d = str(art_list[0]["digest"]).removeprefix("sha256:")
+                    if len(raw_d) == 64:
+                        digest = raw_d
+                if not digest:
+                    h = hashlib.sha256()
+                    with gguf_file.open("rb") as f:
+                        for chunk in iter(lambda: f.read(4 * 1024 * 1024), b""):
+                            h.update(chunk)
+                    digest = h.hexdigest()
+
+                layer_count = int(manifest_data.get("layer_count", 0) or 0)
+                if layer_count <= 0:
+                    if size > 16 * 1024 * 1024 * 1024:
+                        layer_count = 64
+                    elif size > 8 * 1024 * 1024 * 1024:
+                        layer_count = 48
+                    elif size > 3 * 1024 * 1024 * 1024:
+                        layer_count = 32
+                    else:
+                        layer_count = 24
+
+                quant = ""
+                quants = manifest_data.get("quantizations", [])
+                if quants and isinstance(quants, list):
+                    quant = str(quants[0])
+                if not quant:
+                    m = re.search(r"(Q[0-9]_[A-Za-z0-9_]+|BF16|F16|F32)", gguf_file.name, re.IGNORECASE)
+                    quant = m.group(1).upper() if m else "Q4_K_M"
+
+                license_id = str(manifest_data.get("license", {}).get("id", "apache-2.0") or "apache-2.0")
+                source_repo = str(manifest_data.get("upstream", {}).get("model_name", f"local/{model_id}") or f"local/{model_id}")
+                if "/" not in source_repo:
+                    source_repo = f"local/{source_repo}"
+                source_revision = "0" * 40
+
+                inst_model = InstalledModel(
+                    model_id=model_id,
+                    filename=gguf_file.name,
+                    sha256=digest,
+                    size_bytes=size,
+                    layer_count=layer_count,
+                    quantization=quant,
+                    license_id=license_id,
+                    source_repo=source_repo,
+                    source_revision=source_revision,
+                    installed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                )
+                models[model_id] = inst_model
+                registered_filenames.add(gguf_file.name)
+                registered_ids.add(model_id)
+                discovered.append(model_id)
+
+            if discovered:
+                self._save(models)
+            return discovered
+
+    def ensure_best_model_for_rig(self, inventory: Any | None = None) -> dict[str, Any] | None:
+        """Automatically selects, discovers, and activates the optimal model matching the node's VRAM tier."""
+        self.discover_and_register_local_artifacts()
+
+        total_vram_bytes = 0
+        if inventory is not None:
+            gpus = getattr(inventory, "gpus", None)
+            if gpus is None and isinstance(inventory, dict):
+                gpus = inventory.get("gpus", [])
+            if gpus:
+                try:
+                    from tools.appliance.hardware_detector import is_integrated_display_adapter
+                    for g in gpus:
+                        if isinstance(g, dict):
+                            vendor = g.get("vendor", "")
+                            model_name = g.get("model_name", "")
+                            vram = int(g.get("vram_bytes", 0) or 0)
+                            healthy = bool(g.get("healthy", True))
+                            if healthy and not is_integrated_display_adapter(vendor, model_name):
+                                total_vram_bytes += vram
+                        elif hasattr(g, "vram_bytes"):
+                            vendor = getattr(g, "vendor", "")
+                            model_name = getattr(g, "model_name", "")
+                            vram = int(getattr(g, "vram_bytes", 0) or 0)
+                            healthy = bool(getattr(g, "healthy", True))
+                            if healthy and not is_integrated_display_adapter(vendor, model_name):
+                                total_vram_bytes += vram
+                except Exception:
+                    pass
+
+        if total_vram_bytes == 0:
+            try:
+                from tools.appliance.hardware_detector import is_integrated_display_adapter, scan_rig_hardware_stable
+                detected = scan_rig_hardware_stable()
+                for g in detected.gpus:
+                    if g.healthy and not is_integrated_display_adapter(g.vendor, g.model_name):
+                        total_vram_bytes += g.vram_bytes
+            except Exception:
+                pass
+
+        total_vram_gb = total_vram_bytes / (1024**3)
+
+        if total_vram_gb >= 36.0:
+            tier_preferences = ["32b", "30b", "27b", "14b", "8b", "7b", "3b", "1.5b", "0.5b"]
+        elif total_vram_gb >= 12.0:
+            tier_preferences = ["14b", "8b", "7b", "3b", "1.5b", "0.5b"]
+        else:
+            tier_preferences = ["3b", "1.5b", "0.5b"]
+
+        with self._lock:
+            models = self._load()
+            if not models:
+                return None
+
+            candidates = []
+            for m in models.values():
+                artifact = self.model_root / m.filename
+                if artifact.is_file() and not artifact.is_symlink() and artifact.stat().st_size == m.size_bytes:
+                    candidates.append(m)
+
+            if not candidates:
+                return None
+
+            def score_model(m: InstalledModel) -> int:
+                name = (m.model_id + " " + m.filename).lower()
+                for rank, token in enumerate(tier_preferences):
+                    if token in name:
+                        coder_bonus = 10 if "coder" in name else 0
+                        return 1000 - (rank * 20) + coder_bonus
+                return 0
+
+            candidates.sort(key=score_model, reverse=True)
+            best_model = candidates[0]
+
+            engine_status = self.engine.status()
+            if engine_status.get("ready") and engine_status.get("model_id") == best_model.model_id:
+                return {
+                    "model_id": best_model.model_id,
+                    "status": "already_active",
+                    "total_vram_gb": round(total_vram_gb, 1),
+                }
+
+        result = self.activate(best_model.model_id)
+        return {
+            "model_id": best_model.model_id,
+            "status": "activated",
+            "total_vram_gb": round(total_vram_gb, 1),
+            "engine": result,
+        }
+
 
 _MANAGER: ModelManager | None = None
 _MANAGER_LOCK = threading.Lock()

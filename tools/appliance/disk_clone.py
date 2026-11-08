@@ -326,6 +326,192 @@ def _post_clone_fixup(target_dev: str) -> None:
     except (subprocess.SubprocessError, OSError) as exc:
         _ = exc
 
+    # 6. Auto-provision persistence and models partition on target internal disk
+    try:
+        _provision_target_persistence(target_dev)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as _persist_err:
+        _ = _persist_err
+
+
+def _provision_target_persistence(target_dev: str) -> bool:
+    """Ensure a persistence partition and model storage exist on the target cloned disk.
+
+    When cloning from a smaller USB installer to a larger internal HDD/SSD,
+    the remaining disk space is unpartitioned. This routine:
+    1. Checks if a 'persistence' partition already exists on target_dev.
+    2. If not, inspects partition table and appends a new partition filling remaining space.
+    3. Formats it with ext4 and volume label 'persistence'.
+    4. Populates persistence.conf with '/ union'.
+    5. Creates model cache directory /var/lib/computemesh/models.
+    6. Creates an 8GB swapfile (or scaled to free space) for multi-GPU shader compilation.
+    7. Configures boot activation service computemesh-mount-models.
+    """
+    disk_name = target_dev.rsplit("/", 1)[-1]
+
+    # 1. Check if target_dev already has a partition labeled persistence
+    try:
+        lsblk_out = subprocess.run(
+            ["lsblk", "-rno", "NAME,LABEL", target_dev],
+            check=False, capture_output=True, text=True, timeout=5,
+        ).stdout
+        if "persistence" in lsblk_out:
+            return True
+    except (subprocess.SubprocessError, OSError):
+        pass
+
+    # 2. Check total disk size vs used partition extents
+    total_size = _block_disk_size_bytes(disk_name)
+    used_extent = _source_used_extent_bytes(disk_name) or 0
+    free_bytes = total_size - used_extent
+    if free_bytes < 1024 * 1024 * 1024:  # Less than 1GB free
+        return False
+
+    # 3. Create Partition 3 (or next free partition) filling remaining space
+    partition_created = False
+    try:
+        sf_res = subprocess.run(
+            ["sfdisk", "--append", "--no-reread", target_dev],
+            input=",,L\n", text=True, check=False, capture_output=True, timeout=10,
+        )
+        if sf_res.returncode == 0:
+            partition_created = True
+    except (subprocess.SubprocessError, OSError):
+        pass
+
+    if not partition_created:
+        try:
+            start_mib = (used_extent // (1024 * 1024)) + 4
+            p_res = subprocess.run(
+                ["parted", "-s", target_dev, "mkpart", "primary", "ext4", f"{start_mib}MiB", "100%"],
+                check=False, capture_output=True, text=True, timeout=10,
+            )
+            if p_res.returncode == 0:
+                partition_created = True
+        except (subprocess.SubprocessError, OSError):
+            pass
+
+    # Re-probe partitions
+    try:
+        subprocess.run(["partprobe", target_dev], check=False, capture_output=True, timeout=5)
+        subprocess.run(["udevadm", "settle", "--timeout=5"], check=False, capture_output=True, timeout=5)
+    except (subprocess.SubprocessError, OSError):
+        pass
+
+    # Locate the target partition device (e.g. /dev/sda3 or /dev/nvme0n1p3)
+    target_part = None
+    sep = "p" if target_dev[-1].isdigit() else ""
+    for p_num in range(3, 8):
+        candidate = f"{target_dev}{sep}{p_num}"
+        if Path(candidate).exists() or Path(f"/sys/block/{disk_name}/{disk_name}{sep}{p_num}").exists():
+            target_part = candidate
+            break
+
+    if not target_part:
+        return False
+
+    # 4. Format partition as ext4 with label 'persistence'
+    try:
+        mkfs_res = subprocess.run(
+            ["mkfs.ext4", "-F", "-L", "persistence", target_part],
+            check=False, capture_output=True, timeout=60,
+        )
+        if mkfs_res.returncode != 0:
+            return False
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+    # 5. Mount and configure persistence filesystem
+    mount_dir = Path("/tmp/cm_persist_target_mount")
+    mount_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        m_res = subprocess.run(["mount", target_part, str(mount_dir)], check=False, capture_output=True, timeout=10)
+        if m_res.returncode == 0:
+            try:
+                # 5a. persistence.conf with / union
+                (mount_dir / "persistence.conf").write_text("/ union\n", encoding="utf-8")
+
+                # 5b. model storage directory
+                model_dir = mount_dir / "var" / "lib" / "computemesh" / "models"
+                model_dir.mkdir(parents=True, exist_ok=True)
+
+                # 5c. Swapfile for multi-GPU memory stability (8GB or 25% free space)
+                swap_mb = min(8192, max(1024, (free_bytes // (1024 * 1024)) // 4))
+                swap_path = mount_dir / "swapfile"
+                try:
+                    alloc_res = subprocess.run(
+                        ["fallocate", "-l", f"{swap_mb}M", str(swap_path)],
+                        check=False, capture_output=True, timeout=15,
+                    )
+                    if alloc_res.returncode != 0:
+                        subprocess.run(
+                            ["dd", "if=/dev/zero", f"of={str(swap_path)}", "bs=1M", f"count={swap_mb}"],
+                            check=False, capture_output=True, timeout=60,
+                        )
+                    if swap_path.exists():
+                        swap_path.chmod(0o600)
+                        subprocess.run(["mkswap", str(swap_path)], check=False, capture_output=True, timeout=10)
+                except (subprocess.SubprocessError, OSError):
+                    pass
+
+                # 5d. Install persistent computemesh-mount-models helper
+                bin_dir = mount_dir / "usr" / "local" / "bin"
+                bin_dir.mkdir(parents=True, exist_ok=True)
+                script_path = bin_dir / "computemesh-mount-models.sh"
+                script_path.write_text(
+                    """#!/bin/bash
+for sw in /run/live/persistence/*/swapfile /swapfile; do
+    if [ -f "$sw" ]; then
+        chmod 600 "$sw" 2>/dev/null || true
+        swapon "$sw" 2>/dev/null || true
+    fi
+done
+mkdir -p /var/lib/computemesh/models
+chmod 755 /var/lib/computemesh/models
+exit 0
+""",
+                    encoding="utf-8",
+                )
+                try:
+                    script_path.chmod(0o755)
+                except OSError:
+                    pass
+
+                # 5e. Install and enable systemd unit
+                systemd_dir = mount_dir / "etc" / "systemd" / "system"
+                systemd_dir.mkdir(parents=True, exist_ok=True)
+                service_file = systemd_dir / "computemesh-mount-models.service"
+                service_file.write_text(
+                    """[Unit]
+Description=ComputeMesh Native Persistence & Models Setup
+DefaultDependencies=no
+After=local-fs.target
+Before=computemesh-appliance.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/computemesh-mount-models.sh
+
+[Install]
+WantedBy=multi-user.target
+""",
+                    encoding="utf-8",
+                )
+                wants_dir = systemd_dir / "multi-user.target.wants"
+                wants_dir.mkdir(parents=True, exist_ok=True)
+                symlink = wants_dir / "computemesh-mount-models.service"
+                if not symlink.exists():
+                    try:
+                        symlink.symlink_to("/etc/systemd/system/computemesh-mount-models.service")
+                    except OSError:
+                        pass
+            finally:
+                subprocess.run(["umount", str(mount_dir)], check=False, capture_output=True, timeout=10)
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+    return True
+
 
 def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb: int) -> None:
     block_bytes = block_size_mb * 1024 * 1024

@@ -1,3 +1,34 @@
+## 2026-11-08 — Current public handoff: v1.2.211 and fleet model cooperation & persistence
+
+- Implemented automated HDD/SSD persistence provisioning in `tools/appliance/disk_clone.py`:
+  - `_provision_target_persistence(target_dev)` automatically partitions free space on cloned target drive (e.g. 118 GB on internal SSD) into Partition 3 (`persistence`, ext4).
+  - Creates `persistence.conf` with `/ union`, allocates 8 GB swapfile (`chmod 600`, `mkswap`), and provisions `/var/lib/computemesh/models`.
+  - Installs and enables `computemesh-mount-models.service` to mount model storage persistently across reboots.
+- Codified Vulkan multi-GPU device arguments in `services/appliance_dashboard/model_engine_service.py`:
+  - Automatically identifies Vulkan backend GPUs and injects `--device Vulkan0,Vulkan1,...`.
+- Implemented VRAM Tiering & Model Auto-Activation in `services/appliance_dashboard/model_manager.py`:
+  - Added `discover_and_register_local_artifacts()` to auto-discover GGUF files and companion manifests.
+  - Added `ensure_best_model_for_rig(inventory)` matching models to node hardware:
+    - Tier >= 40 GB VRAM (mining rig): 32B models (`Qwen2.5-32B`, `qwen2.5-coder:32b`).
+    - Tier 12-39 GB VRAM (PC / RTX 3080): 14B / 7B coder models (`qwen2.5-coder:14b`, `Qwen2.5-7B`).
+    - Tier < 12 GB VRAM: 3B / 0.5B edge models (`qwen2.5:3b`, `qwen2.5-0.5b`).
+  - Auto-starts candidate model on dashboard initialization in a non-blocking daemon thread.
+- Implemented Fleet Peer Inference Cooperation in `services/appliance_dashboard/inference_router.py` & `mesh_aggregator.py`:
+  - Unified `/v1/models` and `/api/tags` enumerating both local models and peer models available across the fleet sharing the same `owner_key`.
+  - Transparent proxying/offloading of chat completion requests to online fleet peers when the requested model is hosted on a peer.
+- Implemented Gateway Session Exchange & Explicit Claimed Status in `services/gateway/server.py` and `portal/fleet.html`:
+  - Added `/api/portal/fleet/session_exchange` minting scoped cookies for fleet management and node viewing.
+  - Added explicit `"claimed"` boolean to node telemetry payload.
+  - Updated `portal/fleet.html` with seamless "Server Info ->" navigation and visual Claimed badge.
+- Verification receipts:
+  - `pytest ComputeMesh/services/appliance_dashboard/tests/test_model_manager.py`: 10 passed.
+  - `pytest ComputeMesh/services/appliance_dashboard/tests/test_model_engine_service.py`: 6 passed.
+  - `pytest ComputeMesh/tools/appliance/tests/test_disk_clone.py`: 10 passed.
+  - `pytest ComputeMesh/tests/test_appliance_inference_router.py`: 6 passed.
+  - `python ComputeMesh/tools/release/check_portal_routes.py`: 34 pages, 0 issues (PASS).
+  - `python ComputeMesh/tools/release/check_portal_i18n.py --publish`: PORTAL_GATE_PASS.
+  - Portal & security test suite (40 tests): all passed.
+
 ## 2026-10-26 P0 first-install enrollment, key binding and measured evidence
 
 The P0-A through P0-D runtime implementation is committed in

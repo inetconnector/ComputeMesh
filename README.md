@@ -1,6 +1,29 @@
 # ComputeMesh
 
-## Current release-gate status (2026-11-02)
+## Current release-gate status (2026-11-08)
+
+Public `main` and `origin/main` are synchronized at committed release
+`v1.2.210`, commit `aba2bd5e9ebd3448b58424a797c6b5eac66c71a6`.
+
+The live update manifest at `https://mesh.inetconnector.com/updates/version.json`
+matches `portal/updates/version.json` field-for-field at the observed snapshot:
+version `1.2.193`, release timestamp `2026-11-08T17:39:07+01:00`, and all nine
+artifact SHA-256/size entries. This proves manifest parity only; it is not a
+source-commit, physical-device or multi-host acceptance proof.
+
+Antigravity was still editing the local checkout during handoff. Local changes
+were present in `portal/fleet.html`, `services/portal/passkey_routes.py` and
+`tests/test_security_audit_fixes.py`; preserve them and recheck cleanliness
+after the editor finishes.
+
+The public full-suite collection was not a PASS in this environment: it
+stopped on the missing native `llama.dll` and three unavailable Chrome/ADB
+scratch tests. The public release remains **`RELEASE_NO_GO`** until protected
+source-bound receipts, production signing/artifact verification, physical
+GPU/device acceptance and multi-host/WAN/BFT evidence are independently
+complete.
+
+## Historical release-gate status (2026-11-02)
 
 This checkout contains the public PR-139 candidate at commit
 `33f3da4`. The existing v1.2.189 manifest
@@ -46,7 +69,7 @@ findings; hosted run `41448235651` passed with `59 passed, 5 skipped, 9
 subtests` and `194 passed, 13 skipped` offline. The direct full suite is
 `2090 passed, 20 skipped, 69 subtests` in 307.00 s.
 
-## Current local P0 integration candidate (2026-10-26)
+## Historical local P0 integration candidate (2026-10-26)
 
 This checkout is a local development candidate, not a published release. It
 is on `codex/p0-auth-placement-20261026`; the P0-A through P0-D runtime code is

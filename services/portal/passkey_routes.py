@@ -189,7 +189,7 @@ def session_account_from_headers(headers: Any):
     if not headers:
         return None
 
-    # 1. Check Session Cookie (supports cm_fleet_session, legacy cm_session, session_token)
+    # 1. Check Session Cookie
     raw = headers.get("Cookie", "") if hasattr(headers, "get") else ""
     if raw:
         cookie: SimpleCookie = SimpleCookie()
@@ -199,34 +199,17 @@ def session_account_from_headers(headers: Any):
             # Invalid client syntax is distinct from a backend outage.
             logger.debug("invalid owner-cookie syntax: %s", exc)
         else:
-            cookie_names = (SESSION_COOKIE_NAME, "cm_session", "session_token", "cm_node_session")
-            for c_name in cookie_names:
-                morsel = cookie.get(c_name)
-                if morsel is not None and morsel.value:
-                    val = str(morsel.value).strip()
-                    # 1a. Try as active session token
-                    acct = FLEET_ACCOUNT_STORE.get_session_account(val)
+            morsel = cookie.get(SESSION_COOKIE_NAME)
+            if morsel is not None:
+                # Never hide fleet storage outages as an anonymous session.
+                acct = FLEET_ACCOUNT_STORE.get_session_account(morsel.value)
+                if acct is not None:
+                    return acct
+                owner_cookie = str(morsel.value).strip()
+                if owner_cookie.startswith(("ok_", "owner_", "cm_owner_", "inet-", "owk_")):
+                    acct = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_cookie)
                     if acct is not None:
                         return acct
-                    # 1b. Try as raw owner key
-                    if val.startswith(("ok_", "owner_", "cm_owner_", "inet-", "owk_")):
-                        acct = FLEET_ACCOUNT_STORE.get_account_by_owner_key(val)
-                        if acct is not None:
-                            return acct
-                        # Auto-provision account if valid owner key is in cookie
-                        acct_id = "facc_" + hashlib.sha256(val.encode("utf-8")).hexdigest()[:20]
-                        try:
-                            with FLEET_ACCOUNT_STORE._connection() as conn:
-                                conn.execute(
-                                    "INSERT OR IGNORE INTO fleet_accounts(account_id, email, owner_key, display_name, created_at, updated_at) "
-                                    "VALUES(?, ?, ?, 'Owner Key Administrator', ?, ?)",
-                                    (acct_id, f"owner_{acct_id[5:13]}@inetconnector.local", val, utc_now(), utc_now()),
-                                )
-                            provisioned = FLEET_ACCOUNT_STORE.get_account(acct_id)
-                            if provisioned is not None:
-                                return provisioned
-                        except (sqlite3.Error, OSError, RuntimeError, ValueError) as exc:
-                            logger.debug("cookie owner-key account provisioning error: %s", exc)
 
     # 2. Check X-Owner-Key or Authorization Bearer header
     owner_key = ""

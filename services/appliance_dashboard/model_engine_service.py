@@ -202,6 +202,11 @@ class ModelEngineService:
                 self._last_error = runtime_detail
                 raise ModelEngineError(runtime_detail)
 
+            vulkan_active = any(a.driver_backend.lower() == "vulkan" for a in plan.allocations)
+            device_names = (
+                os.environ.get("COMPUTEMESH_LLAMA_DEVICE_NAMES", "").strip()
+                or (plan.devices_arg if vulkan_active else None)
+            )
             command = build_llama_server_command(
                 binary,
                 str(verified.path),
@@ -210,7 +215,7 @@ class ModelEngineService:
                 port=self.port,
                 context_size=int(context_size),
                 extra_args=("--alias", verified.model_id, "--parallel", "1"),
-                device_names=os.environ.get("COMPUTEMESH_LLAMA_DEVICE_NAMES", "").strip() or None,
+                device_names=device_names,
             )
             log_path = self.model_root / "llama-server.log"
             log_handle = log_path.open("ab", buffering=0)

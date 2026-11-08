@@ -442,8 +442,13 @@ def _build_fleet_payload(
 
         display_name = str(n.get("display_name") or n.get("name") or node_id).strip()
 
-        model_runtime = telem.get("model_runtime", {}) if isinstance(telem.get("model_runtime"), dict) else {}
-        engine_ready = bool(model_runtime.get("ready", False))
+        raw_runtime = telem.get("model_runtime") or telem.get("model_engine") or {}
+        model_runtime = raw_runtime if isinstance(raw_runtime, dict) else {}
+        engine_ready = bool(
+            model_runtime.get("ready", False)
+            or str(model_runtime.get("state", "")).upper() in ("READY", "RUNNING")
+            or str(model_runtime.get("inference_state", "")).upper() in ("INFERENCE_READY", "READY")
+        )
         engine_state = str(model_runtime.get("state", "stopped" if not engine_ready else "running"))
         engine_error = str(model_runtime.get("last_error", "") or "")
         compute_measurement = str(telem.get("compute_measurement", "unavailable" if node_tflops == 0.0 else "measured"))
@@ -463,6 +468,7 @@ def _build_fleet_payload(
             "status": status,
             "is_online": is_online,
             "is_community_pool": bool(owner_id == COMMUNITY_POOL_OWNER_ID or n.get("owner_id") == COMMUNITY_POOL_OWNER_ID or n.get("is_community_pool")),
+            "claimed": bool(owner_id != COMMUNITY_POOL_OWNER_ID and not (n.get("owner_id") == COMMUNITY_POOL_OWNER_ID or n.get("is_community_pool"))),
             # Mobile heartbeat proves device presence, not that a tested
             # inference runtime is ready for paid fleet scheduling.
             "available_for_routing": is_online and not c["alias_collision"] and not n.get("mobile_device", False),
@@ -2833,6 +2839,63 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "owner_id": owner_id,
                 "disabled_tools": disabled_tools,
             })
+            return
+
+        if clean_path in ("/api/portal/fleet/session_exchange", "/api/v1/mesh/fleet/session_exchange"):
+            from services.common.node_access import issue_node_session, node_session_cookie
+            from services.portal.passkey_routes import _cookie_domain_for_host, _session_cookie_header
+            
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = str(body.get("owner_key", "")).strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        cand = auth_hdr[7:].strip()
+                        if cand.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
+                            owner_key = cand
+
+            verified_account = account or (FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key) if owner_key else None)
+            if verified_account is None and owner_key:
+                derived = owner_id_for_key(owner_key)
+                if derived:
+                    try:
+                        verified_account = FLEET_ACCOUNT_STORE.create_account(
+                            email=f"{derived}@owner.computemesh.local",
+                            proposed_owner_key=owner_key,
+                            account_id=derived,
+                        )
+                    except Exception:
+                        verified_account = FLEET_ACCOUNT_STORE.get_account(derived)
+
+            if verified_account is None:
+                self._send_error_response("Valid owner key or fleet session required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+
+            s_tok = FLEET_ACCOUNT_STORE.create_session(verified_account.account_id)
+            cookie_domain = _cookie_domain_for_host(self.headers.get("Host"))
+            fleet_cookie = _session_cookie_header(s_tok, domain=cookie_domain)
+
+            target_node_id = str(body.get("node_id", "")).strip()
+            extra_cookies = [fleet_cookie]
+            if target_node_id:
+                node_cookie = node_session_cookie(
+                    issue_node_session(target_node_id, verified_account.account_id),
+                    secure=str(getattr(CONFIG.endpoints, "scheme", "https")) == "https",
+                    domain=cookie_domain,
+                )
+                extra_cookies.append(node_cookie)
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json")
+            for c in extra_cookies:
+                self.send_header("Set-Cookie", c)
+            self._send_cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "account_id": verified_account.account_id, "node_id": target_node_id}).encode("utf-8"))
             return
 
         if clean_path == "/api/auth/logout":

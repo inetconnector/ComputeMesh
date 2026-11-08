@@ -965,6 +965,15 @@ def create_dashboard_server(
     except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
         log.warning("Fan safety controller unavailable: %s", exc)
 
+    def _auto_start_best_model() -> None:
+        try:
+            from services.appliance_dashboard.model_manager import get_model_manager
+            get_model_manager().ensure_best_model_for_rig(inventory)
+        except Exception as exc:
+            log.debug("Auto-selection of best model skipped: %s", exc)
+
+    threading.Thread(target=_auto_start_best_model, name="cm-auto-model-loader", daemon=True).start()
+
     # The dashboard is a UI/HTTP surface, not a heartbeat owner.  The
     # platform-specific launcher (Windows/Linux tray or the NodeOS systemd
     # heartbeat unit after preflight) owns exactly one relay instance.  Starting

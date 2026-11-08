@@ -1,8 +1,8 @@
-> **STATUSHINWEIS 2026-10-28:** Dieses Dokument trägt einen älteren Stichtag und enthält spätere Branch-Notizen. Aktueller Stand der öffentlichen Quellintegration: `main` bei `f1ba057a6f0d9c49ae052f0d0e1086c3181ad734` (PR #138 inklusive Kimi/RPC opt-in integriert). Branch-lokale Aussagen unten sind historische Entwicklungshinweise und dürfen nicht als derzeit noch ungemergte Änderungen oder als reale Hardware-/Produktionsfreigabe gelesen werden. Physische Kimi- und Miner-Inferenz, Release-Signing, Fleet-Rotation und Windows-Security-Gate bleiben unbestätigt; **RELEASE_NO_GO**. Der private Gesamtprojekt-SSOT verbleibt in `ComputeMesh-ControlPlane/state.md`.
+> **AKTUELLER STATUS 2026-11-08:** Öffentlicher `main` und `origin/main` stehen auf Release `v1.2.210`, Commit `aba2bd5e9ebd3448b58424a797c6b5eac66c71a6`. Das ControlPlane-Gitlink zeigt auf exakt diesen SHA. Das Live-Manifest (`1.2.193`, Zeitstempel `2026-11-08T17:39:07+01:00`) stimmt mit dem lokalen Manifest in allen deklarierten Signatur-, Größen- und SHA-256-Feldern überein. Dieser Nachweis ist keine Source-Commit-, physische Multi-Host- oder Produktionsfreigabe. Die lokale Public-Arbeitskopie war während der Prüfung durch Antigravity verändert; der öffentliche Volltest war wegen `llama.dll` sowie nicht verfügbaren Chrome-/ADB-Scratch-Tests nicht vollständig sammelbar. **RELEASE_NO_GO** bleibt verbindlich. Der private Gesamtprojekt-SSOT verbleibt in `ComputeMesh-ControlPlane/state.md`.
 
-# ComputeMesh current public status
+# ComputeMesh public status archive
 
-**Current as of:** 2026-09-03
+**Historical baseline:** 2026-09-03; the current handoff is the status notice above.
 
 This document is the public-safe status summary. It is intentionally separate from the private `ComputeMesh-ControlPlane/STATE.md`, which contains proprietary placement, ranking and operational details.
 

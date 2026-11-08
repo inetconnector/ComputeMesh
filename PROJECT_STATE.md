@@ -1,3 +1,15 @@
+## Current repository handoff — 2026-11-08
+
+This file contains the historical Agents Platform state log. The current
+repository snapshot is public `ComputeMesh` `main`/`origin/main` at
+`aba2bd5e9ebd3448b58424a797c6b5eac66c71a6` (`v1.2.210`), pinned by private
+ControlPlane commit `67add4954da6760c8a5096387416a5cba970d58e`. The public
+working tree was concurrently edited by Antigravity, so no clean-tree or
+release claim is made here. The live manifest is locally parity-checked, but
+physical multi-host/WAN/BFT acceptance and source-bound production receipts
+remain unproven; overall status is `RELEASE_NO_GO`. Entries below retain their
+original dates and verification context.
+
 ## 2026-10-25 – P0 Mesh-Inventarisierung, Node-Lifecycle & Kontrollierte Updates
 - **Status:** PASS_LOCAL (Fully verified with reproducible tests)
 - **Problem & Root Cause:**

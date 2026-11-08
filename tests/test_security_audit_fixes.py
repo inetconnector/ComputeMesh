@@ -902,22 +902,6 @@ class TestZeroUrlSecretsAndCookieAuth(unittest.TestCase):
         self.assertEqual(resp.getheader("Referrer-Policy"), "no-referrer")
         conn.close()
 
-    def test_authenticated_via_cm_fleet_session_cookie(self):
-        conn = HTTPConnection("127.0.0.1", self.port)
-        conn.request("GET", "/node/node_test_zero_url", headers={"Cookie": f"cm_fleet_session={self.owner_key}", "Accept": "text/html"})
-        resp = conn.getresponse()
-        self.assertEqual(resp.status, 200)
-        self.assertEqual(resp.getheader("Referrer-Policy"), "no-referrer")
-        conn.close()
-
-    def test_authenticated_via_legacy_cm_session_cookie(self):
-        conn = HTTPConnection("127.0.0.1", self.port)
-        conn.request("GET", "/node/node_test_zero_url", headers={"Cookie": f"cm_session={self.owner_key}", "Accept": "text/html"})
-        resp = conn.getresponse()
-        self.assertEqual(resp.status, 200)
-        self.assertEqual(resp.getheader("Referrer-Policy"), "no-referrer")
-        conn.close()
-
     def test_referrer_policy_no_referrer_on_all_responses(self):
         conn = HTTPConnection("127.0.0.1", self.port)
         conn.request("GET", "/health")
