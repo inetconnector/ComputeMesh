@@ -32,7 +32,7 @@ class TestSecurityHardening(unittest.TestCase):
         cls.test_config = ApplianceConfig(
             rig_name="sec-hardened-node",
             provider_account_id="cm_0xsec123",
-            owner_key="inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3",
+            owner_key="inet-testownerkey111122223333444455556666",
             payout_address="0x1234567890abcdef1234567890abcdef12345678",
             ssh_authorized_keys=["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ... test@key"],
         )
@@ -143,9 +143,9 @@ class TestSecurityHardening(unittest.TestCase):
         data, status = sent_json[0]
         self.assertEqual(status, HTTPStatus.OK)
         # Owner key must be masked
-        self.assertNotEqual(data.get("owner_key"), "inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3")
+        self.assertNotEqual(data.get("owner_key"), "inet-testownerkey111122223333444455556666")
         self.assertIn("...", data.get("owner_key", ""))
-        self.assertTrue(data.get("owner_key", "").startswith("inet-a6d"))
+        self.assertTrue(data.get("owner_key", "").startswith("inet-tes"))
         # SSH keys and payout address must be protected
         self.assertIsNone(data.get("ssh_authorized_keys"))
         self.assertIn("...", data.get("payout_address", ""))
@@ -171,7 +171,7 @@ class TestSecurityHardening(unittest.TestCase):
         ok = SystemActionsHandler.handle_get(mock_h, "/api/config", "1.2.0")
         self.assertTrue(ok)
         data, status = sent_json[0]
-        self.assertEqual(data.get("owner_key"), "inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3")
+        self.assertEqual(data.get("owner_key"), "inet-testownerkey111122223333444455556666")
 
 
 if __name__ == "__main__":

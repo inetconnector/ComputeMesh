@@ -17,7 +17,11 @@ Verifies remediation of critical and high-priority vulnerabilities:
 """
 import contextlib
 import http.client
+from http.client import HTTPConnection
+from http.server import HTTPServer
 import json
+import os
+from pathlib import Path
 import socket
 import tempfile
 import threading
@@ -818,6 +822,92 @@ class TestSecurityAuditFixes(unittest.TestCase):
         )
         self.assertIsNotNone(tx)
         self.assertEqual(hold.status, "captured")
+
+
+class TestZeroUrlSecretsAndCookieAuth(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.db_path = Path(self.tmpdir.name) / "test_sec.db"
+        self.prev_db = os.environ.get("COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH")
+        os.environ["COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH"] = str(self.db_path)
+
+        from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
+        self.owner_key = "inet-test-owner-key-abcdef123456"
+        self.derived_id = "acct_test123456"
+        self.account = FLEET_ACCOUNT_STORE.get_account_by_owner_key(self.owner_key)
+        if not self.account:
+            self.account = FLEET_ACCOUNT_STORE.create_account(
+                email="test_zero@owner.computemesh.local",
+                proposed_owner_key=self.owner_key,
+                account_id="facc_zero123",
+            )
+
+        from services.gateway.server import (
+            GatewayHandler,
+            NODE_TELEMETRY_REGISTRY,
+            OWNER_ACCOUNT_STORE,
+            owner_id_for_key,
+        )
+        self.owner_id = owner_id_for_key(self.owner_key)
+        OWNER_ACCOUNT_STORE.ensure_owner(self.owner_id)
+        OWNER_ACCOUNT_STORE.bind_provider_node(self.owner_id, "node_test_zero_url")
+        NODE_TELEMETRY_REGISTRY["node_test_zero_url"] = {
+            "node_id": "node_test_zero_url",
+            "owner_id": self.owner_id,
+            "auth_token": "node_secret_tok_123",
+            "inventory": {"gpus": []},
+            "telemetry": {},
+        }
+
+        self.server = HTTPServer(("127.0.0.1", 0), GatewayHandler)
+        self.port = self.server.server_port
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        if self.prev_db:
+            os.environ["COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH"] = self.prev_db
+        else:
+            os.environ.pop("COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH", None)
+        self.tmpdir.cleanup()
+
+    def test_browser_unauthenticated_node_view_redirects_to_fleet(self):
+        conn = HTTPConnection("127.0.0.1", self.port)
+        conn.request("GET", "/node/node_test_zero_url", headers={"Accept": "text/html,application/xhtml+xml"})
+        resp = conn.getresponse()
+        self.assertEqual(resp.status, 302)
+        self.assertEqual(resp.getheader("Location"), "/fleet")
+        conn.close()
+
+    def test_api_unauthenticated_node_view_returns_401_json(self):
+        conn = HTTPConnection("127.0.0.1", self.port)
+        conn.request("GET", "/node/node_test_zero_url", headers={"Accept": "application/json"})
+        resp = conn.getresponse()
+        self.assertEqual(resp.status, 401)
+        data = json.loads(resp.read().decode())
+        self.assertEqual(data.get("error", {}).get("type"), "unauthorized")
+        conn.close()
+
+    def test_authenticated_via_header_receives_node_session_cookie(self):
+        conn = HTTPConnection("127.0.0.1", self.port)
+        conn.request("GET", "/node/node_test_zero_url", headers={"X-Owner-Key": self.owner_key, "Accept": "text/html"})
+        resp = conn.getresponse()
+        self.assertEqual(resp.status, 200)
+        cookie = resp.getheader("Set-Cookie")
+        self.assertIsNotNone(cookie)
+        self.assertIn("cm_node_session=", cookie)
+        self.assertIn("HttpOnly", cookie)
+        self.assertEqual(resp.getheader("Referrer-Policy"), "no-referrer")
+        conn.close()
+
+    def test_referrer_policy_no_referrer_on_all_responses(self):
+        conn = HTTPConnection("127.0.0.1", self.port)
+        conn.request("GET", "/health")
+        resp = conn.getresponse()
+        self.assertEqual(resp.getheader("Referrer-Policy"), "no-referrer")
+        conn.close()
 
 
 if __name__ == "__main__":

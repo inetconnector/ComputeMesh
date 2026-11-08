@@ -57,7 +57,7 @@ def get_node_session(headers: Any, node_id: str) -> NodeSession | None:
         return session
 
 
-def node_session_cookie(token: str, *, secure: bool = True) -> str:
+def node_session_cookie(token: str, *, secure: bool = True, domain: str | None = None) -> str:
     cookie = SimpleCookie()
     cookie[NODE_SESSION_COOKIE] = token
     cookie[NODE_SESSION_COOKIE]["path"] = "/"
@@ -66,4 +66,6 @@ def node_session_cookie(token: str, *, secure: bool = True) -> str:
     cookie[NODE_SESSION_COOKIE]["max-age"] = str(NODE_SESSION_TTL_SECONDS)
     if secure:
         cookie[NODE_SESSION_COOKIE]["secure"] = True
+    if domain:
+        cookie[NODE_SESSION_COOKIE]["domain"] = domain
     return cookie[NODE_SESSION_COOKIE].OutputString()

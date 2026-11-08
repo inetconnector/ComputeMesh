@@ -512,7 +512,7 @@ def get_fleet_nodes_info() -> list[dict[str, Any]]:
         import urllib.request
         from tools.appliance.appliance_config import load_appliance_config
         cfg = load_appliance_config()
-        owner_k = getattr(cfg, "owner_key", "") or "inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3"
+        owner_k = getattr(cfg, "owner_key", "") or os.environ.get("COMPUTEMESH_OWNER_KEY", "")
         miner_url = "http://192.168.1.27:8080/api/status"
         req = urllib.request.Request(miner_url, headers={"X-Owner-Key": owner_k})
         with urllib.request.urlopen(req, timeout=1.2) as resp:

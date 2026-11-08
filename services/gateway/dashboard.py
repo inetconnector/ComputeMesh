@@ -233,7 +233,22 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <title>ComputeMesh Remote Node — {safe_node_id}</title>
+    <script>
+        (function() {{
+            if (window.location.search && (window.location.search.includes('owner_key=') || window.location.search.includes('key=') || window.location.search.includes('token=') || window.location.search.includes('auth='))) {{
+                try {{
+                    const u = new URL(window.location.href);
+                    u.searchParams.delete('owner_key');
+                    u.searchParams.delete('key');
+                    u.searchParams.delete('token');
+                    u.searchParams.delete('auth');
+                    window.history.replaceState({{}}, document.title, u.pathname + (u.search ? u.search : '') + (u.hash || ''));
+                }} catch (_) {{}}
+            }}
+        }})();
+    </script>
     <style>
         :root {{
             --bg: #090d16;

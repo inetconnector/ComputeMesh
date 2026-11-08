@@ -3,8 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
   <meta name="application-name" content="ComputeMesh Agent Workspace">
   <title>ComputeMesh Agent Workspace</title>
+  <script>
+    (function() {
+      if (window.location.search && (window.location.search.includes('owner_key=') || window.location.search.includes('key=') || window.location.search.includes('token='))) {
+        try {
+          const u = new URL(window.location.href);
+          const legacyKey = u.searchParams.get('owner_key') || u.searchParams.get('key');
+          if (legacyKey && !localStorage.getItem('cm_fleet_owner_key')) {
+            localStorage.setItem('cm_fleet_owner_key', legacyKey);
+            localStorage.setItem('cm_owner_key', legacyKey);
+          }
+          u.searchParams.delete('owner_key');
+          u.searchParams.delete('key');
+          u.searchParams.delete('token');
+          window.history.replaceState({}, document.title, u.pathname + (u.search ? u.search : '') + (u.hash || ''));
+        } catch (_) {}
+      }
+    })();
+  </script>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/portal.css?v=5.2">
   <link rel="stylesheet" href="/portal-business.css?v=5.1">
@@ -1761,9 +1780,7 @@
 
     function openFleetWithKey(e) {
       if (e) e.preventDefault();
-      const key = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
-      const target = 'https://mesh.inetconnector.com/fleet?owner_key=' + encodeURIComponent(key);
-      window.open(target, '_blank');
+      window.open('https://mesh.inetconnector.com/fleet', '_blank');
     }
 
     function toggleMenu(id) {
@@ -2033,7 +2050,7 @@
 
       const ownerInp = document.getElementById('settings-owner-key-input');
       if (ownerInp) {
-        ownerInp.value = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
+        ownerInp.value = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || '';
       }
 
       modal.classList.add('open');
@@ -2142,7 +2159,7 @@
         } catch (_) {}
       }
 
-      let token = (urlKey && urlKey.trim()) || localStorage.getItem('cm_auth_token') || localStorage.getItem('cm_session_token') || localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || sessionStorage.getItem('computemesh.nodeAuthToken') || (typeof window !== 'undefined' && window.__CM_NODE_AUTH_TOKEN__) || localStorage.getItem('cm_api_key') || localStorage.getItem('apiKey') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
+      let token = (urlKey && urlKey.trim()) || localStorage.getItem('cm_auth_token') || localStorage.getItem('cm_session_token') || localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || sessionStorage.getItem('computemesh.nodeAuthToken') || (typeof window !== 'undefined' && window.__CM_NODE_AUTH_TOKEN__) || localStorage.getItem('cm_api_key') || localStorage.getItem('apiKey') || '';
       if (!token) {
         const cookieMatch = document.cookie.match(/(?:^|;\s*)cm_session=([^;]+)/);
         if (cookieMatch) token = decodeURIComponent(cookieMatch[1]);
@@ -2202,11 +2219,7 @@
     /* Load Fleet Nodes & Workspaces */
     async function loadFleetAndWorkspaces() {
       try {
-        let wsUrl = '/api/v1/fleet/workspaces';
-        const key = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
-        if (key) {
-          wsUrl += `?owner_key=${encodeURIComponent(key)}`;
-        }
+        const wsUrl = '/api/v1/fleet/workspaces';
         const resp = await fetchWithAuth(wsUrl);
         if (resp.ok) {
           const data = await resp.json();

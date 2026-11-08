@@ -154,7 +154,16 @@ def _client_ip(headers: Any, client_address: tuple[str, int] | None = None) -> s
     return peer
 
 
-def _session_cookie_header(token: str, max_age_days: int = 30, *, clear: bool = False) -> str:
+def _cookie_domain_for_host(host_header: str | None) -> str | None:
+    if not host_header:
+        return None
+    host = str(host_header).split(":")[0].strip().lower()
+    if host == "inetconnector.com" or host.endswith(".inetconnector.com"):
+        return ".inetconnector.com"
+    return None
+
+
+def _session_cookie_header(token: str, max_age_days: int = 30, *, clear: bool = False, domain: str | None = None) -> str:
     cookie: SimpleCookie = SimpleCookie()
     cookie[SESSION_COOKIE_NAME] = "" if clear else token
     cookie[SESSION_COOKIE_NAME]["path"] = "/"
@@ -166,11 +175,13 @@ def _session_cookie_header(token: str, max_age_days: int = 30, *, clear: bool = 
         cookie[SESSION_COOKIE_NAME]["max-age"] = max_age_days * 24 * 3600
     else:
         cookie[SESSION_COOKIE_NAME]["max-age"] = 0
+    if domain:
+        cookie[SESSION_COOKIE_NAME]["domain"] = domain
     return cookie[SESSION_COOKIE_NAME].OutputString()
 
 
-def clear_session_cookie_header() -> str:
-    return _session_cookie_header("", clear=True)
+def clear_session_cookie_header(domain: str | None = None) -> str:
+    return _session_cookie_header("", clear=True, domain=domain)
 
 
 def session_account_from_headers(headers: Any):
@@ -318,10 +329,11 @@ class PasskeyAuthHandler:
             ua,
         )
         token = FLEET_ACCOUNT_STORE.create_session(account.account_id)
+        domain = _cookie_domain_for_host(headers.get("Host") if hasattr(headers, "get") else None)
         return (
             {"account_id": account.account_id, "email": account.email, "owner_key": account.owner_key},
             HTTPStatus.CREATED,
-            _session_cookie_header(token),
+            _session_cookie_header(token, domain=domain),
         )
 
     def login_begin(self, body: dict[str, Any], headers: Any = None, client_address: tuple[str, int] | None = None) -> tuple[dict[str, Any], HTTPStatus, str | None]:
@@ -392,10 +404,11 @@ class PasskeyAuthHandler:
         FLEET_ACCOUNT_STORE.record_audit_event(
             account.account_id, email, "login_success", f"Passkey login ({passkey.nickname or 'Passkey'})", ip, ua
         )
+        domain = _cookie_domain_for_host(headers.get("Host") if hasattr(headers, "get") else None)
         return (
             {"account_id": account.account_id, "email": account.email, "owner_key": account.owner_key},
             HTTPStatus.OK,
-            _session_cookie_header(token),
+            _session_cookie_header(token, domain=domain),
         )
 
     # -- Magic Links --------------------------------------------------------
@@ -440,10 +453,11 @@ class PasskeyAuthHandler:
             ip,
             ua,
         )
+        domain = _cookie_domain_for_host(headers.get("Host") if hasattr(headers, "get") else None)
         return (
             {"account_id": account.account_id, "email": account.email, "owner_key": account.owner_key},
             HTTPStatus.OK,
-            _session_cookie_header(token),
+            _session_cookie_header(token, domain=domain),
         )
 
     # -- Passkey Management -------------------------------------------------
@@ -667,4 +681,5 @@ class PasskeyAuthHandler:
         morsel = cookie.get(SESSION_COOKIE_NAME)
         if morsel is not None:
             FLEET_ACCOUNT_STORE.delete_session(morsel.value)
-        return {"status": "ok"}, HTTPStatus.OK, _session_cookie_header("", clear=True)
+        domain = _cookie_domain_for_host(headers.get("Host") if hasattr(headers, "get") else None)
+        return {"status": "ok"}, HTTPStatus.OK, _session_cookie_header("", clear=True, domain=domain)

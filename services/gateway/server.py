@@ -1450,10 +1450,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 issue_node_session,
                 node_session_cookie,
             )
+            from services.portal.passkey_routes import _cookie_domain_for_host
             from_owner_session = session_account_from_headers(self.headers)
-            session_owner_id = None
-            if from_owner_session is not None and getattr(from_owner_session, "owner_key", ""):
-                session_owner_id = owner_id_for_key(from_owner_session.owner_key)
+            candidate_owner_ids: set[str] = set()
+            if from_owner_session is not None:
+                if getattr(from_owner_session, "account_id", ""):
+                    candidate_owner_ids.add(str(from_owner_session.account_id).strip())
+                if getattr(from_owner_session, "owner_key", ""):
+                    k_id = owner_id_for_key(from_owner_session.owner_key)
+                    if k_id:
+                        candidate_owner_ids.add(k_id)
 
             # Check explicit owner key from header, Authorization Bearer, or query parameter
             explicit_owner_key = (
@@ -1467,15 +1473,26 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     cand = auth_hdr[7:].strip()
                     if cand.startswith(("inet-", "ok_", "owner_", "cm_owner_", "owk_")):
                         explicit_owner_key = cand
-            explicit_owner_id = owner_id_for_key(explicit_owner_key) if explicit_owner_key else None
+            if explicit_owner_key:
+                k_id = owner_id_for_key(explicit_owner_key)
+                if k_id:
+                    candidate_owner_ids.add(k_id)
+                candidate_owner_ids.add(explicit_owner_key)
 
-            bound_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+            bound_owner_ids: set[str] = set()
+            raw_node_owner = str(node_data.get("owner_id", "")).strip()
+            if raw_node_owner:
+                bound_owner_ids.add(raw_node_owner)
+            store_owner = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+            if store_owner:
+                bound_owner_ids.add(store_owner)
+            for cand in candidate_owner_ids:
+                if node_id in OWNER_ACCOUNT_STORE.list_provider_nodes(cand):
+                    bound_owner_ids.add(cand)
+
+            authorized_by_owner = bool(candidate_owner_ids and bound_owner_ids and (candidate_owner_ids & bound_owner_ids))
             node_session = get_node_session(self.headers, node_id)
-            authorized_by_owner = bool(
-                (session_owner_id and bound_owner_id and session_owner_id == bound_owner_id)
-                or (explicit_owner_id and bound_owner_id and explicit_owner_id == bound_owner_id)
-            )
-            authorized_by_session = bool(node_session and node_session.owner_id == bound_owner_id)
+            authorized_by_session = bool(node_session and (node_session.owner_id in bound_owner_ids or node_session.owner_id in candidate_owner_ids))
 
             # Check node auth_token in query or header
             provided_token = (
@@ -1493,6 +1510,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response("Node has no configured authentication token.", "unauthorized", HTTPStatus.UNAUTHORIZED)
                 return
             if not (authorized_by_owner or authorized_by_session or authorized_by_token):
+                accept_hdr = str(self.headers.get("Accept", "")).lower()
+                if "text/html" in accept_hdr:
+                    self.send_response(HTTPStatus.FOUND)
+                    self.send_header("Location", "/fleet")
+                    self.end_headers()
+                    self.close_connection = True
+                    return
                 self._send_error_response("Unauthorized: Valid node session required to view this node's telemetry.", "unauthorized", HTTPStatus.UNAUTHORIZED)
                 return
 
@@ -1506,12 +1530,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             if (authorized_by_owner or authorized_by_token) and not authorized_by_session:
-                effective_owner_id = session_owner_id or explicit_owner_id or bound_owner_id
+                matching_owners = candidate_owner_ids & bound_owner_ids
+                effective_owner_id = next(iter(matching_owners)) if matching_owners else (raw_node_owner or store_owner or "anonymous")
+                cookie_domain = _cookie_domain_for_host(self.headers.get("Host"))
                 self.send_header(
                     "Set-Cookie",
                     node_session_cookie(
                         issue_node_session(node_id, effective_owner_id),
                         secure=str(getattr(CONFIG.endpoints, "scheme", "https")) == "https",
+                        domain=cookie_domain,
                     ),
                 )
             for h_name, h_val in SECURITY_HEADERS.items():
@@ -1855,11 +1882,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     if acc is None:
                         derived_id = owner_id_for_key(candidate_key)
                         if derived_id:
-                            acc = FLEET_ACCOUNT_STORE.create_account(
-                                email=f"{derived_id}@owner.computemesh.local",
-                                proposed_owner_key=candidate_key,
-                                account_id=derived_id,
-                            )
+                            acc = FLEET_ACCOUNT_STORE.get_account(derived_id)
+                            if acc is None:
+                                try:
+                                    acc = FLEET_ACCOUNT_STORE.create_account(
+                                        email=f"{derived_id}@owner.computemesh.local",
+                                        proposed_owner_key=candidate_key,
+                                        account_id=derived_id,
+                                    )
+                                except Exception:
+                                    acc = FLEET_ACCOUNT_STORE.get_account(derived_id)
                     account = acc
 
             if account is None:
@@ -1868,9 +1900,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
             cookie_header = None
             try:
-                from services.portal.passkey_routes import _session_cookie_header
+                from services.portal.passkey_routes import _cookie_domain_for_host, _session_cookie_header
                 sess_token = FLEET_ACCOUNT_STORE.create_session(account.account_id)
-                cookie_header = _session_cookie_header(sess_token)
+                cookie_domain = _cookie_domain_for_host(self.headers.get("Host"))
+                cookie_header = _session_cookie_header(sess_token, domain=cookie_domain)
             except Exception:
                 pass
             extra_h = {"Set-Cookie": cookie_header} if cookie_header else None
@@ -1943,15 +1976,21 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     if eff_acc is None and owner_key:
                         d_id = derived_owner_id or owner_id_for_key(owner_key)
                         if d_id:
-                            eff_acc = FLEET_ACCOUNT_STORE.create_account(
-                                email=f"{d_id}@owner.computemesh.local",
-                                proposed_owner_key=owner_key,
-                                account_id=d_id,
-                            )
+                            eff_acc = FLEET_ACCOUNT_STORE.get_account(d_id) or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+                            if eff_acc is None:
+                                try:
+                                    eff_acc = FLEET_ACCOUNT_STORE.create_account(
+                                        email=f"{d_id}@owner.computemesh.local",
+                                        proposed_owner_key=owner_key,
+                                        account_id=d_id,
+                                    )
+                                except Exception:
+                                    eff_acc = FLEET_ACCOUNT_STORE.get_account(d_id)
                     if eff_acc is not None:
-                        from services.portal.passkey_routes import _session_cookie_header
+                        from services.portal.passkey_routes import _cookie_domain_for_host, _session_cookie_header
                         s_tok = FLEET_ACCOUNT_STORE.create_session(eff_acc.account_id)
-                        extra_h = {"Set-Cookie": _session_cookie_header(s_tok)}
+                        cookie_domain = _cookie_domain_for_host(self.headers.get("Host"))
+                        extra_h = {"Set-Cookie": _session_cookie_header(s_tok, domain=cookie_domain)}
                 except Exception:
                     pass
 
