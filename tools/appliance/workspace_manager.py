@@ -74,6 +74,67 @@ class WorkspaceOperationResult(dict):
         return bool(self.get("success", False))
 
 
+def get_projects_base_dir() -> Path:
+    """Return the configured base directory for host projects."""
+    env_dir = os.environ.get("COMPUTEMESH_PROJECTS_DIR", "").strip()
+    if env_dir:
+        return Path(env_dir).expanduser().resolve()
+
+    cfg_path = get_workspace_config_path()
+    if cfg_path.is_file():
+        try:
+            data = json.loads(cfg_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                p_base = data.get("projects_base_dir")
+                if p_base and str(p_base).strip():
+                    return Path(str(p_base).strip()).expanduser().resolve()
+        except Exception:
+            pass
+
+    if sys.platform == "win32":
+        default_p = Path("C:/Users/frede/Projekte/KI")
+        if default_p.is_dir():
+            return default_p
+        return (Path.home() / "Projekte" / "KI").resolve()
+    return Path("/opt/computemesh")
+
+
+def set_projects_base_dir(new_dir: str, rescan: bool = True) -> Path:
+    """Configure a new base directory for projects and optionally rescan."""
+    clean = str(new_dir or "").strip()
+    if not clean:
+        raise ValueError("Project base directory path cannot be empty")
+    target = Path(clean).expanduser().resolve()
+    target.mkdir(parents=True, exist_ok=True)
+
+    cfg_path = get_workspace_config_path()
+    payload: dict[str, Any] = {}
+    if cfg_path.is_file():
+        try:
+            payload = json.loads(cfg_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                payload = {}
+        except Exception:
+            payload = {}
+
+    payload["projects_base_dir"] = str(target)
+    payload["updated_at"] = time.time()
+
+    temp_path = cfg_path.with_suffix(".tmp")
+    temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    temp_path.replace(cfg_path)
+
+    if rescan:
+        workspaces = load_local_workspaces()
+        discovered = discover_host_project_workspaces()
+        for item in discovered:
+            if not any(w["path"] == item["path"] or w["id"] == item["id"] for w in workspaces):
+                workspaces.append(item)
+        _save_workspaces(workspaces, auto_discovery_completed=True, projects_base_dir=str(target))
+
+    return target
+
+
 def _read_raw_workspace_config() -> tuple[list[dict[str, Any]], set[str], bool]:
     """Read the raw persisted workspaces config, returning (workspaces, unregistered_paths, auto_discovery_completed)."""
     cfg_path = get_workspace_config_path()
@@ -99,13 +160,23 @@ def _save_workspaces(
     workspaces: list[dict[str, Any]],
     unregistered_paths: set[str] | None = None,
     auto_discovery_completed: bool = True,
+    projects_base_dir: str | None = None,
 ) -> None:
     cfg_path = get_workspace_config_path()
     try:
+        existing_base = projects_base_dir
+        if existing_base is None and cfg_path.is_file():
+            try:
+                raw_data = json.loads(cfg_path.read_text(encoding="utf-8"))
+                if isinstance(raw_data, dict):
+                    existing_base = raw_data.get("projects_base_dir")
+            except Exception:
+                pass
         payload = {
             "version": 2,
             "updated_at": time.time(),
             "auto_discovery_completed": auto_discovery_completed,
+            "projects_base_dir": existing_base or str(get_projects_base_dir()),
             "unregistered_paths": sorted(list(unregistered_paths or set())),
             "workspaces": workspaces,
         }
@@ -171,13 +242,16 @@ def discover_host_project_workspaces(excluded_paths: set[str] | None = None) -> 
     
     Skips any paths or IDs in excluded_paths (e.g. explicitly removed workspaces).
     """
+    base_dir = get_projects_base_dir()
     if sys.platform == "win32":
         candidates = [
+            base_dir,
             Path("C:/Users/frede/Projekte/KI"),
             Path.home() / "Projekte" / "KI",
         ]
     else:
         candidates = [
+            base_dir,
             Path("/opt/computemesh"),
             Path.home() / "computemesh",
         ]
@@ -240,10 +314,7 @@ def register_local_workspace(
 
     p = Path(raw_path)
     if not p.is_absolute():
-        if sys.platform == "win32":
-            p = (Path("C:/Users/frede/Projekte/KI") / raw_path).resolve()
-        else:
-            p = (Path.home() / "Projekte" / "KI" / raw_path).resolve()
+        p = (get_projects_base_dir() / raw_path).resolve()
     else:
         p = p.resolve()
 
@@ -374,7 +445,8 @@ def unregister_local_workspace(
         p = Path(target_ws["path"])
         p_norm = str(p.resolve()).lower().replace("/", "\\")
         # Check that path is within allowed KI projects root and not root itself
-        allowed_roots = [r"c:\users\frede\projekte\ki", str(Path.home() / "projekte" / "ki").lower()]
+        base_dir_str = str(get_projects_base_dir()).lower().replace("/", "\\")
+        allowed_roots = [base_dir_str, r"c:\users\frede\projekte\ki", str(Path.home() / "projekte" / "ki").lower()]
         is_safe_child = any(p_norm.startswith(ar + "\\") and p_norm != ar for ar in allowed_roots)
         if not is_safe_child and not p_norm.startswith("/opt/computemesh/"):
             _save_workspaces(workspaces, unregistered_paths=unregistered_paths, auto_discovery_completed=True)

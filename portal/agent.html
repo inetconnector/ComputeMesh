@@ -146,6 +146,26 @@
     .quick-nav-link.external:hover {
       background: rgba(138, 180, 248, 0.1);
     }
+    .quick-nav-btn {
+      color: #9da3a8;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+    .quick-nav-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
 
     /* Agent Layout */
     .agent-layout {
@@ -695,6 +715,123 @@
     .agent-composer-box:focus-within {
       border-color: rgba(255, 255, 255, 0.3);
     }
+    .agent-composer-box.drag-over {
+      border-color: #8ab4f8 !important;
+      background: rgba(30, 32, 35, 0.95);
+    }
+    .composer-attachments-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-bottom: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .attachment-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 11.5px;
+      color: var(--text-main);
+      user-select: none;
+    }
+    .attachment-chip .att-icon {
+      font-size: 13px;
+    }
+    .attachment-chip .att-name {
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .attachment-chip .att-size {
+      color: var(--text-dim);
+      font-size: 10px;
+    }
+    .attachment-chip .att-remove {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 0 2px;
+      line-height: 1;
+      border-radius: 4px;
+    }
+    .attachment-chip .att-remove:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    /* Settings Modal Styles */
+    .settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .settings-label {
+      font-size: 12.5px;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .settings-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: normal;
+    }
+    .settings-input, .settings-select {
+      width: 100%;
+      background: #181818;
+      border: 1px solid var(--border-hover);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #fff;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    .settings-input:focus, .settings-select:focus {
+      border-color: #8ab4f8;
+      outline: none;
+    }
+    .settings-quick-paths {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .quick-path-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      padding: 3px 8px;
+      color: #cbd5e1;
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .quick-path-chip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .settings-checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
 
     .composer-textarea {
       width: 100%;
@@ -1165,6 +1302,7 @@
         <a href="/" class="quick-nav-link" title="Lokales Node Dashboard">📊 Node Dashboard</a>
         <a href="/webui/" class="quick-nav-link" title="Lokales Chat Studio">💬 Chat Studio</a>
         <a href="/fleet" id="top-nav-fleet-link" target="_blank" rel="noopener noreferrer" class="quick-nav-link external" title="Flotten-Cockpit online öffnen" onclick="openFleetWithKey(event)">🌐 Flotten-Cockpit ↗</a>
+        <button class="quick-nav-btn" onclick="openSettingsModal()" title="Grundeinstellungen & Projektpfad öffnen">⚙️ Einstellungen</button>
       </div>
     </div>
   </header>
@@ -1241,6 +1379,7 @@
           <div style="font-weight: 600; color: var(--text-main);" id="sidebar-node-title">mifcoms (cm-win-mifcom-rtx3080)</div>
           <div style="font-size: 10.5px; color: var(--text-dim);" id="sidebar-node-subtitle">Verbunden • Bereit</div>
         </div>
+        <button class="sidebar-icon-btn" title="Grundeinstellungen & Projektpfad öffnen" onclick="openSettingsModal()" style="margin-left: auto;">⚙️</button>
       </div>
     </aside>
 
@@ -1281,18 +1420,20 @@
 
       <!-- Floating Composer Box -->
       <div class="composer-wrapper">
-        <div class="agent-composer-box">
+        <div class="agent-composer-box" id="agent-composer-box">
+          <div id="composer-attachments-bar" class="composer-attachments-bar" style="display: none;"></div>
+          <input type="file" id="composer-file-picker" multiple style="display: none;" onchange="handleComposerFilesSelected(this.files)">
           <textarea 
             id="composer-input" 
             class="composer-textarea" 
-            placeholder="Anweisung für den lokalen Agenten eingeben..." 
+            placeholder="Anweisung für den lokalen Agenten eingeben (Dateien per + oder Drag&Drop anhängen)..." 
             rows="1"
             onkeydown="handleComposerKeyDown(event)"
             oninput="autoResizeTextarea(this)"></textarea>
 
           <div class="composer-toolbar">
             <div class="composer-toolbar-left">
-              <button class="btn-attach" title="Datei / Pfad anhängen" onclick="attachFilePrompt()">+</button>
+              <button class="btn-attach" id="btn-composer-attach" title="Dateien anhängen (Upload-Dialog öffnen)" onclick="attachFilesDialog()">+</button>
               
               <!-- Approval Policy Dropdown Pill -->
               <div class="menu-item-container">
@@ -1414,23 +1555,136 @@
       </div>
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.5;">
-          Gib einen Projektnamen oder absoluten Pfad ein. Wenn das Verzeichnis noch nicht existiert, wird der Projektordner automatisch lokal auf deinem Rechner in <code style="color: #d1d5db; background: rgba(255,255,255,0.06); padding: 2px 4px; border-radius: 4px;">C:\Users\frede\Projekte\KI\</code> physisch angelegt, mit README.md und Git initialisiert.
+          Gib einen Projektnamen oder absoluten Pfad ein. Wenn das Verzeichnis noch nicht existiert, wird der Projektordner automatisch lokal auf deinem Rechner in <code id="ws-modal-base-dir" style="color: #93c5fd; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono);">C:\Users\frede\Projekte\KI\</code> physisch angelegt, mit README.md und Git initialisiert.
+          <a href="javascript:void(0)" onclick="openSettingsModal()" style="color: #38bdf8; text-decoration: underline; margin-left: 6px; font-size: 11.5px;" data-i18n="agent_settings_adjust_path">⚙️ Adjust base path</a>
         </p>
-        <input 
-          type="text" 
-          id="ws-path-input" 
-          placeholder="z.B. MeinNeuesProjekt oder C:\Users\frede\Projekte\KI\MeinNeuesProjekt" 
-          style="width: 100%; background: #181818; border: 1px solid var(--border-hover); border-radius: 6px; padding: 8px 12px; color: #fff; font-family: var(--font-mono); font-size: 12px;">
+        <div>
+          <input 
+            type="text" 
+            id="ws-path-input" 
+            placeholder="z.B. MeinNeuesProjekt oder C:\Users\frede\Projekte\KI\MeinNeuesProjekt" 
+            oninput="updateResolvedPathPreview(this.value)"
+            style="width: 100%; background: #181818; border: 1px solid var(--border-hover); border-radius: 6px; padding: 8px 12px; color: #fff; font-family: var(--font-mono); font-size: 12px; box-sizing: border-box;">
+          <div id="ws-resolved-preview-container" style="font-size: 11px; color: var(--text-dim); margin-top: 5px; font-family: var(--font-mono);">
+            Zielverzeichnis: <span id="ws-resolved-preview" style="color: #cbd5e1;">C:\Users\frede\Projekte\KI\</span>
+          </div>
+        </div>
         
         <input 
           type="text" 
           id="ws-name-input" 
           placeholder="Optionaler Anzeigename (Standard: Ordnername)" 
-          style="width: 100%; background: #181818; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 12px;">
+          style="width: 100%; background: #181818; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 12px; box-sizing: border-box;">
 
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
           <button class="btn btn-secondary btn-sm" onclick="closeWorkspaceModal()">Abbrechen</button>
           <button class="btn btn-primary btn-sm" onclick="submitRegisterWorkspace()">Projekt anlegen & registrieren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal (Grundeinstellungen & Projektpfad) -->
+  <div id="agent-settings-modal" class="agent-modal-overlay" onclick="if(event.target===this)closeSettingsModal()">
+    <div class="agent-modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <span>⚙️ <span data-i18n="agent_settings_title">Settings & Project Directory</span></span>
+        <button class="modal-close-btn" onclick="closeSettingsModal()">✕</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px; padding: 4px 0;">
+        
+        <!-- Setting 1: Base Projects Directory -->
+        <div class="settings-group">
+          <label class="settings-label" for="settings-base-dir-input">
+            <strong>📁 <span data-i18n="agent_settings_base_dir_title">Default Projects Directory (Host Base Path)</span></strong>
+            <span class="settings-hint" data-i18n="agent_settings_base_dir_hint">New projects are stored here and existing repositories are automatically discovered.</span>
+          </label>
+          <input 
+            type="text" 
+            id="settings-base-dir-input" 
+            class="settings-input"
+            placeholder="C:\Users\frede\Projekte\KI">
+          <div class="settings-quick-paths">
+            <span style="font-size: 11px; color: var(--text-dim);" data-i18n="agent_settings_quick_pick">Quick select:</span>
+            <button type="button" class="quick-path-chip" onclick="applySettingsBaseDir('C:\\Users\\frede\\Projekte\\KI')">C:\Users\frede\Projekte\KI</button>
+            <button type="button" class="quick-path-chip" onclick="applySettingsBaseDir('C:\\Users\\frede\\Projekte')">C:\Users\frede\Projekte</button>
+            <button type="button" class="quick-path-chip" onclick="applySettingsBaseDir('C:\\Projekte')">C:\Projekte</button>
+          </div>
+        </div>
+
+        <!-- Setting 2: Default Inference Model -->
+        <div class="settings-group">
+          <label class="settings-label" for="settings-model-select">
+            <strong>🧠 <span data-i18n="agent_settings_model_title">Default Inference Model</span></strong>
+            <span class="settings-hint" data-i18n="agent_settings_model_hint">Primary model for code analysis, refactoring and terminal commands.</span>
+          </label>
+          <select id="settings-model-select" class="settings-select">
+            <option value="qwen2.5:3b">qwen2.5:3b (Local CUDA)</option>
+            <option value="qwen2.5-coder:32b">qwen2.5-coder:32b (Coding LLM)</option>
+            <option value="llama3.2">llama3.2 (Meta)</option>
+            <option value="mistral">mistral (7B)</option>
+          </select>
+        </div>
+
+        <!-- Setting 3: Approval Policy -->
+        <div class="settings-group">
+          <label class="settings-label" for="settings-policy-select">
+            <strong>🛡️ <span data-i18n="agent_settings_policy_title">Execution & Approval Policy</span></strong>
+            <span class="settings-hint" data-i18n="agent_settings_policy_hint">How the local agent executes file changes and terminal commands.</span>
+          </label>
+          <select id="settings-policy-select" class="settings-select">
+            <option value="interactive" data-i18n="agent_settings_policy_interactive">Approve for me (Interactive confirmation)</option>
+            <option value="autonomous" data-i18n="agent_settings_policy_autonomous">Execute automatically (Autonomous mode)</option>
+            <option value="readonly" data-i18n="agent_settings_policy_readonly">Read-only access (No write actions)</option>
+          </select>
+        </div>
+
+        <!-- Setting 4: Ollama Host URL -->
+        <div class="settings-group">
+          <label class="settings-label" for="settings-endpoint-input">
+            <strong>🌐 <span data-i18n="agent_settings_endpoint_title">Local Inference Host / Ollama URL</span></strong>
+            <span class="settings-hint" data-i18n="agent_settings_endpoint_hint">Endpoint of the local LLM engine on this node.</span>
+          </label>
+          <input 
+            type="text" 
+            id="settings-endpoint-input" 
+            class="settings-input"
+            value="http://127.0.0.1:11434"
+            placeholder="http://127.0.0.1:11434">
+        </div>
+
+        <!-- Setting 5: Fleet Owner Key -->
+        <div class="settings-group">
+          <label class="settings-label" for="settings-owner-key-input">
+            <strong>🔑 <span data-i18n="agent_settings_owner_key_title">Fleet Owner Key</span></strong>
+            <span class="settings-hint" data-i18n="agent_settings_owner_key_hint">Authentication token linking this node to your decentralized fleet.</span>
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input 
+              type="password" 
+              id="settings-owner-key-input" 
+              class="settings-input"
+              style="font-family: var(--font-mono); font-size: 11.5px;"
+              placeholder="inet-...">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleOwnerKeyVisibility()">👁️</button>
+          </div>
+        </div>
+
+        <!-- Setting 6: Git Checkboxen -->
+        <div class="settings-group">
+          <label class="settings-checkbox-row">
+            <input type="checkbox" id="settings-git-init" checked>
+            <span data-i18n="agent_settings_git_init">Initialize new projects with Git (git init)</span>
+          </label>
+          <label class="settings-checkbox-row">
+            <input type="checkbox" id="settings-readme-init" checked>
+            <span data-i18n="agent_settings_readme_init">Generate initial README.md in new project folders</span>
+          </label>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+          <button class="btn btn-secondary btn-sm" onclick="closeSettingsModal()" data-i18n="agent_settings_cancel_btn">Cancel</button>
+          <button class="btn btn-primary btn-sm" onclick="saveSettings()" data-i18n="agent_settings_save_btn">Save Settings</button>
         </div>
       </div>
     </div>
@@ -1526,8 +1780,11 @@
     }
 
     function promptAddWorkspace() {
+      updateBaseDirUI();
       document.getElementById('add-workspace-modal').classList.add('open');
-      document.getElementById('ws-path-input').focus();
+      const input = document.getElementById('ws-path-input');
+      input.focus();
+      updateResolvedPathPreview(input.value);
     }
 
     function closeWorkspaceModal() {
@@ -1582,13 +1839,233 @@
       }
     }
 
-    function attachFilePrompt() {
-      const path = prompt('Pfad zu lokaler Datei oder Ressource eingeben:');
-      if (path && path.trim()) {
-        const inp = document.getElementById('composer-input');
-        inp.value = `@${path.trim()} ` + inp.value;
+    /* File Upload & Attachments System */
+    let composerAttachments = [];
+
+    function attachFilesDialog() {
+      const picker = document.getElementById('composer-file-picker');
+      if (picker) {
+        picker.value = '';
+        picker.click();
+      }
+    }
+
+    async function handleComposerFilesSelected(files) {
+      if (!files || files.length === 0) return;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const isText = file.type.startsWith('text/') || 
+                       /\.(txt|md|py|js|ts|jsx|tsx|json|html|css|yaml|yml|sh|ps1|bat|rs|toml|ini|env|log|xml|sql|c|cpp|h|hpp|java|kt|go|cs)$/i.test(file.name);
+        let content = null;
+        if (isText && file.size < 5 * 1024 * 1024) {
+          try {
+            content = await file.text();
+          } catch (err) {
+            console.warn('Could not read file text:', err);
+          }
+        }
+        composerAttachments.push({
+          file,
+          name: file.name,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+          isText,
+          content
+        });
+      }
+      renderComposerAttachments();
+      const inp = document.getElementById('composer-input');
+      if (inp) {
         inp.focus();
         autoResizeTextarea(inp);
+      }
+    }
+
+    function removeComposerAttachment(idx) {
+      if (idx >= 0 && idx < composerAttachments.length) {
+        composerAttachments.splice(idx, 1);
+        renderComposerAttachments();
+      }
+    }
+
+    function renderComposerAttachments() {
+      const bar = document.getElementById('composer-attachments-bar');
+      if (!bar) return;
+      if (composerAttachments.length === 0) {
+        bar.style.display = 'none';
+        bar.innerHTML = '';
+        return;
+      }
+      bar.style.display = 'flex';
+      bar.innerHTML = composerAttachments.map((att, idx) => {
+        const icon = att.isText ? '📄' : (att.type.startsWith('image/') ? '🖼️' : '📦');
+        const sizeStr = formatFileSize(att.size);
+        return `
+          <div class="attachment-chip" title="${escapeHtml(att.name)} (${sizeStr})">
+            <span class="att-icon">${icon}</span>
+            <span class="att-name">${escapeHtml(att.name)}</span>
+            <span class="att-size">${sizeStr}</span>
+            <button type="button" class="att-remove" onclick="removeComposerAttachment(${idx})" title="Anhang entfernen">✕</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function initComposerDragAndDrop() {
+      const box = document.getElementById('agent-composer-box');
+      if (!box) return;
+      ['dragenter', 'dragover'].forEach(name => {
+        box.addEventListener(name, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          box.classList.add('drag-over');
+        });
+      });
+      ['dragleave', 'dragend', 'drop'].forEach(name => {
+        box.addEventListener(name, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          box.classList.remove('drag-over');
+        });
+      });
+      box.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleComposerFilesSelected(e.dataTransfer.files);
+        }
+      });
+    }
+
+    /* Grundeinstellungen & Projektpfad Manager */
+    let currentProjectsBaseDir = 'C:\\Users\\frede\\Projekte\\KI';
+
+    async function loadAppSettings() {
+      try {
+        const resp = await fetchWithAuth('/api/v1/appliance/settings');
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.projects_base_dir) {
+            currentProjectsBaseDir = data.projects_base_dir;
+            localStorage.setItem('cm_projects_base_dir', data.projects_base_dir);
+          }
+        }
+      } catch (_) {
+        currentProjectsBaseDir = localStorage.getItem('cm_projects_base_dir') || 'C:\\Users\\frede\\Projekte\\KI';
+      }
+      updateBaseDirUI();
+    }
+
+    function updateBaseDirUI() {
+      const modalBase = document.getElementById('ws-modal-base-dir');
+      if (modalBase) modalBase.textContent = currentProjectsBaseDir;
+      const inputBase = document.getElementById('settings-base-dir-input');
+      if (inputBase) inputBase.value = currentProjectsBaseDir;
+      const pathInp = document.getElementById('ws-path-input');
+      if (pathInp) updateResolvedPathPreview(pathInp.value);
+    }
+
+    function updateResolvedPathPreview(val) {
+      const preview = document.getElementById('ws-resolved-preview');
+      if (!preview) return;
+      const trimmed = (val || '').trim();
+      const sep = (currentProjectsBaseDir.endsWith('\\') || currentProjectsBaseDir.endsWith('/')) ? '' : '\\';
+      if (!trimmed) {
+        preview.textContent = currentProjectsBaseDir + sep;
+        return;
+      }
+      const isAbs = /^[a-zA-Z]:[\\\/]/.test(trimmed) || trimmed.startsWith('/');
+      if (isAbs) {
+        preview.textContent = trimmed;
+      } else {
+        preview.textContent = currentProjectsBaseDir + sep + trimmed;
+      }
+    }
+
+    function openSettingsModal() {
+      const modal = document.getElementById('agent-settings-modal');
+      if (!modal) return;
+      updateBaseDirUI();
+      
+      const policySel = document.getElementById('settings-policy-select');
+      if (policySel) policySel.value = currentPolicy || 'interactive';
+
+      const modelSel = document.getElementById('settings-model-select');
+      if (modelSel && currentModel) modelSel.value = currentModel;
+
+      const ownerInp = document.getElementById('settings-owner-key-input');
+      if (ownerInp) {
+        ownerInp.value = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || 'inet-a6d61474f6aa4280fbdf91d0e9b5fb5d5d137fc3';
+      }
+
+      modal.classList.add('open');
+    }
+
+    function closeSettingsModal() {
+      const modal = document.getElementById('agent-settings-modal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function applySettingsBaseDir(path) {
+      const inp = document.getElementById('settings-base-dir-input');
+      if (inp) {
+        inp.value = path;
+      }
+    }
+
+    async function saveSettings() {
+      const baseInp = document.getElementById('settings-base-dir-input');
+      const newBase = baseInp ? baseInp.value.trim() : '';
+      const policySel = document.getElementById('settings-policy-select');
+      const newPolicy = policySel ? policySel.value : 'interactive';
+      const modelSel = document.getElementById('settings-model-select');
+      const newModel = modelSel ? modelSel.value : 'qwen2.5:3b';
+      const ownerInp = document.getElementById('settings-owner-key-input');
+      const newOwnerKey = ownerInp ? ownerInp.value.trim() : '';
+
+      if (newBase) {
+        currentProjectsBaseDir = newBase;
+        localStorage.setItem('cm_projects_base_dir', newBase);
+        try {
+          await fetchWithAuth('/api/v1/appliance/settings', {
+            method: 'POST',
+            body: JSON.stringify({ projects_base_dir: newBase, rescan: true })
+          });
+        } catch (_) {}
+      }
+
+      if (newPolicy) {
+        const policyMap = {
+          'interactive': 'Für mich genehmigen',
+          'autonomous': 'Automatisch ausführen',
+          'readonly': 'Nur Lesezugriff'
+        };
+        setPolicy(policyMap[newPolicy] || newPolicy, newPolicy);
+      }
+
+      if (newModel) {
+        setModel(newModel, newModel);
+      }
+
+      if (newOwnerKey) {
+        localStorage.setItem('cm_fleet_owner_key', newOwnerKey);
+        localStorage.setItem('cm_owner_key', newOwnerKey);
+      }
+
+      updateBaseDirUI();
+      closeSettingsModal();
+      await loadFleetAndWorkspaces();
+      alert('Einstellungen wurden erfolgreich gespeichert!');
+    }
+
+    function toggleOwnerKeyVisibility() {
+      const inp = document.getElementById('settings-owner-key-input');
+      if (inp) {
+        inp.type = inp.type === 'password' ? 'text' : 'password';
       }
     }
 
@@ -1685,6 +2162,11 @@
           const data = await resp.json();
           authenticWorkspaces = data.workspaces || [];
           activeNodeId = data.active_node_id || (data.nodes && data.nodes[0] ? data.nodes[0].node_id : '');
+          if (data.projects_base_dir) {
+            currentProjectsBaseDir = data.projects_base_dir;
+            localStorage.setItem('cm_projects_base_dir', data.projects_base_dir);
+            updateBaseDirUI();
+          }
           
           renderWorkspaces();
           renderNodesRail(data.nodes || []);
@@ -2157,7 +2639,23 @@
     async function submitPrompt() {
       const input = document.getElementById('composer-input');
       const text = input.value.trim();
-      if (!text) return;
+      if (!text && composerAttachments.length === 0) return;
+
+      let effectiveInput = text;
+      if (composerAttachments.length > 0) {
+        const attachmentTexts = [];
+        composerAttachments.forEach(att => {
+          if (att.isText && att.content) {
+            const ext = att.name.split('.').pop() || '';
+            attachmentTexts.push(`--- Dateianhang: ${att.name} (${formatFileSize(att.size)}) ---\n\`\`\`${ext}\n${att.content}\n\`\`\``);
+          } else {
+            attachmentTexts.push(`--- Dateianhang (Binärdatei): ${att.name} (${formatFileSize(att.size)}, ${att.type}) ---`);
+          }
+        });
+        effectiveInput = (text ? text + '\n\n' : '') + '📎 Angehängte Dateien:\n' + attachmentTexts.join('\n\n');
+        composerAttachments = [];
+        renderComposerAttachments();
+      }
 
       input.value = '';
       autoResizeTextarea(input);
@@ -2171,8 +2669,8 @@
             body: JSON.stringify({
               agent_id: 'computemesh_local_agent',
               model: currentModel,
-              input: text,
-              title: text.slice(0, 45),
+              input: effectiveInput,
+              title: text.slice(0, 45) || 'Datei-Anhang Turn',
               workspace: wsName,
               policy: currentPolicy
             })
@@ -2191,7 +2689,7 @@
         try {
           const resp = await fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/turns`, {
             method: 'POST',
-            body: JSON.stringify({ input: text })
+            body: JSON.stringify({ input: effectiveInput })
           });
           if (resp.ok) {
             pollEvents();
@@ -2364,9 +2862,11 @@
     // Default Initialization on DOM Load
     window.addEventListener('DOMContentLoaded', () => {
       restoreSidebarStates();
+      loadAppSettings();
       loadFleetAndWorkspaces();
       loadModels();
       refreshServiceStatus();
+      initComposerDragAndDrop();
     });
   </script>
   <script src="/portal-core.js?v=5.4"></script>

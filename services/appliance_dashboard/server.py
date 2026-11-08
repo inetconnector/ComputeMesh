@@ -506,6 +506,43 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(resp_body)
             return
 
+        if req_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
+            try:
+                from tools.appliance.workspace_manager import (
+                    load_local_workspaces,
+                    get_local_node_info,
+                    get_projects_base_dir,
+                )
+                node_info = get_local_node_info()
+                workspaces = load_local_workspaces()
+                base_dir = get_projects_base_dir()
+                self._send_json({
+                    "active_node_id": node_info.get("node_id", getattr(self, "node_id", "cm-win-mifcom-rtx3080")),
+                    "projects_base_dir": str(base_dir),
+                    "workspaces": workspaces,
+                    "nodes": [node_info],
+                })
+                return
+            except Exception as exc:
+                self._send_json({"error": {"message": str(exc), "code": 500}}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+
+        if req_path in ("/api/v1/appliance/settings", "/v1/appliance/settings"):
+            try:
+                from tools.appliance.workspace_manager import get_projects_base_dir
+                cfg = getattr(self, "config", None) or getattr(self.__class__, "config", None)
+                self._send_json({
+                    "projects_base_dir": str(get_projects_base_dir()),
+                    "owner_key": getattr(cfg, "owner_key", "") if cfg else "",
+                    "coordinator_url": getattr(cfg, "coordinator_url", "") if cfg else "",
+                    "dashboard_port": getattr(cfg, "dashboard_port", 8080) if cfg else 8080,
+                    "model": "qwen2.5:3b",
+                })
+                return
+            except Exception as exc:
+                self._send_json({"error": {"message": str(exc), "code": 500}}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+
         if MeshShardingHandler.handle_get(self, req_path):
             return
 
@@ -712,6 +749,36 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
+    def do_DELETE(self) -> None:
+        if not self._verify_host_header():
+            self._send_json({"error": {"message": "Forbidden: invalid host header", "code": 403}}, HTTPStatus.FORBIDDEN)
+            return
+
+        parsed_url = urllib.parse.urlparse(self.path)
+        req_path = parsed_url.path
+
+        if not self._verify_action_auth():
+            self._send_unauthorized()
+            return
+
+        for prefix in ("/api/v1/fleet/workspaces/", "/v1/fleet/workspaces/"):
+            if req_path.startswith(prefix):
+                target_id = req_path.removeprefix(prefix).strip().rstrip("/")
+                if target_id:
+                    try:
+                        from tools.appliance.workspace_manager import unregister_local_workspace
+                        res = unregister_local_workspace(target_id)
+                        if res:
+                            self._send_json({"status": "unregistered", "id": target_id})
+                        else:
+                            self._send_json({"error": {"message": res.get("error", "Workspace not found"), "code": 404}}, HTTPStatus.NOT_FOUND)
+                        return
+                    except Exception as exc:
+                        self._send_json({"error": {"message": str(exc), "code": 400}}, HTTPStatus.BAD_REQUEST)
+                        return
+
+        self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
+
     def do_POST(self) -> None:
         if not self._verify_host_header():
             self._send_json({"error": {"message": "Forbidden: invalid host header", "code": 403}}, HTTPStatus.FORBIDDEN)
@@ -779,6 +846,40 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not authorized:
             self._send_unauthorized()
             return
+
+        if req_path in ("/api/v1/fleet/workspaces", "/v1/fleet/workspaces"):
+            try:
+                data = json.loads(post_body.decode("utf-8")) if post_body else {}
+                path_str = str(data.get("path") or "").strip()
+                name_str = str(data.get("name") or "").strip() or None
+                create_if_missing = bool(data.get("create_if_missing", True))
+                from tools.appliance.workspace_manager import register_local_workspace
+                registered = register_local_workspace(path_str, custom_name=name_str, create_if_missing=create_if_missing)
+                if registered:
+                    self._send_json({"workspace": registered, "status": "registered"}, HTTPStatus.CREATED)
+                else:
+                    self._send_json({"error": {"message": "Failed to register workspace", "code": 400}}, HTTPStatus.BAD_REQUEST)
+                return
+            except Exception as exc:
+                self._send_json({"error": {"message": str(exc), "code": 400}}, HTTPStatus.BAD_REQUEST)
+                return
+
+        if req_path in ("/api/v1/appliance/settings", "/v1/appliance/settings"):
+            try:
+                data = json.loads(post_body.decode("utf-8")) if post_body else {}
+                new_base = str(data.get("projects_base_dir") or "").strip()
+                rescan = bool(data.get("rescan", True))
+                from tools.appliance.workspace_manager import set_projects_base_dir, get_projects_base_dir
+                if new_base:
+                    set_projects_base_dir(new_base, rescan=rescan)
+                self._send_json({
+                    "status": "updated",
+                    "projects_base_dir": str(get_projects_base_dir()),
+                })
+                return
+            except Exception as exc:
+                self._send_json({"error": {"message": str(exc), "code": 400}}, HTTPStatus.BAD_REQUEST)
+                return
 
         if req_path == "/api/appliance/service/control":
             self._handle_service_control(post_body)
