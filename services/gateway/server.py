@@ -4056,6 +4056,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
             for m in models
             if m.id not in seen_model_ids
         ]
+        include_unavailable = "include_unavailable=1" in self.path or "all=1" in self.path
+        if online_fleet_nodes_exist and not include_unavailable:
+            catalog_models_data = [m for m in catalog_models_data if m.get("available")]
         self._send_json({"object": "list", "data": fleet_models_data + catalog_models_data})
 
     def _handle_ollama_tags(self) -> None:

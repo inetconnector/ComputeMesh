@@ -173,3 +173,4 @@ echo "Download and activation of 32B model completed at $(date)" >> "$LOG_FILE"
 
 if __name__ == '__main__':
     main()
+

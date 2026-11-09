@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -278,16 +279,35 @@ class ModelEngineService:
             running = self._process is not None and self._process.poll() is None
             if not running and self._health(timeout=0.5):
                 active_model_id = self._model.model_id if self._model else ""
+                model_sha = self._model.sha256 if self._model else ""
+                model_size = self._model.size_bytes if self._model else 0
                 if not active_model_id:
                     try:
                         req = urllib.request.Request(
                             f"http://{self.host}:{self.port}/v1/models",
                             headers={"Accept": "application/json"},
                         )
-                        with urllib.request.urlopen(req, timeout=0.5) as resp:
+                        with urllib.request.urlopen(req, timeout=2.0) as resp:
                             m_data = json.loads(resp.read().decode())
                             if m_data.get("data") and isinstance(m_data["data"], list):
                                 active_model_id = str(m_data["data"][0].get("id", "")).strip()
+                    except Exception:
+                        pass
+                catalog_file = self.model_root / "catalog.json"
+                if catalog_file.exists():
+                    try:
+                        c_data = json.loads(catalog_file.read_text(encoding="utf-8"))
+                        for item in c_data.get("models", []):
+                            mid = item.get("model_id")
+                            if active_model_id and mid == active_model_id:
+                                model_sha = item.get("sha256", model_sha)
+                                model_size = item.get("size_bytes", model_size)
+                                break
+                            elif not active_model_id and item.get("active"):
+                                active_model_id = mid
+                                model_sha = item.get("sha256", model_sha)
+                                model_size = item.get("size_bytes", model_size)
+                                break
                     except Exception:
                         pass
                 return {
@@ -296,9 +316,9 @@ class ModelEngineService:
                     "inference_state": "INFERENCE_READY",
                     "runtime_verified": True,
                     "runtime_detail": "external_service",
-                    "model_id": active_model_id or "bartowski/qwen2.5-7b-instruct-gguf",
-                    "model_sha256": self._model.sha256 if self._model else "",
-                    "model_size_bytes": self._model.size_bytes if self._model else 0,
+                    "model_id": active_model_id or "bartowski/qwen2.5-32b-instruct-gguf",
+                    "model_sha256": model_sha,
+                    "model_size_bytes": model_size,
                     "endpoint": f"http://{self.host}:{self.port}",
                     "pid": None,
                     "started_at_unix": self._started_at or None,

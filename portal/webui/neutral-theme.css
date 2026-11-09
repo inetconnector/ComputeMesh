@@ -397,17 +397,14 @@ button.cm-action-icon,
 
 div.sticky.bottom-0,
 div[class*="sticky"][class*="bottom-0"] {
-  position: sticky !important;
-  bottom: 0 !important;
+  position: static !important;
   background-color: #141618 !important;
-  background: linear-gradient(180deg, rgba(20, 22, 24, 0.95) 0%, #141618 100%) !important;
+  background: #141618 !important;
   border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.75) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  z-index: 40 !important;
   padding: 16px 24px !important;
   margin-top: 24px !important;
+  border-radius: 8px !important;
 }
 
 /* Primary buttons (e.g. "Einstellungen speichern" / "Save settings"):
@@ -417,9 +414,25 @@ button.bg-primary,
 [data-slot="button"].bg-primary,
 button[class*="bg-primary"],
 button[data-variant="default"],
+div.sticky.bottom-0 button:not([class*="outline"]),
+.text-primary-foreground,
+[class*="text-primary-foreground"],
+.bg-primary *,
+button.bg-primary *,
+[data-slot="button"].bg-primary *,
+button[class*="bg-primary"] *,
+button[data-variant="default"] *,
+div.sticky.bottom-0 button:not([class*="outline"]) * {
+  color: #111827 !important;
+}
+
+.bg-primary,
+button.bg-primary,
+[data-slot="button"].bg-primary,
+button[class*="bg-primary"],
+button[data-variant="default"],
 div.sticky.bottom-0 button:not([class*="outline"]) {
   background-color: #e4e5e7 !important;
-  color: #111827 !important;
   font-weight: 600 !important;
   border-radius: 8px !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
@@ -436,8 +449,16 @@ button[class*="bg-primary"]:hover,
 button[data-variant="default"]:hover,
 div.sticky.bottom-0 button:not([class*="outline"]):hover {
   background-color: #ffffff !important;
-  color: #000000 !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+}
+
+.bg-primary:hover *,
+button.bg-primary:hover *,
+[data-slot="button"].bg-primary:hover *,
+button[class*="bg-primary"]:hover *,
+button[data-variant="default"]:hover *,
+div.sticky.bottom-0 button:not([class*="outline"]):hover * {
+  color: #000000 !important;
 }
 
 /* Outline buttons (e.g. "Auf Standard zurücksetzen" / "Reset to default"):

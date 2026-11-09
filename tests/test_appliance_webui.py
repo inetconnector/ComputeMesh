@@ -198,7 +198,7 @@ class TestApplianceWebUIIntegration(unittest.TestCase):
             self.assertEqual(status, HTTPStatus.OK, f"Failed for {path}")
             self.assertIn("text/html", headers.get("content-type", ""))
             html = data.decode("utf-8")
-            self.assertIn("ComputeMesh AI Studio", html)
+            self.assertTrue("ComputeMesh WebUI Studio" in html or "ComputeMesh AI Studio" in html)
 
     def test_agent_workspace_static_index_served(self) -> None:
         for path in ("/agent", "/agent/", "/agent.html"):

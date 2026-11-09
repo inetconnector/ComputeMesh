@@ -45,7 +45,7 @@ def _managed_runtime_status() -> dict[str, Any] | None:
                     "engine": {
                         "ready": True,
                         "endpoint": f"http://127.0.0.1:{raw_port}",
-                        "model_id": mid or "bartowski/qwen2.5-7b-instruct-gguf",
+                        "model_id": mid or "bartowski/qwen2.5-32b-instruct-gguf",
                     },
                     "models": [],
                 }
@@ -465,7 +465,15 @@ class InferenceRouter:
             except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 payload = {}
 
-            local_models = [managed["engine"]["model_id"]] if managed is not None else []
+            local_models = []
+            if managed is not None:
+                eng_mid = managed.get("engine", {}).get("model_id")
+                if eng_mid:
+                    local_models.append(eng_mid)
+                for m in managed.get("models", []):
+                    mid = m.get("model_id") if isinstance(m, dict) else str(m)
+                    if mid and mid not in local_models:
+                        local_models.append(mid)
             if not local_models:
                 _ensure_ollama_running()
                 try:

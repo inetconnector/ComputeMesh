@@ -1525,11 +1525,17 @@
 
 	function renderOptions(select) {
 		select.replaceChildren();
+		var hasLiveFleet = models.some(function (m) {
+			return Boolean(m && (m.__isOnlineFleetModel || m.is_fleet_node_model || String(m.owned_by || '').startsWith('fleet-peer:'))) && m.available !== false;
+		});
 		models.forEach(function (model) {
-			var option = document.createElement('option');
-			var modalities = modalitiesFor(model);
 			var isFleet = Boolean(model && (model.__isOnlineFleetModel || model.is_fleet_node_model || String(model.owned_by || '').startsWith('fleet-peer:')));
 			var isAvailable = Boolean(model && model.available !== false && model.status !== 'unloaded');
+			if (hasLiveFleet && !isFleet && !isAvailable) {
+				return;
+			}
+			var option = document.createElement('option');
+			var modalities = modalitiesFor(model);
 			var name = displayName(model);
 			var modLabel = modalities.includes('vision') ? ' · Bilder' : ' · Text';
 			if (isFleet) {
