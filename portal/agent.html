@@ -1445,7 +1445,7 @@
           <textarea 
             id="composer-input" 
             class="composer-textarea" 
-            placeholder="Anweisung für den lokalen Agenten eingeben (Dateien per + oder Drag&Drop anhängen)..." 
+            placeholder="Anweisung für den lokalen Agenten eingeben... (Enter zum Senden, Shift+Enter für Zeilenumbruch)" 
             rows="1"
             onkeydown="handleComposerKeyDown(event)"
             oninput="autoResizeTextarea(this)"></textarea>
@@ -1482,7 +1482,7 @@
               </div>
 
               <button class="btn-mic" title="Spracheingabe" onclick="toggleVoiceInput()">🎙️</button>
-              <button id="btn-send-turn" class="btn-send-circle" title="Senden (Strg+Enter)" onclick="submitPrompt()">↑</button>
+              <button id="btn-send-turn" class="btn-send-circle" title="Senden (Enter, Shift+Enter für Zeilenumbruch)" onclick="submitPrompt()">↑</button>
             </div>
           </div>
         </div>
@@ -1731,12 +1731,15 @@
 
   <!-- Diff & Changes Modal -->
   <div id="diff-modal" class="agent-modal-overlay" onclick="if(event.target===this)closeDiffModal()">
-    <div class="agent-modal" style="max-width: 650px;">
+    <div class="agent-modal" style="max-width: 860px; width: 92vw;">
       <div class="modal-header">
-        <span>Projekt-Änderungen & Git Diffs</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span>🔍</span>
+          <span style="font-weight: 700;">Projekt-Änderungen & Git Diffs</span>
+        </div>
         <button class="modal-close-btn" onclick="closeDiffModal()">✕</button>
       </div>
-      <div id="diff-modal-body" style="font-family: var(--font-mono); font-size: 12px; max-height: 400px; overflow-y: auto;">
+      <div id="diff-modal-body" style="font-family: var(--font-mono); font-size: 12px; max-height: 560px; overflow-y: auto; padding: 4px 8px;">
         <div style="color: var(--text-muted); padding: 20px; text-align: center;" id="diff-empty-notice">
           Keine ausstehenden Änderungen für die aktive Sitzung vorhanden.
         </div>
@@ -1799,6 +1802,7 @@
 
     function setModel(label, val) {
       currentModel = val;
+      try { localStorage.setItem('cm_selected_model', val); } catch (_) {}
       document.getElementById('active-model-name').textContent = label.split(' (')[0];
       document.querySelectorAll('.agent-menu').forEach(m => m.classList.remove('show'));
     }
@@ -1811,7 +1815,7 @@
     }
 
     function handleComposerKeyDown(event) {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
         event.preventDefault();
         submitPrompt();
       }
@@ -1822,12 +1826,116 @@
       if (drawer) drawer.classList.toggle('open');
     }
 
-    function showDiffModal() {
-      document.getElementById('diff-modal').classList.add('open');
+    async function showDiffModal(filePath) {
+      const modal = document.getElementById('diff-modal');
+      const body = document.getElementById('diff-modal-body');
+      modal.classList.add('open');
+      body.innerHTML = `
+        <div style="color: var(--text-muted); padding: 30px; text-align: center;">
+          <div class="badge-dot" style="display: inline-block; margin-right: 6px;"></div>
+          Lade Git Diffs für Workspace...
+        </div>
+      `;
+
+      try {
+        const targetPath = (activeWorkspace && (activeWorkspace.path || activeWorkspace.id)) ? (activeWorkspace.path || activeWorkspace.id) : '';
+        let url = `/api/v1/fleet/workspaces/diff?workspace=${encodeURIComponent(targetPath)}`;
+        if (filePath) url += `&file=${encodeURIComponent(filePath)}`;
+        const resp = await fetchWithAuth(url);
+        if (!resp.ok) {
+          body.innerHTML = `
+            <div style="color: var(--accent-red); padding: 20px; text-align: center;">
+              Diff konnte nicht geladen werden (HTTP ${resp.status})
+            </div>
+          `;
+          return;
+        }
+        const data = await resp.json();
+        if (!data.is_git_repo) {
+          body.innerHTML = `
+            <div style="color: var(--text-muted); padding: 24px; text-align: center;">
+              ⚠️ Kein Git-Repository unter <code>${escapeHtml(data.path || targetPath)}</code> gefunden.
+            </div>
+          `;
+          return;
+        }
+
+        const branchBadge = `<span class="diff-badge-green" style="font-size: 11px;">🌿 ${escapeHtml(data.branch || 'HEAD')}</span>`;
+        const modCount = data.modified_count || 0;
+        const stagedCount = data.staged_count || 0;
+        const untrackedCount = data.untracked_count || 0;
+        const statsSummary = `<span style="color: var(--text-muted); font-size: 11.5px; margin-left: 8px;">${modCount} geändert • ${stagedCount} im Stage • ${untrackedCount} untracked</span>`;
+
+        if (!data.has_changes && !data.diff) {
+          body.innerHTML = `
+            <div style="padding: 16px 0;">
+              <div style="margin-bottom: 12px; display: flex; align-items: center;">${branchBadge} ${statsSummary}</div>
+              <div style="color: #10b981; padding: 28px; text-align: center; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px;">
+                <div style="font-size: 14px; font-weight: 600;">✓ Arbeitsverzeichnis ist sauber (Clean)</div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">Keine uncommitteten Änderungen auf Branch <strong>${escapeHtml(data.branch || 'main')}</strong> vorhanden.</div>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        const lines = (data.diff || '').split('\n');
+        let diffHtml = lines.map(line => {
+          if (line.startsWith('diff --git')) {
+            return `<div style="background: #23272d; color: #8ab4f8; font-weight: 600; padding: 6px 12px; margin-top: 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08);">${escapeHtml(line)}</div>`;
+          }
+          if (line.startsWith('index ') || line.startsWith('similarity index')) {
+            return `<div style="color: #6a7178; padding: 1px 12px; font-size: 11px;">${escapeHtml(line)}</div>`;
+          }
+          if (line.startsWith('--- ') || line.startsWith('+++ ')) {
+            return `<div style="color: #9da3a8; font-weight: 600; padding: 2px 12px;">${escapeHtml(line)}</div>`;
+          }
+          if (line.startsWith('@@')) {
+            return `<div style="background: rgba(0, 229, 255, 0.08); color: #00e5ff; font-weight: 600; padding: 3px 12px; margin: 4px 0;">${escapeHtml(line)}</div>`;
+          }
+          if (line.startsWith('+')) {
+            return `<div style="background: rgba(16, 185, 129, 0.14); color: #34d399; padding: 1px 12px; border-left: 3px solid #10b981; white-space: pre-wrap; word-break: break-all;">${escapeHtml(line)}</div>`;
+          }
+          if (line.startsWith('-')) {
+            return `<div style="background: rgba(239, 68, 68, 0.14); color: #f87171; padding: 1px 12px; border-left: 3px solid #ef4444; white-space: pre-wrap; word-break: break-all;">${escapeHtml(line)}</div>`;
+          }
+          return `<div style="color: #9da3a8; padding: 1px 12px; border-left: 3px solid transparent; white-space: pre-wrap; word-break: break-all;">${escapeHtml(line)}</div>`;
+        }).join('');
+
+        body.innerHTML = `
+          <div style="padding-bottom: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <div>${branchBadge} ${statsSummary}</div>
+              <button class="btn btn-secondary btn-sm" onclick="showDiffModal()">↻ Aktualisieren</button>
+            </div>
+            <div style="background: #111214; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; overflow-x: auto; max-height: 520px;">
+              ${diffHtml}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        body.innerHTML = `<div style="color: var(--accent-red); padding: 20px;">Fehler beim Laden des Diffs: ${escapeHtml(err.message)}</div>`;
+      }
     }
 
     function closeDiffModal() {
       document.getElementById('diff-modal').classList.remove('open');
+    }
+
+    async function resolveApproval(approvalId, approved) {
+      if (!approvalId) return;
+      try {
+        const resp = await fetchWithAuth(`/v1/agents/approvals/${approvalId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ approved: Boolean(approved) })
+        });
+        if (resp.ok) {
+          await pollEvents();
+        }
+      } catch (err) {
+        console.warn('Approval resolution error:', err);
+      }
     }
 
     function promptAddWorkspace() {
@@ -2194,6 +2302,7 @@
         console.warn('loadModels network warning:', err);
       }
       renderModelMenu([
+        { id: 'bartowski/qwen2.5-32b-instruct-gguf', name: 'qwen2.5-32b-instruct (48GB Mining-Rig)' },
         { id: 'qwen2.5:3b', name: 'qwen2.5:3b (Lokal aktiv)' }
       ]);
     }
@@ -2207,11 +2316,15 @@
         </div>
       `).join('');
       if (models.length > 0) {
-        const found = models.find(m => m.id === currentModel);
-        if (!found) {
-          currentModel = models[0].id;
-        }
-        const activeName = (found || models[0]).name.split(' (')[0];
+        let savedModelId = '';
+        try { savedModelId = localStorage.getItem('cm_selected_model') || ''; } catch (_) {}
+        const saved = savedModelId ? models.find(m => m.id === savedModelId) : null;
+        const miner32b = models.find(m => m.id.includes('32b') || m.name.includes('32b') || m.id.includes('32B'));
+        const coderModel = models.find(m => m.id.includes('coder') || m.name.includes('coder'));
+        const chosen = saved || miner32b || coderModel || models[0];
+
+        currentModel = chosen.id;
+        const activeName = chosen.name.split(' (')[0];
         document.getElementById('active-model-name').textContent = activeName;
       }
     }
@@ -2625,18 +2738,26 @@
         const statusText = isOnline ? 'Bereit' : 'Offline';
         const vramText = (n.vram_gb && !String(n.hardware || '').includes('GB')) ? `${n.vram_gb}GB VRAM` : '';
         const summary = n.hardware || n.gpu_summary || (n.gpus && n.gpus[0]) || 'GPU Inferenz';
+        const isMiner = (n.node_id || '').includes('cm-inference-node-01') || (n.display_name || '').toLowerCase().includes('mining');
         const dispName = (n.display_name || n.node_id || '').toLowerCase().includes('mifcom') ? 'mifcoms (cm-win-mifcom-rtx3080)' : (n.display_name || n.node_id);
+        const roleBadge = isMiner 
+          ? '<span style="font-size: 9.5px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); padding: 1px 6px; border-radius: 9999px; font-weight: 600;">⚡ 48GB Rig (32B Reasoning)</span>'
+          : '<span style="font-size: 9.5px; background: rgba(138, 180, 248, 0.15); color: #8ab4f8; border: 1px solid rgba(138, 180, 248, 0.3); padding: 1px 6px; border-radius: 9999px; font-weight: 600;">💻 Local Desktop</span>';
+
         return `
           <div class="node-item-clean ${isSelected ? 'selected' : ''}" 
-               style="cursor: pointer; border-radius: 8px; padding: 8px 10px; transition: all 0.15s ease; ${isSelected ? 'border: 1px solid #8ab4f8; background: rgba(138, 180, 248, 0.12);' : ''}" 
+               style="cursor: pointer; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; transition: all 0.15s ease; ${isSelected ? 'border: 1px solid #8ab4f8; background: rgba(138, 180, 248, 0.12);' : 'border: 1px solid rgba(255,255,255,0.06);'}" 
                onclick="selectNode('${escapeHtml(n.node_id)}')" 
                title="Klicken, um ${escapeHtml(dispName)} als aktiven Node auszuwählen">
             <div style="flex: 1; min-width: 0;">
-              <div class="node-name-label" style="display: flex; align-items: center; gap: 6px;">
-                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(dispName)}</span>
+              <div class="node-name-label" style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;">${escapeHtml(dispName)}</span>
                 ${isSelected ? '<span style="font-size: 9px; background: #8ab4f8; color: #000; padding: 1px 5px; border-radius: 3px; font-weight: 700; flex-shrink: 0;">AKTIV</span>' : ''}
               </div>
-              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(summary)} ${vramText ? '• ' + vramText : ''}</div>
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                ${roleBadge}
+              </div>
+              <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 4px;">${escapeHtml(summary)} ${vramText ? '• ' + vramText : ''}</div>
             </div>
             <div class="node-status-tag ${statusClass}" style="flex-shrink: 0; margin-left: 8px;">${statusText}</div>
           </div>
@@ -2782,6 +2903,48 @@
         return row;
       }
 
+      if (type === 'turn.progress') {
+        const row = document.createElement('div');
+        row.className = 'agent-message-row';
+        const uniqueId = Math.random().toString(36).substr(2, 9);
+        const tool = escapeHtml(payload.tool || payload.name || '');
+        const iter = payload.iteration ? `Schritt ${payload.iteration}` : 'Agent';
+        const desc = tool ? `Werkzeug [${tool}] ausführen...` : (payload.event || 'Kognitiver Schritt...');
+        row.innerHTML = `
+          <div class="thought-pill" onclick="toggleThought('${uniqueId}')" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 9999px; padding: 4px 12px; font-size: 11.5px; color: #00e5ff;">
+            <span class="badge-dot" style="display:inline-block; width:6px; height:6px; background:#00e5ff; border-radius:50%; box-shadow:0 0 6px #00e5ff;"></span>
+            <span>⚡ ${iter}: ${desc}</span>
+            <span style="font-size: 9px; opacity: 0.7;">⌵</span>
+          </div>
+          <div id="thought-drawer-${uniqueId}" class="thought-drawer" style="margin-top: 6px; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px;">
+            <pre style="color: var(--accent-cyan); font-size: 11px; margin: 0;">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+          </div>
+        `;
+        return row;
+      }
+
+      if (type === 'approval.requested' || type === 'waiting_for_approval' || (payload && payload.approval_id)) {
+        const row = document.createElement('div');
+        row.className = 'agent-message-row';
+        const apprvId = escapeHtml(payload.approval_id || payload.id || '');
+        const desc = escapeHtml(payload.description || payload.tool_call || payload.message || 'Ausführung eines Werkzeugs erfordert deine Bestätigung.');
+        row.innerHTML = `
+          <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 14px 16px; margin: 8px 0; max-width: 90%;">
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #f59e0b; margin-bottom: 6px;">
+              <span>🛡️ Freigabe erforderlich</span>
+            </div>
+            <div style="color: var(--text-main); font-size: 13px; margin-bottom: 12px; line-height: 1.4;">
+              ${desc}
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-primary btn-sm" style="background: #10b981; border-color: #10b981; color: #fff; font-weight: 600; padding: 4px 12px; border-radius: 6px; cursor: pointer;" onclick="resolveApproval('${apprvId}', true)">✓ Genehmigen</button>
+              <button class="btn btn-secondary btn-sm" style="background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #f87171; font-weight: 600; padding: 4px 12px; border-radius: 6px; cursor: pointer;" onclick="resolveApproval('${apprvId}', false)">✕ Ablehnen</button>
+            </div>
+          </div>
+        `;
+        return row;
+      }
+
       if (type === 'tool.execution' || type === 'tool.called' || type === 'tool_call') {
         const row = document.createElement('div');
         row.className = 'agent-message-row';
@@ -2807,6 +2970,24 @@
         
         let textContent = payload.text || payload.response || payload.content || '';
         let filesEditedHtml = '';
+
+        let thoughtHtml = '';
+        const thoughtMatch = textContent.match(/<(?:thought|think)>([\s\S]*?)<\/(?:thought|think)>/i);
+        if (thoughtMatch) {
+          const thoughtText = thoughtMatch[1].trim();
+          textContent = textContent.replace(/<(?:thought|think)>[\s\S]*?<\/(?:thought|think)>/i, '').trim();
+          const uniqueId = Math.random().toString(36).substr(2, 9);
+          thoughtHtml = `
+            <div class="thought-pill" onclick="toggleThought('${uniqueId}')" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 9999px; padding: 4px 12px; font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px;">
+              <span>💭</span>
+              <span>Gedankengang anzeigen</span>
+              <span style="font-size: 9px; opacity: 0.7;">⌵</span>
+            </div>
+            <div id="thought-drawer-${uniqueId}" class="thought-drawer" style="margin-bottom: 12px; background: rgba(0,0,0,0.25); border-left: 2px solid #8ab4f8; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap;">
+              ${escapeHtml(thoughtText)}
+            </div>
+          `;
+        }
 
         if (payload.files_edited && Array.isArray(payload.files_edited) && payload.files_edited.length > 0) {
           const count = payload.files_edited.length;
@@ -2836,6 +3017,7 @@
         }
 
         row.innerHTML = `
+          ${thoughtHtml}
           <div class="agent-content">
             ${formatMarkdown(textContent)}
           </div>

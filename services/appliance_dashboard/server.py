@@ -552,6 +552,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": {"message": str(exc), "code": 500}}, HTTPStatus.INTERNAL_SERVER_ERROR)
                 return
 
+        if req_path in ("/api/v1/fleet/workspaces/diff", "/v1/fleet/workspaces/diff"):
+            parsed_path = urlparse(self.path)
+            query = parse_qs(parsed_path.query)
+            ws_path = query.get("workspace", [""])[0].strip() or query.get("path", [""])[0].strip()
+            file_path = query.get("file", [""])[0].strip() or None
+            staged = query.get("staged", ["false"])[0].lower() in ("true", "1")
+
+            if not ws_path:
+                try:
+                    from tools.appliance.workspace_manager import get_projects_base_dir
+                    ws_path = str(get_projects_base_dir())
+                except Exception:
+                    ws_path = "."
+
+            try:
+                from tools.appliance.workspace_manager import get_workspace_diff
+                payload = get_workspace_diff(ws_path, file_path=file_path, staged=staged)
+                self._send_json(payload, HTTPStatus.OK)
+            except Exception as exc:
+                self._send_json({"error": str(exc), "has_changes": False, "diff": ""}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         if req_path in ("/api/v1/appliance/settings", "/v1/appliance/settings"):
             try:
                 from tools.appliance.workspace_manager import get_projects_base_dir

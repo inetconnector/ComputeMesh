@@ -501,6 +501,7 @@ fun UnregisterWorkspaceConfirmDialog(
     )
 }
 
+
 /**
  * Delete Session / Task Dialog
  */
@@ -537,4 +538,74 @@ fun DeleteSessionConfirmDialog(
         }
     )
 }
+
+/**
+ * Interactive Approval Card for Tool Actions (e.g. Patching Files, Running Shell Commands)
+ */
+@Composable
+fun AgentApprovalCard(
+    approvalId: String,
+    description: String,
+    toolName: String = "",
+    onApprove: (String) -> Unit,
+    onDeny: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = CardSurface,
+        border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.5f)),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Security,
+                    contentDescription = null,
+                    tint = AmberWarning,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (toolName.isNotBlank()) "Freigabe erforderlich: $toolName" else "Freigabe erforderlich",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = AmberWarning
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = description,
+                fontSize = 12.sp,
+                color = TextPrimary,
+                lineHeight = 16.sp
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onApprove(approvalId) },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Genehmigen", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+                OutlinedButton(
+                    onClick = { onDeny(approvalId) },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RoseDanger),
+                    border = BorderStroke(1.dp, RoseDanger.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null, tint = RoseDanger, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Ablehnen", color = RoseDanger, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
 

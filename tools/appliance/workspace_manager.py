@@ -539,3 +539,61 @@ def get_fleet_nodes_info() -> list[dict[str, Any]]:
     return nodes
 
 
+def get_workspace_diff(repo_path: str = ".", file_path: str | None = None, staged: bool = False) -> dict[str, Any]:
+    """Generates a complete, authentic git diff and status report for the specified workspace path."""
+    resolved_path = Path(repo_path).expanduser().resolve()
+    if not resolved_path.exists() or not resolved_path.is_dir():
+        return {
+            "path": str(resolved_path),
+            "is_git_repo": False,
+            "error": f"Verzeichnis existiert nicht: {resolved_path}",
+            "diff": "",
+            "has_changes": False,
+        }
+
+    # Verify git repository
+    git_dir = resolved_path / ".git"
+    if not git_dir.exists():
+        return {
+            "path": str(resolved_path),
+            "is_git_repo": False,
+            "error": "Kein Git-Repository im Workspace-Pfad gefunden",
+            "diff": "",
+            "has_changes": False,
+        }
+
+    try:
+        from services.mcp.builtin.git_tools import get_git_status, get_git_diff
+        status_res = get_git_status(str(resolved_path))
+        diff_res = get_git_diff(str(resolved_path), file_path=file_path, staged=staged)
+
+        # If unstaged has no diff, but staged does, also check staged
+        if not diff_res.get("has_changes") and not staged and status_res.get("staged_count", 0) > 0:
+            diff_res = get_git_diff(str(resolved_path), file_path=file_path, staged=True)
+
+        return {
+            "path": str(resolved_path),
+            "is_git_repo": True,
+            "branch": status_res.get("branch", "HEAD"),
+            "clean": status_res.get("clean", True),
+            "staged_count": status_res.get("staged_count", 0),
+            "modified_count": status_res.get("modified_count", 0),
+            "untracked_count": status_res.get("untracked_count", 0),
+            "staged": status_res.get("staged", []),
+            "modified": status_res.get("modified", []),
+            "untracked": status_res.get("untracked", []),
+            "diff": diff_res.get("diff_preview", ""),
+            "has_changes": diff_res.get("has_changes", False),
+            "total_diff_chars": diff_res.get("total_diff_chars", 0),
+        }
+    except Exception as exc:
+        return {
+            "path": str(resolved_path),
+            "is_git_repo": True,
+            "error": str(exc),
+            "diff": "",
+            "has_changes": False,
+        }
+
+
+

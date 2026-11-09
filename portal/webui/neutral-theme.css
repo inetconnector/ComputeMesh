@@ -397,18 +397,22 @@ button.cm-action-icon,
 
 div.sticky.bottom-0,
 div[class*="sticky"][class*="bottom-0"] {
-  position: static !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 30 !important;
   background-color: #141618 !important;
-  background: #141618 !important;
+  background: rgba(20, 22, 24, 0.95) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.75) !important;
-  padding: 16px 24px !important;
-  margin-top: 24px !important;
-  border-radius: 8px !important;
+  padding: 14px 24px !important;
+  margin-top: auto !important;
+  border-radius: 0 0 8px 8px !important;
 }
 
 /* Primary buttons (e.g. "Einstellungen speichern" / "Save settings"):
-   High contrast dark text on crisp platinum background */
+   High contrast vibrant sapphire blue with crisp pure white text */
 .bg-primary,
 button.bg-primary,
 [data-slot="button"].bg-primary,
@@ -423,7 +427,7 @@ button.bg-primary *,
 button[class*="bg-primary"] *,
 button[data-variant="default"] *,
 div.sticky.bottom-0 button:not([class*="outline"]) * {
-  color: #111827 !important;
+  color: #ffffff !important;
 }
 
 .bg-primary,
@@ -432,11 +436,12 @@ button.bg-primary,
 button[class*="bg-primary"],
 button[data-variant="default"],
 div.sticky.bottom-0 button:not([class*="outline"]) {
-  background-color: #e4e5e7 !important;
+  background-color: #2563eb !important;
+  color: #ffffff !important;
   font-weight: 600 !important;
   border-radius: 8px !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35) !important;
   transition: all 0.15s ease-in-out !important;
   min-height: 38px !important;
   padding: 8px 20px !important;
@@ -448,8 +453,9 @@ button.bg-primary:hover,
 button[class*="bg-primary"]:hover,
 button[data-variant="default"]:hover,
 div.sticky.bottom-0 button:not([class*="outline"]):hover {
-  background-color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5) !important;
 }
 
 .bg-primary:hover *,
@@ -458,7 +464,7 @@ button.bg-primary:hover *,
 button[class*="bg-primary"]:hover *,
 button[data-variant="default"]:hover *,
 div.sticky.bottom-0 button:not([class*="outline"]):hover * {
-  color: #000000 !important;
+  color: #ffffff !important;
 }
 
 /* Outline buttons (e.g. "Auf Standard zurücksetzen" / "Reset to default"):
@@ -729,6 +735,42 @@ a { color: var(--cm-text) !important; text-decoration-color: var(--cm-border-str
 #cm-agent-session-panel,
 #cm-agent-session-panel[hidden] {
   display: none !important;
+}
+
+/* ==============================================================================
+   Top Navigation Link to ComputeMesh Agent Workspace
+   ============================================================================== */
+.cm-nav-agent-btn {
+  position: fixed !important;
+  top: 14px !important;
+  right: 18px !important;
+  z-index: 1000 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  background: rgba(24, 26, 28, 0.88) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  color: #f0f1f2 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 6px 14px !important;
+  border-radius: 9999px !important;
+  text-decoration: none !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+  transition: all 0.15s ease-in-out !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+}
+
+.cm-nav-agent-btn:hover {
+  background: #25282c !important;
+  border-color: rgba(0, 229, 255, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 10px rgba(0, 229, 255, 0.15) !important;
+  transform: translateY(-1px) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

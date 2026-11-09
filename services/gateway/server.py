@@ -1752,20 +1752,24 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 )
                 if is_local_appliance:
                     try:
-                        from tools.appliance.workspace_manager import get_local_node_info, load_local_workspaces
+                        from tools.appliance.workspace_manager import (
+                            get_local_node_info,
+                            load_local_workspaces,
+                            get_fleet_nodes_info,
+                        )
                         local_info = get_local_node_info()
                         local_ws = load_local_workspaces()
+                        fleet_nodes = get_fleet_nodes_info()
                         effective_nid = active_node_id or local_info["node_id"]
                         removed_set = set(NODE_TELEMETRY_REGISTRY.get(effective_nid, {}).get("removed_workspaces", []))
                         if not nodes:
-                            filtered_local = [w for w in local_ws if w.get("id") not in removed_set and w.get("path") not in removed_set]
-                            nodes = [{
+                            nodes = fleet_nodes or [{
                                 "node_id": local_info["node_id"],
                                 "display_name": local_info["display_name"],
                                 "node_name": local_info["node_name"],
                                 "hardware": local_info["hardware"],
                                 "is_online": True,
-                                "workspaces": filtered_local,
+                                "workspaces": [w for w in local_ws if w.get("id") not in removed_set and w.get("path") not in removed_set],
                             }]
                             active_node_id = local_info["node_id"]
                         for w in local_ws:
@@ -1781,6 +1785,28 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     except Exception:
                         pass
             self._send_json({"workspaces": all_ws, "active_node_id": active_node_id, "nodes": nodes})
+            return
+
+        if clean_path in ("/api/v1/fleet/workspaces/diff", "/v1/fleet/workspaces/diff"):
+            parsed_path = urlparse(self.path)
+            query = parse_qs(parsed_path.query)
+            ws_path = query.get("workspace", [""])[0].strip() or query.get("path", [""])[0].strip()
+            file_path = query.get("file", [""])[0].strip() or None
+            staged = query.get("staged", ["false"])[0].lower() in ("true", "1")
+
+            if not ws_path:
+                try:
+                    from tools.appliance.workspace_manager import get_projects_base_dir
+                    ws_path = str(get_projects_base_dir())
+                except Exception:
+                    ws_path = "."
+
+            try:
+                from tools.appliance.workspace_manager import get_workspace_diff
+                payload = get_workspace_diff(ws_path, file_path=file_path, staged=staged)
+                self._send_json(payload, HTTPStatus.OK)
+            except Exception as exc:
+                self._send_json({"error": str(exc), "has_changes": False, "diff": ""}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
         if clean_path in ("/api/appliance/service/status", "/appliance/service/status"):

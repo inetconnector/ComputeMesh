@@ -1818,7 +1818,19 @@
 			}
 		}, true);
 	}
+	function installAgentWorkspaceNavigation() {
+		if (document.getElementById('cm-nav-agent-btn')) return;
+		var btn = document.createElement('a');
+		btn.id = 'cm-nav-agent-btn';
+		btn.className = 'cm-nav-agent-btn';
+		btn.href = '/agent.html';
+		btn.title = 'ComputeMesh Agent Workspace öffnen (Coding, Diffs, Workspaces)';
+		btn.innerHTML = '<span style="color:#00e5ff;font-size:13px;font-weight:bold;">⚡</span><span>Agent Workspace</span><span style="opacity:0.6;font-size:10px;">↗</span>';
+		document.body.appendChild(btn);
+	}
 	installEnterKeySubmission();
+	installAgentWorkspaceNavigation();
+	setInterval(installAgentWorkspaceNavigation, 1000);
 	installImageUploadOptimization();
 	installImageTagRewriter();
 	setInterval(renderModelInfoFallback, 500);

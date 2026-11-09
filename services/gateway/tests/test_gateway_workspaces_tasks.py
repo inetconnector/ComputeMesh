@@ -283,6 +283,16 @@ def test_gateway_workspaces_and_sessions_http_routes(tmp_path):
         status_body = json.loads(res.read().decode())
         assert status_body["service_name"] in ("ComputeMeshNode", "computemesh-node")
 
+        # 10. GET /api/v1/fleet/workspaces/diff reports authentic git diff and status
+        conn.request("GET", "/api/v1/fleet/workspaces/diff?workspace=.")
+        res = conn.getresponse()
+        assert res.status == HTTPStatus.OK
+        diff_body = json.loads(res.read().decode())
+        assert "is_git_repo" in diff_body
+        assert "diff" in diff_body
+        assert "has_changes" in diff_body
+        assert isinstance(diff_body.get("clean"), bool)
+
         conn.close()
     finally:
         server.shutdown()
