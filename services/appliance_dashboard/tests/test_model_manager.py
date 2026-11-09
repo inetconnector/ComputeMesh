@@ -306,6 +306,33 @@ class TestModelManager(unittest.TestCase):
             self.assertEqual(res_16["model_id"], "qwen2.5-7b")
             self.assertEqual(engine.current, "qwen2.5-7b")
 
+    def test_tier_target_catalog_and_auto_download(self) -> None:
+        from services.appliance_dashboard.model_manager import TIER_TARGET_CATALOG
+        self.assertIn("48GB_TIER", TIER_TARGET_CATALOG)
+        self.assertIn("16GB_TIER", TIER_TARGET_CATALOG)
+        self.assertIn("8GB_TIER", TIER_TARGET_CATALOG)
+        self.assertEqual(TIER_TARGET_CATALOG["48GB_TIER"]["model_id"], "bartowski/qwen2.5-32b-instruct-gguf")
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            engine = FakeEngine()
+            manager = ModelManager(root, engine)
+
+            inventory_48gb = {
+                "gpus": [
+                    {"vendor": "amd", "model_name": "Radeon RX 480", "vram_bytes": 8 * 1024**3, "healthy": True}
+                    for _ in range(6)
+                ]
+            }
+            # When no local models exist and auto_download is enabled
+            with patch.object(manager, "start_download", return_value={"accepted": True}) as mock_dl:
+                res = manager.ensure_best_model_for_rig(inventory_48gb, auto_download_target=True)
+                self.assertIsNotNone(res)
+                self.assertEqual(res["status"], "downloading_tier_target")
+                self.assertEqual(res["tier"], "48GB_TIER")
+                mock_dl.assert_called_once()
+                self.assertEqual(mock_dl.call_args.kwargs["model_id"], "bartowski/qwen2.5-32b-instruct-gguf")
+
 
 if __name__ == "__main__":
     unittest.main()

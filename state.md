@@ -1,3 +1,22 @@
+## 2026-11-09 — VRAM Tier Catalog, 32B Model Provisioning on Miner & Automated Upgrades
+
+- Codified `TIER_TARGET_CATALOG` in `services/appliance_dashboard/model_manager.py`:
+  - `48GB_TIER`: `bartowski/qwen2.5-32b-instruct-gguf` (`Qwen2.5-32B-Instruct-Q4_K_M.gguf`, 19.85 GB, 64 layers, SHA-256 `2e5f6daea180dbc59f65a40641e94d3973b5dbaa32b3c0acf54647fa874e519e`).
+  - `16GB_TIER`: `bartowski/qwen2.5-14b-instruct-gguf` (`Qwen2.5-14B-Instruct-Q4_K_M.gguf`, 8.98 GB, 48 layers, SHA-256 `e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008`).
+  - `8GB_TIER`: `bartowski/qwen2.5-7b-instruct-gguf` (`Qwen2.5-7B-Instruct-Q4_K_M.gguf`, 4.68 GB, 28 layers, SHA-256 `65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423`).
+- Added non-blocking automated tier target model downloads in `ensure_best_model_for_rig`:
+  - If a node is missing its target tier model, it immediately activates the best available smaller model so the node stays warm and functional.
+  - In parallel, it can queue the background download of the target model (`COMPUTEMESH_AUTO_DOWNLOAD_TIER_TARGET=1` or `auto_download_target=True`).
+- Deployed 32B model upgrade pipeline on live 48 GB mining rig (`cm-inference-node-01` / `192.168.1.27`):
+  - Downloaded `Qwen2.5-32B-Instruct-Q4_K_M.gguf` to `/var/lib/computemesh/models` on persistent partition `/dev/sda3`.
+  - Configured `computemesh-llama.service` with 6-way Vulkan tensor split (`--tensor-split 0.167,0.167,0.167,0.167,0.167,0.167` across Vulkan0..5).
+  - Created deployment tool `tools/appliance/deploy_upgrade_32b_miner.py`.
+- Verification receipts:
+  - `pytest ComputeMesh/services/appliance_dashboard/tests/test_model_manager.py`: 11 passed.
+  - `pytest ComputeMesh/tools/appliance/tests/`: 65 passed.
+  - `python ComputeMesh/tools/release/check_portal_routes.py`: 34 pages, 0 issues (PASS).
+  - `python ComputeMesh/tools/release/check_portal_i18n.py`: PORTAL_GATE_PASS.
+
 ## 2026-11-08 — Current public handoff: v1.2.211 and fleet model cooperation & persistence
 
 - Implemented automated HDD/SSD persistence provisioning in `tools/appliance/disk_clone.py`:

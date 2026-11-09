@@ -32,6 +32,49 @@ REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
 
 
+TIER_TARGET_CATALOG: dict[str, dict[str, Any]] = {
+    "48GB_TIER": {
+        "model_id": "bartowski/qwen2.5-32b-instruct-gguf",
+        "repo_id": "bartowski/qwen2.5-32b-instruct-gguf",
+        "filename": "Qwen2.5-32B-Instruct-Q4_K_M.gguf",
+        "revision": "2116cbb385b8ce3a4d28cf3bf1cd2039a55821a6",
+        "sha256": "2e5f6daea180dbc59f65a40641e94d3973b5dbaa32b3c0acf54647fa874e519e",
+        "size_bytes": 19851336576,
+        "layer_count": 64,
+        "quantization": "Q4_K_M",
+        "license_id": "apache-2.0",
+        "min_vram_gb": 36.0,
+        "preferences": ["32b", "30b", "27b", "14b", "8b", "7b", "3b", "1.5b", "0.5b"],
+    },
+    "16GB_TIER": {
+        "model_id": "bartowski/qwen2.5-14b-instruct-gguf",
+        "repo_id": "bartowski/qwen2.5-14b-instruct-gguf",
+        "filename": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+        "revision": "05244aa5d871c661c80082a15d3bce44714d068d",
+        "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
+        "size_bytes": 8988110976,
+        "layer_count": 48,
+        "quantization": "Q4_K_M",
+        "license_id": "apache-2.0",
+        "min_vram_gb": 12.0,
+        "preferences": ["14b", "8b", "7b", "3b", "1.5b", "0.5b"],
+    },
+    "8GB_TIER": {
+        "model_id": "bartowski/qwen2.5-7b-instruct-gguf",
+        "repo_id": "bartowski/qwen2.5-7b-instruct-gguf",
+        "filename": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        "revision": "8911e8a47f92bac19d6f5c64a2e2095bd2f7d031",
+        "sha256": "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423",
+        "size_bytes": 4683074240,
+        "layer_count": 28,
+        "quantization": "Q4_K_M",
+        "license_id": "apache-2.0",
+        "min_vram_gb": 6.0,
+        "preferences": ["7b", "3b", "1.5b", "0.5b"],
+    },
+}
+
+
 class ModelManagerError(RuntimeError):
     """Raised when model state or artifact input is invalid."""
 
@@ -513,7 +556,12 @@ class ModelManager:
                 self._save(models)
             return discovered
 
-    def ensure_best_model_for_rig(self, inventory: Any | None = None) -> dict[str, Any] | None:
+    def ensure_best_model_for_rig(
+        self,
+        inventory: Any | None = None,
+        *,
+        auto_download_target: bool | None = None,
+    ) -> dict[str, Any] | None:
         """Automatically selects, discovers, and activates the optimal model matching the node's VRAM tier."""
         self.discover_and_register_local_artifacts()
 
@@ -556,31 +604,30 @@ class ModelManager:
         total_vram_gb = total_vram_bytes / (1024**3)
 
         if total_vram_gb >= 36.0:
-            tier_preferences = ["32b", "30b", "27b", "14b", "8b", "7b", "3b", "1.5b", "0.5b"]
-            tier_target = "bartowski/qwen2.5-32b-instruct-gguf"
             tier_name = "48GB_TIER"
         elif total_vram_gb >= 12.0:
-            tier_preferences = ["14b", "8b", "7b", "3b", "1.5b", "0.5b"]
-            tier_target = "bartowski/qwen2.5-14b-instruct-gguf"
             tier_name = "16GB_TIER"
         else:
-            tier_preferences = ["3b", "1.5b", "0.5b"]
-            tier_target = "bartowski/qwen2.5-7b-instruct-gguf"
             tier_name = "8GB_TIER"
+
+        target_spec = TIER_TARGET_CATALOG[tier_name]
+        tier_preferences = target_spec["preferences"]
+        tier_target = target_spec["model_id"]
+
+        should_auto_download = (
+            auto_download_target
+            if auto_download_target is not None
+            else os.environ.get("COMPUTEMESH_AUTO_DOWNLOAD_TIER_TARGET", "0").strip().lower() in ("1", "true", "yes")
+        )
 
         with self._lock:
             models = self._load()
-            if not models:
-                return None
-
             candidates = []
-            for m in models.values():
-                artifact = self.model_root / m.filename
-                if artifact.is_file() and not artifact.is_symlink() and artifact.stat().st_size == m.size_bytes:
-                    candidates.append(m)
-
-            if not candidates:
-                return None
+            if models:
+                for m in models.values():
+                    artifact = self.model_root / m.filename
+                    if artifact.is_file() and not artifact.is_symlink() and artifact.stat().st_size == m.size_bytes:
+                        candidates.append(m)
 
             def score_model(m: InstalledModel) -> int:
                 name = (m.model_id + " " + m.filename).lower()
@@ -591,7 +638,37 @@ class ModelManager:
                 return 0
 
             candidates.sort(key=score_model, reverse=True)
-            best_model = candidates[0]
+            best_model = candidates[0] if candidates else None
+
+            # If the optimal tier target is missing, queue background download if enabled
+            download_started = False
+            if should_auto_download and (best_model is None or best_model.model_id != tier_target):
+                try:
+                    self.start_download(
+                        model_id=target_spec["model_id"],
+                        repo_id=target_spec["repo_id"],
+                        filename=target_spec["filename"],
+                        revision=target_spec["revision"],
+                        sha256=target_spec["sha256"],
+                        size_bytes=target_spec["size_bytes"],
+                        layer_count=target_spec["layer_count"],
+                        quantization=target_spec["quantization"],
+                        license_id=target_spec["license_id"],
+                    )
+                    download_started = True
+                except ModelManagerError:
+                    pass
+
+            if best_model is None:
+                return {
+                    "model_id": "",
+                    "status": "downloading_tier_target" if download_started else "no_local_models",
+                    "total_vram_gb": round(total_vram_gb, 1),
+                    "target_model_id": tier_target,
+                    "target_model_spec": target_spec,
+                    "tier": tier_name,
+                    "tier_target_active": False,
+                }
 
             engine_status = self.engine.status()
             if engine_status.get("ready") and engine_status.get("model_id") == best_model.model_id:
@@ -600,8 +677,10 @@ class ModelManager:
                     "status": "already_active",
                     "total_vram_gb": round(total_vram_gb, 1),
                     "target_model_id": tier_target,
+                    "target_model_spec": target_spec,
                     "tier": tier_name,
                     "tier_target_active": bool(best_model.model_id == tier_target or tier_preferences[0] in (best_model.model_id + " " + best_model.filename).lower()),
+                    "tier_download_queued": download_started,
                 }
 
         result = self.activate(best_model.model_id)
@@ -610,8 +689,10 @@ class ModelManager:
             "status": "activated",
             "total_vram_gb": round(total_vram_gb, 1),
             "target_model_id": tier_target,
+            "target_model_spec": target_spec,
             "tier": tier_name,
             "tier_target_active": bool(best_model.model_id == tier_target or tier_preferences[0] in (best_model.model_id + " " + best_model.filename).lower()),
+            "tier_download_queued": download_started,
             "engine": result,
         }
 
