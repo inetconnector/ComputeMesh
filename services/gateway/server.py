@@ -4058,7 +4058,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             "modalities": ["text"],
                             "capabilities": ["text"],
                             "availability": "available_warm" if is_act else "available_cold",
-                            "available": True,
+                            "available": bool(is_act or not online_fleet_nodes_exist),
                             "status": "loaded" if is_act else "unloaded",
                             "is_fleet_node_model": True,
                         })
@@ -4084,6 +4084,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         ]
         include_unavailable = "include_unavailable=1" in self.path or "all=1" in self.path
         if online_fleet_nodes_exist and not include_unavailable:
+            fleet_models_data = [m for m in fleet_models_data if m.get("available") and m.get("status") == "loaded"]
             catalog_models_data = [m for m in catalog_models_data if m.get("available")]
         self._send_json({"object": "list", "data": fleet_models_data + catalog_models_data})
 
@@ -4139,7 +4140,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
+        model_req = str(body.get("model", "")).strip()
         try:
             model_id = resolve_model_id(model_req)
         except ValueError as exc:
@@ -4256,7 +4257,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
+        model_req = str(body.get("model", "")).strip()
         model_id = resolve_model_id(model_req)
         messages = body.get("messages", [])
         stream = bool(body.get("stream", True))
@@ -4310,7 +4311,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
+        model_req = str(body.get("model", "")).strip()
         model_id = resolve_model_id(model_req)
         prompt = body.get("prompt", "")
         images = body.get("images") if isinstance(body.get("images"), list) else None

@@ -395,13 +395,21 @@ button.cm-action-icon,
    Settings Page Sticky Action Dock & Primary/Outline Buttons
    ============================================================================== */
 
+/* Prevent settings content from hiding underneath the sticky action dock */
+.mx-auto.max-w-3xl.flex-1 {
+  padding-bottom: 32px !important;
+}
+.mx-auto.max-w-3xl.flex-1 > div.space-y-6 {
+  padding-bottom: 64px !important;
+}
+
 div.sticky.bottom-0,
 div[class*="sticky"][class*="bottom-0"] {
   position: sticky !important;
   bottom: 0 !important;
   z-index: 30 !important;
   background-color: #141618 !important;
-  background: rgba(20, 22, 24, 0.95) !important;
+  background: rgba(20, 22, 24, 0.96) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -418,7 +426,10 @@ button.bg-primary,
 [data-slot="button"].bg-primary,
 button[class*="bg-primary"],
 button[data-variant="default"],
-div.sticky.bottom-0 button:not([class*="outline"]),
+div.sticky.bottom-0 > button,
+div[class*="sticky"][class*="bottom-0"] > button,
+div.sticky.bottom-0 button:last-child,
+div[class*="sticky"][class*="bottom-0"] button:last-child,
 .text-primary-foreground,
 [class*="text-primary-foreground"],
 .bg-primary *,
@@ -426,7 +437,10 @@ button.bg-primary *,
 [data-slot="button"].bg-primary *,
 button[class*="bg-primary"] *,
 button[data-variant="default"] *,
-div.sticky.bottom-0 button:not([class*="outline"]) * {
+div.sticky.bottom-0 > button *,
+div[class*="sticky"][class*="bottom-0"] > button *,
+div.sticky.bottom-0 button:last-child *,
+div[class*="sticky"][class*="bottom-0"] button:last-child * {
   color: #ffffff !important;
 }
 
@@ -435,7 +449,10 @@ button.bg-primary,
 [data-slot="button"].bg-primary,
 button[class*="bg-primary"],
 button[data-variant="default"],
-div.sticky.bottom-0 button:not([class*="outline"]) {
+div.sticky.bottom-0 > button,
+div[class*="sticky"][class*="bottom-0"] > button,
+div.sticky.bottom-0 button:last-child,
+div[class*="sticky"][class*="bottom-0"] button:last-child {
   background-color: #2563eb !important;
   color: #ffffff !important;
   font-weight: 600 !important;
@@ -452,7 +469,10 @@ button.bg-primary:hover,
 [data-slot="button"].bg-primary:hover,
 button[class*="bg-primary"]:hover,
 button[data-variant="default"]:hover,
-div.sticky.bottom-0 button:not([class*="outline"]):hover {
+div.sticky.bottom-0 > button:hover,
+div[class*="sticky"][class*="bottom-0"] > button:hover,
+div.sticky.bottom-0 button:last-child:hover,
+div[class*="sticky"][class*="bottom-0"] button:last-child:hover {
   background-color: #1d4ed8 !important;
   color: #ffffff !important;
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5) !important;
@@ -463,29 +483,37 @@ button.bg-primary:hover *,
 [data-slot="button"].bg-primary:hover *,
 button[class*="bg-primary"]:hover *,
 button[data-variant="default"]:hover *,
-div.sticky.bottom-0 button:not([class*="outline"]):hover * {
+div.sticky.bottom-0 > button:hover *,
+div[class*="sticky"][class*="bottom-0"] > button:hover *,
+div.sticky.bottom-0 button:last-child:hover *,
+div[class*="sticky"][class*="bottom-0"] button:last-child:hover * {
   color: #ffffff !important;
 }
 
 /* Outline buttons (e.g. "Auf Standard zurücksetzen" / "Reset to default"):
    Clean subtle transparent surface with light grey text */
+div.sticky.bottom-0 div.flex button,
+div[class*="sticky"][class*="bottom-0"] div.flex button,
+div.sticky.bottom-0 button:first-child:not(:last-child),
 div.sticky.bottom-0 button[class*="outline"],
 button[data-variant="outline"] {
-  background-color: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
   color: #cbd5e1 !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
   font-weight: 500 !important;
+  border-radius: 8px !important;
   min-height: 38px !important;
   padding: 8px 16px !important;
-  transition: all 0.15s ease-in-out !important;
 }
 
+div.sticky.bottom-0 div.flex button:hover,
+div[class*="sticky"][class*="bottom-0"] div.flex button:hover,
+div.sticky.bottom-0 button:first-child:not(:last-child):hover,
 div.sticky.bottom-0 button[class*="outline"]:hover,
 button[data-variant="outline"]:hover {
-  background-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.14) !important;
   color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
 }
 
 /* ==============================================================================
@@ -771,6 +799,15 @@ a { color: var(--cm-text) !important; text-decoration-color: var(--cm-border-str
   color: #ffffff !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 10px rgba(0, 229, 255, 0.15) !important;
   transform: translateY(-1px) !important;
+}
+
+@media (max-width: 640px) {
+  .cm-nav-agent-btn {
+    top: 10px !important;
+    right: 12px !important;
+    padding: 5px 11px !important;
+    font-size: 11px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

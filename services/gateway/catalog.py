@@ -289,10 +289,21 @@ def resolve_model_id(raw_model: str) -> str:
     models = current_models()
     live_registry = LIVE_MODEL_REGISTRY is not None
     resolvable_models = [m for m in models if bool(getattr(m, "available", False))]
-    if not raw_model:
+    clean_raw = (raw_model or "").strip()
+    if not clean_raw or clean_raw.lower() in {"default", "auto", "computemesh", "active", "online"}:
         if not resolvable_models:
+            try:
+                from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
+                for nid, nd in NODE_TELEMETRY_REGISTRY.items():
+                    act_m = nd.get("telemetry", {}).get("model_runtime", {}).get("model_id") or nd.get("active_model")
+                    if act_m:
+                        return str(act_m)
+            except Exception:
+                pass
             raise ValueError("no inference model is currently available")
         preferred = next((m for m in resolvable_models if m.id == "qwen/qwen2.5-7b-instruct"), None)
+        if not preferred:
+            preferred = next((m for m in resolvable_models if "32b" in m.id.lower() or getattr(m, "availability", "") == "available_warm"), None)
         return preferred.id if preferred else resolvable_models[0].id
 
     model_clean = raw_model.strip().lower()

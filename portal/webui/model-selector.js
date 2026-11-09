@@ -1525,13 +1525,13 @@
 
 	function renderOptions(select) {
 		select.replaceChildren();
-		var hasLiveFleet = models.some(function (m) {
-			return Boolean(m && (m.__isOnlineFleetModel || m.is_fleet_node_model || String(m.owned_by || '').startsWith('fleet-peer:'))) && m.available !== false;
+		var warmFleetModel = models.find(function (m) {
+			return Boolean(m && (m.__isOnlineFleetModel || m.is_fleet_node_model || String(m.owned_by || '').startsWith('fleet-peer:'))) && m.available !== false && m.status !== 'unloaded' && m.availability !== 'available_cold';
 		});
 		models.forEach(function (model) {
 			var isFleet = Boolean(model && (model.__isOnlineFleetModel || model.is_fleet_node_model || String(model.owned_by || '').startsWith('fleet-peer:')));
-			var isAvailable = Boolean(model && model.available !== false && model.status !== 'unloaded');
-			if (hasLiveFleet && !isFleet && !isAvailable) {
+			var isAvailable = Boolean(model && model.available !== false && model.status !== 'unloaded' && model.availability !== 'available_cold');
+			if (warmFleetModel && !isAvailable) {
 				return;
 			}
 			var option = document.createElement('option');
@@ -1799,20 +1799,31 @@
 	function installEnterKeySubmission() {
 		ensureSendOnEnterEnabled();
 		window.addEventListener('keydown', function (e) {
-			if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+			if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !e.altKey) {
 				var target = e.target;
 				if (target && target.tagName === 'TEXTAREA') {
 					ensureSendOnEnterEnabled();
-					var form = target.closest('form') || target.closest('div.border') || document.querySelector('form');
-					if (form) {
-						var submitBtn = form.querySelector('button[type="submit"]:not(:disabled)') ||
-										document.querySelector('form button[type="submit"]:not(:disabled)') ||
-										document.querySelector('button[type="submit"]:not(:disabled)');
-						if (submitBtn) {
-							e.preventDefault();
-							e.stopPropagation();
-							submitBtn.click();
+					var container = target.closest('[data-slot="input-area"]') ||
+									target.closest('form') ||
+									target.closest('[data-slot="chat-container"]') ||
+									target.closest('div.border') ||
+									document;
+					var submitBtn = container.querySelector('button[type="submit"]:not(:disabled)') ||
+									container.querySelector('button:not(:disabled):has(svg.lucide-arrow-up)') ||
+									container.querySelector('button.rounded-full:not(:disabled):last-child') ||
+									document.querySelector('[data-slot="input-area"] button[type="submit"]:not(:disabled)') ||
+									document.querySelector('button[type="submit"]:not(:disabled)');
+					if (submitBtn) {
+						e.preventDefault();
+						e.stopPropagation();
+						var form = target.closest('form') || container.querySelector('form') || document.querySelector('form');
+						if (form && typeof form.requestSubmit === 'function') {
+							try {
+								form.requestSubmit(submitBtn);
+								return;
+							} catch (_) {}
 						}
+						submitBtn.click();
 					}
 				}
 			}
