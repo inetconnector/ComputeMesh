@@ -1,3 +1,32 @@
+## 2026-11-09 — 32B Live Inference Activation on 6x RX 580 Rig, Gateway Offline Filtering & WebUI Contrast Fixes
+
+- Resolved active model detection on miner appliance (`cm-inference-node-01` / `192.168.1.27`):
+  - Fixed `import json` in `services/appliance_dashboard/model_engine_service.py` to prevent silent fallback to 7B during external service health probes.
+  - Enriched `status()` with automatic SHA-256 and size metadata resolution from `catalog.json` for active external models.
+  - Updated `inference_router.py` to enumerate all locally installed models in `local_models` for seamless multi-model routing.
+  - Verified live 32B inference on miner (`Qwen2.5-32B-Instruct-Q4_K_M.gguf`, 19.85 GB, 64 layers):
+    - Prompt evaluation: 35.85 tokens/sec across 6 Vulkan RX 580 GPUs.
+    - Generation: 5.14 tokens/sec, HTTP 200 streaming SSE chunk responses (`test_infer_raw.py`).
+  - Gateway registry automatically updated via authenticated heartbeat to report `bartowski/qwen2.5-32b-instruct-gguf` as `available_warm (loaded)`.
+- Implemented offline placeholder model filtering in `services/gateway/server.py`:
+  - When verified fleet nodes are online (`online_fleet_nodes_exist=True`), `/v1/models` only returns models hosted on active fleet nodes.
+  - Prevents non-functional offline catalog placeholders (`qwen2.5:3b`, `llava:latest`, `moondream:latest`, etc.) from cluttering the WebUI model picker when only specific fleet rigs are connected.
+  - Updated `portal/webui/model-selector.js` and Android asset with synchronized live fleet filtering.
+- Fixed WebUI "Save Settings" button contrast and placement in `portal/webui/neutral-theme.css`:
+  - Enforced dark `#111827` high-contrast typography across `.bg-primary`, `button.bg-primary`, `div.sticky.bottom-0 button`, and all child elements to prevent white-on-white text rendering.
+  - Updated `:root` theme tokens to guarantee `--primary-foreground: #181a1c !important` regardless of `.dark` class presence.
+  - Repositioned `div.sticky.bottom-0` to static docking with solid `#141618` card styling so it no longer floats awkwardly over form fields.
+  - Maintained 100% byte-parity between desktop `portal/webui` and Android `apps/android/app/src/main/assets/webui` for `neutral-theme.css`, `model-selector.js`, and `sw.js`.
+- Verification receipts:
+  - `pytest ComputeMesh/tests/test_webui_theme_parity.py`: 3 passed.
+  - `pytest ComputeMesh/tests/test_fleet_ai_chat_mcp.py`: 8 passed.
+  - `pytest ComputeMesh/tests/test_appliance_webui.py`: 11 passed.
+  - `pytest ComputeMesh/services/appliance_dashboard/tests/test_model_manager.py`: 11 passed.
+  - `python ComputeMesh/tools/build_all_releases.py`: All artifacts built, hashed, and signed with Ed25519 for v1.2.193.
+  - `python ComputeMesh/tools/release/check_portal_i18n.py --publish`: PORTAL_GATE_PASS.
+  - `python ComputeMesh/tools/release/check_portal_routes.py`: 34 pages, 0 issues (PASS).
+  - `COMPUTEMESH_BROWSER_E2E=1 pytest ...`: 25 passed.
+
 ## 2026-11-09 — VRAM Tier Catalog, 32B Model Provisioning on Miner & Automated Upgrades
 
 - Codified `TIER_TARGET_CATALOG` in `services/appliance_dashboard/model_manager.py`:
