@@ -18,6 +18,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 log = logging.getLogger("computemesh.appliance.inference")
 
 
+def _is_port_open(port: int, host: str = "127.0.0.1", timeout: float = 0.15) -> bool:
+    import socket
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
 def _managed_runtime_status() -> dict[str, Any] | None:
     try:
         from services.appliance_dashboard.model_manager import get_model_manager
@@ -28,7 +37,9 @@ def _managed_runtime_status() -> dict[str, Any] | None:
     except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         log.debug("Managed engine status probe skipped: %s", exc)
     try:
-        raw_port = os.environ.get("COMPUTEMESH_LLAMA_PORT", "8081")
+        raw_port = int(os.environ.get("COMPUTEMESH_LLAMA_PORT", "8081"))
+        if not _is_port_open(raw_port):
+            return None
         req = urllib.request.Request(f"http://127.0.0.1:{raw_port}/health")
         with urllib.request.urlopen(req, timeout=0.5) as resp:
             if resp.status == 200:
@@ -70,38 +81,39 @@ def _find_ollama_binary() -> str | None:
     return None
 
 
-def _ensure_ollama_running(timeout: float = 2.5) -> bool:
+def _ensure_ollama_running(timeout: float = 0.8) -> bool:
     raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
     ollama_url = raw_ollama if (raw_ollama.startswith(("http://", "https://"))) else f"http://{raw_ollama}"
+    parsed = urllib.parse.urlparse(ollama_url)
+    p_port = parsed.port or 11434
+    p_host = parsed.hostname or "127.0.0.1"
+    if not _is_port_open(p_port, host=p_host):
+        bin_path = _find_ollama_binary()
+        if not bin_path:
+            return False
+        try:
+            flags = 0
+            if sys.platform == "win32":
+                flags = subprocess.CREATE_NEW_PROCESS_GROUP | 0x00000008  # DETACHED_PROCESS
+            subprocess.Popen([bin_path, "serve"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
+            start_t = time.time()
+            while time.time() - start_t < timeout:
+                time.sleep(0.15)
+                if _is_port_open(p_port, host=p_host):
+                    break
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            log.debug("Auto-spawn ollama error: %s", exc)
+
+    if not _is_port_open(p_port, host=p_host):
+        return False
+
     try:
         req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=0.8) as resp:
+        with urllib.request.urlopen(req, timeout=0.5) as resp:
             if resp.status == 200:
                 return True
     except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         pass
-
-    bin_path = _find_ollama_binary()
-    if not bin_path:
-        return False
-
-    try:
-        flags = 0
-        if sys.platform == "win32":
-            flags = subprocess.CREATE_NEW_PROCESS_GROUP | 0x00000008  # DETACHED_PROCESS
-        subprocess.Popen([bin_path, "serve"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
-        start_t = time.time()
-        while time.time() - start_t < timeout:
-            time.sleep(0.3)
-            try:
-                req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
-                with urllib.request.urlopen(req, timeout=0.6) as resp:
-                    if resp.status == 200:
-                        return True
-            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
-                continue
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
-        log.debug("Auto-spawn ollama error: %s", exc)
     return False
 
 
@@ -291,7 +303,7 @@ class InferenceRouter:
             # 3. Local Ollama models
             try:
                 req_ol = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
-                with urllib.request.urlopen(req_ol, timeout=2.5) as resp_ol:
+                with urllib.request.urlopen(req_ol, timeout=0.8) as resp_ol:
                     if resp_ol.status == 200:
                         ol_data = json.loads(resp_ol.read().decode("utf-8"))
                         for item in ol_data.get("models", []):

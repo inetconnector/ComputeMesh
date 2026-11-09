@@ -1782,6 +1782,43 @@
 			}).then(function (r) { return r.json(); });
 		}
 	};
+	function ensureSendOnEnterEnabled() {
+		var configKeys = ['LlamaUi.config', 'LlamaCppWebui.config', 'LlamacppWebui.config', 'settings', 'config'];
+		configKeys.forEach(function (k) {
+			try {
+				var cfgRaw = localStorage.getItem(k) || '{}';
+				var cfg = JSON.parse(cfgRaw);
+				if (cfg.sendOnEnter !== true) {
+					cfg.sendOnEnter = true;
+					localStorage.setItem(k, JSON.stringify(cfg));
+				}
+			} catch (e) {}
+		});
+	}
+
+	function installEnterKeySubmission() {
+		ensureSendOnEnterEnabled();
+		window.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+				var target = e.target;
+				if (target && target.tagName === 'TEXTAREA') {
+					ensureSendOnEnterEnabled();
+					var form = target.closest('form') || target.closest('div.border') || document.querySelector('form');
+					if (form) {
+						var submitBtn = form.querySelector('button[type="submit"]:not(:disabled)') ||
+										document.querySelector('form button[type="submit"]:not(:disabled)') ||
+										document.querySelector('button[type="submit"]:not(:disabled)');
+						if (submitBtn) {
+							e.preventDefault();
+							e.stopPropagation();
+							submitBtn.click();
+						}
+					}
+				}
+			}
+		}, true);
+	}
+	installEnterKeySubmission();
 	installImageUploadOptimization();
 	installImageTagRewriter();
 	setInterval(renderModelInfoFallback, 500);

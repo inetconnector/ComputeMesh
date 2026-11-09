@@ -1,3 +1,18 @@
+## 2026-11-09 — WebUI Send on Enter Key Support & Non-blocking Model Routing
+
+- Implemented native Enter-key submission for chat prompts in `portal/webui/model-selector.js` and `portal/webui/index.html`:
+  - Added capturing `keydown` event listener in `model-selector.js` so pressing `Enter` (without Shift, Ctrl, Alt, Meta, or IME composition) in the prompt textarea immediately triggers submission via the active submit button without adding superfluous newlines.
+  - Retained `Shift + Enter` for regular multi-line prompt formatting.
+  - Preset `sendOnEnter: true` across `LlamaUi.config`, `LlamaCppWebui.config`, `LlamacppWebui.config`, `settings`, and `config` in `index.html` head script and `model-selector.js` initialization.
+  - Synchronized `index.html`, `model-selector.js`, and `sw.js` (with updated precache MD5 revision `cc06ab740487c9f676e4a4f4ff85bc83`) between desktop `portal/webui` and Android `apps/android/app/src/main/assets/webui` with 100% byte parity.
+- Optimized non-blocking local port checks in `services/appliance_dashboard/inference_router.py`:
+  - Replaced blocking `urlopen` timeouts on inactive loopback ports with fast socket connectivity pre-checks (`_is_port_open`) to eliminate multi-second latency spikes in model listings.
+- Verification receipts:
+  - `pytest ComputeMesh/tests/test_webui_theme_parity.py ComputeMesh/tests/test_appliance_webui.py`: 14 passed.
+  - `python ComputeMesh/tools/release/check_portal_i18n.py --publish`: PORTAL_GATE_PASS.
+  - `python ComputeMesh/tools/release/check_portal_routes.py`: 34 pages, 0 issues (PASS).
+  - `COMPUTEMESH_BROWSER_E2E=1 pytest ...`: 25 passed.
+
 ## 2026-11-09 — 32B Live Inference Activation on 6x RX 580 Rig, Gateway Offline Filtering & WebUI Contrast Fixes
 
 - Resolved active model detection on miner appliance (`cm-inference-node-01` / `192.168.1.27`):
