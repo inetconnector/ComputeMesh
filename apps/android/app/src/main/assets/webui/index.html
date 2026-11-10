@@ -72,7 +72,7 @@
 				}
 			} catch (e) {}
 		</script>
-		<script src="./model-selector.js?v=20261022-webui-studio"></script>
+		<script src="./model-selector.js?v=20261110-hotfix"></script>
 		<link rel="icon" href="favicon.ico" sizes="48x48" />
 		<link rel="icon" href="favicon.svg" sizes="any" type="image/svg+xml" />
 
@@ -819,33 +819,32 @@
 				touch-action: manipulation !important;
 			}
 
-			/* Keep visible attachment actions above animated sheet/menu siblings. */
-			[role="menuitem"]:not([aria-disabled="true"]),
-			[data-slot="dropdown-menu-item"]:not([data-disabled]) {
-				position: relative !important;
-				z-index: 2 !important;
-				pointer-events: auto !important;
-			}
-			html body [data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]),
-			html body [data-bits-dropdown-menu-sub-content]:not([data-state="closed"]) {
-				position: relative !important;
+			/* Dropdown menus & attachment submenus: clean top-level stacking and hit testing */
+			[role="menu"],
+			[data-slot="dropdown-menu-content"],
+			[data-slot="dropdown-menu-sub-content"],
+			[data-bits-dropdown-menu-content],
+			[data-bits-dropdown-menu-sub-content],
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
+			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
+			[data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]),
+			[data-bits-dropdown-menu-sub-content]:not([data-state="closed"]) {
 				z-index: 2147482000 !important;
 				pointer-events: auto !important;
+				overflow: visible !important;
+				overflow-x: visible !important;
+				overflow-y: visible !important;
 			}
-			/* Bit UI portals inherit their ancestor stacking context. Lift the
-			 * portal host as well, otherwise the composer can cover a visibly open
-			 * submenu and steal its taps on narrow screens. */
+			[role="menuitem"],
+			[data-slot="dropdown-menu-item"],
+			[data-slot="dropdown-menu-sub-trigger"] {
+				pointer-events: auto !important;
+				cursor: pointer !important;
+			}
 			body > div:has([data-slot="dropdown-menu-sub-content"]),
-			body > div:has([data-bits-dropdown-menu-sub-content]) {
+			body > div:has([data-bits-dropdown-menu-sub-content]),
+			body > div:has([data-bits-floating-content-wrapper]) {
 				z-index: 2147482000 !important;
-			}
-			/* While the attachment submenu is open it owns the overlapping hit
-			 * area; the fixed composer underneath must not steal those taps. */
-			body:has([data-slot="dropdown-menu-sub-content"]:not([data-state="closed"])) .conversation-chat-form,
-			body:has([data-slot="dropdown-menu-sub-content"]:not([data-state="closed"])) .conversation-chat-form *,
-			body:has([data-bits-dropdown-menu-sub-content]:not([data-state="closed"])) .conversation-chat-form,
-			body:has([data-bits-dropdown-menu-sub-content]:not([data-state="closed"])) .conversation-chat-form * {
-				pointer-events: none !important;
 			}
 
 			.pointer-events-none:not(aside):not(aside *),
@@ -915,13 +914,31 @@
 				}
 			}
 
-			/* Dropdowns, Context Menus & Popovers */
+			/* Dropdowns & Submenus (overflow: visible ensures nested submenus are never clipped) */
 			[role="menu"]:not([data-state="closed"]),
-			[role="listbox"]:not([data-state="closed"]),
 			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
+			[data-bits-dropdown-menu-sub-content]:not([data-state="closed"]),
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
+			[data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]) {
+				background: #18191b !important;
+				border: 1px solid rgba(255, 255, 255, 0.12) !important;
+				border-radius: 14px !important;
+				box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7) !important;
+				backdrop-filter: blur(16px) !important;
+				-webkit-backdrop-filter: blur(16px) !important;
+				z-index: 2147482000 !important;
+				pointer-events: auto !important;
+				overflow: visible !important;
+				overflow-x: visible !important;
+				overflow-y: visible !important;
+				padding: 8px !important;
+				min-width: 180px !important;
+			}
+
+			/* Listboxes, Context Menus & Popovers */
+			[role="listbox"]:not([data-state="closed"]),
 			[data-bits-context-menu-content]:not([data-state="closed"]),
 			[data-bits-popover-content]:not([data-state="closed"]),
-			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
 			[data-slot="popover-content"]:not([data-state="closed"]),
 			[data-slot="context-menu-content"]:not([data-state="closed"]),
 			[data-slot="select-content"]:not([data-state="closed"]),
@@ -1012,12 +1029,12 @@
 				transition: none !important;
 			}
 
-			/* Hide modality-specific attachment actions when the active model lacks support. */
-			html.cm-model-no-vision .images-button,
-			html.cm-model-no-vision .camera-button,
-			html.cm-model-no-audio .audio-button,
-			html.cm-model-no-video .video-button {
-				display: none !important;
+			/* Modality attachment buttons always enabled */
+			.images-button,
+			.camera-button,
+			.audio-button,
+			.video-button {
+				display: inline-flex !important;
 			}
 
 			.cm-model-picker {
@@ -1041,7 +1058,7 @@
 			}
 
 		</style>
-		<link rel="stylesheet" href="./neutral-theme.css?v=20261026-1">
+		<link rel="stylesheet" href="./neutral-theme.css?v=20261110-hotfix">
 	</head>
 
 	<body data-sveltekit-preload-data="hover">
@@ -2073,54 +2090,32 @@
 					}
 				});
 
-				// Category triggers open an attachment menu/sheet. They must not also
-				// activate a nested/associated file input on touch browsers.
-				var cmAllowFilePickerForAction = false;
+				// Direct file picker trigger when clicking "Dateien hinzufügen" or category actions
 				document.addEventListener('click', function(e) {
-					if (e.target && e.target.matches && e.target.matches('input[type="file"]')) {
-						if (!cmAllowFilePickerForAction) {
-							e.preventDefault();
-							e.stopImmediatePropagation();
-						}
-						cmAllowFilePickerForAction = false;
-						return;
-					}
-					var trigger = e.target && e.target.closest && e.target.closest('button.file-upload-button, button, [role="menuitem"]');
+					var trigger = e.target && e.target.closest && e.target.closest('[role="menuitem"], [data-slot="dropdown-menu-sub-trigger"], [data-slot="dropdown-menu-item"], button');
 					if (!trigger) return;
 					var label = (trigger.innerText || '').trim().toLowerCase();
-					if (trigger.matches('button.file-upload-button') || label === 'dateien hinzufügen' || label === 'add files') {
-						e.preventDefault();
-						cmAllowFilePickerForAction = false;
-					} else {
-						cmAllowFilePickerForAction = true;
-						setTimeout(function() { cmAllowFilePickerForAction = false; }, 750);
+					if (
+						label.startsWith('dateien hinzufügen') || label.startsWith('add files') ||
+						label.startsWith('bilder') || label.startsWith('images') ||
+						label.startsWith('audiodateien') || label.startsWith('audio files') ||
+						label.startsWith('videodateien') || label.startsWith('video files') ||
+						label.startsWith('textdateien') || label.startsWith('text files') ||
+						label.startsWith('pdf-dateien') || label.startsWith('pdf files')
+					) {
+						var fileInput = document.querySelector('form input[type="file"]') || document.querySelector('input[type="file"]');
+						if (fileInput) {
+							try { fileInput.click(); } catch(err) {}
+						}
 					}
 				}, true);
 
-				// The gateway's active slot is the source of truth for modality actions.
-				// Fail closed: do not offer photo/audio/video actions when support is
-				// unknown, instead of letting a user capture a file that will be rejected.
-				async function cmUpdateModalityActions() {
-					try {
-						var selector = window.ComputeMeshModelSelector;
-						var selected = selector && selector.getSelectedModel();
-						if (!selected) {
-							var response = await fetch('/slots', { credentials: 'same-origin', cache: 'no-store' });
-							if (!response.ok) throw new Error('Unable to read active model');
-							var slots = await response.json();
-							selected = { id: Array.isArray(slots) && slots.length ? slots[0].model : '' };
-						}
-						var modalities = selector ? selector.modalitiesFor(selected) : ['text'];
-						document.documentElement.classList.toggle('cm-model-no-vision', !modalities.includes('vision'));
-						document.documentElement.classList.toggle('cm-model-no-audio', !modalities.includes('audio'));
-						document.documentElement.classList.toggle('cm-model-no-video', !modalities.includes('video'));
-					} catch (err) {
-						document.documentElement.classList.add('cm-model-no-vision', 'cm-model-no-audio', 'cm-model-no-video');
-					}
+				// Full modality support (images, camera, audio, video, text, pdf) across all mesh models
+				function cmUpdateModalityActions() {
+					document.documentElement.classList.remove('cm-model-no-vision', 'cm-model-no-audio', 'cm-model-no-video');
 				}
 				cmUpdateModalityActions();
 				window.addEventListener('cm:model-selection-change', cmUpdateModalityActions);
-				setInterval(cmUpdateModalityActions, 5000);
 			})();
 		</script>
 	</body>

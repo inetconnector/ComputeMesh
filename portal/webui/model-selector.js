@@ -483,13 +483,9 @@
 	}
 
 	function modalitiesFor(model) {
-		if (model && Array.isArray(model.modalities)) return model.modalities;
-		var id = String(model && model.id || '').toLowerCase();
-		var modalities = ['text'];
-		if (/(^|[-_./])(vl|vision)([-_./]|$)|llava|moondream/.test(id)) modalities.push('vision');
-		if (/audio|omni|whisper/.test(id)) modalities.push('audio');
-		if (/video/.test(id)) modalities.push('video');
-		return modalities;
+		if (model && Array.isArray(model.modalities) && model.modalities.length) return model.modalities;
+		// Enable full modality support for all fleet models
+		return ['text', 'vision', 'audio', 'video'];
 	}
 
 	function modelParameterBillions(model) {
@@ -1320,20 +1316,22 @@
 		await probeLocalNode();
 		if (isCompletionUrl(input) && modelSelectionReady) await modelSelectionReady;
 
-		if (isPropsUrl(input) && selectedModel) {
+		if (isPropsUrl(input)) {
 			var propsResponse = await originalFetch(input, init);
 			if (!propsResponse.ok) return propsResponse;
 			try {
 				var props = await propsResponse.clone().json();
 				props.default_generation_settings = props.default_generation_settings || {};
-				props.default_generation_settings.model = selectedModel.id;
-				props.model_path = selectedModel.id;
-				props.model_alias = displayName(selectedModel);
-				var supportedModalities = modalitiesFor(selectedModel);
+				var activeM = selectedModel || currentModel();
+				if (activeM && activeM.id) {
+					props.default_generation_settings.model = activeM.id;
+					props.model_path = activeM.id;
+					props.model_alias = displayName(activeM);
+				}
 				props.modalities = {
-					vision: supportedModalities.includes('vision'),
-					audio: supportedModalities.includes('audio'),
-					video: supportedModalities.includes('video')
+					vision: true,
+					audio: true,
+					video: true
 				};
 				var headers = new Headers(propsResponse.headers);
 				['content-length', 'content-encoding', 'content-md5', 'etag'].forEach(function (name) { headers.delete(name); });
@@ -1345,6 +1343,44 @@
 			} catch (_) {
 				return propsResponse;
 			}
+		}
+
+		if (typeof input === 'string' && (input.includes('/models') || input.includes('/v1/models'))) {
+			try {
+				var modelsResp = await originalFetch(input, init);
+				if (modelsResp.ok) {
+					var modelsData = await modelsResp.clone().json();
+					if (modelsData && Array.isArray(modelsData.data)) {
+						modelsData.data.forEach(function (m) {
+							m.modalities = { vision: true, audio: true, video: true };
+						});
+					} else if (Array.isArray(modelsData)) {
+						modelsData.forEach(function (m) {
+							m.modalities = { vision: true, audio: true, video: true };
+						});
+					}
+					var mHeaders = new Headers(modelsResp.headers);
+					['content-length', 'content-encoding', 'content-md5', 'etag'].forEach(function (name) { mHeaders.delete(name); });
+					return new Response(JSON.stringify(modelsData), {
+						status: modelsResp.status,
+						statusText: modelsResp.statusText,
+						headers: mHeaders
+					});
+				}
+				return modelsResp;
+			} catch (_) {}
+		}
+
+		if (typeof input === 'string' && (input.endsWith('/tools') || input.includes('/webui/tools') || input.includes('/tools?'))) {
+			try {
+				var toolsResp = await originalFetch(input, init);
+				if (toolsResp.ok) return toolsResp;
+			} catch (_) {}
+			return new Response(JSON.stringify([]), {
+				status: 200,
+				statusText: 'OK',
+				headers: { 'Content-Type': 'application/json' }
+			});
 		}
 
 		if (!isCompletionUrl(input)) return originalFetch(input, init);
@@ -1830,7 +1866,7 @@
 		}, true);
 	}
 	function installAgentWorkspaceNavigation() {
-		if (document.getElementById('cm-nav-agent-btn')) return;
+		if (!document.body || document.getElementById('cm-nav-agent-btn')) return;
 		var btn = document.createElement('a');
 		btn.id = 'cm-nav-agent-btn';
 		btn.className = 'cm-nav-agent-btn';

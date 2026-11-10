@@ -342,6 +342,9 @@ button[role="switch"][data-state="unchecked"] {
 [role="menuitem"][data-highlighted],
 [data-slot="dropdown-menu-item"]:hover,
 [data-slot="dropdown-menu-item"]:focus,
+[data-slot="dropdown-menu-sub-trigger"]:hover,
+[data-slot="dropdown-menu-sub-trigger"]:focus,
+[data-slot="dropdown-menu-sub-trigger"][data-state="open"],
 [data-slot="command-item"]:hover,
 [data-slot="command-item"]:focus {
   background: var(--cm-card-hover) !important;
@@ -350,6 +353,18 @@ button[role="switch"][data-state="unchecked"] {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+}
+
+[data-slot="dropdown-menu-content"],
+[data-bits-dropdown-menu-content],
+[data-slot="dropdown-menu-sub-content"],
+[data-bits-dropdown-menu-sub-content] {
+  z-index: 2147482000 !important;
+  pointer-events: auto !important;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  min-width: 190px !important;
 }
 
 /* General interactive hover */
