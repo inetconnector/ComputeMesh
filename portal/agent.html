@@ -1565,10 +1565,10 @@
         <span class="workspace-badge"><span class="badge-dot"></span> <span id="top-badge-node">Mifcom-S Local</span></span>
       </div>
       <div class="workspace-quick-nav">
-        <a href="/" class="quick-nav-link" title="Lokales Node Dashboard">📊 Node Dashboard</a>
-        <a href="/webui/" class="quick-nav-link" title="Lokales Chat Studio">💬 Chat Studio</a>
-        <a href="/fleet" id="top-nav-fleet-link" target="_blank" rel="noopener noreferrer" class="quick-nav-link external" title="Flotten-Cockpit online öffnen" onclick="openFleetWithKey(event)">🌐 Flotten-Cockpit ↗</a>
-        <button class="quick-nav-btn" onclick="openSettingsModal()" title="Grundeinstellungen & Projektpfad öffnen">⚙️ Einstellungen</button>
+        <a href="/" class="quick-nav-link" title="Lokales Node Dashboard" data-i18n-title="agent_nav_node_dashboard_title">📊 <span data-i18n="agent_nav_node_dashboard">Node Dashboard</span></a>
+        <a href="/webui/" class="quick-nav-link" title="Lokales Chat Studio" data-i18n-title="agent_nav_chat_studio_title">💬 <span data-i18n="agent_nav_chat_studio">Chat Studio</span></a>
+        <a href="/fleet" id="top-nav-fleet-link" target="_blank" rel="noopener noreferrer" class="quick-nav-link external" title="Flotten-Cockpit online öffnen" data-i18n-title="agent_nav_fleet_cockpit_title" onclick="openFleetWithKey(event)">🌐 <span data-i18n="agent_nav_fleet_cockpit">Flotten-Cockpit ↗</span></a>
+        <button class="quick-nav-btn" onclick="openSettingsModal()" title="Grundeinstellungen & Projektpfad öffnen" data-i18n-title="agent_nav_settings_title">⚙️ <span data-i18n="agent_nav_settings">Einstellungen</span></button>
         <button id="btn-nav-logout" class="quick-nav-btn auth-status-btn" onclick="doAgentLogout()" title="Sitzung beenden" style="display: none;">🔒 <span data-i18n="agent_btn_logout">Abmelden</span></button>
       </div>
     </div>
@@ -1592,7 +1592,7 @@
       <div class="sidebar-header">
         <button class="workspace-selector-btn" onclick="promptAddWorkspace()">
           <span>🏠</span>
-          <span id="active-workspace-name">Projekt auswählen</span>
+          <span id="active-workspace-name" data-i18n="agent_select_project">Projekt auswählen</span>
           <span style="font-size: 9px; color: var(--text-dim);">⌵</span>
         </button>
         <div class="sidebar-header-actions">
@@ -1605,14 +1605,14 @@
       <div class="new-chat-container">
         <button class="btn-new-chat" onclick="startNewChat()">
           <span>📝</span>
-          <span>Neuer Chat / Aufgabe</span>
+          <span data-i18n="agent_btn_new_chat">Neuer Chat / Aufgabe</span>
         </button>
       </div>
 
       <!-- Workspace Section Header -->
       <div class="sidebar-section-title">
-        <span id="sidebar-workspaces-title">Lokale Workspaces (mifcoms)</span>
-        <button class="section-action-btn" title="Projektpfad auf Node hinzufügen" onclick="promptAddWorkspace()">+ Hinzufügen</button>
+        <span id="sidebar-workspaces-title" data-i18n="agent_sidebar_local_workspaces">Lokale Workspaces (mifcoms)</span>
+        <button class="section-action-btn" title="Projektpfad auf Node hinzufügen" data-i18n-title="agent_btn_add_project_title" onclick="promptAddWorkspace()" data-i18n="agent_btn_add_project">+ Hinzufügen</button>
       </div>
 
       <!-- Project Search Filter -->
@@ -1621,23 +1621,24 @@
         id="sidebar-project-search" 
         class="project-search-input" 
         placeholder="Projekt suchen..." 
+        data-i18n-ph="agent_ph_search_project"
         oninput="filterWorkspaces(this.value)">
 
       <!-- Workspace / Project Tree (Dynamically Populated) -->
       <div class="project-tree-container" id="project-tree">
-        <div class="empty-state-notice">
+        <div class="empty-state-notice" data-i18n="agent_notice_loading_workspaces">
           Lade Workspaces von mifcoms...
         </div>
       </div>
 
       <!-- Sessions Section Header -->
       <div class="sidebar-section-title">
-        <span>Sitzungen</span>
+        <span data-i18n="agent_sidebar_sessions">Sitzungen</span>
       </div>
 
       <!-- Sessions List (Dynamically Populated) -->
       <div class="sub-session-list" id="active-folder-sessions" style="max-height: 220px; overflow-y: auto;">
-        <div class="sub-session-item" style="color: var(--text-dim);">Keine Sitzungen</div>
+        <div class="sub-session-item" style="color: var(--text-dim);" data-i18n="agent_no_sessions">Keine Sitzungen</div>
       </div>
 
       <!-- Sidebar Footer (Active Node & Hardware Info) -->
@@ -1645,9 +1646,9 @@
         <div class="user-avatar-circle" id="sidebar-node-avatar">⚡</div>
         <div class="user-info-text">
           <div style="font-weight: 600; color: var(--text-main);" id="sidebar-node-title">mifcoms (cm-win-mifcom-rtx3080)</div>
-          <div style="font-size: 10.5px; color: var(--text-dim);" id="sidebar-node-subtitle">Verbunden • Bereit</div>
+          <div style="font-size: 10.5px; color: var(--text-dim);" id="sidebar-node-subtitle" data-i18n="agent_node_ready">Verbunden • Bereit</div>
         </div>
-        <button class="sidebar-icon-btn" title="Grundeinstellungen & Projektpfad öffnen" onclick="openSettingsModal()" style="margin-left: auto;">⚙️</button>
+        <button class="sidebar-icon-btn" title="Grundeinstellungen & Projektpfad öffnen" data-i18n-title="agent_nav_settings_title" onclick="openSettingsModal()" style="margin-left: auto;">⚙️</button>
         <button id="sidebar-logout-btn" class="sidebar-icon-btn auth-status-btn" title="Abmelden" onclick="doAgentLogout()" style="margin-left: 4px; display: none;">🔒</button>
       </div>
     </aside>
@@ -1659,17 +1660,17 @@
         <button class="sidebar-icon-btn sidebar-toggle-btn" id="btn-toggle-left-sidebar" title="Linke Seitenleiste ein-/ausklappen" onclick="toggleSidebar()">☰</button>
         <div class="main-header-title">
           <span>📁</span>
-          <span id="active-session-title">Neuer Chat</span>
+          <span id="active-session-title" data-i18n="agent_session_new_chat">Neuer Chat</span>
         </div>
         <div class="main-header-actions">
           <button class="sidebar-icon-btn" title="Weitere Optionen" onclick="toggleMenu('menu-session-opts')">•••</button>
           <div id="menu-session-opts" class="agent-menu" style="right: 16px; left: auto;">
-            <div class="agent-menu-item" onclick="renameCurrentSession()">Sitzung umbenennen</div>
-            <div class="agent-menu-item" onclick="archiveCurrentSession()">Archivieren</div>
+            <div class="agent-menu-item" onclick="renameCurrentSession()" data-i18n="agent_menu_rename_session">Sitzung umbenennen</div>
+            <div class="agent-menu-item" onclick="archiveCurrentSession()" data-i18n="agent_menu_archive_session">Archivieren</div>
             <div class="agent-menu-divider"></div>
-            <div class="agent-menu-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
+            <div class="agent-menu-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()" data-i18n="agent_menu_delete_session">Sitzung löschen</div>
             <div class="agent-menu-divider"></div>
-            <div class="agent-menu-item" onclick="doAgentLogout()">🔒 Abmelden</div>
+            <div class="agent-menu-item" onclick="doAgentLogout()" data-i18n="agent_btn_logout">🔒 Abmelden</div>
           </div>
           <button class="sidebar-icon-btn sidebar-toggle-btn" id="btn-toggle-right-rail" title="Rechte Kontextleiste ein-/ausklappen" onclick="toggleRightRail()">⊞</button>
         </div>
@@ -1679,12 +1680,12 @@
       <div class="stream-container" id="stream-container">
         <div class="empty-stream-placeholder">
           <div class="empty-greeting-badge">⚡ ComputeMesh Agent Workspace</div>
-          <h2 id="empty-state-hero-title">Mit KI-Agent auf mifcoms arbeiten</h2>
-          <p id="empty-state-desc">Verbunden mit <strong>mifcoms (cm-win-mifcom-rtx3080)</strong>. Wähle ein lokales Projekt aus der Seitenleiste oder starte direkt eine Aufgabe.</p>
+          <h2 id="empty-state-hero-title" data-i18n="agent_hero_title">Mit KI-Agent auf deiner Hardware arbeiten</h2>
+          <p id="empty-state-desc" data-i18n="agent_hero_desc">Verbunden mit deinem Flotten-Rechner. Wähle ein lokales Projekt aus der Seitenleiste oder starte direkt eine Aufgabe.</p>
           <div class="starter-chips-container">
-            <button class="starter-chip" onclick="applyPromptSnippet('Prüfe den Git-Status und alle uncommitteten Änderungen im aktuellen Projekt')">📊 Git-Status prüfen</button>
-            <button class="starter-chip" onclick="applyPromptSnippet('Führe alle lokalen Tests im Projekt aus und berichte detailliert über die Ergebnisse')">🧪 Lokale Tests ausführen</button>
-            <button class="starter-chip" onclick="applyPromptSnippet('Analysiere die Codebasis auf Fehler und Verbesserungen')">🔍 Code analysieren</button>
+            <button class="starter-chip" onclick="applyPromptSnippet('Prüfe den Git-Status und alle uncommitteten Änderungen im aktuellen Projekt')" data-i18n="agent_chip_git_status">📊 Git-Status prüfen</button>
+            <button class="starter-chip" onclick="applyPromptSnippet('Führe alle lokalen Tests im Projekt aus und berichte detailliert über die Ergebnisse')" data-i18n="agent_chip_run_tests">🧪 Lokale Tests ausführen</button>
+            <button class="starter-chip" onclick="applyPromptSnippet('Analysiere die Codebasis auf Fehler und Verbesserungen')" data-i18n="agent_chip_analyze_code">🔍 Code analysieren</button>
           </div>
         </div>
       </div>
@@ -1698,6 +1699,7 @@
             id="composer-input" 
             class="composer-textarea" 
             placeholder="Anweisung für den lokalen Agenten eingeben... (Enter zum Senden, Shift+Enter für Zeilenumbruch)" 
+            data-i18n-ph="agent_composer_placeholder"
             rows="1"
             onkeydown="handleComposerKeyDown(event)"
             oninput="autoResizeTextarea(this)"></textarea>
@@ -1710,13 +1712,13 @@
               <div class="menu-item-container">
                 <button class="policy-pill-btn" onclick="toggleMenu('menu-policy')">
                   <span>🛡️</span>
-                  <span id="policy-label">Für mich genehmigen</span>
+                  <span id="policy-label" data-i18n="agent_policy_interactive_short">Für mich genehmigen</span>
                   <span style="font-size: 9px;">⌵</span>
                 </button>
                 <div id="menu-policy" class="agent-menu">
-                  <div class="agent-menu-item" onclick="setPolicy('Für mich genehmigen', 'interactive')">🛡️ Für mich genehmigen (Interaktiv)</div>
-                  <div class="agent-menu-item" onclick="setPolicy('Automatisch ausführen', 'autonomous')">⚡ Automatisch ausführen (Autonom)</div>
-                  <div class="agent-menu-item" onclick="setPolicy('Nur Lesezugriff', 'readonly')">🔒 Nur Lesezugriff (Read-Only)</div>
+                  <div class="agent-menu-item" onclick="setPolicy('Für mich genehmigen', 'interactive')" data-i18n="agent_policy_interactive">🛡️ Für mich genehmigen (Interaktiv)</div>
+                  <div class="agent-menu-item" onclick="setPolicy('Automatisch ausführen', 'autonomous')" data-i18n="agent_policy_autonomous">⚡ Automatisch ausführen (Autonom)</div>
+                  <div class="agent-menu-item" onclick="setPolicy('Nur Lesezugriff', 'readonly')" data-i18n="agent_policy_readonly">🔒 Nur Lesezugriff (Read-Only)</div>
                 </div>
               </div>
             </div>
@@ -1745,7 +1747,7 @@
     <aside id="agent-right-rail" class="agent-right-rail">
       <!-- Right Rail Header & Collapse Button -->
       <div class="right-rail-header">
-        <span class="right-rail-title">⚙️ Hardware & Kontext</span>
+        <span class="right-rail-title" data-i18n="agent_right_rail_title">⚙️ Hardware & Kontext</span>
         <button class="sidebar-icon-btn" title="Rechte Kontextleiste einklappen" onclick="toggleRightRail()">▶</button>
         <button class="sidebar-icon-btn mobile-only" title="Schließen" onclick="closeAllDrawers()">✕</button>
       </div>
@@ -1753,7 +1755,7 @@
       <!-- Active Project Info Card -->
       <div class="right-card">
         <div class="right-card-header">
-          <span id="right-workspace-label">Kein Projekt gewählt</span>
+          <span id="right-workspace-label" data-i18n="agent_right_no_project">Kein Projekt gewählt</span>
           <span style="color: var(--text-dim); cursor: pointer;" onclick="promptAddWorkspace()">+</span>
         </div>
 
@@ -1763,14 +1765,14 @@
 
         <button class="btn btn-secondary btn-sm" style="width: 100%;" onclick="showDiffModal()">
           <span>⊟</span>
-          <span>Änderungen anzeigen</span>
+          <span data-i18n="agent_btn_view_changes">Änderungen anzeigen</span>
         </button>
       </div>
 
       <!-- Cluster Hardware Nodes Info (Dynamically Populated) -->
       <div class="right-card">
         <div class="right-card-header">
-          <span>Inferenz-Hardware</span>
+          <span data-i18n="agent_right_inference_hw">Inferenz-Hardware</span>
           <span style="font-size: 10px; color: var(--accent-green);" id="nodes-online-count">1 Aktiv</span>
         </div>
         <div class="cluster-nodes-list" id="cluster-nodes-list">
@@ -1827,7 +1829,7 @@
       </div>
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.5;">
-          Gib einen Projektnamen oder absoluten Pfad ein. Wenn das Verzeichnis noch nicht existiert, wird der Projektordner automatisch lokal auf deinem Rechner in <code id="ws-modal-base-dir" style="color: #93c5fd; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono);">C:\Users\frede\Projekte\KI\</code> physisch angelegt, mit README.md und Git initialisiert.
+          <span data-i18n="agent_modal_register_desc">Gib einen Projektnamen oder absoluten Pfad ein. Wenn das Verzeichnis noch nicht existiert, wird der Projektordner automatisch lokal auf deinem Rechner angelegt, mit README.md und Git initialisiert.</span>
           <a href="javascript:void(0)" onclick="openSettingsModal()" style="color: #38bdf8; text-decoration: underline; margin-left: 6px; font-size: 11.5px;" data-i18n="agent_settings_adjust_path">⚙️ Adjust base path</a>
         </p>
         <div>
@@ -1835,10 +1837,11 @@
             type="text" 
             id="ws-path-input" 
             placeholder="z.B. MeinNeuesProjekt oder C:\Users\frede\Projekte\KI\MeinNeuesProjekt" 
+            data-i18n-ph="agent_modal_register_ph"
             oninput="updateResolvedPathPreview(this.value)"
             style="width: 100%; background: #181818; border: 1px solid var(--border-hover); border-radius: 6px; padding: 8px 12px; color: #fff; font-family: var(--font-mono); font-size: 12px; box-sizing: border-box;">
           <div id="ws-resolved-preview-container" style="font-size: 11px; color: var(--text-dim); margin-top: 5px; font-family: var(--font-mono);">
-            Zielverzeichnis: <span id="ws-resolved-preview" style="color: #cbd5e1;">C:\Users\frede\Projekte\KI\</span>
+            <span data-i18n="agent_modal_target_dir">Zielverzeichnis:</span> <span id="ws-resolved-preview" style="color: #cbd5e1;">C:\Users\frede\Projekte\KI\</span>
           </div>
         </div>
         
@@ -1846,11 +1849,12 @@
           type="text" 
           id="ws-name-input" 
           placeholder="Optionaler Anzeigename (Standard: Ordnername)" 
+          data-i18n-ph="agent_modal_name_ph"
           style="width: 100%; background: #181818; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 12px; box-sizing: border-box;">
 
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
-          <button class="btn btn-secondary btn-sm" onclick="closeWorkspaceModal()">Abbrechen</button>
-          <button class="btn btn-primary btn-sm" onclick="submitRegisterWorkspace()">Projekt anlegen & registrieren</button>
+          <button class="btn btn-secondary btn-sm" onclick="closeWorkspaceModal()" data-i18n="agent_btn_cancel">Abbrechen</button>
+          <button class="btn btn-primary btn-sm" onclick="submitRegisterWorkspace()" data-i18n="agent_btn_create_project">Projekt anlegen & registrieren</button>
         </div>
       </div>
     </div>
@@ -3942,13 +3946,13 @@
   <div id="project-details-modal" class="agent-modal-overlay" onclick="if(event.target===this)closeDetailsModal()">
     <div class="agent-modal">
       <div class="modal-header">
-        <span id="details-modal-title">Projekt-Details</span>
+        <span id="details-modal-title" data-i18n="agent_details_modal_title">Projekt-Details</span>
         <button class="modal-close-btn" onclick="closeDetailsModal()">✕</button>
       </div>
       <div id="details-modal-content" style="font-size: 13px; line-height: 1.6; color: var(--text-muted); display: flex; flex-direction: column; gap: 8px;">
       </div>
       <div style="margin-top: 18px; text-align: right;">
-        <button class="btn btn-secondary btn-sm" onclick="closeDetailsModal()">Schließen</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeDetailsModal()" data-i18n="agent_btn_close">Schließen</button>
       </div>
     </div>
   </div>
@@ -3957,24 +3961,24 @@
   <div id="physical-delete-modal" class="agent-modal-overlay" onclick="if(event.target===this)closePhysicalDeleteModal()">
     <div class="agent-modal" style="border-color: var(--accent-red);">
       <div class="modal-header">
-        <span class="danger-modal-title">⚠️ Physisches Verzeichnis löschen</span>
+        <span class="danger-modal-title" data-i18n="agent_delete_modal_title">⚠️ Physisches Verzeichnis löschen</span>
         <button class="modal-close-btn" onclick="closePhysicalDeleteModal()">✕</button>
       </div>
       <div style="font-size: 13px; line-height: 1.5; color: var(--text-main); display: flex; flex-direction: column; gap: 10px;">
-        <p style="color: var(--accent-red); font-weight: 600;">
+        <p style="color: var(--accent-red); font-weight: 600;" data-i18n="agent_delete_modal_warning">
           ACHTUNG: Dieser Vorgang löscht den Ordner und alle darin enthaltenen Dateien unwiderruflich von der Festplatte!
         </p>
         <div style="font-family: var(--font-mono); font-size: 11.5px; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; word-break: break-all;" id="physical-delete-path">
           -
         </div>
         <p>
-          Zur Bestätigung tippe bitte den exakten Namen des Projekts ein: <strong id="physical-delete-target-name"></strong>
+          <span data-i18n="agent_delete_modal_confirm_prompt">Zur Bestätigung tippe bitte den exakten Namen des Projekts ein:</span> <strong id="physical-delete-target-name"></strong>
         </p>
-        <input type="text" id="physical-delete-confirm-input" class="danger-confirm-input" placeholder="Exakten Projektnamen eingeben" autocomplete="off">
+        <input type="text" id="physical-delete-confirm-input" class="danger-confirm-input" placeholder="Exakten Projektnamen eingeben" data-i18n-ph="agent_delete_modal_confirm_ph" autocomplete="off">
       </div>
       <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
-        <button class="btn btn-secondary btn-sm" onclick="closePhysicalDeleteModal()">Abbrechen</button>
-        <button class="btn btn-sm" style="background: var(--accent-red); color: #fff; font-weight: 600;" onclick="submitPhysicalDeleteWorkspace()">Unwiderruflich löschen</button>
+        <button class="btn btn-secondary btn-sm" onclick="closePhysicalDeleteModal()" data-i18n="agent_btn_cancel">Abbrechen</button>
+        <button class="btn btn-sm" style="background: var(--accent-red); color: #fff; font-weight: 600;" onclick="submitPhysicalDeleteWorkspace()" data-i18n="agent_btn_delete_permanently">Unwiderruflich löschen</button>
       </div>
     </div>
   </div>

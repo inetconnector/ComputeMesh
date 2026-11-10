@@ -165,13 +165,13 @@
 
   <main class="container" style="padding: 3.5rem 1.5rem; max-width: 1000px;">
     <div style="margin-bottom: 2rem;">
-      <a href="/" style="color: var(--accent-cyan); text-decoration: none; font-size: 0.9rem;">← Zurück zur Übersicht</a>
+      <a href="/" style="color: var(--accent-cyan); text-decoration: none; font-size: 0.9rem;" data-i18n="compare_back_link">← Zurück zur Übersicht</a>
     </div>
 
     <div class="section-header" style="text-align: left; margin-bottom: 2rem;">
-      <span class="section-tag">DIREKTER INFRASTRUKTUR-VERGLEICH</span>
-      <h1 style="font-size: 2.3rem; margin-top: 0.5rem;">ComputeMesh vs. Together AI</h1>
-      <p style="font-size: 1.15rem; color: var(--text-muted);">Warum dezentrale GPU-Cluster von ComputeMesh die flexiblere und kostengünstigere Wahl für Open-Source LLMs sind.</p>
+      <span class="section-tag" data-i18n="compare_tag">DIREKTER INFRASTRUKTUR-VERGLEICH</span>
+      <h1 style="font-size: 2.3rem; margin-top: 0.5rem;" data-i18n="compare_together_title">ComputeMesh vs. Together AI</h1>
+      <p style="font-size: 1.15rem; color: var(--text-muted);" data-i18n="compare_together_desc">Warum dezentrale GPU-Cluster von ComputeMesh die flexiblere und kostengünstigere Wahl für Open-Source LLMs sind.</p>
     </div>
 
     <!-- Comparison Table -->
@@ -179,31 +179,31 @@
       <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem;">
         <thead>
           <tr style="border-bottom: 2px solid var(--border-subtle); color: var(--accent-cyan);">
-            <th style="padding: 1rem 0.5rem;">Kriterium</th>
-            <th style="padding: 1rem 0.5rem; color: var(--accent-emerald);">ComputeMesh (Dezentral)</th>
-            <th style="padding: 1rem 0.5rem; color: var(--text-muted);">Together AI (Hyperscaler)</th>
+            <th style="padding: 1rem 0.5rem;" data-i18n="compare_th_criterion">Kriterium</th>
+            <th style="padding: 1rem 0.5rem; color: var(--accent-emerald);" data-i18n="compare_th_cm">ComputeMesh (Dezentral)</th>
+            <th style="padding: 1rem 0.5rem; color: var(--text-muted);" data-i18n="compare_together_th_together">Together AI (Hyperscaler)</th>
           </tr>
         </thead>
         <tbody style="color: var(--text-muted);">
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <td style="padding: 1.1rem 0.5rem; color: #fff; font-weight: 600;">Preis / 1M Tokens (70B LLM)</td>
+            <td style="padding: 1.1rem 0.5rem; color: #fff; font-weight: 600;" data-i18n="compare_crit_price">Preis / 1M Tokens (70B LLM)</td>
             <td style="padding: 1.1rem 0.5rem; color: var(--accent-emerald); font-weight: 700; font-size: 1.1rem;">$0.29 / 1M Tokens</td>
             <td style="padding: 1.1rem 0.5rem; text-decoration: line-through;">$0.88 / 1M Tokens</td>
           </tr>
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <td style="padding: 1.1rem 0.5rem; color: #fff; font-weight: 600;">Datenspeicherung / Logs</td>
-            <td style="padding: 1.1rem 0.5rem; color: var(--accent-cyan); font-weight: 600;">Verteilte Edge- & Rechenzentrumsknoten</td>
-            <td style="padding: 1.1rem 0.5rem;">Zentralisierte US-Server</td>
+            <td style="padding: 1.1rem 0.5rem; color: #fff; font-weight: 600;" data-i18n="compare_crit_storage">Datenspeicherung / Logs</td>
+            <td style="padding: 1.1rem 0.5rem; color: var(--accent-cyan); font-weight: 600;" data-i18n="compare_together_val_distributed">Verteilte Edge- & Rechenzentrumsknoten</td>
+            <td style="padding: 1.1rem 0.5rem;" data-i18n="compare_together_val_central_us">Zentralisierte US-Server</td>
           </tr>
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <td style="padding: 1.1rem 0.5rem; color: #fff; font-weight: 600;">Setup & Integration</td>
-            <td style="padding: 1.1rem 0.5rem; color: #fff;">Pay-as-you-go, Micro-Billing</td>
-            <td style="padding: 1.1rem 0.5rem;">Monatliche Mindestkontingente</td>
+            <td style="padding: 1.1rem 0.5rem; color: #fff; font-weight: 600;" data-i18n="compare_crit_setup">Setup & Integration</td>
+            <td style="padding: 1.1rem 0.5rem; color: #fff;" data-i18n="compare_together_val_payg">Pay-as-you-go, Micro-Billing</td>
+            <td style="padding: 1.1rem 0.5rem;" data-i18n="compare_together_val_monthly_quota">Monatliche Mindestkontingente</td>
           </tr>
           <tr>
-            <td style="padding: 1.1rem 0.5rem; color: #fff; font-weight: 600;">Architektur & Souveränität</td>
-            <td style="padding: 1.1rem 0.5rem; color: var(--accent-emerald);">100% Dezentral & Ausfallsicher</td>
-            <td style="padding: 1.1rem 0.5rem;">Zentraler Cloud Silo</td>
+            <td style="padding: 1.1rem 0.5rem; color: #fff; font-weight: 600;" data-i18n="compare_crit_arch">Architektur & Souveränität</td>
+            <td style="padding: 1.1rem 0.5rem; color: var(--accent-emerald);" data-i18n="compare_val_decentral_safe">100% Dezentral & Ausfallsicher</td>
+            <td style="padding: 1.1rem 0.5rem;" data-i18n="compare_together_val_datacenter_silo">Zentraler Cloud Silo</td>
           </tr>
         </tbody>
       </table>
@@ -211,9 +211,9 @@
 
     <!-- CTA Box -->
     <div style="background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(0,242,254,0.1)); border: 1px solid var(--accent-emerald); border-radius: var(--radius-md); padding: 2rem; text-align: center;">
-      <h2 style="color: #fff; margin-bottom: 0.5rem;">Wechsle jetzt zu ComputeMesh und spare bis zu 70%</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Volle OpenAI API-Kompatibilität. Ersetze einfach die Endpunkt-URL.</p>
-      <a href="/downloads" class="btn btn-primary" style="padding: 0.85rem 2rem; font-size: 1.05rem;">Jetzt kostenlos testen</a>
+      <h2 style="color: #fff; margin-bottom: 0.5rem;" data-i18n="compare_cta_title">Wechsle jetzt zu ComputeMesh und spare bis zu 70%</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem;" data-i18n="compare_cta_sub">Volle OpenAI API-Kompatibilität. Ersetze einfach die Endpunkt-URL.</p>
+      <a href="/downloads" class="btn btn-primary" style="padding: 0.85rem 2rem; font-size: 1.05rem;" data-i18n="compare_cta_btn">Jetzt kostenlos testen</a>
     </div>
   </main>
 

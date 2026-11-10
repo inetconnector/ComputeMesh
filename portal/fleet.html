@@ -791,15 +791,15 @@
           <div style="font-size:2.2rem;line-height:1;">🚫</div>
           <div style="flex:1;">
             <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.4rem;">
-              <h3 style="margin:0;color:#f87171;font-size:1.2rem;font-weight:800;letter-spacing:-0.01em;">
+              <h3 style="margin:0;color:#f87171;font-size:1.2rem;font-weight:800;letter-spacing:-0.01em;" data-i18n="fleet_suspension_title">
                 FLOTTE ADMINISTRATIV DEAKTIVIERT / GESPERRT
               </h3>
-              <span class="sec-badge danger" style="font-size:0.75rem;padding:0.25rem 0.6rem;">DAUERHAFT GESPERRT</span>
+              <span class="sec-badge danger" style="font-size:0.75rem;padding:0.25rem 0.6rem;" data-i18n="fleet_suspension_badge">DAUERHAFT GESPERRT</span>
             </div>
             <p style="margin:0 0 0.5rem 0;color:#fca5a5;font-size:0.92rem;line-height:1.5;">
-              Diese Flotte wurde durch den Master-Administrator gesperrt. Grund: <strong id="suspension-reason-text" style="color:#ffffff;">Administrative suspension</strong> &middot; Gesperrt am: <span id="suspension-date-text" style="font-family:'JetBrains Mono',monospace;color:#fecaca;">--</span>
+              <span data-i18n="fleet_suspension_desc">Diese Flotte wurde durch den Master-Administrator gesperrt. Grund:</span> <strong id="suspension-reason-text" style="color:#ffffff;">Administrative suspension</strong> &middot; Gesperrt am: <span id="suspension-date-text" style="font-family:'JetBrains Mono',monospace;color:#fecaca;">--</span>
             </p>
-            <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:0.6rem 0.9rem;font-size:0.83rem;color:#cbd5e1;line-height:1.45;">
+            <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:0.6rem 0.9rem;font-size:0.83rem;color:#cbd5e1;line-height:1.45;" data-i18n="fleet_suspension_impact">
               ⚠️ <strong>Auswirkungen:</strong> Alle Inferenz-Pipelines, API-Keys, Provider-Node-Heartbeats und Tunnel dieser Flotte sind blockiert (HTTP 403 Forbidden). Zur Klärung und Freigabe wende dich bitte an <code style="color:#38bdf8;">mesh@inetconnector.com</code>.
             </div>
           </div>
@@ -912,45 +912,45 @@
       <div id="cockpit-view-payouts" style="display: none;">
         <div class="fleet-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
-            <h3 style="margin:0;font-size:1.25rem;color:var(--accent-cyan);">💳 Einnahmen & Stripe Connect Auszahlungen</h3>
-            <span id="payout-stripe-status" class="sec-badge info">⚪ Lade Stripe-Status...</span>
+            <h3 style="margin:0;font-size:1.25rem;color:var(--accent-cyan);" data-i18n="fleet_payouts_title">💳 Einnahmen & Stripe Connect Auszahlungen</h3>
+            <span id="payout-stripe-status" class="sec-badge info" data-i18n="fleet_payouts_loading_status">⚪ Lade Stripe-Status...</span>
           </div>
-          <p style="color:#94a3b8;font-size:0.92rem;line-height:1.6;margin-bottom:1.5rem;">
+          <p style="color:#94a3b8;font-size:0.92rem;line-height:1.6;margin-bottom:1.5rem;" data-i18n="fleet_payouts_desc">
             Verdiene <strong>75% aller Inferenzgebühren</strong>, die auf deinen bereitgestellten GPU-Servern ausgeführt werden. Auszahlungen werden automatisch oder auf Knopfdruck über Stripe Express sicher direkt auf dein Bankkonto überwiesen.
           </p>
 
           <!-- Metrics Grid -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1rem;margin-bottom:1.5rem;">
             <div style="background:#090d16;border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:1.25rem;">
-              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Tatsächliches Ledger-Guthaben</div>
+              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;" data-i18n="fleet_payouts_actual_balance">Tatsächliches Ledger-Guthaben</div>
               <div id="payout-earned-val" style="font-size:1.8rem;font-weight:800;color:#10b981;">$0.00 USD</div>
-              <div id="payout-earned-sub" style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">🔒 100% verifizierter Double-Entry-Ledger (keine fiktiven Zahlen)</div>
+              <div id="payout-earned-sub" style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;" data-i18n="fleet_payouts_ledger_sub">🔒 100% verifizierter Double-Entry-Ledger (keine fiktiven Zahlen)</div>
             </div>
 
             <div style="background:#090d16;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
-              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Auszahlungs-Schwelle</div>
+              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;" data-i18n="fleet_payouts_threshold">Auszahlungs-Schwelle</div>
               <div id="payout-threshold-val" style="font-size:1.8rem;font-weight:800;color:#f8fafc;">$25.00 USD</div>
-              <div id="payout-threshold-sub" style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Mindestbetrag für Sofort- oder Sammelauszahlung</div>
+              <div id="payout-threshold-sub" style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;" data-i18n="fleet_payouts_threshold_sub">Mindestbetrag für Sofort- oder Sammelauszahlung</div>
             </div>
 
             <div style="background:#090d16;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
-              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Auszahlungsmethode</div>
+              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;" data-i18n="fleet_payouts_method">Auszahlungsmethode</div>
               <div style="font-size:1.4rem;font-weight:700;color:#38bdf8;padding-top:0.3rem;">Stripe Express (SEPA / IBAN)</div>
-              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Direktüberweisung auf dein Bankkonto</div>
+              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;" data-i18n="fleet_payouts_method_sub">Direktüberweisung auf dein Bankkonto</div>
             </div>
           </div>
 
           <!-- Actions Box -->
           <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:1.5rem;margin-bottom:1.5rem;">
-            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.1rem;color:#f8fafc;">⚡ Stripe Express Kontoverwaltung</h4>
+            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.1rem;color:#f8fafc;" data-i18n="fleet_payouts_stripe_mgmt">⚡ Stripe Express Kontoverwaltung</h4>
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
-              <button id="btn-stripe-onboard" class="btn btn-primary" onclick="startStripeOnboarding()">
+              <button id="btn-stripe-onboard" class="btn btn-primary" onclick="startStripeOnboarding()" data-i18n="fleet_payouts_btn_onboard">
                 🚀 Stripe Express Auszahlung einrichten (IBAN hinterlegen)
               </button>
-              <button class="btn btn-secondary" onclick="refreshStripeStatus()">
+              <button class="btn btn-secondary" onclick="refreshStripeStatus()" data-i18n="fleet_payouts_btn_check_status">
                 🔄 Status prüfen
               </button>
-              <button id="btn-stripe-withdraw" class="btn btn-secondary" style="border-color:rgba(16,185,129,0.5);color:#10b981;" onclick="requestSettlement()" disabled>
+              <button id="btn-stripe-withdraw" class="btn btn-secondary" style="border-color:rgba(16,185,129,0.5);color:#10b981;" onclick="requestSettlement()" disabled data-i18n="fleet_payouts_btn_withdraw">
                 💸 Sofort-Auszahlung anfordern
               </button>
             </div>
@@ -959,20 +959,20 @@
 
           <!-- Payout History Table -->
           <div>
-            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.1rem;color:#f8fafc;">📜 Auszahlungshistorie</h4>
+            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.1rem;color:#f8fafc;" data-i18n="fleet_payouts_history_title">📜 Auszahlungshistorie</h4>
             <div style="overflow-x:auto;">
               <table class="passkey-table" style="width:100%;">
                 <thead>
                   <tr>
-                    <th>Auszahlungs-ID</th>
-                    <th>Betrag</th>
-                    <th>Status</th>
-                    <th>Stripe Transfer ID</th>
-                    <th>Datum</th>
+                    <th data-i18n="fleet_payouts_th_id">Auszahlungs-ID</th>
+                    <th data-i18n="fleet_payouts_th_amount">Betrag</th>
+                    <th data-i18n="fleet_payouts_th_status">Status</th>
+                    <th data-i18n="fleet_payouts_th_stripe_id">Stripe Transfer ID</th>
+                    <th data-i18n="fleet_payouts_th_date">Datum</th>
                   </tr>
                 </thead>
                 <tbody id="payouts-history-table">
-                  <tr><td colspan="5" style="text-align:center;color:#64748b;padding:1.5rem;">Lade Auszahlungshistorie...</td></tr>
+                  <tr><td colspan="5" style="text-align:center;color:#64748b;padding:1.5rem;" data-i18n="fleet_payouts_history_loading">Lade Auszahlungshistorie...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1231,16 +1231,16 @@
             <div style="flex:1;min-width:240px;">
               <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
                 <span style="font-size:1.3rem;">📱</span>
-                <h4 style="margin:0;color:#f8fafc;font-size:1.05rem;font-weight:700;">1-Klick Smartphone Flotten-Kopplung</h4>
+                <h4 style="margin:0;color:#f8fafc;font-size:1.05rem;font-weight:700;" data-i18n="fleet_pair_phone_title">1-Klick Smartphone Flotten-Kopplung</h4>
               </div>
-              <p style="margin:0 0 0.8rem 0;color:#94a3b8;font-size:0.85rem;line-height:1.5;">
+              <p style="margin:0 0 0.8rem 0;color:#94a3b8;font-size:0.85rem;line-height:1.5;" data-i18n="fleet_pair_phone_desc">
                 Scanne diesen Barcode direkt mit der <strong>ComputeMesh Android App</strong> auf deinem Smartphone. Dein Handy wird sofort ohne manuelle Passworteingabe mit deiner Flotte gekoppelt!
               </p>
               <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
-                <a href="/downloads/ComputeMesh-Android.apk" class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;text-decoration:none;" download>
+                <a href="/downloads/ComputeMesh-Android.apk" class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;text-decoration:none;" download data-i18n="fleet_pair_btn_download_apk">
                   📥 Android APK laden
                 </a>
-                <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="updateFleetPairQr()">
+                <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="updateFleetPairQr()" data-i18n="fleet_pair_btn_refresh_qr">
                   🔄 QR aktualisieren
                 </button>
               </div>
@@ -1249,7 +1249,7 @@
               <div style="background:#ffffff;padding:6px;border-radius:8px;display:inline-block;">
                 <img id="fleet-pair-qr-img" src="/assets/qr-android-apk.svg" alt="Fleet Pair QR Code" style="width:125px;height:125px;display:block;">
               </div>
-              <div style="font-size:0.72rem;color:#38bdf8;margin-top:0.4rem;font-weight:600;">📷 In Android App scannen</div>
+              <div style="font-size:0.72rem;color:#38bdf8;margin-top:0.4rem;font-weight:600;" data-i18n="fleet_pair_scan_hint">📷 In Android App scannen</div>
             </div>
           </div>
         </div>
@@ -1260,33 +1260,33 @@
         <div class="fleet-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
             <h3 style="margin:0;font-size:1.3rem;color:var(--accent-cyan);display:flex;align-items:center;gap:0.6rem;">
-              <span>⚡</span> <span>OpenAI-kompatible Web-API &amp; Ollama Dev Pool</span>
+              <span>⚡</span> <span data-i18n="fleet_api_title">OpenAI-kompatible Web-API &amp; Ollama Dev Pool</span>
             </h3>
-            <span class="status-pill online"><span class="pulse-dot"></span> 100% Eigennutzung (0% Fee) + Mesh-Monetarisierung</span>
+            <span class="status-pill online"><span class="pulse-dot"></span> <span data-i18n="fleet_api_badge">100% Eigennutzung (0% Fee) + Mesh-Monetarisierung</span></span>
           </div>
 
           <!-- 3 Architecture Value Cards -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1rem;margin-bottom:1.5rem;">
             <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
               <div style="font-size:1.4rem;margin-bottom:0.4rem;">💎</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#10b981;font-size:1rem;">100% Kostenlose Eigennutzung (0% Fee)</h4>
-              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;">
+              <h4 style="margin:0 0 0.35rem 0;color:#10b981;font-size:1rem;" data-i18n="fleet_api_self_title">100% Kostenlose Eigennutzung (0% Fee)</h4>
+              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;" data-i18n="fleet_api_self_desc">
                 Alle API-Aufrufe mit deinem Owner Key (<code style="color:#38bdf8;">inet-...</code>) laufen als <strong>Provider Self-Compute</strong> ohne Gebühren direkt über deine eigene Hardware.
               </p>
             </div>
 
             <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.2rem;">
               <div style="font-size:1.4rem;margin-bottom:0.4rem;">💰</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;">Automatischer Mesh-Verkauf bei Leerlauf</h4>
-              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;">
+              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;" data-i18n="fleet_api_mesh_monetize_title">Automatischer Mesh-Verkauf bei Leerlauf</h4>
+              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;" data-i18n="fleet_api_mesh_monetize_desc">
                 Sobald deine GPU im Leerlauf ist, stellt das Netzwerk ungenutzten VRAM zahlenden Kunden bereit. Du erhältst <strong>75% Netto-Auszahlung</strong> in Echtzeit.
               </p>
             </div>
 
             <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
               <div style="font-size:1.4rem;margin-bottom:0.4rem;">🔌</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">Universelle Tool-Kompatibilität</h4>
-              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;">
+              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;" data-i18n="fleet_api_tool_compat_title">Universelle Tool-Kompatibilität</h4>
+              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;" data-i18n="fleet_api_tool_compat_desc">
                 Drop-In Ersatz für OpenAI in <strong>Cursor, VS Code, LocalCode, Cline, Python, TypeScript, LangChain</strong> und der <strong>Ollama CLI</strong>.
               </p>
             </div>
@@ -1296,9 +1296,9 @@
           <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.3);border-radius:14px;padding:1.4rem;margin-bottom:1.5rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.75rem;">
               <div style="font-size:1rem;font-weight:700;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
-                <span>🌐</span> <span>Deine persönlichen API-Verbindungsdaten</span>
+                <span>🌐</span> <span data-i18n="fleet_api_connection_details">Deine persönlichen API-Verbindungsdaten</span>
               </div>
-              <span class="sec-badge success" style="font-size:0.78rem;">🟢 Inferenz-Gateway Online</span>
+              <span class="sec-badge success" style="font-size:0.78rem;" data-i18n="fleet_api_gateway_online">🟢 Inferenz-Gateway Online</span>
             </div>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:1rem;">
@@ -1311,7 +1311,7 @@
               </div>
 
               <div>
-                <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.3rem;">Dein API / Owner Key (Kostenlos für dich):</span>
+                <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.3rem;" data-i18n="fleet_api_key_label">Dein API / Owner Key (Kostenlos für dich):</span>
                 <div style="background:#090d16;padding:0.6rem 0.85rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#10b981;display:flex;justify-content:space-between;align-items:center;">
                   <code id="api-owner-key-text" style="word-break:break-all;">owner_...</code>
                   <button class="copy-btn" style="padding:0.25rem 0.55rem;font-size:0.75rem;" onclick="copyCmd('api-owner-key-text')">📋 Kopieren</button>
@@ -1324,7 +1324,7 @@
           <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:1.4rem;margin-bottom:1.5rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
               <h4 style="margin:0;font-size:1.1rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
-                <span>💻</span> <span>1-Klick Code-Integrationen (OpenAI-kompatibel)</span>
+                <span>💻</span> <span data-i18n="fleet_api_code_integrations">1-Klick Code-Integrationen (OpenAI-kompatibel)</span>
               </h4>
 
               <!-- Tab Switcher -->
@@ -1473,9 +1473,9 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
           <!-- 1-Click Starter & Reset Skripte (Ollama Mesh Pool) -->
           <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:1.5rem;margin-bottom:1.5rem;">
             <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.15rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
-              <span>📥</span> <span>Vorkonfigurierte Start- &amp; Reset-Skripte (Lokale GPU-Monetarisierung)</span>
+              <span>📥</span> <span data-i18n="fleet_scripts_title">Vorkonfigurierte Start- &amp; Reset-Skripte (Lokale GPU-Monetarisierung)</span>
             </h4>
-            <p style="font-size:0.88rem;color:#94a3b8;margin-bottom:1.25rem;">
+            <p style="font-size:0.88rem;color:#94a3b8;margin-bottom:1.25rem;" data-i18n="fleet_scripts_desc">
               Die Skripte enthalten bereits automatisch deinen persönlichen <strong>Owner Key</strong> und verbinden deinen Ollama-Dienst direkt mit deiner Flotte.
             </p>
 
@@ -2144,13 +2144,13 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
             <div>
               <h3 style="margin:0;font-size:1.35rem;color:#f87171;display:flex;align-items:center;gap:0.6rem;">
-                <span>🛑</span> <span>ComputeMesh Flotten-Not-Aus &amp; Isolation Subsystem</span>
+                <span>🛑</span> <span data-i18n="fleet_killswitch_title">ComputeMesh Flotten-Not-Aus &amp; Isolation Subsystem</span>
               </h3>
-              <p style="color:#94a3b8;font-size:0.88rem;margin:0.25rem 0 0 0;">
+              <p style="color:#94a3b8;font-size:0.88rem;margin:0.25rem 0 0 0;" data-i18n="fleet_killswitch_sub">
                 Unabhängiges, physisch getrenntes Not-Aus- und Positiv-Autorisierungs-Subsystem mit Multi-Tenant-Isolation (Fail-Closed Default State).
               </p>
             </div>
-            <span id="killswitch-live-badge" class="sec-badge success" style="font-size:0.85rem;padding:0.35rem 0.8rem;">
+            <span id="killswitch-live-badge" class="sec-badge success" style="font-size:0.85rem;padding:0.35rem 0.8rem;" data-i18n="fleet_killswitch_status_ready">
               🟢 Flotten-Status: BEREIT &amp; AKTIV
             </span>
           </div>
@@ -2159,7 +2159,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
           <div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;display:flex;gap:1rem;align-items:flex-start;">
             <div style="font-size:1.6rem;line-height:1;">🛡️</div>
             <div>
-              <div style="font-weight:700;color:#38bdf8;margin-bottom:0.3rem;font-size:0.95rem;">
+              <div style="font-weight:700;color:#38bdf8;margin-bottom:0.3rem;font-size:0.95rem;" data-i18n="fleet_killswitch_card_title">
                 Berechtigungs-Schutz &amp; Flotten-Isolation (Zero Global Impact Garantie)
               </div>
               <p style="color:#cbd5e1;font-size:0.85rem;margin:0;line-height:1.55;">
@@ -2170,20 +2170,20 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
 
           <!-- Big Emergency Trigger Box -->
           <div style="background:rgba(239,68,68,0.12);border:2px solid rgba(239,68,68,0.5);border-radius:12px;padding:1.5rem;margin-bottom:1.75rem;text-align:center;">
-            <div style="font-size:1.1rem;font-weight:700;color:#fca5a5;margin-bottom:0.5rem;">
+            <div style="font-size:1.1rem;font-weight:700;color:#fca5a5;margin-bottom:0.5rem;" data-i18n="fleet_killswitch_action_title">
               ⚠️ FLOTTEN-NOT-AUS (ISOLIERTER STOPP ALLER EIGENEN KNOTEN)
             </div>
-            <p style="color:#cbd5e1;font-size:0.88rem;max-width:700px;margin:0 auto 1.25rem auto;">
+            <p style="color:#cbd5e1;font-size:0.88rem;max-width:700px;margin:0 auto 1.25rem auto;" data-i18n="fleet_killswitch_action_desc">
               Ein Klick auf Not-Aus entzieht sofort alle kryptographischen Ausführungs-Leases deiner Flotte, beendet Inferenz-Prozessbäume deiner Knoten und trennt lokale Tunnel. Andere Flotten im Mesh bleiben völlig unberührt.
             </p>
             <div style="display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;">
-              <button id="btn-emergency-stop-big" class="btn" style="background:#dc2626;color:#ffffff;font-size:1.05rem;font-weight:800;padding:0.75rem 2rem;border-radius:8px;box-shadow:0 0 20px rgba(220,38,38,0.6);letter-spacing:0.05em;" onclick="triggerEmergencyKill()">
+              <button id="btn-emergency-stop-big" class="btn" style="background:#dc2626;color:#ffffff;font-size:1.05rem;font-weight:800;padding:0.75rem 2rem;border-radius:8px;box-shadow:0 0 20px rgba(220,38,38,0.6);letter-spacing:0.05em;" onclick="triggerEmergencyKill()" data-i18n="fleet_killswitch_btn_stop">
                 🛑 MEINE FLOTTE ANHALTEN (FLOTTEN-NOT-AUS)
               </button>
-              <button id="btn-emergency-reset" class="btn btn-secondary" style="font-size:0.95rem;padding:0.75rem 1.5rem;border-color:rgba(16,185,129,0.6);color:#34d399;" onclick="resetFleetEmergencyKill()">
+              <button id="btn-emergency-reset" class="btn btn-secondary" style="font-size:0.95rem;padding:0.75rem 1.5rem;border-color:rgba(16,185,129,0.6);color:#34d399;" onclick="resetFleetEmergencyKill()" data-i18n="fleet_killswitch_btn_reset">
                 ▶️ Flotte wieder freigeben (Reset)
               </button>
-              <button class="btn btn-secondary" style="font-size:0.9rem;padding:0.75rem 1.5rem;border-color:rgba(56,189,248,0.5);color:#38bdf8;" onclick="renewKillswitchLease()">
+              <button class="btn btn-secondary" style="font-size:0.9rem;padding:0.75rem 1.5rem;border-color:rgba(56,189,248,0.5);color:#38bdf8;" onclick="renewKillswitchLease()" data-i18n="fleet_killswitch_btn_renew">
                 🔄 Lease prüfen / erneuern
               </button>
             </div>
@@ -2244,13 +2244,13 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
             <div>
               <h3 style="margin:0;font-size:1.35rem;display:flex;align-items:center;gap:0.6rem;">
-                <span>👑</span> Master-Administrator Zentrale
+                <span>👑</span> <span data-i18n="fleet_master_title">Master-Administrator Zentrale</span>
               </h3>
-              <p style="margin:0.3rem 0 0 0;font-size:0.88rem;color:#94a3b8;">
+              <p style="margin:0.3rem 0 0 0;font-size:0.88rem;color:#94a3b8;" data-i18n="fleet_master_sub">
                 Exklusive Verwaltungs- und Sicherheits-Werkzeuge für den Plattform-Inhaber (inetconnector / Stripe Account Holder).
               </p>
             </div>
-            <div id="admin-auth-badge" class="sec-badge danger" style="font-size:0.8rem;padding:0.35rem 0.75rem;">
+            <div id="admin-auth-badge" class="sec-badge danger" style="font-size:0.8rem;padding:0.35rem 0.75rem;" data-i18n="fleet_master_locked">
               🔒 GESPERRT (Master-Key erforderlich)
             </div>
           </div>
@@ -2260,13 +2260,13 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
             <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:0.75rem;">
               <span style="font-size:1.5rem;">🔑</span>
               <div>
-                <h4 style="margin:0;color:#fbbf24;font-size:1.05rem;">Master-Admin-Schlüssel eingeben</h4>
+                <h4 style="margin:0;color:#fbbf24;font-size:1.05rem;" data-i18n="fleet_master_enter_key">Master-Admin-Schlüssel eingeben</h4>
                 <div style="font-size:0.8rem;color:#94a3b8;">Authentifiziere dich mit deinem <code>COMPUTEMESH_MASTER_ADMIN_KEY</code> aus dem DiskStation-Tresor.</div>
               </div>
             </div>
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem;">
               <input id="input-master-admin-key" type="password" class="form-control-custom" placeholder="Master-Admin-Key (z.B. aus master_killswitch_private.key oder env)..." style="flex:1;min-width:280px;font-family:'JetBrains Mono',monospace;" spellcheck="false">
-              <button class="btn btn-primary" onclick="unlockMasterAdmin()" style="background:linear-gradient(135deg, #f59e0b, #d97706);border-color:#fbbf24;">
+              <button class="btn btn-primary" onclick="unlockMasterAdmin()" style="background:linear-gradient(135deg, #f59e0b, #d97706);border-color:#fbbf24;" data-i18n="fleet_master_btn_unlock">
                 🔓 Zentrale entsperren
               </button>
             </div>
@@ -2278,7 +2278,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
             <!-- Ban / Deactivate Form Box -->
             <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(239,68,68,0.35);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">
               <h4 style="margin:0 0 0.5rem 0;color:#f87171;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
-                <span>🚫</span> Einzelne Flotte dauerhaft sperren / deaktivieren
+                <span>🚫</span> <span data-i18n="fleet_master_suspend_fleet">Einzelne Flotte dauerhaft sperren / deaktivieren</span>
               </h4>
               <p style="margin:0 0 1rem 0;font-size:0.85rem;color:#cbd5e1;">
                 Sperrt eine Flotte persistent in SQLite und löst sofort den In-Memory-Killswitch aus. Alle Nodes und API-Keys dieser Flotte werden augenblicklich blockiert.
@@ -2294,7 +2294,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
                 </div>
               </div>
               <div style="display:flex;gap:0.75rem;align-items:center;justify-content:flex-end;">
-                <button class="btn" style="background:#dc2626;color:#ffffff;font-weight:700;padding:0.65rem 1.4rem;border-radius:8px;box-shadow:0 0 14px rgba(220,38,38,0.4);" onclick="doAdminBanFleet()">
+                <button class="btn" style="background:#dc2626;color:#ffffff;font-weight:700;padding:0.65rem 1.4rem;border-radius:8px;box-shadow:0 0 14px rgba(220,38,38,0.4);" onclick="doAdminBanFleet()" data-i18n="fleet_master_suspend_btn">
                   🚫 Flotte jetzt sperren
                 </button>
               </div>
@@ -2306,7 +2306,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
                 <div>
                   <h4 style="margin:0;color:#f8fafc;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
-                    <span>📋</span> Aktuell gesperrte Flotten
+                    <span>📋</span> <span data-i18n="fleet_master_suspended_list">Aktuell gesperrte Flotten</span>
                   </h4>
                   <div style="font-size:0.8rem;color:#64748b;">Echtzeit-Synchronisation mit der Master-Datenbank</div>
                 </div>
@@ -2327,7 +2327,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               <div style="font-size:0.82rem;color:#94a3b8;">
                 📁 DiskStation-Master-Vault: <code>\\diskstation\Dani\ComputeMesh\killswitch</code>
               </div>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;color:#f87171;border-color:rgba(239,68,68,0.4);" onclick="lockMasterAdmin()">
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;color:#f87171;border-color:rgba(239,68,68,0.4);" onclick="lockMasterAdmin()" data-i18n="fleet_master_btn_logout">
                 🔒 Master-Zentrale sperren (Logout)
               </button>
             </div>
