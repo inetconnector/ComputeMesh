@@ -181,7 +181,7 @@ class InferenceBackendTests(unittest.TestCase):
         env = {
             "COMPUTEMESH_INFERENCE_BACKEND": "ollama",
             "COMPUTEMESH_INFERENCE_URL": "http://127.0.0.1:11434",
-            "COMPUTEMESH_INFERENCE_MODEL": "llama3.2:1b",
+            "COMPUTEMESH_INFERENCE_MODEL": "qwen2.5:3b",
             "COMPUTEMESH_INFERENCE_CONTEXT_TOKENS": "256",
             "COMPUTEMESH_INFERENCE_THREADS": "2",
             "COMPUTEMESH_INFERENCE_SYSTEM_PROMPT": "You are concise.",

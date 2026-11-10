@@ -18,6 +18,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 log = logging.getLogger("computemesh.appliance.inference")
 
 
+def _allowlisted_model_id(value: Any) -> str:
+    """Return a model ID only when the repository/server allowlist approves it."""
+    from services.gateway.model_allowlist import filter_allowed_runtime_ids
+
+    return (filter_allowed_runtime_ids([str(value or "")]) or [""])[0]
+
+
 def _is_port_open(port: int, host: str = "127.0.0.1", timeout: float = 0.15) -> bool:
     import socket
     try:
@@ -275,7 +282,7 @@ class InferenceRouter:
             # 1. Local managed model
             if managed is not None:
                 engine = managed["engine"]
-                mid = str(engine.get("model_id", "")).strip()
+                mid = _allowlisted_model_id(engine.get("model_id", ""))
                 if mid:
                     installed = next((item for item in managed.get("models", []) if item.get("model_id") == mid), {})
                     combined_models.append({
@@ -294,7 +301,7 @@ class InferenceRouter:
                 from services.appliance_dashboard.model_manager import get_model_manager
                 installed_mgr = get_model_manager().status().get("models", [])
                 for item in installed_mgr:
-                    mid = str(item.get("model_id", "")).strip()
+                    mid = _allowlisted_model_id(item.get("model_id", ""))
                     if mid and mid not in seen_model_ids:
                         combined_models.append({
                             "id": mid,
@@ -316,7 +323,7 @@ class InferenceRouter:
                     if resp_ol.status == 200:
                         ol_data = json.loads(resp_ol.read().decode("utf-8"))
                         for item in ol_data.get("models", []):
-                            mid = str(item.get("name") or item.get("model") or "").strip()
+                            mid = _allowlisted_model_id(item.get("name") or item.get("model") or "")
                             if mid and mid not in seen_model_ids:
                                 combined_models.append({
                                     "id": mid,
@@ -336,7 +343,7 @@ class InferenceRouter:
                 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
                 for peer in GLOBAL_MESH_AGGREGATOR.get_online_peers():
                     peer_nid = peer.get("node_id", "peer")
-                    active_p = str(peer.get("active_model", "")).strip()
+                    active_p = _allowlisted_model_id(peer.get("active_model", ""))
                     if active_p and active_p not in seen_model_ids:
                         combined_models.append({
                             "id": active_p,
@@ -349,7 +356,7 @@ class InferenceRouter:
                         })
                         seen_model_ids.add(active_p)
                     for pm in peer.get("models", []):
-                        pm_id = str(pm.get("model_id") if isinstance(pm, dict) else pm).strip()
+                        pm_id = _allowlisted_model_id(pm.get("model_id") if isinstance(pm, dict) else pm)
                         if pm_id and pm_id not in seen_model_ids:
                             combined_models.append({
                                 "id": pm_id,
@@ -389,7 +396,7 @@ class InferenceRouter:
             # Discover active local model
             active_model = ""
             if managed is not None:
-                active_model = managed["engine"]["model_id"]
+                active_model = _allowlisted_model_id(managed["engine"]["model_id"])
             if not active_model:
                 try:
                     req_tags = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
@@ -397,11 +404,11 @@ class InferenceRouter:
                         tdata = json.loads(resp_tags.read().decode("utf-8"))
                         m_list = tdata.get("models", [])
                         if m_list:
-                            active_model = m_list[0].get("name") or m_list[0].get("model") or ""
+                            active_model = _allowlisted_model_id(m_list[0].get("name") or m_list[0].get("model") or "")
                 except Exception:
                     pass
             if not active_model:
-                active_model = "qwen2.5:3b"
+                active_model = ""
 
             if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
                 handler._send_json({
@@ -443,6 +450,7 @@ class InferenceRouter:
         ollama_url = raw_ollama if (raw_ollama.startswith(("http://", "https://"))) else f"http://{raw_ollama}"
         server_port = getattr(getattr(handler, "server", None), "server_port", None) or getattr(handler, "server_port", None)
         managed = _managed_runtime_status(exclude_port=server_port)
+        from services.gateway.model_allowlist import detect_vram_gib, select_best_allowed_model
 
         # 0. Lifecycle & Props
         if clean_path in ("/models/load", "/models/unload", "/webui/models/load", "/webui/models/unload"):
@@ -491,18 +499,29 @@ class InferenceRouter:
             if managed is not None:
                 eng_mid = managed.get("engine", {}).get("model_id")
                 if eng_mid:
-                    local_models.append(eng_mid)
+                    approved = _allowlisted_model_id(eng_mid)
+                    if approved:
+                        local_models.append(approved)
                 for m in managed.get("models", []):
                     mid = m.get("model_id") if isinstance(m, dict) else str(m)
-                    if mid and mid not in local_models:
-                        local_models.append(mid)
+                    approved = _allowlisted_model_id(mid)
+                    if approved and approved not in local_models:
+                        local_models.append(approved)
             if not local_models:
                 _ensure_ollama_running()
                 try:
                     tags_req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
                     with urllib.request.urlopen(tags_req, timeout=3) as tags_resp:
                         tags_data = json.loads(tags_resp.read().decode("utf-8"))
-                        local_models = [m.get("name") or m.get("model") for m in tags_data.get("models", []) if m]
+                        local_models = [
+                            approved
+                            for approved in (
+                                _allowlisted_model_id(m.get("name") or m.get("model") or "")
+                                for m in tags_data.get("models", [])
+                                if isinstance(m, dict)
+                            )
+                            if approved
+                        ]
                 except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                     log.debug("Local Ollama tags probe skipped: %s", exc)
 
@@ -511,13 +530,13 @@ class InferenceRouter:
             try:
                 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
                 for peer in GLOBAL_MESH_AGGREGATOR.get_online_peers():
-                    active_p = str(peer.get("active_model", "")).strip()
+                    active_p = _allowlisted_model_id(peer.get("active_model", ""))
                     if active_p:
                         peer_models[active_p] = peer
                         if active_p not in available_models:
                             available_models.append(active_p)
                     for pm in peer.get("models", []):
-                        pm_id = str(pm.get("model_id") if isinstance(pm, dict) else pm).strip()
+                        pm_id = _allowlisted_model_id(pm.get("model_id") if isinstance(pm, dict) else pm)
                         if pm_id:
                             peer_models[pm_id] = peer
                             if pm_id not in available_models:
@@ -543,19 +562,26 @@ class InferenceRouter:
             target_model = requested_model
             if available_models:
                 if not target_model or target_model.lower() in ("default", "auto", "computemesh"):
-                    if is_coding_query:
-                        coder_match = next((m for m in available_models if "coder" in m.lower() or "deepseek" in m.lower()), None)
-                        target_model = coder_match if coder_match else available_models[0]
-                    else:
-                        target_model = available_models[0]
+                    target_model = select_best_allowed_model(
+                        available_models,
+                        vram_gib=detect_vram_gib(),
+                        purpose="code" if is_coding_query else "chat",
+                    ) or available_models[0]
                 elif requested_model not in available_models:
+                    recommendation = select_best_allowed_model(
+                        available_models,
+                        vram_gib=detect_vram_gib(),
+                        purpose="code" if is_coding_query else "chat",
+                    )
                     handler._send_json(
                         {
                             "error": {
-                                "message": f"Requested model is not available on this node or connected fleet peers: {requested_model}",
+                                "message": f"Requested model is not allowlisted or available on this node or connected fleet peers: {requested_model}",
                                 "type": "invalid_request_error",
                                 "code": "model_not_available",
                                 "available_models": available_models,
+                                "recommended_model": recommendation,
+                                "warning": "Choose a valid listed model to remain in the ComputeMesh mesh.",
                             }
                         },
                         HTTPStatus.BAD_REQUEST,
@@ -586,7 +612,24 @@ class InferenceRouter:
                 )
                 return True
             if not target_model:
-                target_model = "qwen2.5-coder:7b" if is_coding_query else "qwen2.5:7b"
+                target_model = select_best_allowed_model(
+                    available_models,
+                    vram_gib=detect_vram_gib(),
+                    purpose="code" if is_coding_query else "chat",
+                )
+            if not target_model:
+                handler._send_json(
+                    {
+                        "error": {
+                            "message": "No allowlisted model fits the detected hardware tier",
+                            "type": "service_unavailable",
+                            "code": "model_tier_unavailable",
+                            "available_models": available_models,
+                        }
+                    },
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+                return True
 
             is_stream = payload.get("stream", True)
 

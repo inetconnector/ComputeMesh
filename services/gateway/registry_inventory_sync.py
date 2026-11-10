@@ -7,6 +7,8 @@ import os
 from typing import Any
 from urllib import error, request
 
+from services.gateway.model_allowlist import ModelAllowlistError, load_model_allowlist
+
 
 def sync_model_inventory(*, node_id: str, models: list[dict[str, Any]]) -> bool:
     """Send only safe serving metadata to the configured private registry."""
@@ -14,8 +16,17 @@ def sync_model_inventory(*, node_id: str, models: list[dict[str, Any]]) -> bool:
     token = os.environ.get("COMPUTEMESH_INTERNAL_BEARER_TOKEN", "").strip()
     if not url or not token:
         return False
+    try:
+        allowlist_version = load_model_allowlist().version
+    except ModelAllowlistError:
+        return False
     payload = json.dumps(
-        {"node_id": node_id, "models": models, "ttl_seconds": 180},
+        {
+            "node_id": node_id,
+            "models": models,
+            "ttl_seconds": 180,
+            "model_allowlist_version": allowlist_version,
+        },
         separators=(",", ":"),
     ).encode("utf-8")
     req = request.Request(

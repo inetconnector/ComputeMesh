@@ -27,6 +27,7 @@ from services.gateway.execution_evidence import (
     ExecutionEvidenceError,
     verify_shared_execution_evidence,
 )
+from services.gateway.model_allowlist import ModelAllowlistError, allowed_runtime_model
 from services.gateway.placement_selection import (
     PlacementSelection,
     PlacementSelectionError,
@@ -43,6 +44,20 @@ from services.orchestrator.state_machine import JobState, ReservationState
 
 class InferenceBackendError(RuntimeError):
     """Raised when a configured inference backend cannot produce a valid result."""
+
+
+def _validated_model_override() -> str | None:
+    """Reject an explicit runtime model that is not in the authoritative allowlist."""
+    raw = os.environ.get("COMPUTEMESH_INFERENCE_MODEL", "").strip()
+    if not raw:
+        return None
+    try:
+        entry = allowed_runtime_model(raw)
+    except ModelAllowlistError as exc:
+        raise InferenceBackendError(f"model allowlist unavailable: {exc}") from exc
+    if entry is None:
+        raise InferenceBackendError(f"configured inference model is not allowlisted: {raw}")
+    return raw
 
 
 def _normalise_native_tool_call(tool_call: Any) -> dict[str, Any]:
@@ -782,7 +797,7 @@ def _openai_backend_from_env() -> OpenAICompatibleHTTPBackend:
         base_url=base_url,
         api_key=os.environ.get("COMPUTEMESH_INFERENCE_API_KEY") or None,
         timeout_seconds=timeout,
-        model_override=os.environ.get("COMPUTEMESH_INFERENCE_MODEL") or None,
+        model_override=_validated_model_override(),
     )
 
 
@@ -804,7 +819,7 @@ def _ollama_backend_from_env() -> OllamaHTTPBackend:
     return OllamaHTTPBackend(
         base_url=base_url,
         timeout_seconds=timeout,
-        model_override=os.environ.get("COMPUTEMESH_INFERENCE_MODEL") or None,
+        model_override=_validated_model_override(),
         num_predict=num_predict,
         num_ctx=num_ctx,
         num_thread=num_thread,

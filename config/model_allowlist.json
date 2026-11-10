@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "allowlist_version": "2026.11.10.1",
+  "issued_at": "2026-11-10T00:00:00Z",
+  "expires_at": "2027-05-10T00:00:00Z",
+  "source": "ComputeMesh-ControlPlane repository",
+  "deny_unlisted": true,
+  "blocked_model_ids": [
+    "noma-mica",
+    "noma-mica:latest",
+    "qwen3.5-0.8b-astra-weightedit:bf16-archive",
+    "hf.co/JonathanColetti/Qwen3.5-0.8B-Astra-WeightEdit:BF16"
+  ],
+  "tiers": {
+    "4": ["qwen3:1.7b", "qwen3:0.6b", "qwen2.5:3b"],
+    "8": ["qwen3:4b", "gemma3:4b", "qwen3:1.7b"],
+    "16": ["qwen3:8b", "gemma3:12b", "deepseek-r1:7b", "qwen3:4b"],
+    "32": ["qwen3:14b", "gemma3:27b", "qwen2.5-coder:14b", "deepseek-r1:14b"],
+    "64": ["qwen3:32b", "qwen3:30b-a3b", "qwen2.5-coder:32b", "deepseek-r1:32b"],
+    "128": ["qwen3:30b-a3b", "qwen3:32b", "deepseek-r1:32b"]
+  },
+  "models": [
+    {"id": "qwen3:0.6b", "aliases": ["qwen3-0.6b"], "source": "https://huggingface.co/Qwen/Qwen3-0.6B", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 4, "storage_gib": 2, "priority": 10, "enabled": true, "capabilities": ["chat", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "qwen3:1.7b", "aliases": ["qwen3-1.7b"], "source": "https://huggingface.co/Qwen/Qwen3-1.7B", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 4, "storage_gib": 4, "priority": 20, "enabled": true, "capabilities": ["chat", "code", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "qwen2.5:3b", "aliases": ["qwen2.5-3b"], "source": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 4, "storage_gib": 4, "priority": 5, "enabled": true, "capabilities": ["chat", "code"], "safety_status": "compatibility_fallback"},
+    {"id": "qwen3:4b", "aliases": ["qwen3-4b"], "source": "https://huggingface.co/Qwen/Qwen3-4B", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 8, "storage_gib": 8, "priority": 30, "enabled": true, "capabilities": ["chat", "code", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "gemma3:4b", "aliases": ["gemma-3-4b-it"], "source": "https://huggingface.co/google/gemma-3-4b-it", "license": "Gemma Terms of Use", "license_status": "verified", "min_vram_gib": 8, "storage_gib": 8, "priority": 25, "enabled": true, "capabilities": ["chat", "vision"], "safety_status": "curated_candidate"},
+    {"id": "qwen3:8b", "aliases": ["qwen3-8b"], "source": "https://huggingface.co/Qwen/Qwen3-8B", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 16, "storage_gib": 16, "priority": 40, "enabled": true, "capabilities": ["chat", "code", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "gemma3:12b", "aliases": ["gemma-3-12b-it"], "source": "https://huggingface.co/google/gemma-3-12b-it", "license": "Gemma Terms of Use", "license_status": "verified", "min_vram_gib": 16, "storage_gib": 24, "priority": 35, "enabled": true, "capabilities": ["chat", "vision"], "safety_status": "curated_candidate"},
+    {"id": "deepseek-r1:7b", "aliases": ["deepseek-r1-distill-qwen-7b"], "source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "license": "MIT", "license_status": "verified", "min_vram_gib": 16, "storage_gib": 16, "priority": 32, "enabled": true, "capabilities": ["chat", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "qwen3:14b", "aliases": ["qwen3-14b"], "source": "https://huggingface.co/Qwen/Qwen3-14B", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 32, "storage_gib": 28, "priority": 50, "enabled": true, "capabilities": ["chat", "code", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "qwen2.5-coder:14b", "aliases": ["qwen2.5-coder-14b"], "source": "https://huggingface.co/Qwen/Qwen2.5-Coder-14B-Instruct", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 32, "storage_gib": 28, "priority": 42, "enabled": true, "capabilities": ["code", "chat"], "safety_status": "compatibility_fallback"},
+    {"id": "deepseek-r1:14b", "aliases": ["deepseek-r1-distill-qwen-14b"], "source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B", "license": "MIT", "license_status": "verified", "min_vram_gib": 32, "storage_gib": 32, "priority": 44, "enabled": true, "capabilities": ["chat", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "gemma3:27b", "aliases": ["gemma-3-27b-it"], "source": "https://huggingface.co/google/gemma-3-27b-it", "license": "Gemma Terms of Use", "license_status": "verified", "min_vram_gib": 32, "storage_gib": 48, "priority": 48, "enabled": true, "capabilities": ["chat", "vision"], "safety_status": "curated_candidate"},
+    {"id": "qwen3:32b", "aliases": ["qwen3-32b"], "source": "https://huggingface.co/Qwen/Qwen3-32B", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 64, "storage_gib": 64, "priority": 70, "enabled": true, "capabilities": ["chat", "code", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "qwen3:30b-a3b", "aliases": ["qwen3-30b-a3b"], "source": "https://huggingface.co/Qwen/Qwen3-30B-A3B", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 64, "storage_gib": 64, "priority": 75, "enabled": true, "capabilities": ["chat", "code", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "qwen2.5-coder:32b", "aliases": ["qwen2.5-coder-32b"], "source": "https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 64, "storage_gib": 64, "priority": 62, "enabled": true, "capabilities": ["code", "chat"], "safety_status": "compatibility_fallback"},
+    {"id": "deepseek-r1:32b", "aliases": ["deepseek-r1-distill-qwen-32b"], "source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B", "license": "MIT", "license_status": "verified", "min_vram_gib": 64, "storage_gib": 64, "priority": 60, "enabled": true, "capabilities": ["chat", "reasoning"], "safety_status": "curated_candidate"},
+    {"id": "deepseek-ai/deepseek-r1", "aliases": ["deepseek-r1"], "source": "https://huggingface.co/deepseek-ai/DeepSeek-R1", "license": "MIT", "license_status": "verified", "min_vram_gib": 64, "storage_gib": 700, "priority": 8, "enabled": true, "capabilities": ["chat", "reasoning"], "safety_status": "legacy_compatibility"},
+    {"id": "qwen/qwen2.5-72b-instruct", "aliases": ["qwen2.5-72b-instruct"], "source": "https://huggingface.co/Qwen/Qwen2.5-72B-Instruct", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 128, "storage_gib": 160, "priority": 8, "enabled": true, "capabilities": ["chat", "code"], "safety_status": "legacy_compatibility"},
+    {"id": "qwen/qwen2.5-7b-instruct", "aliases": ["qwen2.5-7b-instruct", "qwen2.5:7b"], "source": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 16, "storage_gib": 16, "priority": 20, "enabled": true, "capabilities": ["chat", "code"], "safety_status": "legacy_compatibility"},
+    {"id": "llama/llama-3.1-70b-instruct", "aliases": ["llama3.1:70b"], "source": "https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct", "license": "Llama License", "license_status": "verified", "min_vram_gib": 128, "storage_gib": 160, "priority": 7, "enabled": true, "capabilities": ["chat", "code"], "safety_status": "legacy_compatibility"},
+    {"id": "meta-llama/llama-3.3-70b-instruct", "aliases": ["llama3.3:70b"], "source": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct", "license": "Llama License", "license_status": "verified", "min_vram_gib": 128, "storage_gib": 160, "priority": 9, "enabled": true, "capabilities": ["chat", "code"], "safety_status": "legacy_compatibility"},
+    {"id": "meta-llama/llama-3.1-8b-instruct", "aliases": ["llama3.1:8b"], "source": "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct", "license": "Llama License", "license_status": "verified", "min_vram_gib": 16, "storage_gib": 16, "priority": 8, "enabled": true, "capabilities": ["chat", "code"], "safety_status": "legacy_compatibility"},
+    {"id": "mistralai/mistral-large-2407", "aliases": ["mistral-large"], "source": "https://huggingface.co/mistralai/Mistral-Large-Instruct-2407", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 64, "storage_gib": 80, "priority": 7, "enabled": true, "capabilities": ["chat", "code"], "safety_status": "legacy_compatibility"},
+    {"id": "qwen/qwen2.5-vl-7b-instruct", "aliases": ["qwen2.5-vl:7b"], "source": "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 16, "storage_gib": 16, "priority": 8, "enabled": true, "capabilities": ["chat", "vision"], "safety_status": "legacy_compatibility"},
+    {"id": "meta-llama/llama-3.2-11b-vision-instruct", "aliases": ["llama3.2-vision:11b"], "source": "https://huggingface.co/meta-llama/Llama-3.2-11B-Vision-Instruct", "license": "Llama License", "license_status": "verified", "min_vram_gib": 32, "storage_gib": 32, "priority": 8, "enabled": true, "capabilities": ["chat", "vision"], "safety_status": "legacy_compatibility"},
+    {"id": "openbmb/minicpm5-2b", "aliases": ["minicpm5-2b", "minicpm:2b"], "source": "https://huggingface.co/openbmb/MiniCPM5-2B", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 4, "storage_gib": 4, "priority": 6, "enabled": true, "capabilities": ["chat"], "safety_status": "legacy_compatibility"},
+    {"id": "llava/llava-1.6-7b", "aliases": ["llava:7b", "llava-1.6:7b"], "source": "https://huggingface.co/llava-hf/llava-v1.6-mistral-7b-hf", "license": "Apache-2.0", "license_status": "verified", "min_vram_gib": 16, "storage_gib": 16, "priority": 6, "enabled": true, "capabilities": ["chat", "vision"], "safety_status": "legacy_compatibility"},
+    {"id": "kimi-k2-instruct", "aliases": ["moonshotai/Kimi-K2-Instruct"], "source": "https://huggingface.co/moonshotai/Kimi-K2-Instruct", "license": "review-required", "license_status": "external_review_required", "min_vram_gib": 512, "storage_gib": 700, "priority": 90, "enabled": false, "distributed_only": true, "min_nodes": 4, "capabilities": ["chat", "code", "reasoning", "agents"], "safety_status": "external_review_required"}
+  ]
+}

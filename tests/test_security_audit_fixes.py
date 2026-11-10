@@ -29,7 +29,6 @@ import time
 import unittest
 from dataclasses import replace
 from http import HTTPStatus
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import services.gateway.catalog as catalog_module

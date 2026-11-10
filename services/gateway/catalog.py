@@ -30,6 +30,13 @@ from services.gateway.registry_client import (
     RegistryModel,
     build_registry_client_from_env,
 )
+from services.gateway.model_allowlist import (
+    ModelAllowlistError,
+    detect_vram_gib,
+    load_model_allowlist,
+    model_selection_error,
+    select_best_allowed_model,
+)
 
 logger = logging.getLogger("computemesh.catalog")
 
@@ -226,10 +233,25 @@ def _runtime_models_from_env() -> list[ModelSpec] | None:
             ))
     except (OSError, TimeoutError, UnicodeError, ValueError, json.JSONDecodeError):
         discovered = []
+    try:
+        allowlist = load_model_allowlist()
+        discovered = [model for model in discovered if allowlist.resolve(model.id) is not None]
+    except ModelAllowlistError as exc:
+        logger.error("authoritative model allowlist unavailable: %s", exc)
+        discovered = []
     with _RUNTIME_CACHE_LOCK:
         _RUNTIME_CACHE = tuple(discovered)
         _RUNTIME_CACHE_AT = now
     return discovered
+
+
+def _allowlisted_models(models: list[ModelSpec | RegistryModel]) -> list[ModelSpec | RegistryModel]:
+    try:
+        allowlist = load_model_allowlist()
+    except ModelAllowlistError as exc:
+        logger.error("authoritative model allowlist unavailable: %s", exc)
+        return []
+    return [model for model in models if allowlist.resolve(str(getattr(model, "id", ""))) is not None]
 
 
 def current_models_with_fallback() -> list[ModelSpec | RegistryModel]:
@@ -238,7 +260,7 @@ def current_models_with_fallback() -> list[ModelSpec | RegistryModel]:
     if LIVE_MODEL_REGISTRY is not None:
         try:
             remote_models = list(LIVE_MODEL_REGISTRY.models())
-            return validate_model_catalog_invariants(remote_models)
+            return validate_model_catalog_invariants(_allowlisted_models(remote_models))
         except (RegistryClientError, CatalogInvariantValidationError) as exc:
             logger.warning(f"Remote model registry unavailable or invalid ({exc}). Triggering catalog fallback.")
 
@@ -253,7 +275,7 @@ def current_models_with_fallback() -> list[ModelSpec | RegistryModel]:
     # Step 3: Static Model Catalog Fallback
     allow_static = os.environ.get("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG", "").strip() in ("1", "true", "TRUE")
     if allow_static or LIVE_MODEL_REGISTRY is None:
-        return validate_model_catalog_invariants(list(AVAILABLE_MODELS))
+        return validate_model_catalog_invariants(_allowlisted_models(list(AVAILABLE_MODELS)))
 
     return []
 
@@ -290,6 +312,12 @@ def resolve_model_id(raw_model: str) -> str:
     live_registry = LIVE_MODEL_REGISTRY is not None
     resolvable_models = [m for m in models if bool(getattr(m, "available", False))]
     clean_raw = (raw_model or "").strip()
+    try:
+        allowlist = load_model_allowlist()
+    except ModelAllowlistError as exc:
+        raise ValueError(f"model allowlist unavailable: {exc}") from exc
+    if clean_raw.lower() in allowlist.blocked:
+        raise model_selection_error(clean_raw, installed_ids=[m.id for m in resolvable_models], vram_gib=detect_vram_gib())
     if not clean_raw or clean_raw.lower() in {"default", "auto", "computemesh", "active", "online"}:
         if not resolvable_models:
             try:
@@ -301,6 +329,12 @@ def resolve_model_id(raw_model: str) -> str:
             except Exception:
                 pass
             raise ValueError("no inference model is currently available")
+        selected = select_best_allowed_model(
+            [m.id for m in resolvable_models],
+            vram_gib=detect_vram_gib(),
+        )
+        if selected:
+            return selected
         preferred = next((m for m in resolvable_models if m.id == "qwen/qwen2.5-7b-instruct"), None)
         if not preferred:
             preferred = next((m for m in resolvable_models if "32b" in m.id.lower() or getattr(m, "availability", "") == "available_warm"), None)
@@ -373,9 +407,11 @@ def resolve_model_id(raw_model: str) -> str:
         if norm(model_clean) in norm(short_name) or norm(short_name) in norm(model_clean):
             return m.id
 
-    if live_registry:
-        raise ValueError(f"model is not present in the live registry: {raw_model}")
-    raise ValueError(f"model is not available: {raw_model}")
+    raise model_selection_error(
+        raw_model,
+        installed_ids=[m.id for m in resolvable_models],
+        vram_gib=detect_vram_gib(),
+    )
 
 
 def provider_shares_from_env() -> list[tuple[str, float]]:

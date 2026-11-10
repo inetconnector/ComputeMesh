@@ -807,7 +807,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
         }
         self._send_json(payload, HTTPStatus.TOO_MANY_REQUESTS, headers)
 
-    def _send_error_response(self, message: str, error_type: str, status: HTTPStatus | int) -> None:
+    def _send_error_response(
+        self,
+        message: str,
+        error_type: str,
+        status: HTTPStatus | int,
+        details: dict[str, Any] | None = None,
+    ) -> None:
         status_val = status.value if isinstance(status, HTTPStatus) else int(status)
         try:
             http_status = HTTPStatus(status_val)
@@ -821,6 +827,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "code": status_val,
             }
         }
+        if details:
+            payload["error"].update(details)
         self._send_json(payload, http_status)
 
     def do_OPTIONS(self) -> None:
@@ -4144,7 +4152,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
         try:
             model_id = resolve_model_id(model_req)
         except ValueError as exc:
-            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST)
+            details = {}
+            if hasattr(exc, "allowed_models"):
+                details["allowed_models"] = list(getattr(exc, "allowed_models", []))
+                details["recommended_model"] = getattr(exc, "recommended_model", None)
+                details["warning"] = "The requested model is not valid for ComputeMesh; choose a listed model to remain in the mesh."
+            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST, details)
             return
         messages = body.get("messages", [])
         if not messages and "prompt" in body:
@@ -4258,7 +4271,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         model_req = str(body.get("model", "")).strip()
-        model_id = resolve_model_id(model_req)
+        try:
+            model_id = resolve_model_id(model_req)
+        except ValueError as exc:
+            details = {}
+            if hasattr(exc, "allowed_models"):
+                details["allowed_models"] = list(getattr(exc, "allowed_models", []))
+                details["recommended_model"] = getattr(exc, "recommended_model", None)
+                details["warning"] = "The requested model is not valid for ComputeMesh; choose a listed model to remain in the mesh."
+            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST, details)
+            return
         messages = body.get("messages", [])
         stream = bool(body.get("stream", True))
         opt_predict = body.get("options", {}).get("num_predict") if isinstance(body.get("options"), dict) else None
@@ -4312,7 +4334,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         model_req = str(body.get("model", "")).strip()
-        model_id = resolve_model_id(model_req)
+        try:
+            model_id = resolve_model_id(model_req)
+        except ValueError as exc:
+            details = {}
+            if hasattr(exc, "allowed_models"):
+                details["allowed_models"] = list(getattr(exc, "allowed_models", []))
+                details["recommended_model"] = getattr(exc, "recommended_model", None)
+                details["warning"] = "The requested model is not valid for ComputeMesh; choose a listed model to remain in the mesh."
+            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST, details)
+            return
         prompt = body.get("prompt", "")
         images = body.get("images") if isinstance(body.get("images"), list) else None
         stream = bool(body.get("stream", True))

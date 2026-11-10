@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 import urllib.parse
+from urllib.parse import parse_qs, urlparse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -613,16 +614,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if req_path in ("", "/", "/index.html"):
             token_to_inject = DASHBOARD_SESSION_TOKEN if is_loopback else None
             html = get_dashboard_html(auth_token=token_to_inject)
-            encoded = html.encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self._send_cors_headers()
-            self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")
             self.send_header("Expires", "0")
             self.end_headers()
-            self.wfile.write(encoded)
+            self.wfile.write(html.encode("utf-8"))
             return
 
         # llama.cpp WebUI & Chat Studio static assets
@@ -1013,10 +1012,9 @@ def create_dashboard_server(
         server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
         actual_port = server_inst.server_address[1]
     else:
-        llama_port = int(os.environ.get("COMPUTEMESH_LLAMA_PORT", "8081"))
         candidate_ports: list[int] = []
-        for p in [port, 8080, 8082, 8083, 8084, 8085]:
-            if p != llama_port and p not in candidate_ports:
+        for p in [port, 8080, 8081, 8082, 8083, 8084, 8085]:
+            if p not in candidate_ports:
                 candidate_ports.append(p)
 
         for candidate_port in candidate_ports:
@@ -1035,10 +1033,6 @@ def create_dashboard_server(
         if server_inst is None:
             server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
             actual_port = server_inst.server_address[1]
-
-    DashboardHandler.server_port = actual_port
-    if hasattr(server_inst, "server_port"):
-        server_inst.server_port = actual_port
 
     try:
         p_file = Path.home() / ".computemesh" / "dashboard_port"

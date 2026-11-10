@@ -27,6 +27,8 @@ set OLLAMA_KEEP_ALIVE=24h
 set OLLAMA_NUM_PARALLEL=4
 set COMPUTEMESH_OWNER_KEY={safe_key}
 set COMPUTEMESH_CLUSTER_URL={cluster_url}
+set COMPUTEMESH_MODEL_ALLOWLIST_URL={cluster_url}/v1/model-allowlist
+set COMPUTEMESH_MODEL_ALLOWLIST_REQUIRED=1
 
 echo [2/3] Pruefe und starte lokalen Ollama-Dienst...
 tasklist /FI "IMAGENAME eq ollama.exe" 2>NUL | find /I /N "ollama.exe">NUL
@@ -160,6 +162,8 @@ export OLLAMA_KEEP_ALIVE="24h"
 export OLLAMA_NUM_PARALLEL="4"
 export COMPUTEMESH_OWNER_KEY="{safe_key}"
 export COMPUTEMESH_CLUSTER_URL="{cluster_url}"
+export COMPUTEMESH_MODEL_ALLOWLIST_URL="{cluster_url}/v1/model-allowlist"
+export COMPUTEMESH_MODEL_ALLOWLIST_REQUIRED="1"
 
 echo "[1/3] Prüfe und starte lokalen Ollama-Dienst..."
 if pgrep -x "ollama" > /dev/null 2>&1; then

@@ -59,6 +59,12 @@ Governs the OpenAI-compatible HTTP server (`/v1/chat/completions`, `/v1/models`)
 | `COMPUTEMESH_PRIVATE_REGISTRY_RECONCILE_URL` | URL | `""` | Optional private authenticated endpoint that receives the node's minimized model inventory. |
 | `COMPUTEMESH_INTERNAL_SERVICE_TOKEN` | Secret | `""` | Bearer credential used for private internal service calls, including inventory reconciliation. |
 | `COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG` | Boolean | `false` | Development/test-only opt-in for the legacy static catalogue when no authoritative live source exists. |
+| `COMPUTEMESH_MODEL_ALLOWLIST_PATH` | Path | repository mirror | Local repository mirror of the authoritative model allowlist. |
+| `COMPUTEMESH_MODEL_ALLOWLIST_URL` | HTTPS URL | `""` | Master allowlist endpoint served by the private ControlPlane/web server. Remote data is preferred when configured. |
+| `COMPUTEMESH_MODEL_ALLOWLIST_SHA256` | Hex SHA-256 | `""` | Optional content pin for the allowlist; mismatches fail closed. |
+| `COMPUTEMESH_MODEL_ALLOWLIST_ALLOW_LOCAL_FALLBACK` | Boolean | `false` | Explicit development-only fallback to the repository mirror when the configured master is unavailable. |
+| `COMPUTEMESH_MODEL_ALLOWLIST_REQUIRED` | Boolean | `false` | When enabled on the private registry, nodes with a missing or stale allowlist version cannot reconcile inventory. |
+| `COMPUTEMESH_GPU_VRAM_GIB` | Number | auto-detect | Optional operator override used for tier selection; otherwise NVIDIA/AMD tools are probed. |
 | `COMPUTEMESH_PROVIDER_SHARES` | String | `""` | JSON or comma-separated mapping of provider node IDs to revenue shares. |
 | `COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID` | String | `node_test_settle_02` | Default provider node credited during live testmode settlements. |
 
