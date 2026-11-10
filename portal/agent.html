@@ -1208,38 +1208,182 @@
       display: block !important;
     }
 
-    /* Mobile Responsive Rules (< 768px) */
+    /* High-Security Passkey Auth Wall */
+    .agent-auth-wall {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-window);
+      background-image: radial-gradient(circle at 50% 15%, rgba(56, 189, 248, 0.09), transparent 60%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 9999;
+    }
+    .auth-wall-card {
+      background: #18191c;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .auth-wall-brand {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .auth-wall-icon {
+      font-size: 30px;
+      color: #00E5FF;
+      margin-bottom: 2px;
+    }
+    .auth-wall-brand h2 {
+      font-size: 19px;
+      font-weight: 700;
+      color: #f0f1f2;
+      letter-spacing: -0.01em;
+    }
+    .auth-wall-subtitle {
+      font-size: 12px;
+      color: #9da3a8;
+      line-height: 1.45;
+    }
+    .auth-wall-tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .auth-wall-tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #9da3a8;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .auth-wall-tab-btn.active {
+      background: rgba(255, 255, 255, 0.09);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+    .auth-wall-pane {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .auth-wall-pane.active {
+      display: flex;
+    }
+    .auth-pane-desc {
+      font-size: 12px;
+      color: #9da3a8;
+      line-height: 1.45;
+    }
+    .auth-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .auth-input-field {
+      background: #111214;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #f0f1f2;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .auth-input-field:focus {
+      border-color: #38bdf8;
+    }
+    .btn-auth-primary {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+      transition: background-color 0.15s;
+    }
+    .btn-auth-primary:hover {
+      background: #1d4ed8;
+    }
+    .auth-helper-links {
+      text-align: center;
+      margin-top: 4px;
+    }
+    .auth-helper-link {
+      color: #38bdf8;
+      text-decoration: none;
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+    .auth-helper-link:hover {
+      text-decoration: underline;
+    }
+    .auth-wall-status {
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      line-height: 1.4;
+    }
+    .auth-wall-status.error {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+    .auth-wall-status.ok {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    /* Mobile Responsive Rules (< 768px) - Eliminates clutter & optimizes for smartphones */
     @media (max-width: 768px) {
       .mobile-only {
         display: flex !important;
       }
-      header.site-header .nav-sub-row {
-        display: none !important;
+      header.site-header {
+        display: none !important; /* Eliminates duplicate top header row on phone */
       }
-      header.site-header .nav-top-row .nav-actions .nav-github-btn,
-      header.site-header .nav-top-row .nav-actions button[onclick*="openDepositModal"],
-      header.site-header .nav-top-row .nav-actions button[onclick*="consumer"] {
-        display: none !important;
-      }
-      header.site-header .nav-top-row {
-        padding: 4px 10px !important;
-        min-height: 48px !important;
-      }
-      header.site-header .brand-logo {
-        font-size: 15px !important;
-      }
-
       .agent-layout {
         position: relative;
         width: 100vw;
-        height: calc(100vh - 48px);
+        height: 100vh;
+        height: 100dvh;
         overflow: hidden;
       }
 
       /* Off-Canvas Left Drawer */
       .agent-sidebar {
         position: fixed !important;
-        top: 48px !important;
+        top: 0 !important;
         bottom: 0 !important;
         left: -320px !important;
         width: 300px !important;
@@ -1257,7 +1401,7 @@
       /* Off-Canvas Right Rail */
       .agent-right-rail {
         position: fixed !important;
-        top: 48px !important;
+        top: 0 !important;
         bottom: 0 !important;
         right: -320px !important;
         width: 300px !important;
@@ -1276,58 +1420,162 @@
         width: 100vw !important;
         flex: 1 1 100% !important;
         min-width: 0 !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
       }
 
-      /* Header & Touch targets */
+      /* Single sleek 44px mobile header bar */
       .main-header {
-        padding: 6px 10px;
-        min-height: 48px;
-        gap: 8px;
+        padding: 4px 8px;
+        min-height: 44px;
+        height: 44px;
+        gap: 6px;
+        background: #111214;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .main-header-title {
+        font-size: 13px;
+        max-width: calc(100vw - 140px);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .sidebar-icon-btn,
       .mobile-menu-btn {
-        min-width: 44px;
-        min-height: 44px;
+        min-width: 38px;
+        min-height: 38px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
+        font-size: 15px;
       }
 
+      /* Clean mobile composer without clutter */
       .composer-wrapper {
-        padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)) 8px;
+        padding: 4px 6px calc(6px + env(safe-area-inset-bottom, 0px)) 6px;
+      }
+      .agent-composer-box {
+        padding: 6px 8px;
+        border-radius: 12px;
       }
       .composer-textarea {
         font-size: 14px;
+        min-height: 38px;
+        max-height: 110px;
+      }
+      .composer-toolbar {
+        margin-top: 4px;
+      }
+      .policy-pill-btn, .model-selector-pill {
+        padding: 3px 8px;
+        font-size: 11px;
       }
       .btn-send-circle {
-        min-width: 44px;
-        min-height: 44px;
+        min-width: 38px;
+        min-height: 38px;
+        width: 38px;
+        height: 38px;
+      }
+
+      .stream-container {
+        padding: 8px 10px calc(76px + env(safe-area-inset-bottom, 0px)) 10px;
+      }
+
+      .empty-stream-placeholder {
+        padding: 20px 10px;
+      }
+      .empty-stream-placeholder h2 {
+        font-size: 17px;
+      }
+      .empty-stream-placeholder p {
+        font-size: 12px;
+      }
+      .starter-chips-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+      }
+      .starter-chip {
+        font-size: 11px;
+        padding: 5px 8px;
       }
     }
   </style>
 </head>
 <body>
 
-  <!-- Top App Header for Local Workspace -->
+  <!-- High-Security Passkey & Fleet Login Gate (Shown when unauthenticated) -->
+  <div id="agent-auth-wall" class="agent-auth-wall" style="display: none;">
+    <div class="auth-wall-card">
+      <div class="auth-wall-brand">
+        <span class="auth-wall-icon">⚡</span>
+        <h2>ComputeMesh Agent Studio</h2>
+        <p class="auth-wall-subtitle" data-i18n="agent_auth_subtitle">Sicherer Flottenzugriff &amp; Remote-Steuerung für deine Rechner (z. B. Mifcom-S)</p>
+      </div>
+
+      <div class="auth-wall-tabs">
+        <button id="auth-tab-passkey" class="auth-wall-tab-btn active" onclick="switchAgentAuthTab('passkey')">
+          🔑 <span data-i18n="agent_auth_tab_passkey">Passkey / Biometrie</span>
+        </button>
+        <button id="auth-tab-key" class="auth-wall-tab-btn" onclick="switchAgentAuthTab('key')">
+          🛡️ <span data-i18n="agent_auth_tab_key">Flotten-Schlüssel</span>
+        </button>
+      </div>
+
+      <!-- Passkey Pane -->
+      <div id="auth-pane-passkey" class="auth-wall-pane active">
+        <p class="auth-pane-desc" data-i18n="agent_auth_passkey_desc">Melde dich sicher mit Face ID, Touch ID, Windows Hello oder Android-Biometrie an, um direkt auf deiner Hardware zu arbeiten.</p>
+        <div class="auth-input-group">
+          <input type="email" id="agent-passkey-email" class="auth-input-field" placeholder="E-Mail-Adresse (optional für Passkey-Autofill)" autocomplete="username webauthn" onkeydown="if(event.key==='Enter')doAgentPasskeyLogin()">
+        </div>
+        <button id="btn-agent-passkey-login" class="btn-auth-primary" onclick="doAgentPasskeyLogin()">
+          <span>🔑</span>
+          <span data-i18n="agent_btn_login_passkey">Mit Passkey anmelden</span>
+        </button>
+        <div class="auth-helper-links">
+          <a href="/fleet" class="auth-helper-link" data-i18n="agent_link_register_passkey">Passkey auf Flotten-Cockpit registrieren ↗</a>
+        </div>
+      </div>
+
+      <!-- Fleet Key Pane -->
+      <div id="auth-pane-key" class="auth-wall-pane">
+        <p class="auth-pane-desc" data-i18n="agent_auth_key_desc">Gib deinen persönlichen Flotten-Owner-Key ein, um die direkte Verbindung zu deinem Rechner herzustellen.</p>
+        <div class="auth-input-group">
+          <input type="password" id="agent-direct-key-input" class="auth-input-field" placeholder="inet-... oder ok_..." autocomplete="off" onkeydown="if(event.key==='Enter')doAgentKeyLogin()">
+        </div>
+        <button id="btn-agent-key-login" class="btn-auth-primary" onclick="doAgentKeyLogin()">
+          <span>🛡️</span>
+          <span data-i18n="agent_btn_unlock_fleet">Workspace freischalten</span>
+        </button>
+      </div>
+
+      <div id="agent-auth-status" class="auth-wall-status" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Top App Header for Local / Remote Workspace -->
   <header class="site-header">
     <div class="workspace-top-bar-inner">
       <div class="workspace-brand">
         <span class="workspace-logo-icon">⚡</span>
         <span class="workspace-title">ComputeMesh <span class="workspace-subtitle">AGENT WORKSPACE</span></span>
-        <span class="workspace-badge"><span class="badge-dot"></span> <span id="top-badge-node">mifcoms Local</span></span>
+        <span class="workspace-badge"><span class="badge-dot"></span> <span id="top-badge-node">Mifcom-S Local</span></span>
       </div>
       <div class="workspace-quick-nav">
         <a href="/" class="quick-nav-link" title="Lokales Node Dashboard">📊 Node Dashboard</a>
         <a href="/webui/" class="quick-nav-link" title="Lokales Chat Studio">💬 Chat Studio</a>
         <a href="/fleet" id="top-nav-fleet-link" target="_blank" rel="noopener noreferrer" class="quick-nav-link external" title="Flotten-Cockpit online öffnen" onclick="openFleetWithKey(event)">🌐 Flotten-Cockpit ↗</a>
         <button class="quick-nav-btn" onclick="openSettingsModal()" title="Grundeinstellungen & Projektpfad öffnen">⚙️ Einstellungen</button>
+        <button id="btn-nav-logout" class="quick-nav-btn auth-status-btn" onclick="doAgentLogout()" title="Sitzung beenden" style="display: none;">🔒 <span data-i18n="agent_btn_logout">Abmelden</span></button>
       </div>
     </div>
   </header>
 
   <!-- Agent Main App Layout -->
-  <div class="agent-layout">
+  <div class="agent-layout" style="display: none;">
     <div id="agent-drawer-backdrop" class="agent-drawer-backdrop" onclick="closeAllDrawers()"></div>
     
     <!-- Left Sidebar -->
@@ -1350,6 +1598,7 @@
         <div class="sidebar-header-actions">
           <button class="sidebar-icon-btn" title="Aktualisieren" onclick="loadFleetAndWorkspaces()">🔄</button>
           <button class="sidebar-icon-btn" title="Seitenleiste einklappen" onclick="toggleSidebar()">◀</button>
+          <button class="sidebar-icon-btn mobile-only" title="Schließen" onclick="closeAllDrawers()">✕</button>
         </div>
       </div>
 
@@ -1399,6 +1648,7 @@
           <div style="font-size: 10.5px; color: var(--text-dim);" id="sidebar-node-subtitle">Verbunden • Bereit</div>
         </div>
         <button class="sidebar-icon-btn" title="Grundeinstellungen & Projektpfad öffnen" onclick="openSettingsModal()" style="margin-left: auto;">⚙️</button>
+        <button id="sidebar-logout-btn" class="sidebar-icon-btn auth-status-btn" title="Abmelden" onclick="doAgentLogout()" style="margin-left: 4px; display: none;">🔒</button>
       </div>
     </aside>
 
@@ -1418,6 +1668,8 @@
             <div class="agent-menu-item" onclick="archiveCurrentSession()">Archivieren</div>
             <div class="agent-menu-divider"></div>
             <div class="agent-menu-item" style="color: var(--accent-red);" onclick="deleteCurrentSession()">Sitzung löschen</div>
+            <div class="agent-menu-divider"></div>
+            <div class="agent-menu-item" onclick="doAgentLogout()">🔒 Abmelden</div>
           </div>
           <button class="sidebar-icon-btn sidebar-toggle-btn" id="btn-toggle-right-rail" title="Rechte Kontextleiste ein-/ausklappen" onclick="toggleRightRail()">⊞</button>
         </div>
@@ -1495,6 +1747,7 @@
       <div class="right-rail-header">
         <span class="right-rail-title">⚙️ Hardware & Kontext</span>
         <button class="sidebar-icon-btn" title="Rechte Kontextleiste einklappen" onclick="toggleRightRail()">▶</button>
+        <button class="sidebar-icon-btn mobile-only" title="Schließen" onclick="closeAllDrawers()">✕</button>
       </div>
 
       <!-- Active Project Info Card -->
@@ -2268,6 +2521,383 @@
     }
 
     /* Auth & Gateway API */
+    /* WebAuthn / Passkey Helpers & Fleet Authentication */
+    function b64urlToBytes(b64url) {
+      if (!b64url) return new Uint8Array(0).buffer;
+      const pad = "=".repeat((4 - (b64url.length % 4)) % 4);
+      const b64 = (b64url + pad).replace(/-/g, "+").replace(/_/g, "/");
+      const raw = atob(b64);
+      const arr = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr.buffer;
+    }
+
+    function bytesToB64url(buf) {
+      if (!buf) return "";
+      const bytes = new Uint8Array(buf);
+      let str = "";
+      for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+      return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function prepareRequestOptions(options) {
+      let opts = options;
+      if (typeof opts === "string") {
+        try { opts = JSON.parse(opts); } catch (e) {}
+      }
+      if (typeof PublicKeyCredential !== "undefined" && typeof PublicKeyCredential.parseRequestOptionsFromJSON === "function") {
+        try {
+          return PublicKeyCredential.parseRequestOptionsFromJSON(opts);
+        } catch (e) {
+          console.warn("PublicKeyCredential.parseRequestOptionsFromJSON fallback", e);
+        }
+      }
+      const cloned = JSON.parse(JSON.stringify(opts));
+      if (cloned.challenge) cloned.challenge = b64urlToBytes(cloned.challenge);
+      if (Array.isArray(cloned.allowCredentials)) {
+        cloned.allowCredentials = cloned.allowCredentials.map(c => ({
+          ...c,
+          id: b64urlToBytes(c.id)
+        }));
+      }
+      return cloned;
+    }
+
+    function credentialToJSON(cred) {
+      if (!cred) return {};
+      if (typeof cred.toJSON === "function") return cred.toJSON();
+      const resp = cred.response;
+      const out = {
+        id: cred.id,
+        rawId: bytesToB64url(cred.rawId),
+        type: cred.type || "public-key",
+        clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+        response: {
+          clientDataJSON: bytesToB64url(resp.clientDataJSON),
+        },
+      };
+      if (resp.attestationObject) {
+        out.response.attestationObject = bytesToB64url(resp.attestationObject);
+        if (typeof resp.getTransports === "function") out.response.transports = resp.getTransports();
+      }
+      if (resp.authenticatorData) {
+        out.response.authenticatorData = bytesToB64url(resp.authenticatorData);
+        out.response.signature = bytesToB64url(resp.signature);
+        if (resp.userHandle) out.response.userHandle = bytesToB64url(resp.userHandle);
+      }
+      return out;
+    }
+
+    function switchAgentAuthTab(tab) {
+      const tabPasskey = document.getElementById('auth-tab-passkey');
+      const tabKey = document.getElementById('auth-tab-key');
+      const panePasskey = document.getElementById('auth-pane-passkey');
+      const paneKey = document.getElementById('auth-pane-key');
+      const statusBox = document.getElementById('agent-auth-status');
+      if (statusBox) statusBox.style.display = 'none';
+
+      if (tab === 'passkey') {
+        tabPasskey?.classList.add('active');
+        tabKey?.classList.remove('active');
+        panePasskey?.classList.add('active');
+        paneKey?.classList.remove('active');
+      } else {
+        tabPasskey?.classList.remove('active');
+        tabKey?.classList.add('active');
+        panePasskey?.classList.remove('active');
+        paneKey?.classList.add('active');
+      }
+    }
+
+    function showAgentAuthStatus(msg, type) {
+      const el = document.getElementById('agent-auth-status');
+      if (!el) return;
+      if (!msg) { el.style.display = 'none'; return; }
+      el.className = 'auth-wall-status ' + (type === 'error' ? 'error' : 'ok');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function getAuthErrorMessage(data, fallback) {
+      if (!data) return fallback || 'Fehler';
+      if (typeof data === 'string') return data;
+      if (typeof data.error === 'string') return data.error;
+      if (typeof data.error === 'object' && data.error !== null) {
+        return data.error.message || data.error.detail || JSON.stringify(data.error);
+      }
+      if (typeof data.message === 'string') return data.message;
+      return fallback || 'Fehler';
+    }
+
+    async function doAgentPasskeyLogin() {
+      const emailInput = document.getElementById('agent-passkey-email');
+      const email = emailInput ? emailInput.value.trim() : '';
+      const btn = document.getElementById('btn-agent-passkey-login');
+
+      if (!window.PublicKeyCredential || !navigator.credentials || !navigator.credentials.get) {
+        showAgentAuthStatus(
+          (typeof getLang === 'function' && getLang() === 'en')
+            ? 'Your browser does not support Passkeys / WebAuthn. Please use your Fleet Key.'
+            : 'Dein Browser unterstützt keine Passkeys / WebAuthn. Bitte nutze deinen Flotten-Schlüssel.',
+          'error'
+        );
+        return;
+      }
+
+      try {
+        showAgentAuthStatus(
+          (typeof getLang === 'function' && getLang() === 'en') ? 'Requesting passkey challenge...' : 'Passkey-Challenge anfordern...',
+          'ok'
+        );
+        if (btn) btn.disabled = true;
+
+        const beginRes = await fetch('/api/auth/login/begin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email: email })
+        });
+        const beginData = await beginRes.json();
+        if (!beginRes.ok) {
+          showAgentAuthStatus(getAuthErrorMessage(beginData, 'Passkey Login fehlgeschlagen.'), 'error');
+          if (btn) btn.disabled = false;
+          return;
+        }
+
+        const opts = prepareRequestOptions(beginData.options);
+        showAgentAuthStatus(
+          (typeof getLang === 'function' && getLang() === 'en')
+            ? 'Waiting for biometrics / Windows Hello / Touch ID...'
+            : 'Warte auf Passkey-Bestätigung (Windows Hello / Touch ID / Face ID)...',
+          'ok'
+        );
+
+        const cred = await navigator.credentials.get({ publicKey: opts });
+        if (!cred) {
+          showAgentAuthStatus(
+            (typeof getLang === 'function' && getLang() === 'en') ? 'Authentication cancelled.' : 'Passkey-Anmeldung abgebrochen.',
+            'error'
+          );
+          if (btn) btn.disabled = false;
+          return;
+        }
+
+        const completeRes = await fetch('/api/auth/login/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email: email, credential: credentialToJSON(cred) })
+        });
+        const completeData = await completeRes.json();
+        if (!completeRes.ok) {
+          showAgentAuthStatus(getAuthErrorMessage(completeData, 'Passkey-Verifikation fehlgeschlagen.'), 'error');
+          if (btn) btn.disabled = false;
+          return;
+        }
+
+        const key = completeData.owner_key || (completeData.account && completeData.account.owner_key) || '';
+        if (key) {
+          try {
+            localStorage.setItem('cm_fleet_owner_key', key);
+            localStorage.setItem('cm_owner_key', key);
+            localStorage.setItem('cm_auth_token', key);
+            localStorage.setItem('apiKey', key);
+            localStorage.setItem('cm_api_key', key);
+          } catch (_) {}
+        }
+        showAgentAuthStatus(
+          (typeof getLang === 'function' && getLang() === 'en') ? '✓ Authenticated! Loading fleet workspace...' : '✓ Erfolgreich authentifiziert! Lade Flotten-Workspace...',
+          'ok'
+        );
+        setTimeout(() => {
+          unlockWorkspace(completeData);
+        }, 300);
+      } catch (err) {
+        if (err.name === 'NotAllowedError') {
+          showAgentAuthStatus(
+            (typeof getLang === 'function' && getLang() === 'en') ? 'Passkey prompt was cancelled or timed out.' : 'Passkey-Abfrage wurde abgebrochen oder ist abgelaufen.',
+            'error'
+          );
+        } else {
+          showAgentAuthStatus('Fehler: ' + (err.message || err), 'error');
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function doAgentKeyLogin() {
+      const input = document.getElementById('agent-direct-key-input');
+      const key = input ? input.value.trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '') : '';
+      const btn = document.getElementById('btn-agent-key-login');
+
+      if (!key) {
+        showAgentAuthStatus(
+          (typeof getLang === 'function' && getLang() === 'en') ? 'Please enter your Fleet Owner Key.' : 'Bitte gib deinen Flotten-Owner-Key ein.',
+          'error'
+        );
+        return;
+      }
+
+      try {
+        showAgentAuthStatus(
+          (typeof getLang === 'function' && getLang() === 'en') ? 'Validating fleet access...' : 'Validiere Flottenzugriff...',
+          'ok'
+        );
+        if (btn) btn.disabled = true;
+
+        try {
+          localStorage.setItem('cm_fleet_owner_key', key);
+          localStorage.setItem('cm_owner_key', key);
+          localStorage.setItem('cm_auth_token', key);
+          localStorage.setItem('apiKey', key);
+          localStorage.setItem('cm_api_key', key);
+        } catch (_) {}
+
+        const verifyResp = await fetchWithAuth('/api/auth/me');
+        let verifyOk = verifyResp.ok;
+        let authData = {};
+        if (verifyOk) {
+          try { authData = await verifyResp.json(); } catch (_) {}
+        } else {
+          const wsResp = await fetchWithAuth('/api/v1/fleet/workspaces');
+          if (wsResp.ok) verifyOk = true;
+        }
+
+        if (!verifyOk) {
+          localStorage.removeItem('cm_fleet_owner_key');
+          localStorage.removeItem('cm_owner_key');
+          localStorage.removeItem('cm_auth_token');
+          localStorage.removeItem('apiKey');
+          localStorage.removeItem('cm_api_key');
+          showAgentAuthStatus(
+            (typeof getLang === 'function' && getLang() === 'en')
+              ? 'Invalid Fleet Owner Key. Please check the key and try again.'
+              : 'Ungültiger Flotten-Owner-Key. Bitte überprüfe den Schlüssel und versuche es erneut.',
+            'error'
+          );
+          if (btn) btn.disabled = false;
+          return;
+        }
+
+        try {
+          const isSecure = window.location.protocol === 'https:';
+          let cookieStr = 'cm_session=' + encodeURIComponent(key) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+          if (window.location.hostname.endsWith('inetconnector.com')) cookieStr += '; Domain=.inetconnector.com';
+          if (isSecure) cookieStr += '; Secure';
+          document.cookie = cookieStr;
+        } catch (_) {}
+
+        showAgentAuthStatus(
+          (typeof getLang === 'function' && getLang() === 'en') ? '✓ Key verified! Loading fleet workspace...' : '✓ Schlüssel bestätigt! Lade Flotten-Workspace...',
+          'ok'
+        );
+        setTimeout(() => {
+          unlockWorkspace(authData);
+        }, 300);
+      } catch (err) {
+        showAgentAuthStatus('Fehler: ' + (err.message || err), 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function doAgentLogout() {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      } catch (_) {}
+
+      try {
+        localStorage.removeItem('cm_fleet_owner_key');
+        localStorage.removeItem('cm_owner_key');
+        localStorage.removeItem('cm_auth_token');
+        localStorage.removeItem('cm_session_token');
+        localStorage.removeItem('apiKey');
+        localStorage.removeItem('cm_api_key');
+        sessionStorage.removeItem('computemesh.nodeAuthToken');
+        document.cookie = 'cm_session=; Path=/; Max-Age=0;';
+        document.cookie = 'cm_session=; Path=/; Domain=.inetconnector.com; Max-Age=0;';
+      } catch (_) {}
+
+      lockWorkspaceAndShowAuthWall();
+    }
+
+    function lockWorkspaceAndShowAuthWall() {
+      const wall = document.getElementById('agent-auth-wall');
+      const layout = document.querySelector('.agent-layout');
+      const logoutBtn = document.getElementById('btn-nav-logout');
+      const sidebarLogoutBtn = document.getElementById('sidebar-logout-btn');
+      if (wall) wall.style.display = 'flex';
+      if (layout) layout.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+      if (sidebarLogoutBtn) sidebarLogoutBtn.style.display = 'none';
+    }
+
+    let isWorkspaceUnlocked = false;
+    function unlockWorkspace(accountInfo) {
+      isWorkspaceUnlocked = true;
+      const wall = document.getElementById('agent-auth-wall');
+      const layout = document.querySelector('.agent-layout');
+      const logoutBtn = document.getElementById('btn-nav-logout');
+      const sidebarLogoutBtn = document.getElementById('sidebar-logout-btn');
+      if (wall) wall.style.display = 'none';
+      if (layout) layout.style.display = 'flex';
+      if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+      if (sidebarLogoutBtn) sidebarLogoutBtn.style.display = 'inline-flex';
+
+      restoreSidebarStates();
+      loadAppSettings();
+      loadFleetAndWorkspaces();
+      loadModels();
+      refreshServiceStatus();
+      initComposerDragAndDrop();
+    }
+
+    async function checkAuthAndInit() {
+      const isLoopback = (
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname === '::1'
+      );
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('owner_key') || urlParams.get('key') || urlParams.get('token');
+      if (urlKey && urlKey.trim()) {
+        const cleanUrlKey = urlKey.trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '');
+        try {
+          localStorage.setItem('cm_fleet_owner_key', cleanUrlKey);
+          localStorage.setItem('cm_owner_key', cleanUrlKey);
+          localStorage.setItem('cm_auth_token', cleanUrlKey);
+        } catch (_) {}
+      }
+
+      // Check current session via /api/auth/me
+      try {
+        const meResp = await fetchWithAuth('/api/auth/me');
+        if (meResp.ok) {
+          const data = await meResp.json();
+          unlockWorkspace(data);
+          return;
+        }
+      } catch (_) {}
+
+      // If on loopback (local developer daemon on Mifcom-S), verify local workspaces or auto-unlock
+      if (isLoopback) {
+        try {
+          const testLocal = await fetchWithAuth('/api/v1/fleet/workspaces');
+          if (testLocal.ok) {
+            unlockWorkspace({ loopback: true });
+            return;
+          }
+        } catch (_) {}
+        unlockWorkspace({ loopback: true });
+        return;
+      }
+
+      // Unauthenticated remote visitor -> Lock and show Passkey Auth Wall
+      lockWorkspaceAndShowAuthWall();
+    }
+
     async function fetchWithAuth(url, options = {}) {
       const urlParams = new URLSearchParams(window.location.search);
       const urlKey = urlParams.get('owner_key') || urlParams.get('key') || urlParams.get('token');
@@ -3300,14 +3930,9 @@
       if (typeof renderSessionsList === 'function') renderSessionsList();
     };
 
-    // Default Initialization on DOM Load
+    // Default Initialization on DOM Load (Secured by Passkey & Fleet Auth Check)
     window.addEventListener('DOMContentLoaded', () => {
-      restoreSidebarStates();
-      loadAppSettings();
-      loadFleetAndWorkspaces();
-      loadModels();
-      refreshServiceStatus();
-      initComposerDragAndDrop();
+      checkAuthAndInit();
     });
   </script>
   <script src="/portal-core.js?v=5.4"></script>

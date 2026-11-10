@@ -113,3 +113,66 @@ def test_workspace_physical_creation_and_isolation():
     assert "SpotifyPlaylistWebApp" not in discovered_names, "Legacy non-KI directories must never be auto-discovered"
 
 
+def test_agent_auth_wall_and_passkey_protection():
+    """Verify Passkey auth wall prevents unauthenticated access and enforces WebAuthn biometric login."""
+    content = PORTAL_AGENT_HTML.read_text(encoding="utf-8")
+
+    # Auth wall modal & controls exist
+    assert 'id="agent-auth-wall"' in content, "Missing agent auth wall container"
+    assert 'id="btn-agent-passkey-login"' in content, "Missing passkey login button"
+    assert 'id="btn-agent-key-login"' in content, "Missing fleet key login button"
+    assert 'id="agent-direct-key-input"' in content, "Missing direct key input"
+
+    # JavaScript security functions exist
+    assert "async function doAgentPasskeyLogin" in content
+    assert "async function doAgentKeyLogin" in content
+    assert "async function doAgentLogout" in content
+    assert "function lockWorkspaceAndShowAuthWall" in content
+    assert "function unlockWorkspace" in content
+    assert "async function checkAuthAndInit" in content
+
+    # Layout is hidden by default until authentication unlocks it
+    assert '<div class="agent-layout" style="display: none;">' in content, (
+        "Agent layout must be initially hidden with style='display: none;' to prevent unauthenticated content flash"
+    )
+
+    # DOMContentLoaded initiates auth check
+    assert "checkAuthAndInit()" in content
+
+
+def test_agent_mobile_optimization_and_clutter_free():
+    """Verify mobile CSS removes double headers, adds drawer close buttons and safe-area composert."""
+    content = PORTAL_AGENT_HTML.read_text(encoding="utf-8")
+
+    # Mobile CSS rules
+    assert "@media (max-width: 768px)" in content
+    assert "header.site-header" in content
+    assert "closeAllDrawers()" in content
+    assert "safe-area-inset-bottom" in content
+
+    # Drawer close buttons on mobile
+    assert 'onclick="closeAllDrawers()"' in content
+
+
+def test_agent_auth_i18n_parity():
+    """Verify all agent auth translation keys exist in both English and German."""
+    portal_core_js = REPO_ROOT / "portal" / "portal-core.js"
+    assert portal_core_js.is_file()
+    js_text = portal_core_js.read_text(encoding="utf-8")
+
+    required_keys = [
+        "agent_auth_subtitle",
+        "agent_auth_tab_passkey",
+        "agent_auth_tab_key",
+        "agent_auth_passkey_desc",
+        "agent_auth_key_desc",
+        "agent_btn_login_passkey",
+        "agent_btn_unlock_fleet",
+        "agent_link_register_passkey",
+        "agent_btn_logout",
+    ]
+    for key in required_keys:
+        assert f"{key}:" in js_text, f"Missing translation key {key} in portal-core.js"
+
+
+
