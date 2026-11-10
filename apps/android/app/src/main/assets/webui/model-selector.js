@@ -449,8 +449,11 @@
 
 			await discoverFleetEndpoints();
 
-			// Probe local appliance candidates (loopback + LAN peers discovered from fleet)
-			var candidates = ['http://127.0.0.1:8080', 'http://localhost:8080'];
+			// Probe local appliance candidates (loopback only when on plain HTTP, plus LAN peers discovered from fleet)
+			var candidates = [];
+			if (window.location.protocol === 'http:') {
+				candidates.push('http://127.0.0.1:8080', 'http://localhost:8080');
+			}
 			meshEndpoints.forEach(function (mep) {
 				if (mep && (mep.startsWith('http://192.168.') || mep.startsWith('http://10.') || mep.startsWith('http://172.'))) {
 					if (!candidates.includes(mep)) candidates.push(mep);
@@ -1371,10 +1374,20 @@
 			} catch (_) {}
 		}
 
-		if (typeof input === 'string' && (input.endsWith('/tools') || input.includes('/webui/tools') || input.includes('/tools?'))) {
+		var rawInputUrl = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+		var isToolsRequest = false;
+		try {
+			var parsedToolUrl = new URL(rawInputUrl, window.location.href);
+			isToolsRequest = /(?:^|\/)(?:webui\/)?(?:api\/)?(?:v1\/)?tools\/?$/.test(parsedToolUrl.pathname);
+		} catch (_) {
+			isToolsRequest = rawInputUrl.endsWith('/tools') || rawInputUrl.includes('/webui/tools') || rawInputUrl.includes('/tools?');
+		}
+
+		if (isToolsRequest) {
 			try {
 				var toolsResp = await originalFetch(input, init);
-				if (toolsResp.ok) return toolsResp;
+				var ct = toolsResp.headers.get('content-type') || '';
+				if (toolsResp.ok && ct.includes('application/json')) return toolsResp;
 			} catch (_) {}
 			return new Response(JSON.stringify([]), {
 				status: 200,
