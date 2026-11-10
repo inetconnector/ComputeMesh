@@ -27,7 +27,7 @@ def _is_port_open(port: int, host: str = "127.0.0.1", timeout: float = 0.15) -> 
         return False
 
 
-def _managed_runtime_status() -> dict[str, Any] | None:
+def _managed_runtime_status(exclude_port: int | None = None) -> dict[str, Any] | None:
     try:
         from services.appliance_dashboard.model_manager import get_model_manager
         status = get_model_manager().status()
@@ -38,6 +38,14 @@ def _managed_runtime_status() -> dict[str, Any] | None:
         log.debug("Managed engine status probe skipped: %s", exc)
     try:
         raw_port = int(os.environ.get("COMPUTEMESH_LLAMA_PORT", "8081"))
+        if exclude_port is not None and raw_port == exclude_port:
+            return None
+        try:
+            from services.appliance_dashboard.server import DashboardHandler
+            if getattr(DashboardHandler, "server_port", None) == raw_port:
+                return None
+        except Exception:
+            pass
         if not _is_port_open(raw_port):
             return None
         req = urllib.request.Request(f"http://127.0.0.1:{raw_port}/health")
@@ -251,7 +259,8 @@ class InferenceRouter:
         raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
         ollama_url = raw_ollama if (raw_ollama.startswith(("http://", "https://"))) else f"http://{raw_ollama}"
         clean_path = req_path.rstrip("/")
-        managed = _managed_runtime_status()
+        server_port = getattr(getattr(handler, "server", None), "server_port", None) or getattr(handler, "server_port", None)
+        managed = _managed_runtime_status(exclude_port=server_port)
 
         # 1. Models & Tags listing
         if clean_path in ("/v1/models", "/models", "/api/tags", "/tags", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
@@ -432,7 +441,8 @@ class InferenceRouter:
         clean_path = req_path.rstrip("/")
         raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
         ollama_url = raw_ollama if (raw_ollama.startswith(("http://", "https://"))) else f"http://{raw_ollama}"
-        managed = _managed_runtime_status()
+        server_port = getattr(getattr(handler, "server", None), "server_port", None) or getattr(handler, "server_port", None)
+        managed = _managed_runtime_status(exclude_port=server_port)
 
         # 0. Lifecycle & Props
         if clean_path in ("/models/load", "/models/unload", "/webui/models/load", "/webui/models/unload"):
