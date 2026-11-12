@@ -18,7 +18,7 @@ def test_neutral_theme_is_present_and_byte_identical():
 def test_both_webui_entrypoints_load_the_shared_theme():
     for entrypoint in (DESKTOP / "index.html", ANDROID / "index.html"):
         source = entrypoint.read_text(encoding="utf-8")
-        assert './neutral-theme.css?v=20261026-1' in source
+        assert './neutral-theme.css?v=20261110-hotfix' in source
 
 
 def test_no_neon_blue_borders_or_broken_dropdown_translations_in_entrypoints():
