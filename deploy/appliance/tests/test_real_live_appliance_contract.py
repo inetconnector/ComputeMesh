@@ -145,6 +145,14 @@ class TestRealLiveApplianceContract(unittest.TestCase):
         monitor = Path(__file__).resolve().parents[3] / "tools" / "appliance" / "console_monitor.py"
         self.assertTrue(monitor.is_file())
 
+    def test_kiosk_waits_for_dashboard_and_has_local_diagnostic_fallback(self) -> None:
+        source = self._source()
+        self.assertIn("COMPUTEMESH_KIOSK_WAIT_SECONDS", source)
+        self.assertIn("--connect-timeout 1 --max-time 2", source)
+        self.assertIn("kiosk-unavailable.html", source)
+        self.assertIn("dashboard_url=\"file:///usr/local/share/computemesh/kiosk-unavailable.html\"", source)
+        self.assertNotIn("for i in {1..30}; do", source)
+
     def test_boot_has_preflight_and_explicit_enrollment_contract(self) -> None:
         text = self._source()
         self.assertIn("computemesh-node-preflight.service", text)

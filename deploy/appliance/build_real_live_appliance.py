@@ -679,16 +679,63 @@ After=computemesh-node-preflight.service
         )
 
         # Install Kiosk Fullscreen Launcher
+        kiosk_fallback = CHROOT_DIR / "usr" / "local" / "share" / "computemesh" / "kiosk-unavailable.html"
+        kiosk_fallback.parent.mkdir(parents=True, exist_ok=True)
+        kiosk_fallback.write_text(
+            """<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ComputeMesh NodeOS is starting</title>
+<style>
+  body { background:#111827; color:#e5e7eb; font:18px system-ui,sans-serif; margin:4rem auto; max-width:48rem; padding:0 1.5rem; }
+  code { color:#67e8f9; } .muted { color:#9ca3af; } a,button { color:#111827; background:#67e8f9; border:0; border-radius:.4rem; cursor:pointer; font:inherit; padding:.65rem 1rem; }
+</style>
+<h1>ComputeMesh NodeOS is still starting</h1>
+<p id="state">The local dashboard did not answer yet. The page will retry automatically.</p>
+<p class="muted">Dashboard: <code>http://127.0.0.1:8080/</code></p>
+<p><button onclick="probe()">Retry now</button></p>
+<script>
+async function probe() {
+  const state = document.getElementById('state');
+  state.textContent = 'Checking the local dashboard...';
+  try {
+    await fetch('http://127.0.0.1:8080/', {mode:'no-cors', cache:'no-store'});
+    location.replace('http://127.0.0.1:8080/');
+  } catch (_) {
+    state.textContent = 'The dashboard is not ready yet. Retrying in five seconds...';
+    setTimeout(probe, 5000);
+  }
+}
+setTimeout(probe, 1000);
+</script>
+""",
+            encoding="utf-8",
+        )
         kiosk_script = bin_dir / "start-kiosk.sh"
         kiosk_script.write_text(
             """#!/bin/bash
-# Wait for appliance web server to respond
-for i in {1..30}; do
-    if curl -s http://127.0.0.1:8080/ >/dev/null 2>&1; then
+# Hardware discovery and the first dashboard model scan can take more than
+# fifteen seconds on a real multi-GPU rig. Do not open a permanent Chromium
+# error page while the service is still starting.
+set -u
+dashboard_url="http://127.0.0.1:8080/"
+dashboard_ready=false
+wait_seconds="${COMPUTEMESH_KIOSK_WAIT_SECONDS:-180}"
+case "$wait_seconds" in
+    ''|*[!0-9]*) wait_seconds=180 ;;
+esac
+for i in $(seq 1 "$wait_seconds"); do
+    if curl -fsS --connect-timeout 1 --max-time 2 "$dashboard_url" >/dev/null 2>&1; then
+        dashboard_ready=true
         break
     fi
-    sleep 0.5
+    sleep 1
 done
+
+if [ "$dashboard_ready" != true ]; then
+    dashboard_url="file:///usr/local/share/computemesh/kiosk-unavailable.html"
+fi
 
 xset -dpms s off s noblank 2>/dev/null || true
 unclutter -idle 1 -root &
@@ -705,7 +752,7 @@ exec /usr/bin/chromium \
   --autoplay-policy=no-user-gesture-required \
   --no-sandbox \
   --disable-gpu-sandbox \
-  http://127.0.0.1:8080/
+  "$dashboard_url"
 """,
             encoding="utf-8",
         )
