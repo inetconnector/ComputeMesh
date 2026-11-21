@@ -593,7 +593,7 @@ default.
         # failure is a build failure; the image must not boot with a partial
         # Python environment.
         chroot_exec(
-            "python3 -m pip install --no-cache-dir --break-system-packages "
+            "python3 -m pip install --no-cache-dir --break-system-packages --ignore-installed "
             "-r /opt/computemesh/requirements.txt"
         )
 

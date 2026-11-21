@@ -55,6 +55,9 @@ class TestRealLiveApplianceContract(unittest.TestCase):
         self.assertIn("python3-cffi-backend", source)
         self.assertIn("python3-cryptography", source)
 
+    def test_pip_install_does_not_uninstall_debian_cryptography(self) -> None:
+        self.assertIn("--break-system-packages --ignore-installed", self._source())
+
     def test_uefi_builder_uses_available_gop_module(self) -> None:
         source = self._source()
         self.assertIn("efi_gop", source)
