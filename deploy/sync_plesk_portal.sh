@@ -82,7 +82,7 @@ REQUIRED_DOWNLOADS=(
   "install.sh"
   "ComputeMesh-Android.apk"
   "ComputeMesh-Android.aab"
-  "computemesh-android.json"
+  "ComputeMesh-Android.json"
   "version.json"
 )
 for asset in "${REQUIRED_DOWNLOADS[@]}"; do
