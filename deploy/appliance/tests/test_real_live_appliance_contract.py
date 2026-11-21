@@ -122,6 +122,7 @@ class TestRealLiveApplianceContract(unittest.TestCase):
                 (checkout / directory / ".keep").write_text("\n", encoding="utf-8")
             (checkout / "apps" / "attested.txt").write_text("committed\n", encoding="utf-8")
             (checkout / "config.py").write_text("CONFIG = object()\n", encoding="utf-8")
+            (checkout / "cm_project_bootstrap.py").write_text("REPO_ROOT = Path(__file__).parent\n", encoding="utf-8")
             (checkout / "requirements.txt").write_text("cryptography\n", encoding="utf-8")
             subprocess.run(["git", "init", "-q"], cwd=checkout, check=True)
             subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=checkout, check=True)
@@ -144,6 +145,7 @@ class TestRealLiveApplianceContract(unittest.TestCase):
                 _copy_source_snapshot(checkout, commit, destination)
 
             self.assertEqual((destination / "apps" / "attested.txt").read_text(encoding="utf-8"), "committed\n")
+            self.assertTrue((destination / "cm_project_bootstrap.py").is_file())
             self.assertFalse((destination / "apps" / "untracked.txt").exists())
 
     def test_service_enablement_is_fail_closed(self) -> None:

@@ -202,7 +202,18 @@ def _write_provenance(repo_src: Path, source_commit: str) -> dict[str, object]:
 
 def _copy_source_snapshot(repo_src: Path, source_commit: str, destination: Path) -> None:
     """Copy only the attested Git commit, never the mutable working tree."""
-    paths = ("apps", "services", "tools", "runtime", "protocol", "deploy", "portal", "config.py", "requirements.txt")
+    paths = (
+        "apps",
+        "services",
+        "tools",
+        "runtime",
+        "protocol",
+        "deploy",
+        "portal",
+        "config.py",
+        "cm_project_bootstrap.py",
+        "requirements.txt",
+    )
     archive_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(prefix="computemesh-source-", suffix=".tar", dir=BUILD_DIR, delete=False) as handle:
