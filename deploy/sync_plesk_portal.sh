@@ -202,6 +202,9 @@ echo "[4/7] Synchronizing signed immutable release downloads..."
 rsync -av --delete "${DOWNLOADS_SRC}/" "${SITE2_DIR}/downloads/"
 rsync -av --delete "${DOWNLOADS_SRC}/" "${HTTPDOCS_DIR}/downloads/"
 chown -R "${PLESK_USER}:${PLESK_GROUP}" "${HTTPDOCS_DIR}/downloads" "${SITE2_DIR}/downloads"
+# rsync preserves the local directory mode; public Plesk static assets must be
+# traversable by nginx while remaining owned by the subscription user.
+find "${SITE2_DIR}/downloads" "${HTTPDOCS_DIR}/downloads" -type d -exec chmod 755 {} +
 
 # 6. Restart services with strict exit code checking
 echo "[5/7] Restarting backend services..."
