@@ -38,12 +38,28 @@
 	var agentTaskCancelButton = null;
 	var agentTaskActionMessage = null;
 	var agentTaskBusy = false;
+	var WEBUI_STUDIO_TITLE = 'ComputeMesh WebUI Studio';
 	var agentArtifactPanel = null;
 	var agentArtifacts = [];
 	var agentApprovals = [];
 	var agentSessionLastEvent = '';
 	var AGENT_SESSION_CACHE_KEY = 'cm_agent_sessions_cache_v1';
 	var AGENT_PANEL_OPEN_KEY = 'cm_agent_panel_open_v1';
+
+	function enforceWebUiStudioTitle() {
+		function applyTitle() {
+			if (document.title !== WEBUI_STUDIO_TITLE) document.title = WEBUI_STUDIO_TITLE;
+		}
+		applyTitle();
+		var titleElement = document.querySelector('title') || document.head;
+		if (titleElement) {
+			new MutationObserver(applyTitle).observe(titleElement, {
+				childList: true,
+				characterData: true,
+				subtree: true
+			});
+		}
+	}
 	var agentPanelLabels = {
 		de: { open: 'Agenten', close: 'Agenten schließen', help: 'Agenten erledigen längere Aufgaben in mehreren Schritten. Hier kannst du Aufgaben starten, Fortschritt sehen und nötige Freigaben erteilen.' },
 		en: { open: 'Agents', close: 'Close agents', help: 'Agents handle longer, multi-step tasks. Start work here, follow progress and review required approvals.' }
@@ -1893,6 +1909,7 @@
 	setInterval(installAgentWorkspaceNavigation, 1000);
 	installImageUploadOptimization();
 	installImageTagRewriter();
+	enforceWebUiStudioTitle();
 	setInterval(renderModelInfoFallback, 500);
 
 	function fetchMeshShardingPlan() {

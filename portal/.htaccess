@@ -6,9 +6,16 @@ RewriteBase /
 # a generic GitHub releases page: a missing/unverified binary must return 404.
 # The tagged-portal-release gate requires every published download to exist.
 #
-# German URL Aliases
+# Language Subdirectory Clean Routing
+RewriteRule ^de/?$ de/index.html [L,QSA]
+RewriteRule ^en/?$ en/index.html [L,QSA]
+
+# German & B2B SEO URL Aliases
 RewriteRule ^datenschutz/?$ privacy.html [L,QSA]
 RewriteRule ^kontakt/?$ contact.html [L,QSA]
+RewriteRule ^openai-alternative-dsgvo/?$ openai-alternative-dsgvo.html [L,QSA]
+RewriteRule ^gpu-vermieten/?$ gpu-vermieten.html [L,QSA]
+RewriteRule ^modelle/?$ modelle.html [L,QSA]
 
 # Explicit routing for pages that share a name with a directory
 RewriteRule ^downloads/?$ downloads.html [L,QSA]

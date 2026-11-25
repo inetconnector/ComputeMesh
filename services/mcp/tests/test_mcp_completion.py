@@ -224,7 +224,7 @@ class TestCompletedRegistry(unittest.TestCase):
             {"city": "Würzburg", "force_refresh": True},
             is_owner=False,
         )
-        self.assertIn("Unbekannte Tool-Parameter", result["error"])
+        self.assertIn("Unbekannte Parameter: force_refresh", result["error"])
 
     def test_strict_schema_rejects_out_of_range(self):
         result = self.registry.execute_tool(

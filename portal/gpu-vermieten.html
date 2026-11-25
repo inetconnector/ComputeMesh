@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU vermieten & 75 % Erlös per SEPA erhalten | ComputeMesh</title>
+  <meta name="description" content="Eigene NVIDIA- & AMD-GPUs unter Linux, Windows oder Debian 13 NodeOS vermieten. Ed25519-Attestierung und automatische Stripe-Connect-SEPA-Auszahlung.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://inetconnector.com/gpu-vermieten">
+  <link rel="alternate" hreflang="de" href="https://inetconnector.com/gpu-vermieten">
+  <link rel="alternate" hreflang="en" href="https://inetconnector.com/gpu-vermieten?lang=en">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="GPU vermieten & 75 % Erlös per SEPA erhalten | ComputeMesh">
+  <meta property="og:description" content="Eigene NVIDIA- & AMD-GPUs unter Linux, Windows oder Debian 13 NodeOS vermieten. Ed25519-Attestierung und automatische Stripe-Connect-SEPA-Auszahlung.">
+  <meta property="og:url" content="https://inetconnector.com/gpu-vermieten">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Service",
+      "name": "ComputeMesh GPU Provider & Monetization Program",
+      "provider": {
+        "@type": "Organization",
+        "name": "ComputeMesh",
+        "url": "https://inetconnector.com/"
+      },
+      "areaServed": "European Economic Area",
+      "description": "Eigene NVIDIA- & AMD-GPUs unter Linux, Windows oder Debian 13 NodeOS vermieten. Ed25519-Attestierung und automatische Stripe-Connect-SEPA-Auszahlung."
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "ComputeMesh",
+          "item": "https://inetconnector.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "GPU vermieten",
+          "item": "https://inetconnector.com/gpu-vermieten"
+        }
+      ]
+    }
+  ]
+}
+  </script>
+  <link rel="stylesheet" href="/portal.css?v=5.2">
+  <link rel="stylesheet" href="/portal-business.css?v=5.1">
+</head>
+<body>
+  <header class="site-header">
+    <!-- Row 1: Brand & Actions -->
+    <div class="container nav-top-row">
+      <a href="/" class="brand">
+        <span class="brand-logo">Inet<span class="gradient-text">Connector</span></span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
+      </a>
+
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+          <li><a href="/agent" class="nav-link">🤖 Agent Workspace</a></li>
+          <li class="nav-item has-dropdown">
+            <a href="/products" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/playground" class="dropdown-item">
+                <span class="item-icon">⚡</span>
+                <div>
+                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
+                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
+                </div>
+              </a>
+              <a href="/marketplace" class="dropdown-item">
+                <span class="item-icon">🖥️</span>
+                <div>
+                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
+                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
+                </div>
+              </a>
+              <a href="/models" class="dropdown-item">
+                <span class="item-icon">📚</span>
+                <div>
+                  <strong data-i18n="nav_prod_models">Model Library</strong>
+                  <p data-i18n="nav_prod_models_sub">Live-Modellkatalog</p>
+                </div>
+              </a>
+              <a href="/lan-mesh" class="dropdown-item">
+                <span class="item-icon">🏠</span>
+                <div>
+                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
+                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li class="nav-item has-dropdown">
+            <a href="/projects" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/downloads" class="dropdown-item">
+                <span class="item-icon">🤖</span>
+                <div>
+                  <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
+                  <p data-i18n="nav_app_localcode_sub">Download &amp; Autonome IDE-Übersicht</p>
+                </div>
+              </a>
+              <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🛡️</span>
+                <div>
+                  <strong data-i18n="nav_app_aegis">Aegis AI Risk Terminal</strong>
+                  <p data-i18n="nav_app_aegis_sub">Frühwarnsystem für Börsencrashs &amp; Marktrisiken</p>
+                </div>
+              </a>
+              <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🌳</span>
+                <div>
+                  <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
+                  <p data-i18n="nav_app_ancesora_sub">Genealogieplattform für Familienarchive, Personen &amp; Quellen</p>
+                </div>
+              </a>
+              <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📅</span>
+                <div>
+                  <strong data-i18n="nav_app_today">Heute &amp; Morgen</strong>
+                  <p data-i18n="nav_app_today_sub">Konzerte heute und morgen nach Ort, PLZ &amp; Radius</p>
+                </div>
+              </a>
+              <a href="https://trade.inetconnector.com/" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📉</span>
+                <div>
+                  <strong data-i18n="nav_app_causamind">CausaMind Market Predictor</strong>
+                  <p data-i18n="nav_app_causamind_sub">Research-Signale und risikobewusste Kauf-/Verkaufspläne</p>
+                </div>
+              </a>
+              <a href="https://smartx.inetconnector.com/" target="_blank" rel="noopener noreferrer" class="dropdown-item">
+                <span class="item-icon">⛓️</span>
+                <div>
+                  <strong data-i18n="nav_app_smartx">SmartX Blockchain</strong>
+                  <p data-i18n="nav_app_smartx_sub">Blockchain-Projekt und dezentrales Netzwerk von InetConnector</p>
+                </div>
+              </a>
+              <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📱</span>
+                <div>
+                  <strong data-i18n="nav_app_hub">Google Play Store</strong>
+                  <p data-i18n="nav_app_hub_sub">Offizielle Android-Apps von InetConnector</p>
+                </div>
+              </a>
+              <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">💻</span>
+                <div>
+                  <strong data-i18n="nav_app_github">GitHub Ecosystem</strong>
+                  <p data-i18n="nav_app_github_sub">Open Source, Python SDK, ControlPlane &amp; Tools</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container" style="padding: 4rem 1.5rem; max-width: 1040px;">
+    <div class="section-header" style="text-align: left; margin-bottom: 2.5rem;">
+      <span class="section-tag" style="color: var(--accent-emerald);" data-i18n="lp_gpu_tag">HARDWARE-PROVIDER & RECHENZENTREN</span>
+      <h1 style="font-size: 2.4rem; margin: 0.75rem 0 1rem;" data-i18n="lp_gpu_h1">Eigene GPU vermieten & Rechenleistung per SEPA monetarisieren</h1>
+      <p style="color: var(--text-muted); font-size: 1.08rem; line-height: 1.65;" data-i18n="lp_gpu_sub">Binde NVIDIA-CUDA- oder AMD-Vulkan-Grafikkarten unter Linux, Windows oder unserer dedizierten Debian-13-NodeOS-Appliance an. Verdiene 75 % der abgerechneten Inferenzgebühren mit automatischer SEPA-Auszahlung über Stripe Connect.</p>
+      <div style="display: flex; gap: 0.85rem; flex-wrap: wrap; margin-top: 1.5rem;">
+        <button class="btn btn-emerald" onclick="openModal('provider')" data-i18n="market_provider_button">⚡ GPU jetzt registrieren</button>
+        <a href="/downloads" class="btn btn-secondary" data-i18n="nav_downloads">Downloads</a>
+        <a href="/fleet" class="btn btn-secondary" data-i18n="nav_fleet">Flotte verwalten</a>
+      </div>
+    </div>
+
+    <section style="margin-bottom: 3.5rem;">
+      <h2 style="font-size: 1.65rem; margin-bottom: 1.25rem;" data-i18n="lp_gpu_steps_h2">In 3 Schritten eigene GPU-Hardware anschließen</h2>
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+        <div class="feature-card" style="border-top: 3px solid var(--accent-emerald);">
+          <h3 style="margin-bottom: 0.5rem;" data-i18n="lp_gpu_s1_t">1. Provider-Konto registrieren</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_gpu_s1_d">Erstelle einen B2B-Provider-Schlüssel oder melde dich passwortlos per FIDO2-Passkey im Flotten-Cockpit an und wähle dein EWR-Betriebsland.</p>
+        </div>
+        <div class="feature-card" style="border-top: 3px solid var(--accent-cyan);">
+          <h3 style="margin-bottom: 0.5rem;" data-i18n="lp_gpu_s2_t">2. Signierten Node-Client starten</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_gpu_s2_d">Installiere den Linux-Daemon, den Windows-System-Tray-Client oder flashe unser bootfähiges NodeOS-Image für Multi-GPU-Rigs (4–12 GPUs).</p>
+        </div>
+        <div class="feature-card" style="border-top: 3px solid var(--accent-indigo);">
+          <h3 style="margin-bottom: 0.5rem;" data-i18n="lp_gpu_s3_t">3. Attestieren & SEPA-Auszahlungen erhalten</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_gpu_s3_d">Dein Node signiert Heartbeats und Job-Nachweise per Ed25519. Akzeptierte Aufträge schreiben 75 % der Inferenzgebühren im Double-Entry-Ledger gut – auszahlbar via Stripe Connect SEPA.</p>
+        </div>
+      </div>
+      <div class="feature-card" style="background: #070b14; border-color: rgba(16, 185, 129, 0.35); margin-top: 1.5rem; overflow-x: auto;">
+        <pre style="margin: 0; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.6; color: #e2e8f0;"><code># Inspect signed installer first, then register your Linux GPU node:
+curl -fsSL https://inetconnector.com/downloads/install.sh -o install-computemesh.sh
+less install-computemesh.sh
+sudo bash install-computemesh.sh</code></pre>
+      </div>
+    </section>
+
+    <section style="margin-bottom: 2rem;">
+      <h2 style="font-size: 1.65rem; margin-bottom: 1.25rem;" data-i18n="lp_gpu_hw_h2">Unterstützte GPU-Klassen & Software-Appliances</h2>
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+        <div class="feature-card">
+          <h3 style="margin-bottom: 0.5rem;" data-i18n="lp_gpu_hw1_t">Workstation- & Gaming-GPUs (8–24 GiB VRAM)</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_gpu_hw1_d">Optimal für RTX 3080, RTX 4070/4080/4090 und Radeon RX 7900 XTX zur schnellen Ausführung von 7B–32B Coding- und Reasoning-Modellen.</p>
+        </div>
+        <div class="feature-card">
+          <h3 style="margin-bottom: 0.5rem; color: var(--accent-emerald);" data-i18n="lp_gpu_hw2_t">Multi-GPU-Mining-Rigs (NodeOS Bare-Metal)</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_gpu_hw2_d">Verwandle bestehende GPU-Rigs mit unserem kryptografisch signierten Debian-13-NodeOS-ISO- und USB-Flash-Image in schlüsselfertige KI-Inferenz-Appliances.</p>
+        </div>
+        <div class="feature-card">
+          <h3 style="margin-bottom: 0.5rem; color: var(--accent-cyan);" data-i18n="lp_gpu_hw3_t">Rechenzentrums-Beschleuniger (48–128+ GiB VRAM)</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_gpu_hw3_d">Betreibe 70B+ Flaggschiff-Modelle auf RTX A6000, L40S, A100 und H100 Servern mit mTLS 1.3 und atomarer Quota-Reservierung.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modals -->
+  <!-- Registration Modal -->
+  <div id="register-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.4rem;" data-i18n="modal_title">Mit ComputeMesh starten</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;" data-i18n="modal_sub">Erstelle deinen API-Key in wenigen Sekunden für blitzschnelle KI-Inferenz.</p>
+      <form id="registration-form" onsubmit="handleRegistration(event)">
+        <div class="form-group">
+          <label data-i18n="modal_role_lbl">Konto-Typ:</label>
+          <select id="modal-role" class="form-control">
+            <option value="consumer" data-i18n="role_consumer">Developer-API nutzen (KI-Inferenz ausführen)</option>
+            <option value="provider" data-i18n="role_provider">Hardware-Provider werden (GPUs monetarisieren)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label>
+          <input type="email" id="modal-email" class="form-control" required placeholder="developer@company.com">
+        </div>
+
+        <div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem; padding: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Provider-Betriebsland (EWR/EU)</label>
+            <select id="cm-provider-country" class="form-control" style="cursor: pointer;">
+              <option value="" data-i18n="modal_country_select">Land auswählen…</option>
+              <option value="DE">Deutschland (DE)</option>
+              <option value="AT">Österreich (AT)</option>
+              <option value="CH">Schweiz (CH)</option>
+              <option value="FR">Frankreich (FR)</option>
+              <option value="NL">Niederlande (NL)</option>
+              <option value="SE">Schweden (SE)</option>
+              <option value="NO">Norwegen (NO)</option>
+              <option value="FI">Finnland (FI)</option>
+              <option value="DK">Dänemark (DK)</option>
+              <option value="PL">Polen (PL)</option>
+              <option value="IT">Italien (IT)</option>
+              <option value="ES">Spanien (ES)</option>
+              <option value="IE">Irland (IE)</option>
+              <option value="BE">Belgien (BE)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label data-i18n="modal_wallet_lbl" style="font-size: 0.82rem; color: var(--text-muted);">Auszahlungs-Wallet (Optional)</label>
+            <input type="text" id="modal-wallet" class="form-control" placeholder="0x... (EVM / Polygon / Arbitrum)">
+          </div>
+        </div>
+
+        <div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;">
+          <label style="display:flex;gap:.55rem;align-items:flex-start;cursor:pointer;"><input id="business-user-confirm" type="checkbox" required style="margin-top:.2rem"> <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span></label>
+        </div>
+
+        <button id="modal-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">🚀 API-Key generieren</button>
+      </form>
+
+      <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+        <label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Dein persönlicher API-Key:</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <input id="generated-key-val" type="text" class="form-control" readonly style="font-family: var(--font-mono); color: var(--accent-cyan);">
+          <button class="btn btn-secondary" onclick="copyKey()" data-i18n="modal_copy_btn">Schlüssel kopieren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deposit Modal -->
+  <div id="deposit-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeDepositModal()">&times;</button>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Rechenguthaben aufladen</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Lade dein Inferenzguthaben sicher über Stripe Checkout auf. Guthaben verfällt nie und wird nur bei erfolgreicher Token-Generierung abgerechnet.</p>
+      <form onsubmit="handleDepositSubmit(event)">
+        <div class="form-group">
+          <label data-i18n="topup_key_lbl">Dein API-Schlüssel:</label>
+          <input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);">
+        </div>
+        <div class="form-group">
+          <label data-i18n="topup_select_amount_lbl">Aufladebetrag auswählen:</label>
+          <select id="deposit-amount-select" class="form-control" style="cursor: pointer;">
+            <option value="10">$10.00 USD (Starter)</option>
+            <option value="25" selected>$25.00 USD (Pro)</option>
+            <option value="50">$50.00 USD (Scale)</option>
+            <option value="100">$100.00 USD (Enterprise Light)</option>
+            <option value="500">$500.00 USD (High-Volume)</option>
+          </select>
+        </div>
+        <button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="btn_topup_proceed">Weiter zum sicheren Checkout →</button>
+      </form>
+      <div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div>
+    </div>
+  </div>
+
+  <!-- Teaser Conversion Modal -->
+  <div id="teaser-conversion-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-box modal-lg">
+      <button class="modal-close" onclick="closeTeaserConversionModal()">&times;</button>
+      <div class="section-tag" style="display: inline-block; margin-bottom: 0.5rem;" data-i18n="conv_tag">Jetzt durchstarten</div>
+      <h3 style="font-size: 1.75rem; margin-bottom: 0.5rem; letter-spacing: -0.02em;" data-i18n="conv_title">Bereit für High-Speed KI-Inferenz?</h3>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;" data-i18n="conv_sub">Generiere deinen API-Key oder werde Teil unseres globalen GPU-Netzwerks.</p>
+      <div class="conv-options-grid">
+        <div class="conv-card highlight">
+          <div>
+            <span class="conv-card-badge" data-i18n="conv_opt1_badge">Entwickler</span>
+            <h4 style="font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 700; color: #ffffff;" data-i18n="conv_opt1_title">🔑 Sofortiger API-Zugang</h4>
+            <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt1_desc">Starte in unter 60 Sekunden mit leistungsstarken Open-Source-Modellen.</p>
+          </div>
+          <button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 0.85rem 1.25rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('consumer');" data-i18n="conv_opt1_btn">Kostenlosen API-Key holen →</button>
+        </div>
+
+        <div class="conv-card emerald">
+          <div>
+            <span class="conv-card-badge emerald" data-i18n="conv_opt2_badge">Hardware-Provider</span>
+            <h4 style="font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 700; color: #ffffff;" data-i18n="conv_opt2_title">⚡ Rechenleistung monetarisieren</h4>
+            <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt2_desc">Schließe deine Grafikkarten an und profitiere von automatischen Auszahlungen.</p>
+            <div class="conv-cli-box">
+              <code>curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</code>
+              <button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash')" title="Befehl kopieren">📋</button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; margin-top: 0.75rem; flex-wrap: wrap;">
+            <button class="btn btn-emerald" style="flex: 1 1 140px; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('provider');" data-i18n="conv_opt2_btn">GPU-Node registrieren</button>
+            <a href="/downloads" class="btn btn-secondary" style="flex: 1 1 140px; text-align: center; text-decoration: none; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal();" data-i18n="conv_opt2_dl">Downloads ansehen</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid" style="grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));">
+        <div>
+          <div class="brand" style="margin-bottom: 1rem;">
+            <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 320px;" data-i18n="footer_brand_desc">
+            Dezentrale High-Performance GPU-Rechenleistung für moderne KI-Workloads. Nahtlos skalieren mit OpenAI-kompatibler API.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_platform">Plattform</h4>
+          <ul class="footer-links">
+            <li><a href="/openai-alternative-dsgvo" data-i18n="seo_btn_openai_alt">OpenAI-Alternative & DSGVO-Leitfaden →</a></li>
+            <li><a href="/gpu-vermieten" data-i18n="seo_btn_rent_out_gpu">Eigene GPU-Hardware vermieten →</a></li>
+            <li><a href="/modelle" data-i18n="nav_models">Modelle</a></li>
+            <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+            <li><a href="/pricing" data-i18n="nav_pricing">Preise & Rechner</a></li>
+            <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_resources">Ressourcen</h4>
+          <ul class="footer-links">
+            <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+            <li><a href="/benchmarks" data-i18n="nav_benchmarks">Benchmarks</a></li>
+            <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+            <li><a href="/fleet" data-i18n="nav_fleet">Flotte verwalten</a></li>
+            <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_legal">Rechtliches & Compliance</h4>
+          <ul class="footer-links">
+            <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald); font-weight: 600;">🛡️ Sicherheit & DSGVO</a></li>
+            <li><a href="/terms" data-i18n="nav_terms">AGB</a></li>
+            <li><a href="/privacy" data-i18n="nav_privacy">Datenschutz</a></li>
+            <li><a href="/impressum" data-i18n="nav_impressum">Impressum</a></li>
+            <li><a href="/contact" data-i18n="nav_support">Support</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_ecosystem">Ökosystem-Apps</h4>
+          <ul class="footer-links" style="font-size: 0.84rem; opacity: 0.85;">
+            <li><a href="https://aegis.inetconnector.com" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_aegis">Aegis AI Risk Terminal</a></li>
+            <li><a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_ancesora">Ancesora AI</a></li>
+            <li><a href="https://today.inetconnector.com" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_today">Heute & Morgen</a></li>
+            <li><a href="https://trade.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_causamind">CausaMind Market Predictor</a></li>
+            <li><a href="https://smartx.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_smartx">SmartX Blockchain</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.</span></div>
+        <div><a href="/status" data-i18n="footer_tech_status">Systemstatus: Voll einsatzbereit</a></div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/portal-core.js?v=5.4"></script>
+  <script src="/portal.js?v=5.3"></script>
+</body>
+</html>

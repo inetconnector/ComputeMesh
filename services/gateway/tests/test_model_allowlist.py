@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from services.gateway.model_allowlist import (
     load_model_allowlist,
     model_selection_error,
@@ -34,9 +33,16 @@ def test_unlisted_runtime_models_are_not_accepted() -> None:
 
 
 def test_selection_uses_vram_tiers_and_installed_models() -> None:
-    installed = ["qwen2.5:3b", "qwen2.5-coder:14b", "qwen3:32b", "noma-mica:latest"]
+    installed = [
+        "qwen2.5:3b",
+        "qwen2.5-coder:14b",
+        "bartowski/qwen2.5-32b-instruct-gguf",
+        "qwen3:32b",
+        "noma-mica:latest",
+    ]
     assert select_best_allowed_model(installed, vram_gib=4) == "qwen2.5:3b"
     assert select_best_allowed_model(installed, vram_gib=32) == "qwen2.5-coder:14b"
+    assert select_best_allowed_model(installed, vram_gib=48) == "bartowski/qwen2.5-32b-instruct-gguf"
     assert select_best_allowed_model(installed, vram_gib=64) == "qwen3:32b"
 
 

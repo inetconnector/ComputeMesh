@@ -10,12 +10,62 @@
   const PAGE_META_I18N = {
     '/': {
       en: {
-        title: 'ComputeMesh — AI compute from idle graphics cards',
-        desc: 'ComputeMesh connects idle graphics cards into an AI compute network. Test requests through one gateway, register hardware as a provider, and see what already works today.'
+        title: 'ComputeMesh | GDPR AI Inference API & European GPU Cloud',
+        desc: 'OpenAI-compatible AI API with GDPR-aligned EEA hosting, zero disk retention & Ed25519 attestation. Start in 60s or monetize your GPUs via SEPA.'
       },
       de: {
-        title: 'ComputeMesh — KI-Rechenleistung aus freien Grafikkarten',
-        desc: 'ComputeMesh verbindet freie Grafikkarten zu einem KI-Rechennetzwerk. KI-Anfragen über ein Gateway testen, Hardware als Provider registrieren und sehen, was heute schon funktioniert.'
+        title: 'ComputeMesh | DSGVO KI-Inferenz-API & GPU-Cloud in Europa',
+        desc: 'OpenAI-kompatible KI-API mit EWR-Hosting nach DSGVO-Standards, Zero-Disk-Retention & Ed25519-Attestierung. In 60s starten oder eigene GPUs vermieten.'
+      }
+    },
+    '/de/': {
+      en: {
+        title: 'ComputeMesh | GDPR AI Inference API & European GPU Cloud',
+        desc: 'OpenAI-compatible AI API with GDPR-aligned EEA hosting, zero disk retention & Ed25519 attestation. Start in 60s or monetize your GPUs via SEPA.'
+      },
+      de: {
+        title: 'ComputeMesh | DSGVO KI-Inferenz-API & GPU-Cloud in Europa',
+        desc: 'OpenAI-kompatible KI-API mit EWR-Hosting nach DSGVO-Standards, Zero-Disk-Retention & Ed25519-Attestierung. In 60s starten oder eigene GPUs vermieten.'
+      }
+    },
+    '/en/': {
+      en: {
+        title: 'ComputeMesh | GDPR AI Inference API & European GPU Cloud',
+        desc: 'OpenAI-compatible AI API with GDPR-aligned EEA hosting, zero disk retention & Ed25519 attestation. Start in 60s or monetize your GPUs via SEPA.'
+      },
+      de: {
+        title: 'ComputeMesh | DSGVO KI-Inferenz-API & GPU-Cloud in Europa',
+        desc: 'OpenAI-kompatible KI-API mit EWR-Hosting nach DSGVO-Standards, Zero-Disk-Retention & Ed25519-Attestierung. In 60s starten oder eigene GPUs vermieten.'
+      }
+    },
+    '/openai-alternative-dsgvo': {
+      en: {
+        title: 'GDPR OpenAI Alternative in Europe | ComputeMesh AI API',
+        desc: 'European OpenAI & Ollama drop-in API with EEA data residency, zero disk retention, Art. 28 GDPR DPA, and Python SDK migration guide.'
+      },
+      de: {
+        title: 'DSGVO OpenAI-Alternative in Europa | ComputeMesh KI-API',
+        desc: 'Europäische OpenAI- & Ollama-API mit EWR-Hosting, Zero-Disk-Retention, AVV nach Art. 28 DSGVO und Python-Migrationsanleitung.'
+      }
+    },
+    '/gpu-vermieten': {
+      en: {
+        title: 'Rent Out Your GPU & Earn 75% via SEPA | ComputeMesh',
+        desc: 'Monetize NVIDIA & AMD GPUs on Linux, Windows, or Debian 13 NodeOS. Ed25519 hardware attestation and automated Stripe Connect SEPA payouts.'
+      },
+      de: {
+        title: 'GPU vermieten & 75 % Erlös per SEPA erhalten | ComputeMesh',
+        desc: 'Eigene NVIDIA- & AMD-GPUs unter Linux, Windows oder Debian 13 NodeOS vermieten. Ed25519-Attestierung und automatische Stripe-Connect-SEPA-Auszahlung.'
+      }
+    },
+    '/modelle': {
+      en: {
+        title: 'Open-Source AI Models via European API | ComputeMesh',
+        desc: 'Run DeepSeek-R1, Llama 3.3 70B, Qwen 2.5 Coder 32B & Mistral Large 2 via an OpenAI-compatible European API with zero disk retention.'
+      },
+      de: {
+        title: 'Open-Source-KI-Modelle über EU-API nutzen | ComputeMesh',
+        desc: 'DeepSeek-R1, Llama 3.3 70B, Qwen 2.5 Coder 32B & Mistral Large 2 über eine OpenAI-kompatible EU-API mit Zero-Disk-Retention integrieren.'
       }
     },
     '/downloads': {

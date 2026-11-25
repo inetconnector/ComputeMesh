@@ -9,7 +9,26 @@ from urllib.parse import urlsplit
 import pytest
 
 PORTAL = Path(__file__).resolve().parents[1] / "portal"
-ROUTES = ("/", "/products", "/projects", "/marketplace", "/models", "/pricing", "/downloads", "/lan-mesh", "/playground", "/docs", "/security", "/status", "/fleet")
+ROUTES = (
+    "/",
+    "/de/",
+    "/en/",
+    "/openai-alternative-dsgvo",
+    "/gpu-vermieten",
+    "/modelle",
+    "/products",
+    "/projects",
+    "/marketplace",
+    "/models",
+    "/pricing",
+    "/downloads",
+    "/lan-mesh",
+    "/playground",
+    "/docs",
+    "/security",
+    "/status",
+    "/fleet",
+)
 
 
 @pytest.mark.skipif(os.getenv("COMPUTEMESH_BROWSER_E2E") != "1", reason="browser E2E opt-in")
@@ -31,8 +50,10 @@ def test_portal_documents_navigation_and_layout(width):
             if path.startswith(("/api/", "/v1/")):
                 route.fulfill(json={"active_gpus": 1, "total_vram_gb": 16, "total_nodes": 1, "total_tflops": 0, "measurement_status": "live", "nodes": [], "data": []})
                 return
-            target = PORTAL / ("index.html" if path == "/" else path.lstrip("/"))
-            if not target.suffix:
+            target = PORTAL / ("index.html" if path == "/" else path.strip("/"))
+            if target.is_dir() and (target / "index.html").is_file():
+                target = target / "index.html"
+            elif not target.suffix:
                 target = target.with_suffix(".html")
             if target.is_file():
                 route.fulfill(path=str(target))
@@ -64,9 +85,19 @@ def test_portal_documents_navigation_and_layout(width):
                         assert win_button.inner_text() == "Download ComputeMesh (.exe)"
                         assert page.locator('[data-i18n="dl_win_title"]').inner_text() == "Windows Provider Agent"
                     assert "Setup" not in win_button.inner_text()
+                if path in ("/", "/de/", "/en/"):
+                    expected_h1 = (
+                        "DSGVO-konforme KI-Inferenz-API & Dezentrale GPU-Cloud"
+                        if language == "de"
+                        else "GDPR-Aligned AI Inference API & Decentralized GPU Cloud"
+                    )
+                    assert page.locator("h1").inner_text() == expected_h1
             if path == "/":
-                assert page.locator("h1").inner_text() == "ComputeMesh"
-                assert page.locator('a[href="https://smartx.inetconnector.com/"]').count() > 0
+                assert page.locator("#apps").count() == 0
+                assert page.locator('footer a[href="https://smartx.inetconnector.com/"]').count() > 0
+                assert page.locator('link[hreflang="de"]').count() == 1
+                assert page.locator('link[hreflang="en"]').count() == 1
+                assert page.locator('link[hreflang="x-default"]').count() == 1
                 page.screenshot(path=str(Path(os.getenv("TEMP", ".")) / f"computemesh-portal-{width}.png"), full_page=True)
         assert errors == []
         browser.close()
@@ -88,8 +119,10 @@ def test_navigation_dropdown_pointer_crosses_gap_and_clicks_link(width):
             if path.startswith(("/api/", "/v1/")):
                 route.fulfill(json={"nodes": [], "data": []})
                 return
-            target = PORTAL / ("index.html" if path == "/" else path.lstrip("/"))
-            if not target.suffix:
+            target = PORTAL / ("index.html" if path == "/" else path.strip("/"))
+            if target.is_dir() and (target / "index.html").is_file():
+                target = target / "index.html"
+            elif not target.suffix:
                 target = target.with_suffix(".html")
             if target.is_file():
                 route.fulfill(path=str(target))
@@ -145,8 +178,10 @@ def test_downloads_page_uses_one_language_and_short_windows_button():
             if path.startswith(("/api/", "/v1/")):
                 route.fulfill(json={"nodes": [], "data": []})
                 return
-            target = PORTAL / ("index.html" if path == "/" else path.lstrip("/"))
-            if not target.suffix:
+            target = PORTAL / ("index.html" if path == "/" else path.strip("/"))
+            if target.is_dir() and (target / "index.html").is_file():
+                target = target / "index.html"
+            elif not target.suffix:
                 target = target.with_suffix(".html")
             if target.is_file():
                 route.fulfill(path=str(target))
@@ -191,8 +226,8 @@ def test_every_portal_document_uses_the_same_navigation_and_asset_versions():
     assert canonical is not None
     expected = hashlib.sha256(canonical.group(0).encode("utf-8")).hexdigest()
 
-    # The Agent Workspace is a canonical portal document as well.
-    assert len(documents) == 29
+    # The Agent Workspace, /de/, /en/, and B2B SEO landing pages are canonical portal documents.
+    assert len(documents) == 34
     agent_document = PORTAL / "agent.html"
     for document in documents:
         text = document.read_text(encoding="utf-8-sig")

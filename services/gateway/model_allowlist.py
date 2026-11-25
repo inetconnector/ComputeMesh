@@ -134,7 +134,7 @@ def _validate(document: dict[str, Any]) -> "ModelAllowlist":
     if not isinstance(raw_tiers, dict):
         raise ModelAllowlistError("model allowlist tiers are required")
     for tier, ids in raw_tiers.items():
-        if str(tier) not in {"4", "8", "16", "32", "64", "128"}:
+        if str(tier) not in {"4", "8", "16", "32", "48", "64", "128"}:
             raise ModelAllowlistError(f"unsupported VRAM tier: {tier}")
         if not isinstance(ids, list) or not ids:
             raise ModelAllowlistError(f"VRAM tier {tier} must contain models")

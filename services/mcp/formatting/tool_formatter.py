@@ -1166,19 +1166,19 @@ def format_tool_content_if_json(content: str) -> str:
             results_list = data.get("results", [])
             if not results_list:
                 return f"Für die Suchanfrage **'{q}'** wurden keine Live-Websuchergebnisse gefunden."
-            res_str = f"Live-Websuchergebnisse für **'{q}'**:\n\n"
-            for idx, r in enumerate(results_list[:5], 1):
+            res_str = f"### 🌐 **Live-Webrecherche:** *{q}*\n*(ComputeMesh MCP • MICA-Verifiziert • {len(results_list[:6])} Quellen analysiert)*\n\n"
+            for idx, r in enumerate(results_list[:6], 1):
                 if not isinstance(r, dict):
                     continue
-                title = r.get("title", "")
+                title = r.get("title", f"Ergebnis {idx}")
                 url = r.get("url", "")
                 snippet = r.get("snippet", "")
-                if url and title:
-                    res_str += f"{idx}. [{title}]({url})\n"
-                elif title:
-                    res_str += f"{idx}. **{title}**\n"
+                link_part = f" ([Quelle aufrufen]({url}))" if url else ""
+                res_str += f"**{idx}. {title}**\n"
                 if snippet:
-                    res_str += f"   {snippet}\n\n"
+                    res_str += f"> {snippet}{link_part}\n\n"
+                else:
+                    res_str += f"{link_part}\n\n"
             return res_str.strip()
 
         if "available_tools" in data and isinstance(data.get("available_tools"), list):

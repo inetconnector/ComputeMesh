@@ -13,6 +13,7 @@ SITE2_DIR="/var/www/vhosts/inetconnector.com/site2"
 HTTPDOCS_DIR="/var/www/vhosts/inetconnector.com/httpdocs"
 PLESK_USER="inetconnector"
 PLESK_GROUP="psacln"
+PLESK_WEBROOT_GROUP="psaserv"
 DOWNLOADS_SRC="${REPO_DIR}/portal/downloads"
 BACKUP_MODE="${COMPUTEMESH_BACKUP_MODE:-host-managed}"
 BACKUP_ROOT="/var/backups/computemesh_portal"
@@ -108,10 +109,16 @@ rollback_and_exit() {
   if [ "${BACKUP_MODE}" = "server" ] && [ -f "${SITE2_BACKUP}" ] && [ -d "${SITE2_DIR}" ]; then
     echo "Restoring site2 from ${SITE2_BACKUP}..."
     tar --exclude='downloads' -xzf "${SITE2_BACKUP}" -C "${SITE2_DIR}" || true
+    chown -R "${PLESK_USER}:${PLESK_GROUP}" "${SITE2_DIR}" || true
+    chown "${PLESK_USER}:${PLESK_WEBROOT_GROUP}" "${SITE2_DIR}" || true
+    chmod 0750 "${SITE2_DIR}" || true
   fi
   if [ "${BACKUP_MODE}" = "server" ] && [ -f "${HTTPDOCS_BACKUP}" ] && [ -d "${HTTPDOCS_DIR}" ]; then
     echo "Restoring httpdocs from ${HTTPDOCS_BACKUP}..."
     tar --exclude='downloads' -xzf "${HTTPDOCS_BACKUP}" -C "${HTTPDOCS_DIR}" || true
+    chown -R "${PLESK_USER}:${PLESK_GROUP}" "${HTTPDOCS_DIR}" || true
+    chown "${PLESK_USER}:${PLESK_WEBROOT_GROUP}" "${HTTPDOCS_DIR}" || true
+    chmod 0750 "${HTTPDOCS_DIR}" || true
   fi
   if [ "$EUID" -eq 0 ]; then
     systemctl restart computemesh-gateway.service || true
@@ -136,7 +143,9 @@ if [ -d "${SITE2_DIR}" ]; then
     test -s "${SITE2_BACKUP}" || { echo "Error: site2 backup archive is empty!"; exit 1; }
   fi
 
-  rsync -av \
+  rsync -rlptDv \
+    --no-perms --no-owner --no-group \
+    --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
     --exclude='.git' \
     --exclude='downloads' \
     --exclude='__pycache__' \
@@ -155,7 +164,9 @@ if [ -d "${SITE2_DIR}" ]; then
   rm -rf "${SITE2_DIR}"/__pycache__ "${SITE2_DIR}"/tests
 
   mkdir -p "${SITE2_DIR}/downloads"
-  chown "${PLESK_USER}:${PLESK_GROUP}" "${SITE2_DIR}"/* 2>/dev/null || true
+  chown -R "${PLESK_USER}:${PLESK_GROUP}" "${SITE2_DIR}"
+  chown "${PLESK_USER}:${PLESK_WEBROOT_GROUP}" "${SITE2_DIR}"
+  chmod 0750 "${SITE2_DIR}"
 fi
 
 # 4. Synchronize to httpdocs (inetconnector.com)
@@ -174,7 +185,9 @@ if [ -d "${HTTPDOCS_DIR}" ]; then
     test -s "${HTTPDOCS_BACKUP}" || { echo "Error: httpdocs backup archive is empty!"; exit 1; }
   fi
 
-  rsync -av \
+  rsync -rlptDv \
+    --no-perms --no-owner --no-group \
+    --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
     --exclude='.git' \
     --exclude='downloads' \
     --exclude='__pycache__' \
@@ -192,19 +205,22 @@ if [ -d "${HTTPDOCS_DIR}" ]; then
   rm -rf "${HTTPDOCS_DIR}"/__pycache__ "${HTTPDOCS_DIR}"/tests
 
   mkdir -p "${HTTPDOCS_DIR}/downloads"
-  chown "${PLESK_USER}:${PLESK_GROUP}" "${HTTPDOCS_DIR}"/* 2>/dev/null || true
+  chown -R "${PLESK_USER}:${PLESK_GROUP}" "${HTTPDOCS_DIR}"
+  chown "${PLESK_USER}:${PLESK_WEBROOT_GROUP}" "${HTTPDOCS_DIR}"
+  chmod 0750 "${HTTPDOCS_DIR}"
 fi
 
 # 5. Synchronize the complete immutable release asset tree to both webroots.
 # The release checkout is the single source of truth; --delete removes stale
 # server-only artifacts such as obsolete raw images from the public tree.
 echo "[4/7] Synchronizing signed immutable release downloads..."
-rsync -av --delete "${DOWNLOADS_SRC}/" "${SITE2_DIR}/downloads/"
-rsync -av --delete "${DOWNLOADS_SRC}/" "${HTTPDOCS_DIR}/downloads/"
+rsync -rlptDv --no-perms --no-owner --no-group --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r --delete "${DOWNLOADS_SRC}/" "${SITE2_DIR}/downloads/"
+rsync -rlptDv --no-perms --no-owner --no-group --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r --delete "${DOWNLOADS_SRC}/" "${HTTPDOCS_DIR}/downloads/"
 chown -R "${PLESK_USER}:${PLESK_GROUP}" "${HTTPDOCS_DIR}/downloads" "${SITE2_DIR}/downloads"
-# rsync preserves the local directory mode; public Plesk static assets must be
-# traversable by nginx while remaining owned by the subscription user.
-find "${SITE2_DIR}/downloads" "${HTTPDOCS_DIR}/downloads" -type d -exec chmod 755 {} +
+find "${SITE2_DIR}/downloads" "${HTTPDOCS_DIR}/downloads" -type d -exec chmod 0755 {} +
+find "${SITE2_DIR}/downloads" "${HTTPDOCS_DIR}/downloads" -type f -exec chmod 0644 {} +
+chown "${PLESK_USER}:${PLESK_WEBROOT_GROUP}" "${SITE2_DIR}" "${HTTPDOCS_DIR}"
+chmod 0750 "${SITE2_DIR}" "${HTTPDOCS_DIR}"
 
 # 6. Restart services with strict exit code checking
 echo "[5/7] Restarting backend services..."
@@ -245,6 +261,12 @@ if command -v curl >/dev/null 2>&1; then
   for url in \
     "https://mesh.inetconnector.com" \
     "https://inetconnector.com" \
+    "https://inetconnector.com/de/" \
+    "https://inetconnector.com/en/" \
+    "https://inetconnector.com/openai-alternative-dsgvo" \
+    "https://inetconnector.com/gpu-vermieten" \
+    "https://inetconnector.com/modelle" \
+    "https://inetconnector.com/sitemap.xml" \
     "https://ai.inetconnector.com"; do
     code=$(curl -s -o /dev/null -w "%{http_code}" -L "$url" || echo "000")
     if [ "$code" != "200" ] && [ "$code" != "301" ] && [ "$code" != "302" ]; then

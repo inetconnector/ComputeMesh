@@ -361,6 +361,9 @@ def check_freshness(root: Path, manifest: dict, problems: list[str]) -> None:
 def run(root: Path, *, publish: bool, verify_bytes: bool) -> tuple[list[str], list[str]]:
     portal = root / "portal"
     pages = sorted(p for p in portal.glob("*.html")) + [portal / "downloads" / "index.html"]
+    for extra in (portal / "de" / "index.html", portal / "en" / "index.html", *sorted((portal / "models").glob("*.html"))):
+        if extra.is_file() and extra not in pages:
+            pages.append(extra)
     problems: list[str] = []
     warnings: list[str] = []
     check_i18n(portal, pages, problems)

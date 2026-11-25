@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Playground | ComputeMesh</title>
+  <title>WebUI Studio | ComputeMesh</title>
   <meta name="description" content="ComputeMesh verbindet verteilte GPUs zu einem ultra-schnellen Inferenz-Netzwerk. OpenAI-kompatible Drop-in API für Entwickler, interaktiver GPU-Marketplace, Model Library und automatische Einnahmen für GPU-Provider. Bis zu 80% günstiger als Hyperscaler.">
   <meta name="keywords" content="ComputeMesh, GPU Cloud, Vast.ai Alternative, Distributed AI, GPU Inferenz, OpenAI API, Ollama, DeepSeek R1, Llama 3.3, Qwen 2.5, GPU Mining, KI Rechenzentrum, LocalCode">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -108,7 +108,7 @@
   <link rel="stylesheet" href="/portal.css?v=5.2">
   <link rel="stylesheet" href="/portal-business.css?v=5.1">
 </head>
-<body>
+<body class="playground-page">
     <!-- Top Navigation Header (2-Row Layout) -->
   <header class="site-header">
     <!-- Row 1: Brand & Actions -->
@@ -250,53 +250,83 @@
 <main class="portal-page">
 <section class="playground-sec" id="playground">
     <div class="container">
-      <div class="section-header">
-        <span class="section-tag" data-i18n="pg_tag">INTERAKTIVE DEMO</span>
-        <h2 data-i18n="pg_title">Erlebe die <span class="gradient-text">Geschwindigkeit des Meshs</span></h2>
+      <div class="section-header pg-page-intro">
+        <span class="section-tag" data-i18n="pg_tag">WEBUI STUDIO</span>
+        <h1 data-i18n="pg_title">Erlebe die <span class="gradient-text">Geschwindigkeit des Meshs</span></h1>
         <p data-i18n="pg_sub">Wähle ein aktuell verfügbares Modell aus dem Live-Katalog des Gateways und sende einen Prompt.</p>
       </div>
 
-      <div class="playground-studio">
-        <!-- Toolbar -->
+      <div class="playground-studio" aria-label="ComputeMesh WebUI Studio">
+        <!-- Compact studio header -->
         <div class="pg-toolbar">
-          <div class="pg-toolbar-left">
-            <div class="pg-control-group">
-              <label for="playground-model-select" class="pg-label" data-i18n="pg_model_lbl">Modell:</label>
-              <select id="playground-model-select" class="pg-select" onchange="syncPlaygroundModel(this.value)" disabled>
-                <option value="">Live-Modelle werden geladen...</option>
-              </select>
-            </div>
-            <div class="pg-cluster-badge">
-              <span class="pulse-dot"></span>
-              <span id="pg-cluster-status" data-i18n="pg_cluster_pending">Live-Modellkatalog wird geladen...</span>
-            </div>
-          </div>
-          <div class="pg-toolbar-right">
-            <div id="pg-teaser-quota-pill" class="pg-quota-pill" onclick="openTeaserConversionModal()" title="Konto- &amp; API-Optionen ansehen">
-              <span>⚡</span><span id="pg-quota-text" data-i18n="pg_quota_pill">Kostenloses Demo-Guthaben</span>
-            </div>
-            <button id="pg-clear-chat-btn" class="pg-btn-icon" onclick="clearPlaygroundChat()" title="Chat leeren">🗑️</button>
-          </div>
-        </div>
-
-        <!-- Chat Stream Box -->
-        <div id="playground-chat-stream" class="pg-chat-stream">
-          <div class="chat-msg chat-msg-ai">
-            <div class="chat-avatar">🤖</div>
-            <div class="chat-bubble">
-              <div class="chat-author">
-                <span data-i18n="pg_ai_author">ComputeMesh AI</span>
-                <span class="chat-badge" data-i18n="pg_ai_badge">LIVE MESH</span>
-              </div>
-              <div class="chat-body" data-i18n="pg_ai_welcome">
-                Willkommen bei ComputeMesh! Unser dezentrales Inferenz-Netzwerk ist online. Wie kann ich dir heute bei deinem Projekt helfen?
+          <div class="pg-studio-brand">
+            <span class="pg-studio-mark" aria-hidden="true">✦</span>
+            <div>
+              <strong class="pg-studio-name" data-i18n="pg_studio_name">WebUI Studio</strong>
+              <div class="pg-cluster-badge">
+                <span class="pulse-dot"></span>
+                <span id="pg-cluster-status" data-i18n="pg_cluster_pending">Live-Modellkatalog wird geladen...</span>
               </div>
             </div>
           </div>
+          <div class="pg-control-group">
+            <label for="playground-model-select" class="pg-label" data-i18n="pg_model_lbl">Modell:</label>
+            <select id="playground-model-select" class="pg-select" onchange="syncPlaygroundModel(this.value)" disabled>
+              <option value="">Live-Modelle werden geladen...</option>
+            </select>
+            <button id="pg-clear-chat-btn" class="pg-reset-btn" onclick="clearPlaygroundChat()" hidden data-i18n="pg_new_task">Neue Aufgabe</button>
+          </div>
         </div>
 
-        <!-- Live Metrics Bar -->
-        <div id="playground-live-metrics" class="pg-metrics-bar">
+        <!-- Conversation output starts compact; the composer remains visible. -->
+        <div id="playground-chat-stream" class="pg-chat-stream" aria-live="polite" aria-label="Unterhaltung">
+          <div id="pg-welcome" class="pg-welcome">
+            <span class="pg-welcome-mark" aria-hidden="true">CM</span>
+            <h2 data-i18n="pg_welcome_title">Wobei kann ich dir helfen?</h2>
+            <p data-i18n="pg_ai_welcome">Willkommen bei ComputeMesh! Unser dezentrales Inferenz-Netzwerk ist online. Wie kann ich dir heute bei deinem Projekt helfen?</p>
+          </div>
+        </div>
+
+        <!-- Primary task composer -->
+        <div class="pg-input-container">
+          <label class="sr-only" for="playground-prompt-input" data-i18n="pg_input_label">Aufgabe für WebUI Studio</label>
+          <textarea id="playground-prompt-input" class="pg-textarea" rows="3" data-i18n="pg_prompt_placeholder" placeholder="Beschreibe, was du erreichen möchtest …" oninput="resizePlaygroundComposer(this)" onkeydown="handlePlaygroundKey(event)"></textarea>
+          <div class="pg-composer-footer">
+            <span class="pg-composer-hint" data-i18n="pg_composer_hint">Enter sendet · Shift + Enter fügt eine Zeile ein</span>
+            <button id="playground-send-btn" class="pg-send-btn" onclick="sendPlaygroundMessage()" type="button" aria-label="Aufgabe senden" title="Aufgabe senden">
+              <span id="pg-send-btn-text" class="pg-send-label" data-i18n="pg_send_btn">Prompt senden</span>
+              <span class="pg-send-icon" aria-hidden="true">↑</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Four outcome-oriented starters replace the former prompt cloud. -->
+        <div class="pg-quick-prompts" aria-label="Beispielaufgaben">
+          <button class="pg-starter-card" onclick="applyQuickPrompt('explain_mesh')" type="button">
+            <span class="pg-starter-icon" aria-hidden="true">Aa</span>
+            <span><strong data-i18n="qp_write_title">Text ausarbeiten</strong><small data-i18n="qp_write_desc">Entwurf, E-Mail oder Zusammenfassung direkt formulieren</small></span>
+          </button>
+          <button class="pg-starter-card" onclick="applyQuickPrompt('python_fastapi')" type="button">
+            <span class="pg-starter-icon" aria-hidden="true">&lt;/&gt;</span>
+            <span><strong data-i18n="qp_code_title">Code erstellen</strong><small data-i18n="qp_code_desc">Eine Funktion, Abfrage oder Lösungsschritt skizzieren</small></span>
+          </button>
+          <button class="pg-starter-card" onclick="applyQuickPrompt('mcp_product_price')" type="button">
+            <span class="pg-starter-icon" aria-hidden="true">↗</span>
+            <span><strong data-i18n="qp_compare_title">Optionen vergleichen</strong><small data-i18n="qp_compare_desc">Zwei Ansätze mit Vor- und Nachteilen gegenüberstellen</small></span>
+          </button>
+          <button class="pg-starter-card" onclick="applyQuickPrompt('gpu_sharding')" type="button">
+            <span class="pg-starter-icon" aria-hidden="true">✦</span>
+            <span><strong data-i18n="qp_explain_title">Thema verstehen</strong><small data-i18n="qp_explain_desc">Einen Begriff oder Ablauf schrittweise auf den Punkt bringen</small></span>
+          </button>
+        </div>
+
+        <div class="pg-studio-meta">
+          <span id="pg-quota-text" data-i18n="pg_quota_pill">Kostenloses Demo-Guthaben</span>
+          <span data-i18n="pg_privacy_hint">Keine Eingabe wird veröffentlicht.</span>
+        </div>
+
+        <!-- Runtime details only become visible after a request. -->
+        <div id="playground-live-metrics" class="pg-metrics-bar" hidden>
           <div class="pg-metric-item">
             <span class="pg-metric-lbl" data-i18n="pg_status_lbl">Status:</span>
             <span id="pg-metric-status" class="pg-metric-val emerald" data-i18n="pg_status_ready">Bereit</span>
@@ -312,32 +342,6 @@
           <div class="pg-metric-item">
             <span class="pg-metric-lbl" data-i18n="pg_tokens_lbl">Generierte Tokens:</span>
             <span id="pg-metric-tokens" class="pg-metric-val">0</span>
-          </div>
-        </div>
-
-        <!-- Quick Prompts Row -->
-        <div class="pg-quick-prompts">
-          <button class="pg-pill" onclick="applyQuickPrompt('explain_mesh')" data-i18n="qp_explain_mesh">⚡ Was macht ComputeMesh einzigartig?</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('mcp_product_price')" data-i18n="qp_mcp_product_price">🛍️ Preisvergleich iPhone 16 Pro (Tabelle)</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('mcp_image')" data-i18n="qp_mcp_image">🎨 KI-Bild aus aktuellen News (MCP)</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('mcp_weather')" data-i18n="qp_mcp_weather">🌦️ Wetter-Vergleich Berlin, München &amp; Zürich (Tabelle)</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('mcp_nasdaq')" data-i18n="qp_mcp_nasdaq">📊 NASDAQ Top 5 Gewinner &amp; Verlierer (Tabelle)</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('mcp_bitcoin')" data-i18n="qp_mcp_bitcoin">📈 Live Bitcoin &amp; Krypto-Kurs (MCP)</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('mcp_news')" data-i18n="qp_mcp_news">📰 Aktuelle Tagesschau-News (MCP)</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('python_fastapi')" data-i18n="qp_python_fastapi">🐍 Schreibe einen Streaming FastAPI-Endpunkt</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('mcp_math')" data-i18n="qp_mcp_math">🧮 Zinseszins Python-Sandbox (MCP)</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('gpu_sharding')" data-i18n="qp_gpu_sharding">🧩 Wie funktioniert Pipeline-Layer-Sharding?</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('compare_costs')" data-i18n="qp_compare_costs">💰 Berechne meine Kostenersparnis</button>
-        </div>
-
-        <!-- Input Area -->
-        <div class="pg-input-container">
-          <textarea id="playground-prompt-input" class="pg-textarea" rows="2" placeholder="Stelle eine Frage oder teste die Inferenz-Geschwindigkeit... (Enter zum Senden, Shift+Enter für neue Zeile)" onkeydown="handlePlaygroundKey(event)"></textarea>
-          <div class="pg-input-actions">
-            <button id="playground-send-btn" class="btn btn-primary pg-send-btn" onclick="sendPlaygroundMessage()" disabled>
-              <span id="pg-send-btn-text" data-i18n="pg_send_btn">Prompt senden</span>
-              <span class="pg-send-icon">🚀</span>
-            </button>
           </div>
         </div>
       </div>

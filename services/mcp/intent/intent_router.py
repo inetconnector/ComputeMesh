@@ -487,7 +487,7 @@ def detect_direct_tool_intent(text: str, registry: ToolRegistry | None = None, a
 
     # 6. Live Weather & Multi-City Forecast (e.g. "Wie ist das Wetter in Berlin, Hamburg und München?")
     m_weather = re.search(
-        r"(?:(?:wie\s+(?:ist|wird|ist\s+denn|wird\s+denn)\s+)?(?:das\s+)?wetter\s+(?:heute\s+|morgen\s+|aktuell\s+)?(?:in|für|fuer|von|bei|im|am)\s+|weather\s+(?:in|for)?\s*|temperatur\s+(?:in|von|bei)?\s*|regnet\s+es\s+in\s*)([a-zA-ZäöüÄÖÜß\s\-,\+&]+?)(?:\s+wird|\s+ist|\?|\.|$|\s+heute|\s+morgen|\s+aktuell|\s+am\s+wochenende)",
+        r"(?:(?:wie\s+(?:ist|wird|ist\s+denn|wird\s+denn)\s+)?(?:das\s+)?wetter\s+(?:heute\s+|morgen\s+|aktuell\s+)?(?:in|für|fuer|von|bei|im|am)\s+|wie\s+(?:warm|kalt)\s+(?:ist|wird)\s+(?:es\s+)?(?:in|für|fuer|bei|im|am)\s*|weather\s+(?:in|for)?\s*|temperatur\s+(?:in|von|bei)?\s*|regnet\s+es\s+in\s*)([a-zA-ZäöüÄÖÜß\s\-,\+&]+?)(?:\s+wird|\s+ist|\?|\.|$|\s+heute|\s+morgen|\s+aktuell|\s+am\s+wochenende)",
         cleaned,
         re.IGNORECASE
     )
@@ -984,16 +984,18 @@ def detect_direct_tool_intent(text: str, registry: ToolRegistry | None = None, a
         if len(topic) >= 3 and not is_visual and not has_stop and not is_metric_or_market and not topic.lower().startswith("das wetter") and not any(op in topic for op in ("+", "*", "/")):
             return ("get_wikipedia_summary", {"query": topic})
 
-    # 13. Web Search & Google Queries
-    m_search = re.search(
-        r"(?:google\s+(?:nach\s+|mal\s+)?|suche\s+(?:im\s+web\s+)?(?:nach\s+)?|search\s+(?:web\s+)?(?:for\s+)?|finde\s+(?:im\s+web\s+)?|web\s*suche\s+(?:nach\s+)?)(.+?)(?:\?|\.|$)",
-        cleaned,
-        re.IGNORECASE
-    )
-    if m_search:
-        q = m_search.group(1).strip()
-        if q:
-            return ("search_web", {"query": q})
+    # 13. Web Search & Explicit Search Queries (Exclude creative, game, and code synthesis requests)
+    is_creative_or_code = any(k in cleaned.lower() for k in ("spiel", "game", "klon", "clone", "bauen", "baue", "mach", "code", "programm", "javascript", "canvas", "html", "grafik", "sound"))
+    if not is_creative_or_code:
+        m_search = re.search(
+            r"(?:^(?:google|googeln?)\s+(?:nach\s+|mal\s+|bitte\s+)?|\b(?:google\s+(?:nach|mal|bitte)|googeln?|suche\s+(?:im\s+(?:web|internet)\s+)?(?:nach\s+)?|search\s+(?:the\s+)?(?:web\s+)?(?:for\s+)?|finde\s+im\s+(?:web|internet)\s+|web\s*suche\s+(?:nach\s+)?))(.+?)(?:\?|\.|$)",
+            cleaned,
+            re.IGNORECASE
+        )
+        if m_search:
+            q = m_search.group(1).strip()
+            if q and len(q) >= 2:
+                return ("search_web", {"query": q})
 
     # 14. Deep Multi-Source Knowledge Research
     m_deep = re.search(

@@ -10,9 +10,9 @@ var translations = window.translations || {
     market_online_only: "Online only",
     market_search_placeholder: "Filter by node ID, GPU model or interface",
     market_filter_status: "Status:",
-    home_title: "ComputeMesh",
-    home_tagline: "GPU infrastructure and AI inference",
-    home_sub: "Run open-source models through an OpenAI-compatible API, offer GPU capacity, and manage your local or distributed fleet.",
+    home_title: "GDPR-Aligned AI Inference API & Decentralized GPU Cloud",
+    home_tagline: "European B2B AI Infrastructure • OpenAI-Compatible • Zero-Disk-Retention",
+    home_sub: "Run leading open-source language models via an OpenAI-compatible streaming API with EEA hosting and zero disk retention — or monetize your own GPU hardware with automated SEPA payouts.",
     // Navigation & Common
     nav_home: "Home",
     nav_features: "Features",
@@ -277,7 +277,7 @@ var translations = window.translations || {
     btn_provide_compute: "🖥️ Monetize GPUs",
     btn_get_api_key: "🚀 Start in 60s (Get API Key)",
     btn_try_playground: "⚡ Try Live Playground",
-    trust_gdpr: "100% GDPR / EEA Hosting",
+    trust_gdpr: "GDPR Architecture / EEA Hosting",
     trust_zero_retention: "Zero-Disk-Retention",
     trust_stripe: "Stripe Connect SEPA Payouts",
     trust_attestation: "Ed25519 Signed Attestations",
@@ -355,7 +355,7 @@ var translations = window.translations || {
     pg_welcome_title: "How can I help you today?",
     pg_input_label: "Task for WebUI Studio",
     pg_composer_hint: "Enter sends · Shift + Enter adds a line",
-    pg_privacy_hint: "Zero-knowledge routing: Prompts are confidential and never shared.",
+    pg_privacy_hint: "Confidential routing: Prompts are processed in volatile memory and never shared.",
     qp_write_title: "Draft Text",
     qp_write_desc: "Draft an article, email, or summary directly",
     qp_code_title: "Create Code",
@@ -759,7 +759,7 @@ var translations = window.translations || {
     docs_arch_flow_1: "Client request ➔ Public Gateway (mTLS & rate limits)",
     docs_arch_flow_2: "➔ Placement Engine selects optimal GPU nodes (latency & VRAM)",
     docs_arch_flow_3: "➔ Pipeline-sharded execution over high-speed wire",
-    docs_arch_flow_4: "➔ Zero-knowledge execution attestation (Ed25519)",
+    docs_arch_flow_4: "➔ Cryptographic execution attestation (Ed25519)",
     docs_arch_flow_5: "➔ Transparent accounting in the double-entry ledger",
     docs_sec3_h2: "3. Pipeline Layer-Sharding Technology",
     docs_sec3_p: "Our intelligent tensor-splitting engine partitions large parameter models across multiple GPUs with optimized peer-to-peer pipelining, allowing massive models to run smoothly across consumer hardware.",
@@ -902,8 +902,8 @@ var translations = window.translations || {
     // Security & GDPR Page (security.html)
     sec_page_tag: "ENTERPRISE COMPLIANCE & CRYPTOGRAPHY",
     sec_main_title: "Security & <span class=\"gradient-emerald\">GDPR Architecture</span>",
-    sec_main_sub: "ComputeMesh was engineered under the strict principle of <strong>ephemeral zero-knowledge streaming (Privacy by Design under Art. 25 GDPR)</strong>. Input prompts and generated responses are mathematically immune to eavesdropping in transit and are never stored on disk.",
-    sec_pill_1_title: "100% Eavesdropping Immune",
+    sec_main_sub: "ComputeMesh was engineered under the strict principle of <strong>confidential RAM-only streaming (Privacy by Design under Art. 25 GDPR)</strong>. Input prompts and generated responses are encrypted via TLS 1.3 in transit and are not stored persistently on disk during normal operation.",
+    sec_pill_1_title: "TLS 1.3 & Forward Secrecy",
     sec_pill_1_desc: "End-to-end encryption via <strong>TLS 1.3 with Perfect Forward Secrecy (PFS)</strong>. An ephemeral single-use session key is generated for every inference request. Retroactive interception or decryption is mathematically impossible.",
     sec_pill_2_title: "Encrypted RAM & Zero-Retention",
     sec_pill_2_desc: "Prompts are held exclusively in volatile RAM inside <strong>ephemeral AES-256-GCM memory envelopes</strong> with OS page locking (<code>mlock</code>) and immediate <code>SecureZeroMemory</code> bitwise wiping upon completion.",
@@ -987,7 +987,139 @@ var translations = window.translations || {
     lan_tbl_r3_network: "Global ComputeMesh Inference Pool",
     lan_tbl_r3_cost: "Pay-as-you-go for external clients",
     lan_tbl_r3_earnings: "💰 75% of all job fees (Payout from 25 €/$)",
-    lan_tbl_r3_privacy: "Sandboxed inference with attestation"
+    lan_tbl_r3_privacy: "Sandboxed inference with attestation",
+
+    // SEO B2B Homepage & Dedicated Landing Pages
+    seo_h2_why_tag: "EUROPEAN AI SOVEREIGNTY",
+    seo_h2_why: "Why ComputeMesh? GDPR Privacy Architecture & Zero-Disk-Retention in the EEA",
+    seo_h2_why_sub: "European companies need fast open-source language models without US CLOUD Act exposure or persistent prompt logging. ComputeMesh combines Privacy-by-Design under Art. 25 GDPR with volatile RAM processing.",
+    seo_why_card1_title: "EEA Data Residency & DPA Ready",
+    seo_why_card1_desc: "Inference requests can be pinned to European Economic Area (EEA) nodes. For B2B production workloads, an Art. 28 GDPR Data Processing Agreement (DPA/AVV) template is included.",
+    seo_why_card2_title: "Strict Zero-Disk-Retention",
+    seo_why_card2_desc: "Prompts and completions stream exclusively in volatile memory (Nginx proxy_max_temp_file_size 0) and are never stored in databases or used for model training.",
+    seo_why_card3_title: "EU AI Act Art. 5 & Art. 50 Controls",
+    seo_why_card3_desc: "Built-in fail-closed prohibited-practice screening (Art. 5) and machine-readable cryptographic transparency headers (X-AI-Generated, X-AI-Output-Digest) per Art. 50.",
+    seo_btn_openai_alt: "OpenAI Alternative & GDPR Guide →",
+
+    seo_h2_api_tag: "DROP-IN DEVELOPER EXPERIENCE",
+    seo_h2_api: "OpenAI- & Ollama-Compatible API: Integrate in 60 Seconds",
+    seo_h2_api_sub: "Keep your existing Python, TypeScript, LangChain, LlamaIndex, or Ollama code. Replace only base_url and api_key to stream DeepSeek-R1, Llama 3.3, Qwen 2.5 Coder, and Mistral Large 2.",
+    seo_api_feat1: "✓ Full Server-Sent Events (SSE) token streaming (/v1/chat/completions)",
+    seo_api_feat2: "✓ Native Ollama REST compatibility (/api/chat & /api/generate)",
+    seo_api_feat3: "✓ Transparent per-token micro-billing in a double-entry ledger",
+    seo_btn_models_catalog: "Explore Open-Source LLM Catalog →",
+
+    seo_h2_market_tag: "DECENTRALIZED GPU CLOUD",
+    seo_h2_market: "GPU Marketplace: Rent Compute Power or Monetize Your Own GPUs",
+    seo_h2_market_sub: "ComputeMesh connects verified European data centers, workstations, and multi-GPU rigs into one elastic inference fabric — cutting inference costs while rewarding hardware providers.",
+    seo_market_consumer_title: "For Developers & Enterprises",
+    seo_market_consumer_desc: "Scale open-weights LLM inference on demand without long-term GPU reservations, minimum commitments, or vendor lock-in.",
+    seo_market_provider_title: "For Hardware Providers & Data Centers",
+    seo_market_provider_desc: "Onboard Linux servers, Windows workstations, or dedicated Debian 13 NodeOS rigs and earn a 75% revenue share with automated Stripe Connect SEPA payouts.",
+    seo_btn_rent_out_gpu: "Monetize Your GPU Hardware →",
+
+    seo_h2_sec_tag: "VERIFIABLE EXECUTION",
+    seo_h2_sec: "Verified Security Through Ed25519-Signed Attestations",
+    seo_h2_sec_sub: "Unlike opaque API wrappers, every active ComputeMesh provider node signs hardware, runtime, and execution receipts with hardware-bound Ed25519 keys over mutual TLS 1.3.",
+    seo_sec_item1_title: "Ed25519 Node & Receipt Signatures",
+    seo_sec_item1_desc: "Every registered node proves cryptographic key possession and signs execution receipts anchored in our append-only ledger.",
+    seo_sec_item2_title: "Mutual TLS 1.3 & Forward Secrecy",
+    seo_sec_item2_desc: "Transport channels enforce TLS 1.3 (X25519 + AES-256-GCM) with Perfect Forward Secrecy and HSTS preload across all endpoints.",
+    seo_sec_item3_title: "FIDO2 Passkey Fleet Control",
+    seo_sec_item3_desc: "Manage your private LAN cluster or public provider fleet passwordlessly via WebAuthn passkeys and hardware-isolated emergency stops.",
+    seo_btn_security_arch: "Inspect Security & GDPR Architecture →",
+
+    seo_guides_tag: "DEVELOPER GUIDES & TUTORIALS",
+    seo_guides_h2: "Technical Guides for European AI Engineering Teams",
+    seo_guide1_title: "Switch the Python OpenAI SDK to EU Hosting in 2 Minutes",
+    seo_guide1_desc: "Step-by-step Python & FastAPI tutorial showing how to migrate from US APIs to ComputeMesh EEA endpoints with streaming and Art. 50 header verification.",
+    seo_guide1_link: "Read Python Migration Tutorial →",
+    seo_guide2_title: "GDPR Checklist for Enterprise AI Applications",
+    seo_guide2_desc: "Practical technical checklist covering Art. 28 GDPR DPA, zero-disk-retention verification, EEA routing policies, and EU AI Act Art. 50 transparency.",
+    seo_guide2_link: "Open Enterprise GDPR Checklist →",
+
+    seo_h2_faq_tag: "FAQ & COMPLIANCE",
+    seo_h2_faq: "Frequently Asked Questions (FAQ) on ComputeMesh & Data Privacy",
+    seo_faq_q1: "How does GDPR-aligned AI inference work without data storage?",
+    seo_faq_a1: "Requests routed via ComputeMesh EEA policies are processed on cryptographically attested nodes within the European Economic Area (EEA). Through strict zero-disk-retention, prompts and generated completions are processed in volatile memory and are not stored on disk or used for model training during normal operation.",
+    seo_faq_q2: "How fast can ComputeMesh be integrated into existing OpenAI or Ollama projects?",
+    seo_faq_a2: "ComputeMesh provides drop-in compatibility with the OpenAI and Ollama APIs. Developers simply replace the Base URL and API key in their existing SDK configuration to immediately stream open-weight language models.",
+    seo_faq_q3: "What do Ed25519-signed attestations mean in decentralized AI infrastructure?",
+    seo_faq_a3: "Every compute node in the ComputeMesh network signs its hardware, region, and execution receipts cryptographically using Ed25519. This makes it technically verifiable that AI workloads were executed on attested infrastructure.",
+    seo_faq_q4: "How can I rent out my own graphics card (GPU) and earn revenue?",
+    seo_faq_a4: "Hardware providers install the ComputeMesh node client via Linux CLI, Windows installer, or bootable NodeOS image. Once active in the network, metered compute jobs earn a 75% revenue share settled via Stripe Connect SEPA bank transfers.",
+    footer_col_ecosystem: "Ecosystem Apps",
+
+    // Landing Page: /openai-alternative-dsgvo
+    lp_oai_tag: "B2B DEVELOPER & COMPLIANCE GUIDE",
+    lp_oai_h1: "GDPR-Aligned OpenAI Alternative in Europe",
+    lp_oai_sub: "Migrate existing OpenAI and Ollama workloads to European GPU infrastructure in 60 seconds — featuring zero disk retention, EEA node routing, Art. 28 GDPR DPA templates, and EU AI Act Art. 50 transparency headers.",
+    lp_oai_cmp_h2: "Technical Comparison: US Hyperscaler APIs vs. ComputeMesh EEA Gateway",
+    lp_oai_cmp_col1: "Architecture Criterion",
+    lp_oai_cmp_col2: "ComputeMesh (EEA Gateway)",
+    lp_oai_cmp_col3: "Conventional US Cloud APIs",
+    lp_oai_cmp_r1_c1: "Jurisdiction & Data Residency",
+    lp_oai_cmp_r1_c2: "EEA hosting option, German operator (Veitshoechheim)",
+    lp_oai_cmp_r1_c3: "Primary US jurisdiction (CLOUD Act scope)",
+    lp_oai_cmp_r2_c1: "Prompt & Output Persistence",
+    lp_oai_cmp_r2_c2: "Zero disk retention in normal operation (RAM-only proxy)",
+    lp_oai_cmp_r2_c3: "30-day abuse/audit retention by default unless enterprise tier",
+    lp_oai_cmp_r3_c1: "API SDK Compatibility",
+    lp_oai_cmp_r3_c2: "Drop-in OpenAI (/v1/chat/completions) & Ollama (/api/chat)",
+    lp_oai_cmp_r3_c3: "Proprietary or provider-locked endpoints",
+    lp_oai_cmp_r4_c1: "Execution & Output Provenance",
+    lp_oai_cmp_r4_c2: "Ed25519 node attestation + EU AI Act Art. 50 HTTP headers",
+    lp_oai_cmp_r4_c3: "Opaque backend routing without cryptographic receipts",
+    lp_oai_tut1_h2: "Tutorial 1: Switch the OpenAI SDK to EU Hosting in Python",
+    lp_oai_tut1_intro: "You do not need to rewrite prompts, tool schemas, or streaming handlers. Point the official openai Python client to https://inetconnector.com/v1 (or https://mesh.inetconnector.com/v1):",
+    lp_oai_tut1_verify: "Every completion response automatically includes machine-readable EU AI Act Art. 50 headers (X-AI-Generated: true, X-AI-Model, X-AI-Publisher, and X-AI-Output-Digest) so downstream enterprise middleware can audit synthetic content provenance.",
+    lp_oai_tut2_h2: "Tutorial 2: GDPR Checklist for AI Apps in Enterprises",
+    lp_oai_chk1_t: "1. Lawful Basis & Art. 28 GDPR Data Processing Agreement (AVV)",
+    lp_oai_chk1_d: "Establish your lawful basis under Art. 6 GDPR and conclude an Art. 28 GDPR DPA before transmitting personal data to external inference processors.",
+    lp_oai_chk2_t: "2. Minimize PII & Enforce Zero-Disk-Retention",
+    lp_oai_chk2_d: "Pseudonymize identifiers where possible and use volatile RAM inference paths without persistent prompt logging or model training reuse.",
+    lp_oai_chk3_t: "3. EEA Routing & Transport Cryptography",
+    lp_oai_chk3_d: "Restrict inference routing to attested EEA nodes over TLS 1.3 with Perfect Forward Secrecy.",
+    lp_oai_chk4_t: "4. EU AI Act Art. 5 & Art. 50 Technical Governance",
+    lp_oai_chk4_d: "Block prohibited AI practices (Art. 5) fail-closed at the gateway and preserve machine-readable synthetic output markings (Art. 50).",
+
+    // Landing Page: /gpu-vermieten
+    lp_gpu_tag: "HARDWARE PROVIDER & DATA CENTER PROGRAM",
+    lp_gpu_h1: "Rent Out Your GPU & Monetize Compute Capacity via SEPA",
+    lp_gpu_sub: "Connect NVIDIA CUDA or AMD Vulkan GPUs on Linux, Windows, or our dedicated Debian 13 NodeOS appliance. Earn 75% of metered inference fees settled automatically via Stripe Connect SEPA payouts.",
+    lp_gpu_steps_h2: "Onboard Your GPU Hardware in 3 Steps",
+    lp_gpu_s1_t: "1. Register Provider Account",
+    lp_gpu_s1_d: "Create a B2B provider credential or sign in with a FIDO2 passkey in the Fleet Cockpit and select your EEA operating country.",
+    lp_gpu_s2_t: "2. Launch Verified Node Client",
+    lp_gpu_s2_d: "Install the signed Linux daemon, Windows System Tray agent, or flash our bootable NodeOS image for multi-GPU rigs (4–12 GPUs).",
+    lp_gpu_s3_t: "3. Attest & Receive SEPA Payouts",
+    lp_gpu_s3_d: "Your node signs heartbeats and job proofs with Ed25519. Accepted jobs credit 75% of inference fees to the double-entry ledger with Stripe Connect SEPA payouts.",
+    lp_gpu_hw_h2: "Supported GPU Tiers & Software Appliances",
+    lp_gpu_hw1_t: "Workstation & Gaming GPUs (8–24 GiB VRAM)",
+    lp_gpu_hw1_d: "Ideal for RTX 3080, RTX 4070/4080/4090, and Radeon RX 7900 XTX running high-speed 7B–32B coding and reasoning models.",
+    lp_gpu_hw2_t: "Multi-GPU Mining Rigs (NodeOS Bare-Metal)",
+    lp_gpu_hw2_d: "Turn idle GPU rigs into dedicated AI inference appliances with our cryptographically signed Debian 13 NodeOS ISO and USB flash image.",
+    lp_gpu_hw3_t: "Data Center Accelerators (48–128+ GiB VRAM)",
+    lp_gpu_hw3_d: "Run 70B+ flagship models on RTX A6000, L40S, A100, and H100 nodes with mutual TLS 1.3 and deterministic quota reservations.",
+
+    // Landing Page: /modelle
+    lp_mod_tag: "EUROPEAN OPEN-WEIGHTS LLM DIRECTORY",
+    lp_mod_h1: "Open-Source AI Models via GDPR-Aligned European API",
+    lp_mod_sub: "Compare architecture profiles, VRAM tiers, context windows, and drop-in OpenAI SDK snippets for leading open-weights language models available across the ComputeMesh architecture.",
+    lp_mod_live_btn: "Open Live Gateway Model Catalog →",
+    lp_mod_card_deepseek_d: "Mixture-of-Experts reasoning model built for multi-step mathematics, formal verification, and complex software architecture.",
+    lp_mod_card_llama_d: "High-throughput 70B instruction model suited for enterprise assistants, structured RAG pipelines, and multilingual summarization.",
+    lp_mod_card_qwen_d: "Specialized 32B software engineering model for repository-level code generation, automated tests, and tool-calling agents.",
+    lp_mod_card_mistral_d: "European flagship dense transformer delivering strong German, French, and English fluency for regulated business workflows.",
+    lp_mod_card_minicpm_d: "Compact low-latency edge language model optimized for ultra-fast classification, extraction, and local LAN-mesh assistants.",
+    lp_mod_detail_btn: "Model Specs & Python Code →",
+    model_spec_vram: "Recommended VRAM Tier",
+    model_spec_ctx: "Context Window",
+    model_spec_api: "API Compatibility",
+    model_spec_privacy: "Data Handling",
+    model_code_h2: "Drop-in Python OpenAI SDK Integration",
+    model_arch_h2: "Technical Profile & Enterprise Use Cases",
+    model_live_note: "Live availability and per-token pricing depend on currently connected provider nodes and can be verified in real time in the live catalog."
   },
 
   de: {
@@ -997,9 +1129,9 @@ var translations = window.translations || {
     market_online_only: "Nur online",
     market_search_placeholder: "Nach Node-ID, GPU-Modell oder Interface filtern",
     market_filter_status: "Status:",
-    home_title: "ComputeMesh",
-    home_tagline: "GPU-Infrastruktur und KI-Inferenz",
-    home_sub: "Nutze Open-Source-Modelle über eine OpenAI-kompatible API, biete GPU-Kapazität an und verwalte deine lokale oder verteilte Flotte.",
+    home_title: "DSGVO-konforme KI-Inferenz-API & Dezentrale GPU-Cloud",
+    home_tagline: "Europäische B2B-KI-Infrastruktur • OpenAI-kompatibel • Zero-Disk-Retention",
+    home_sub: "Nutze führende Open-Source-Sprachmodelle über eine OpenAI-kompatible Streaming-API mit dediziertem EWR-Hosting und Zero-Disk-Retention – oder vermiete deine eigene GPU-Hardware mit automatischer SEPA-Auszahlung.",
     // Navigation & Allgemein
     nav_home: "Startseite",
     nav_features: "Funktionen",
@@ -1264,7 +1396,7 @@ var translations = window.translations || {
     btn_provide_compute: "🖥️ Hardware anbieten",
     btn_get_api_key: "🚀 In 60 Sekunden starten (API-Key)",
     btn_try_playground: "⚡ Live-Playground testen",
-    trust_gdpr: "100% DSGVO / EWR-Hosting",
+    trust_gdpr: "DSGVO-Architektur / EWR-Hosting",
     trust_zero_retention: "Zero-Disk-Retention",
     trust_stripe: "Stripe Connect SEPA-Auszahlungen",
     trust_attestation: "Ed25519 Signierte Attestierungen",
@@ -1746,7 +1878,7 @@ var translations = window.translations || {
     docs_arch_flow_1: "Client-Anfrage ➔ Öffentliches Gateway (mTLS & Rate-Limits)",
     docs_arch_flow_2: "➔ Placement Engine wählt optimale GPU-Knoten (Latenz & VRAM)",
     docs_arch_flow_3: "➔ Pipeline-Sharded Execution über Hochgeschwindigkeits-Wire",
-    docs_arch_flow_4: "➔ Zero-Knowledge-Ausführungsnachweis (Ed25519)",
+    docs_arch_flow_4: "➔ Kryptografischer Ausführungsnachweis (Ed25519)",
     docs_arch_flow_5: "➔ Transparente Verbuchung im Double-Entry-Ledger",
     docs_sec3_h2: "3. Pipeline-Layer-Sharding-Technologie",
     docs_sec3_p: "Unsere Sharding-Engine teilt große Sprachmodelle dynamisch auf mehrere GPUs auf, sodass auch sehr große Modelle auf handelsüblicher Hardware mit maximaler Geschwindigkeit laufen.",
@@ -1888,8 +2020,8 @@ var translations = window.translations || {
     // Security & GDPR Page (security.html)
     sec_page_tag: "ENTERPRISE COMPLIANCE & KRYPTOGRAFIE",
     sec_main_title: "Sicherheits- & <span class=\"gradient-emerald\">DSGVO-Architektur</span>",
-    sec_main_sub: "ComputeMesh wurde nach dem strikten Prinzip des <strong>flüchtigen Zero-Knowledge-Streamings (Privacy-by-Design nach Art. 25 DSGVO)</strong> entwickelt. Eingegebene Prompts und generierte Antworten sind auf dem Transportweg mathematisch abhörsicher und werden niemals auf Festplatten gespeichert.",
-    sec_pill_1_title: "100% Abhörsicher",
+    sec_main_sub: "ComputeMesh wurde nach dem strikten Prinzip des <strong>vertraulichen RAM-Only-Streamings (Privacy-by-Design nach Art. 25 DSGVO)</strong> entwickelt. Eingegebene Prompts und generierte Antworten werden per TLS 1.3 verschlüsselt übertragen und im Regelbetrieb nicht persistent auf Festplatten gespeichert.",
+    sec_pill_1_title: "TLS 1.3 & Forward Secrecy",
     sec_pill_1_desc: "End-to-End-Verschlüsselung via <strong>TLS 1.3 mit Perfect Forward Secrecy (PFS)</strong>. Für jede Inferenz-Sitzung wird ein Einmalschlüssel erzeugt. Ein nachträgliches Mitschneiden oder Entschlüsseln ist mathematisch unmöglich.",
     sec_pill_2_title: "Verschlüsselter RAM & Zero-Retention",
     sec_pill_2_desc: "Prompts existieren ausschließlich im flüchtigen RAM in <strong>ephemeren AES-256-GCM Umschlägen</strong> mit OS-Speichersperren (<code>mlock</code> Anti-Swap) und sofortigem <code>SecureZeroMemory</code> Überschreiben.",
@@ -1973,7 +2105,139 @@ var translations = window.translations || {
     lan_tbl_r3_network: "Globaler ComputeMesh Inferenz-Pool",
     lan_tbl_r3_cost: "Pay-as-you-go für externe Kunden",
     lan_tbl_r3_earnings: "💰 75% aller Job-Erlöse (Auszahlung ab 25 €/$)",
-    lan_tbl_r3_privacy: "Sandboxed Inferenz mit Attestierung"
+    lan_tbl_r3_privacy: "Sandboxed Inferenz mit Attestierung",
+
+    // SEO B2B Startseite & Dedizierte Landingpages
+    seo_h2_why_tag: "EUROPÄISCHE KI-SOUVERÄNITÄT",
+    seo_h2_why: "Warum ComputeMesh? DSGVO-Sicherheit & Zero-Disk-Retention im EWR",
+    seo_h2_why_sub: "Europäische Unternehmen benötigen leistungsstarke Open-Source-Sprachmodelle ohne US-CLOUD-Act-Risiko und ohne dauerhafte Protokollierung vertraulicher Prompts. ComputeMesh kombiniert Privacy-by-Design nach Art. 25 DSGVO mit flüchtiger RAM-Verarbeitung.",
+    seo_why_card1_title: "EWR-Datenresidenz & AVV vorbereitet",
+    seo_why_card1_desc: "Inferenz-Anfragen lassen sich gezielt auf Knoten im Europäischen Wirtschaftsraum (EWR) beschränken. Für B2B-Produktivsysteme steht ein Auftragsverarbeitungsvertrag (AVV nach Art. 28 DSGVO) bereit.",
+    seo_why_card2_title: "Strikte Zero-Disk-Retention",
+    seo_why_card2_desc: "Prompts und Modellantworten werden im Regelbetrieb ausschließlich im flüchtigen Arbeitsspeicher gestreamt (Nginx proxy_max_temp_file_size 0) und niemals für Modell-Training verwendet.",
+    seo_why_card3_title: "EU AI Act Art. 5 & Art. 50 Kontrollen",
+    seo_why_card3_desc: "Integrierter Fail-Closed-Filter gegen verbotene KI-Praktiken (Art. 5) sowie maschinenlesbare Transparenz-Header (X-AI-Generated, X-AI-Output-Digest) gemäß Art. 50.",
+    seo_btn_openai_alt: "OpenAI-Alternative & DSGVO-Leitfaden →",
+
+    seo_h2_api_tag: "DROP-IN DEVELOPER EXPERIENCE",
+    seo_h2_api: "OpenAI- & Ollama-kompatible API: In 60 Sekunden integrieren",
+    seo_h2_api_sub: "Behalte deinen bestehenden Python-, TypeScript-, LangChain-, LlamaIndex- oder Ollama-Code unverändert bei. Tausche lediglich base_url und api_key aus, um DeepSeek-R1, Llama 3.3, Qwen 2.5 Coder und Mistral Large 2 zu streamen.",
+    seo_api_feat1: "✓ Echtes Server-Sent Events (SSE) Token-Streaming (/v1/chat/completions)",
+    seo_api_feat2: "✓ Native Ollama REST-Kompatibilität (/api/chat & /api/generate)",
+    seo_api_feat3: "✓ Transparente Token-Mikroabrechnung im kryptografischen Double-Entry-Ledger",
+    seo_btn_models_catalog: "Open-Source-LLM-Katalog entdecken →",
+
+    seo_h2_market_tag: "DEZENTRALE GPU-CLOUD",
+    seo_h2_market: "GPU-Marketplace: Rechenleistung mieten oder eigene GPUs monetarisieren",
+    seo_h2_market_sub: "ComputeMesh bündelt geprüfte europäische Rechenzentren, Workstations und Multi-GPU-Rigs zu einem elastischen Inferenz-Netzwerk – für planbare B2B-API-Kosten und attraktive Provider-Erlöse.",
+    seo_market_consumer_title: "Für Entwickler & Unternehmen",
+    seo_market_consumer_desc: "Skaliere Open-Weights-LLM-Inferenz bedarfsgerecht ohne langfristige GPU-Reservierungen, Mindestabnahmen oder Cloud-Vendor-Lock-in.",
+    seo_market_provider_title: "Für Hardware-Provider & Rechenzentren",
+    seo_market_provider_desc: "Binde Linux-Server, Windows-Workstations oder dedizierte Debian-13-NodeOS-Rigs an und erhalte 75 % Revenue Share mit automatischer Stripe-Connect-SEPA-Auszahlung.",
+    seo_btn_rent_out_gpu: "Eigene GPU-Hardware vermieten →",
+
+    seo_h2_sec_tag: "VERIFIZIERBARE AUSFÜHRUNG",
+    seo_h2_sec: "Verifizierte Sicherheit durch Ed25519-signierte Attestierungen",
+    seo_h2_sec_sub: "Im Gegensatz zu intransparenten API-Proxys signiert jeder aktive ComputeMesh-Knoten seine Hardware-, Standort- und Ausführungsbelege kryptografisch mit hardwaregebundenen Ed25519-Schlüsseln über mTLS 1.3.",
+    seo_sec_item1_title: "Ed25519 Knoten- & Belegsignaturen",
+    seo_sec_item1_desc: "Jeder registrierte Knoten weist kryptografischen Schlüsselbesitz nach und signiert Ausführungs-Receipts im revisionssicheren Ledger.",
+    seo_sec_item2_title: "Mutual TLS 1.3 & Forward Secrecy",
+    seo_sec_item2_desc: "Alle Transportkanäle erzwingen TLS 1.3 (X25519 + AES-256-GCM) mit Perfect Forward Secrecy und HSTS-Preload.",
+    seo_sec_item3_title: "FIDO2-Passkey-Flottensteuerung",
+    seo_sec_item3_desc: "Verwalte deinen privaten LAN-Cluster oder deine Provider-Flotte passwortlos per WebAuthn-Passkey inklusive isoliertem Not-Aus.",
+    seo_btn_security_arch: "Sicherheits- & DSGVO-Architektur prüfen →",
+
+    seo_guides_tag: "DEVELOPER-TUTORIALS & PRAXISWISSEN",
+    seo_guides_h2: "Technische Anleitungen für europäische KI-Entwicklerteams",
+    seo_guide1_title: "OpenAI SDK auf EU-Hosting umstellen in Python",
+    seo_guide1_desc: "Schritt-für-Schritt-Anleitung für Python & FastAPI: In 2 Minuten von US-Endpunkten auf das ComputeMesh-EWR-Gateway inklusive Streaming und Art.-50-Headern wechseln.",
+    seo_guide1_link: "Python-Migrations-Tutorial lesen →",
+    seo_guide2_title: "DSGVO-Checkliste für KI-Apps in Unternehmen",
+    seo_guide2_desc: "Praxisleitfaden für CTOs und Datenschutzverantwortliche zu AVV (Art. 28 DSGVO), Zero-Disk-Retention, EWR-Routing und EU AI Act Art. 50.",
+    seo_guide2_link: "Unternehmens-Checkliste öffnen →",
+
+    seo_h2_faq_tag: "FAQ & DATENSCHUTZ",
+    seo_h2_faq: "Häufig gestellte Fragen (FAQ) zu ComputeMesh & Datenschutz",
+    seo_faq_q1: "Wie funktioniert DSGVO-konforme KI-Inferenz ohne Datenspeicherung?",
+    seo_faq_a1: "Anfragen mit EWR-Routing werden auf kryptografisch attestierten Knotenpunkten innerhalb des Europäischen Wirtschaftsraums (EWR) verarbeitet. Dank strikter Zero-Disk-Retention werden Prompts und generierte Antworten im Regelbetrieb nur im flüchtigen Arbeitsspeicher verarbeitet, nicht auf Festplatten gespeichert und nicht für das Training von Modellen verwendet.",
+    seo_faq_q2: "Wie schnell lässt sich ComputeMesh in bestehende OpenAI- oder Ollama-Projekte einbinden?",
+    seo_faq_a2: "ComputeMesh bietet eine vollständige Drop-in-Kompatibilität für die OpenAI- und Ollama-API. Entwickler müssen lediglich die Base-URL und den API-Key in ihrem bestehenden Code austauschen, um sofort auf offene Sprachmodelle mit Streaming-Unterstützung zuzugreifen.",
+    seo_faq_q3: "Was bedeuten Ed25519-signierte Attestierungen bei dezentraler KI-Infrastruktur?",
+    seo_faq_a3: "Jeder Rechenknoten im ComputeMesh-Netzwerk signiert seine Hardware-, Regionen- und Ausführungsnachweise kryptografisch mittels Ed25519. Dadurch ist technisch überprüfbar, dass KI-Workloads tatsächlich auf der attestierten Infrastruktur ausgeführt wurden.",
+    seo_faq_q4: "Wie kann ich meine eigene Grafikkarte (GPU) vermieten und Geld verdienen?",
+    seo_faq_a4: "Hardware-Anbieter installieren den ComputeMesh-Node-Client per Linux-Befehl, Windows-Installer oder bootfähigem NodeOS-Image auf ihrem System. Sobald die GPU im Netzwerk aktiv ist, wird bereitgestellte Rechenleistung mit 75 % Erlösanteil abgerechnet und über Stripe Connect per SEPA-Überweisung ausgezahlt.",
+    footer_col_ecosystem: "Ökosystem-Apps",
+
+    // Landingpage: /openai-alternative-dsgvo
+    lp_oai_tag: "B2B-ENTWICKLER- & COMPLIANCE-LEITFADEN",
+    lp_oai_h1: "DSGVO-konforme OpenAI-Alternative in Europa",
+    lp_oai_sub: "Stelle bestehende OpenAI- und Ollama-Anwendungen in 60 Sekunden auf europäische GPU-Infrastruktur um – mit Zero-Disk-Retention, EWR-Knoten-Routing, AVV-Vorlage nach Art. 28 DSGVO und EU-AI-Act-Art.-50-Transparenz-Headern.",
+    lp_oai_cmp_h2: "Technischer Vergleich: US-Hyperscaler-APIs vs. ComputeMesh EWR-Gateway",
+    lp_oai_cmp_col1: "Architektur-Kriterium",
+    lp_oai_cmp_col2: "ComputeMesh (EWR-Gateway)",
+    lp_oai_cmp_col3: "Klassische US-Cloud-APIs",
+    lp_oai_cmp_r1_c1: "Rechtsraum & Datenresidenz",
+    lp_oai_cmp_r1_c2: "EWR-Hosting-Option, deutscher Betreiber (Veitshöchheim)",
+    lp_oai_cmp_r1_c3: "Primärer US-Rechtsraum (CLOUD-Act-Zugriffsbereich)",
+    lp_oai_cmp_r2_c1: "Speicherung von Prompts & Antworten",
+    lp_oai_cmp_r2_c2: "Zero-Disk-Retention im Regelbetrieb (RAM-Only-Proxy)",
+    lp_oai_cmp_r2_c3: "Standardmäßig oft 30 Tage Missbrauchs-/Audit-Speicherung",
+    lp_oai_cmp_r3_c1: "SDK- & API-Kompatibilität",
+    lp_oai_cmp_r3_c2: "Drop-in OpenAI (/v1/chat/completions) & Ollama (/api/chat)",
+    lp_oai_cmp_r3_c3: "Proprietäre oder anbietergebundene Endpunkte",
+    lp_oai_cmp_r4_c1: "Ausführungs- & Herkunftsnachweis",
+    lp_oai_cmp_r4_c2: "Ed25519-Knotenattestierung + EU AI Act Art. 50 HTTP-Header",
+    lp_oai_cmp_r4_c3: "Intransparentes Backend-Routing ohne kryptografische Belege",
+    lp_oai_tut1_h2: "Tutorial 1: OpenAI SDK auf EU-Hosting umstellen in Python",
+    lp_oai_tut1_intro: "Du musst weder Prompts noch Tool-Schemata oder Streaming-Handler umschreiben. Richte den offiziellen Python-Client openai auf https://inetconnector.com/v1 (oder https://mesh.inetconnector.com/v1):",
+    lp_oai_tut1_verify: "Jede Modellantwort liefert automatisch maschinenlesbare EU-AI-Act-Art.-50-Header (X-AI-Generated: true, X-AI-Model, X-AI-Publisher und X-AI-Output-Digest), sodass nachgelagerte Unternehmenssysteme die KI-Herkunft revisionssicher auswerten können.",
+    lp_oai_tut2_h2: "Tutorial 2: DSGVO-Checkliste für KI-Apps in Unternehmen",
+    lp_oai_chk1_t: "1. Rechtsgrundlage & Auftragsverarbeitungsvertrag (Art. 28 DSGVO)",
+    lp_oai_chk1_d: "Dokumentiere die Rechtsgrundlage nach Art. 6 DSGVO und schließe vor der produktiven Verarbeitung personenbezogener Daten einen AVV nach Art. 28 DSGVO ab.",
+    lp_oai_chk2_t: "2. Datenminimierung & Zero-Disk-Retention durchsetzen",
+    lp_oai_chk2_d: "Pseudonymisiere Personenbezüge nach Möglichkeit und nutze flüchtige RAM-Inferenzpfade ohne persistente Prompt-Logs oder Trainingsverwertung.",
+    lp_oai_chk3_t: "3. EWR-Routing & Transportverschlüsselung",
+    lp_oai_chk3_d: "Beschränke die Verarbeitung auf kryptografisch attestierte EWR-Knoten über TLS 1.3 mit Perfect Forward Secrecy.",
+    lp_oai_chk4_t: "4. Technische Governance nach EU AI Act Art. 5 & Art. 50",
+    lp_oai_chk4_d: "Blockiere verbotene KI-Praktiken (Art. 5) fail-closed am Gateway und übernimm die maschinenlesbare Kennzeichnung synthetischer Ausgaben (Art. 50).",
+
+    // Landingpage: /gpu-vermieten
+    lp_gpu_tag: "HARDWARE-PROVIDER & RECHENZENTREN",
+    lp_gpu_h1: "Eigene GPU vermieten & Rechenleistung per SEPA monetarisieren",
+    lp_gpu_sub: "Binde NVIDIA-CUDA- oder AMD-Vulkan-Grafikkarten unter Linux, Windows oder unserer dedizierten Debian-13-NodeOS-Appliance an. Verdiene 75 % der abgerechneten Inferenzgebühren mit automatischer SEPA-Auszahlung über Stripe Connect.",
+    lp_gpu_steps_h2: "In 3 Schritten eigene GPU-Hardware anschließen",
+    lp_gpu_s1_t: "1. Provider-Konto registrieren",
+    lp_gpu_s1_d: "Erstelle einen B2B-Provider-Schlüssel oder melde dich passwortlos per FIDO2-Passkey im Flotten-Cockpit an und wähle dein EWR-Betriebsland.",
+    lp_gpu_s2_t: "2. Signierten Node-Client starten",
+    lp_gpu_s2_d: "Installiere den Linux-Daemon, den Windows-System-Tray-Client oder flashe unser bootfähiges NodeOS-Image für Multi-GPU-Rigs (4–12 GPUs).",
+    lp_gpu_s3_t: "3. Attestieren & SEPA-Auszahlungen erhalten",
+    lp_gpu_s3_d: "Dein Node signiert Heartbeats und Job-Nachweise per Ed25519. Akzeptierte Aufträge schreiben 75 % der Inferenzgebühren im Double-Entry-Ledger gut – auszahlbar via Stripe Connect SEPA.",
+    lp_gpu_hw_h2: "Unterstützte GPU-Klassen & Software-Appliances",
+    lp_gpu_hw1_t: "Workstation- & Gaming-GPUs (8–24 GiB VRAM)",
+    lp_gpu_hw1_d: "Optimal für RTX 3080, RTX 4070/4080/4090 und Radeon RX 7900 XTX zur schnellen Ausführung von 7B–32B Coding- und Reasoning-Modellen.",
+    lp_gpu_hw2_t: "Multi-GPU-Mining-Rigs (NodeOS Bare-Metal)",
+    lp_gpu_hw2_d: "Verwandle bestehende GPU-Rigs mit unserem kryptografisch signierten Debian-13-NodeOS-ISO- und USB-Flash-Image in schlüsselfertige KI-Inferenz-Appliances.",
+    lp_gpu_hw3_t: "Rechenzentrums-Beschleuniger (48–128+ GiB VRAM)",
+    lp_gpu_hw3_d: "Betreibe 70B+ Flaggschiff-Modelle auf RTX A6000, L40S, A100 und H100 Servern mit mTLS 1.3 und atomarer Quota-Reservierung.",
+
+    // Landingpage: /modelle
+    lp_mod_tag: "EUROPÄISCHES OPEN-WEIGHTS-LLM-VERZEICHNIS",
+    lp_mod_h1: "Open-Source-KI-Modelle über DSGVO-orientierte EU-API",
+    lp_mod_sub: "Vergleiche Architekturprofile, VRAM-Klassen, Kontextlängen und fertige Python-OpenAI-SDK-Beispiele führender offener Sprachmodelle in der ComputeMesh-Architektur.",
+    lp_mod_live_btn: "Live-Modellkatalog des Gateways öffnen →",
+    lp_mod_card_deepseek_d: "Mixture-of-Experts-Reasoning-Modell für mehrstufige Mathematik, formale Logik und anspruchsvolle Software-Architektur.",
+    lp_mod_card_llama_d: "Durchsatzstarkes 70B-Instruktionsmodell für Unternehmens-Assistenten, strukturierte RAG-Pipelines und mehrsprachige Analysen.",
+    lp_mod_card_qwen_d: "Spezialisiertes 32B-Software-Engineering-Modell für Code-Generierung, automatisierte Unit-Tests und Tool-Calling-Agenten.",
+    lp_mod_card_mistral_d: "Europäisches Flaggschiff-Sprachmodell mit exzellenter Deutsch-, Französisch- und Englisch-Qualität für regulierte Fachprozesse.",
+    lp_mod_card_minicpm_d: "Kompaktes Niedriglatenz-Modell für schnelle Klassifikation, Extraktion und lokale LAN-Mesh-Assistenten.",
+    lp_mod_detail_btn: "Modellspezifikationen & Python-Code →",
+    model_spec_vram: "Empfohlene VRAM-Klasse",
+    model_spec_ctx: "Kontextfenster",
+    model_spec_api: "API-Kompatibilität",
+    model_spec_privacy: "Datenverarbeitung",
+    model_code_h2: "Drop-in Python OpenAI SDK Integration",
+    model_arch_h2: "Technisches Profil & Enterprise-Einsatzgebiete",
+    model_live_note: "Aktuelle Echtzeit-Verfügbarkeit und Token-Preise richten sich nach den verbundenen Provider-Knoten und sind jederzeit im Live-Katalog abrufbar."
   }
 };
 window.portalTranslations = translations;
@@ -1986,6 +2250,13 @@ function detectInitialLanguage() {
     if (urlLang === 'de' || urlLang === 'en') {
       localStorage.setItem('cm_portal_lang', urlLang);
       return urlLang;
+    }
+    const path = window.location.pathname || '';
+    if (path === '/en' || path.startsWith('/en/')) {
+      return 'en';
+    }
+    if (path === '/de' || path.startsWith('/de/')) {
+      return 'de';
     }
     const saved = localStorage.getItem('cm_portal_lang');
     if (saved === 'de' || saved === 'en') {
@@ -2008,7 +2279,11 @@ function detectInitialLanguage() {
     return 'de';
   }
 
-  return 'de';
+  if (document.documentElement && document.documentElement.lang === 'en') {
+    return 'en';
+  }
+
+  return browserLangs.some(lang => lang.startsWith('en')) ? 'en' : 'de';
 }
 
 function switchLanguage(lang) {
@@ -2092,6 +2367,17 @@ function plainPortalChrome() {
 
 function toggleLanguage() {
   const nextLang = currentLang === 'en' ? 'de' : 'en';
+  const path = window.location.pathname || '';
+  if (nextLang === 'en' && (path === '/de' || path === '/de/')) {
+    try { localStorage.setItem('cm_portal_lang', 'en'); } catch (e) {}
+    window.location.href = '/en/';
+    return;
+  }
+  if (nextLang === 'de' && (path === '/en' || path === '/en/')) {
+    try { localStorage.setItem('cm_portal_lang', 'de'); } catch (e) {}
+    window.location.href = '/de/';
+    return;
+  }
   switchLanguage(nextLang);
 }
 

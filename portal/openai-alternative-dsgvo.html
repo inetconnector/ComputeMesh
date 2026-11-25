@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DSGVO OpenAI-Alternative in Europa | ComputeMesh KI-API</title>
+  <meta name="description" content="Europäische OpenAI- & Ollama-API mit EWR-Hosting, Zero-Disk-Retention, AVV nach Art. 28 DSGVO und Python-Migrationsanleitung.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://inetconnector.com/openai-alternative-dsgvo">
+  <link rel="alternate" hreflang="de" href="https://inetconnector.com/openai-alternative-dsgvo">
+  <link rel="alternate" hreflang="en" href="https://inetconnector.com/openai-alternative-dsgvo?lang=en">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="DSGVO OpenAI-Alternative in Europa | ComputeMesh KI-API">
+  <meta property="og:description" content="Europäische OpenAI- & Ollama-API mit EWR-Hosting, Zero-Disk-Retention, AVV nach Art. 28 DSGVO und Python-Migrationsanleitung.">
+  <meta property="og:url" content="https://inetconnector.com/openai-alternative-dsgvo">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "TechArticle",
+      "headline": "DSGVO-konforme OpenAI-Alternative in Europa",
+      "description": "Europäische OpenAI- & Ollama-API mit EWR-Hosting, Zero-Disk-Retention, AVV nach Art. 28 DSGVO und Python-Migrationsanleitung.",
+      "author": {
+        "@type": "Organization",
+        "name": "ComputeMesh"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "ComputeMesh",
+        "url": "https://inetconnector.com/"
+      },
+      "mainEntityOfPage": "https://inetconnector.com/openai-alternative-dsgvo"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "ComputeMesh",
+          "item": "https://inetconnector.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "OpenAI-Alternative DSGVO",
+          "item": "https://inetconnector.com/openai-alternative-dsgvo"
+        }
+      ]
+    }
+  ]
+}
+  </script>
+  <link rel="stylesheet" href="/portal.css?v=5.2">
+  <link rel="stylesheet" href="/portal-business.css?v=5.1">
+</head>
+<body>
+  <header class="site-header">
+    <!-- Row 1: Brand & Actions -->
+    <div class="container nav-top-row">
+      <a href="/" class="brand">
+        <span class="brand-logo">Inet<span class="gradient-text">Connector</span></span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
+      </a>
+
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+          <li><a href="/agent" class="nav-link">🤖 Agent Workspace</a></li>
+          <li class="nav-item has-dropdown">
+            <a href="/products" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/playground" class="dropdown-item">
+                <span class="item-icon">⚡</span>
+                <div>
+                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
+                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
+                </div>
+              </a>
+              <a href="/marketplace" class="dropdown-item">
+                <span class="item-icon">🖥️</span>
+                <div>
+                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
+                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
+                </div>
+              </a>
+              <a href="/models" class="dropdown-item">
+                <span class="item-icon">📚</span>
+                <div>
+                  <strong data-i18n="nav_prod_models">Model Library</strong>
+                  <p data-i18n="nav_prod_models_sub">Live-Modellkatalog</p>
+                </div>
+              </a>
+              <a href="/lan-mesh" class="dropdown-item">
+                <span class="item-icon">🏠</span>
+                <div>
+                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
+                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li class="nav-item has-dropdown">
+            <a href="/projects" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/downloads" class="dropdown-item">
+                <span class="item-icon">🤖</span>
+                <div>
+                  <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
+                  <p data-i18n="nav_app_localcode_sub">Download &amp; Autonome IDE-Übersicht</p>
+                </div>
+              </a>
+              <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🛡️</span>
+                <div>
+                  <strong data-i18n="nav_app_aegis">Aegis AI Risk Terminal</strong>
+                  <p data-i18n="nav_app_aegis_sub">Frühwarnsystem für Börsencrashs &amp; Marktrisiken</p>
+                </div>
+              </a>
+              <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🌳</span>
+                <div>
+                  <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
+                  <p data-i18n="nav_app_ancesora_sub">Genealogieplattform für Familienarchive, Personen &amp; Quellen</p>
+                </div>
+              </a>
+              <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📅</span>
+                <div>
+                  <strong data-i18n="nav_app_today">Heute &amp; Morgen</strong>
+                  <p data-i18n="nav_app_today_sub">Konzerte heute und morgen nach Ort, PLZ &amp; Radius</p>
+                </div>
+              </a>
+              <a href="https://trade.inetconnector.com/" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📉</span>
+                <div>
+                  <strong data-i18n="nav_app_causamind">CausaMind Market Predictor</strong>
+                  <p data-i18n="nav_app_causamind_sub">Research-Signale und risikobewusste Kauf-/Verkaufspläne</p>
+                </div>
+              </a>
+              <a href="https://smartx.inetconnector.com/" target="_blank" rel="noopener noreferrer" class="dropdown-item">
+                <span class="item-icon">⛓️</span>
+                <div>
+                  <strong data-i18n="nav_app_smartx">SmartX Blockchain</strong>
+                  <p data-i18n="nav_app_smartx_sub">Blockchain-Projekt und dezentrales Netzwerk von InetConnector</p>
+                </div>
+              </a>
+              <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📱</span>
+                <div>
+                  <strong data-i18n="nav_app_hub">Google Play Store</strong>
+                  <p data-i18n="nav_app_hub_sub">Offizielle Android-Apps von InetConnector</p>
+                </div>
+              </a>
+              <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">💻</span>
+                <div>
+                  <strong data-i18n="nav_app_github">GitHub Ecosystem</strong>
+                  <p data-i18n="nav_app_github_sub">Open Source, Python SDK, ControlPlane &amp; Tools</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container" style="padding: 4rem 1.5rem; max-width: 1040px;">
+    <div class="section-header" style="text-align: left; margin-bottom: 2.5rem;">
+      <span class="section-tag" data-i18n="lp_oai_tag">B2B-ENTWICKLER- & COMPLIANCE-LEITFADEN</span>
+      <h1 style="font-size: 2.4rem; margin: 0.75rem 0 1rem;" data-i18n="lp_oai_h1">DSGVO-konforme OpenAI-Alternative in Europa</h1>
+      <p style="color: var(--text-muted); font-size: 1.08rem; line-height: 1.65;" data-i18n="lp_oai_sub">Stelle bestehende OpenAI- und Ollama-Anwendungen in 60 Sekunden auf europäische GPU-Infrastruktur um – mit Zero-Disk-Retention, EWR-Knoten-Routing, AVV-Vorlage nach Art. 28 DSGVO und EU-AI-Act-Art.-50-Transparenz-Headern.</p>
+      <div style="display: flex; gap: 0.85rem; flex-wrap: wrap; margin-top: 1.5rem;">
+        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="btn_get_api_key">🚀 In 60 Sekunden starten (API-Key)</button>
+        <a href="/playground" class="btn btn-secondary" data-i18n="btn_try_playground">⚡ Live-Playground testen</a>
+        <a href="/security" class="btn btn-secondary" data-i18n="nav_security">🛡️ Sicherheit & DSGVO</a>
+      </div>
+    </div>
+
+    <section style="margin-bottom: 3.5rem;">
+      <h2 style="font-size: 1.65rem; margin-bottom: 1.25rem;" data-i18n="lp_oai_cmp_h2">Technischer Vergleich: US-Hyperscaler-APIs vs. ComputeMesh EWR-Gateway</h2>
+      <div class="feature-card" style="overflow-x: auto; padding: 1.25rem;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.94rem;">
+          <thead>
+            <tr style="border-bottom: 2px solid var(--border-subtle);">
+              <th style="padding: 0.85rem;" data-i18n="lp_oai_cmp_col1">Architektur-Kriterium</th>
+              <th style="padding: 0.85rem; color: var(--accent-emerald);" data-i18n="lp_oai_cmp_col2">ComputeMesh (EWR-Gateway)</th>
+              <th style="padding: 0.85rem; color: var(--text-muted);" data-i18n="lp_oai_cmp_col3">Klassische US-Cloud-APIs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--border-subtle);">
+              <td style="padding: 0.85rem; font-weight: 600;" data-i18n="lp_oai_cmp_r1_c1">Rechtsraum & Datenresidenz</td>
+              <td style="padding: 0.85rem; color: var(--accent-emerald);" data-i18n="lp_oai_cmp_r1_c2">EWR-Hosting-Option, deutscher Betreiber (Veitshöchheim)</td>
+              <td style="padding: 0.85rem; color: var(--text-muted);" data-i18n="lp_oai_cmp_r1_c3">Primärer US-Rechtsraum (CLOUD-Act-Zugriffsbereich)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border-subtle);">
+              <td style="padding: 0.85rem; font-weight: 600;" data-i18n="lp_oai_cmp_r2_c1">Speicherung von Prompts & Antworten</td>
+              <td style="padding: 0.85rem; color: var(--accent-cyan);" data-i18n="lp_oai_cmp_r2_c2">Zero-Disk-Retention im Regelbetrieb (RAM-Only-Proxy)</td>
+              <td style="padding: 0.85rem; color: var(--text-muted);" data-i18n="lp_oai_cmp_r2_c3">Standardmäßig oft 30 Tage Missbrauchs-/Audit-Speicherung</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border-subtle);">
+              <td style="padding: 0.85rem; font-weight: 600;" data-i18n="lp_oai_cmp_r3_c1">SDK- & API-Kompatibilität</td>
+              <td style="padding: 0.85rem;" data-i18n="lp_oai_cmp_r3_c2">Drop-in OpenAI (/v1/chat/completions) & Ollama (/api/chat)</td>
+              <td style="padding: 0.85rem; color: var(--text-muted);" data-i18n="lp_oai_cmp_r3_c3">Proprietäre oder anbietergebundene Endpunkte</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.85rem; font-weight: 600;" data-i18n="lp_oai_cmp_r4_c1">Ausführungs- & Herkunftsnachweis</td>
+              <td style="padding: 0.85rem; color: var(--accent-emerald);" data-i18n="lp_oai_cmp_r4_c2">Ed25519-Knotenattestierung + EU AI Act Art. 50 HTTP-Header</td>
+              <td style="padding: 0.85rem; color: var(--text-muted);" data-i18n="lp_oai_cmp_r4_c3">Intransparentes Backend-Routing ohne kryptografische Belege</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="python-sdk-eu" style="margin-bottom: 3.5rem;">
+      <h2 style="font-size: 1.65rem; margin-bottom: 0.85rem;" data-i18n="lp_oai_tut1_h2">Tutorial 1: OpenAI SDK auf EU-Hosting umstellen in Python</h2>
+      <p style="color: var(--text-muted); line-height: 1.65; margin-bottom: 1.15rem;" data-i18n="lp_oai_tut1_intro">Du musst weder Prompts noch Tool-Schemata oder Streaming-Handler umschreiben. Richte den offiziellen Python-Client openai auf https://inetconnector.com/v1 (oder https://mesh.inetconnector.com/v1):</p>
+      <div class="feature-card" style="background: #070b14; border-color: rgba(56, 189, 248, 0.3); overflow-x: auto; margin-bottom: 1rem;">
+        <pre style="margin: 0; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.6; color: #e2e8f0;"><code>import os
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://inetconnector.com/v1",
+    api_key=os.environ["COMPUTEMESH_API_KEY"],
+)
+
+raw = client.chat.completions.with_raw_response.create(
+    model="qwen2.5-coder:32b",
+    messages=[
+        {"role": "system", "content": "You are a senior European backend architect."},
+        {"role": "user", "content": "Write an async FastAPI healthcheck with strict timeouts."},
+    ],
+    temperature=0.2,
+)
+
+# Verify EU AI Act Art. 50 machine-readable provenance headers
+assert raw.headers.get("X-AI-Generated") == "true"
+assert raw.headers.get("X-AI-Act-Transparency") == "Article-50-Compliant"
+completion = raw.parse()
+print(completion.choices[0].message.content)</code></pre>
+      </div>
+      <p style="color: var(--text-muted); line-height: 1.65;" data-i18n="lp_oai_tut1_verify">Jede Modellantwort liefert automatisch maschinenlesbare EU-AI-Act-Art.-50-Header (X-AI-Generated: true, X-AI-Model, X-AI-Publisher und X-AI-Output-Digest), sodass nachgelagerte Unternehmenssysteme die KI-Herkunft revisionssicher auswerten können.</p>
+    </section>
+
+    <section id="dsgvo-checkliste" style="margin-bottom: 2rem;">
+      <h2 style="font-size: 1.65rem; margin-bottom: 1.25rem;" data-i18n="lp_oai_tut2_h2">Tutorial 2: DSGVO-Checkliste für KI-Apps in Unternehmen</h2>
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+        <div class="feature-card">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--accent-emerald);" data-i18n="lp_oai_chk1_t">1. Rechtsgrundlage & Auftragsverarbeitungsvertrag (Art. 28 DSGVO)</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_oai_chk1_d">Dokumentiere die Rechtsgrundlage nach Art. 6 DSGVO und schließe vor der produktiven Verarbeitung personenbezogener Daten einen AVV nach Art. 28 DSGVO ab.</p>
+        </div>
+        <div class="feature-card">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--accent-cyan);" data-i18n="lp_oai_chk2_t">2. Datenminimierung & Zero-Disk-Retention durchsetzen</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_oai_chk2_d">Pseudonymisiere Personenbezüge nach Möglichkeit und nutze flüchtige RAM-Inferenzpfade ohne persistente Prompt-Logs oder Trainingsverwertung.</p>
+        </div>
+        <div class="feature-card">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;" data-i18n="lp_oai_chk3_t">3. EWR-Routing & Transportverschlüsselung</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_oai_chk3_d">Beschränke die Verarbeitung auf kryptografisch attestierte EWR-Knoten über TLS 1.3 mit Perfect Forward Secrecy.</p>
+        </div>
+        <div class="feature-card">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;" data-i18n="lp_oai_chk4_t">4. Technische Governance nach EU AI Act Art. 5 & Art. 50</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;" data-i18n="lp_oai_chk4_d">Blockiere verbotene KI-Praktiken (Art. 5) fail-closed am Gateway und übernimm die maschinenlesbare Kennzeichnung synthetischer Ausgaben (Art. 50).</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modals -->
+  <!-- Registration Modal -->
+  <div id="register-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.4rem;" data-i18n="modal_title">Mit ComputeMesh starten</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;" data-i18n="modal_sub">Erstelle deinen API-Key in wenigen Sekunden für blitzschnelle KI-Inferenz.</p>
+      <form id="registration-form" onsubmit="handleRegistration(event)">
+        <div class="form-group">
+          <label data-i18n="modal_role_lbl">Konto-Typ:</label>
+          <select id="modal-role" class="form-control">
+            <option value="consumer" data-i18n="role_consumer">Developer-API nutzen (KI-Inferenz ausführen)</option>
+            <option value="provider" data-i18n="role_provider">Hardware-Provider werden (GPUs monetarisieren)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label>
+          <input type="email" id="modal-email" class="form-control" required placeholder="developer@company.com">
+        </div>
+
+        <div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem; padding: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Provider-Betriebsland (EWR/EU)</label>
+            <select id="cm-provider-country" class="form-control" style="cursor: pointer;">
+              <option value="" data-i18n="modal_country_select">Land auswählen…</option>
+              <option value="DE">Deutschland (DE)</option>
+              <option value="AT">Österreich (AT)</option>
+              <option value="CH">Schweiz (CH)</option>
+              <option value="FR">Frankreich (FR)</option>
+              <option value="NL">Niederlande (NL)</option>
+              <option value="SE">Schweden (SE)</option>
+              <option value="NO">Norwegen (NO)</option>
+              <option value="FI">Finnland (FI)</option>
+              <option value="DK">Dänemark (DK)</option>
+              <option value="PL">Polen (PL)</option>
+              <option value="IT">Italien (IT)</option>
+              <option value="ES">Spanien (ES)</option>
+              <option value="IE">Irland (IE)</option>
+              <option value="BE">Belgien (BE)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label data-i18n="modal_wallet_lbl" style="font-size: 0.82rem; color: var(--text-muted);">Auszahlungs-Wallet (Optional)</label>
+            <input type="text" id="modal-wallet" class="form-control" placeholder="0x... (EVM / Polygon / Arbitrum)">
+          </div>
+        </div>
+
+        <div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;">
+          <label style="display:flex;gap:.55rem;align-items:flex-start;cursor:pointer;"><input id="business-user-confirm" type="checkbox" required style="margin-top:.2rem"> <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span></label>
+        </div>
+
+        <button id="modal-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">🚀 API-Key generieren</button>
+      </form>
+
+      <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+        <label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Dein persönlicher API-Key:</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <input id="generated-key-val" type="text" class="form-control" readonly style="font-family: var(--font-mono); color: var(--accent-cyan);">
+          <button class="btn btn-secondary" onclick="copyKey()" data-i18n="modal_copy_btn">Schlüssel kopieren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deposit Modal -->
+  <div id="deposit-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeDepositModal()">&times;</button>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Rechenguthaben aufladen</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Lade dein Inferenzguthaben sicher über Stripe Checkout auf. Guthaben verfällt nie und wird nur bei erfolgreicher Token-Generierung abgerechnet.</p>
+      <form onsubmit="handleDepositSubmit(event)">
+        <div class="form-group">
+          <label data-i18n="topup_key_lbl">Dein API-Schlüssel:</label>
+          <input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);">
+        </div>
+        <div class="form-group">
+          <label data-i18n="topup_select_amount_lbl">Aufladebetrag auswählen:</label>
+          <select id="deposit-amount-select" class="form-control" style="cursor: pointer;">
+            <option value="10">$10.00 USD (Starter)</option>
+            <option value="25" selected>$25.00 USD (Pro)</option>
+            <option value="50">$50.00 USD (Scale)</option>
+            <option value="100">$100.00 USD (Enterprise Light)</option>
+            <option value="500">$500.00 USD (High-Volume)</option>
+          </select>
+        </div>
+        <button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="btn_topup_proceed">Weiter zum sicheren Checkout →</button>
+      </form>
+      <div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div>
+    </div>
+  </div>
+
+  <!-- Teaser Conversion Modal -->
+  <div id="teaser-conversion-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-box modal-lg">
+      <button class="modal-close" onclick="closeTeaserConversionModal()">&times;</button>
+      <div class="section-tag" style="display: inline-block; margin-bottom: 0.5rem;" data-i18n="conv_tag">Jetzt durchstarten</div>
+      <h3 style="font-size: 1.75rem; margin-bottom: 0.5rem; letter-spacing: -0.02em;" data-i18n="conv_title">Bereit für High-Speed KI-Inferenz?</h3>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;" data-i18n="conv_sub">Generiere deinen API-Key oder werde Teil unseres globalen GPU-Netzwerks.</p>
+      <div class="conv-options-grid">
+        <div class="conv-card highlight">
+          <div>
+            <span class="conv-card-badge" data-i18n="conv_opt1_badge">Entwickler</span>
+            <h4 style="font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 700; color: #ffffff;" data-i18n="conv_opt1_title">🔑 Sofortiger API-Zugang</h4>
+            <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt1_desc">Starte in unter 60 Sekunden mit leistungsstarken Open-Source-Modellen.</p>
+          </div>
+          <button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 0.85rem 1.25rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('consumer');" data-i18n="conv_opt1_btn">Kostenlosen API-Key holen →</button>
+        </div>
+
+        <div class="conv-card emerald">
+          <div>
+            <span class="conv-card-badge emerald" data-i18n="conv_opt2_badge">Hardware-Provider</span>
+            <h4 style="font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 700; color: #ffffff;" data-i18n="conv_opt2_title">⚡ Rechenleistung monetarisieren</h4>
+            <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt2_desc">Schließe deine Grafikkarten an und profitiere von automatischen Auszahlungen.</p>
+            <div class="conv-cli-box">
+              <code>curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</code>
+              <button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash')" title="Befehl kopieren">📋</button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; margin-top: 0.75rem; flex-wrap: wrap;">
+            <button class="btn btn-emerald" style="flex: 1 1 140px; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('provider');" data-i18n="conv_opt2_btn">GPU-Node registrieren</button>
+            <a href="/downloads" class="btn btn-secondary" style="flex: 1 1 140px; text-align: center; text-decoration: none; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal();" data-i18n="conv_opt2_dl">Downloads ansehen</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid" style="grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));">
+        <div>
+          <div class="brand" style="margin-bottom: 1rem;">
+            <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 320px;" data-i18n="footer_brand_desc">
+            Dezentrale High-Performance GPU-Rechenleistung für moderne KI-Workloads. Nahtlos skalieren mit OpenAI-kompatibler API.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_platform">Plattform</h4>
+          <ul class="footer-links">
+            <li><a href="/openai-alternative-dsgvo" data-i18n="seo_btn_openai_alt">OpenAI-Alternative & DSGVO-Leitfaden →</a></li>
+            <li><a href="/gpu-vermieten" data-i18n="seo_btn_rent_out_gpu">Eigene GPU-Hardware vermieten →</a></li>
+            <li><a href="/modelle" data-i18n="nav_models">Modelle</a></li>
+            <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+            <li><a href="/pricing" data-i18n="nav_pricing">Preise & Rechner</a></li>
+            <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_resources">Ressourcen</h4>
+          <ul class="footer-links">
+            <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+            <li><a href="/benchmarks" data-i18n="nav_benchmarks">Benchmarks</a></li>
+            <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+            <li><a href="/fleet" data-i18n="nav_fleet">Flotte verwalten</a></li>
+            <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_legal">Rechtliches & Compliance</h4>
+          <ul class="footer-links">
+            <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald); font-weight: 600;">🛡️ Sicherheit & DSGVO</a></li>
+            <li><a href="/terms" data-i18n="nav_terms">AGB</a></li>
+            <li><a href="/privacy" data-i18n="nav_privacy">Datenschutz</a></li>
+            <li><a href="/impressum" data-i18n="nav_impressum">Impressum</a></li>
+            <li><a href="/contact" data-i18n="nav_support">Support</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_ecosystem">Ökosystem-Apps</h4>
+          <ul class="footer-links" style="font-size: 0.84rem; opacity: 0.85;">
+            <li><a href="https://aegis.inetconnector.com" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_aegis">Aegis AI Risk Terminal</a></li>
+            <li><a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_ancesora">Ancesora AI</a></li>
+            <li><a href="https://today.inetconnector.com" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_today">Heute & Morgen</a></li>
+            <li><a href="https://trade.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_causamind">CausaMind Market Predictor</a></li>
+            <li><a href="https://smartx.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_app_smartx">SmartX Blockchain</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.</span></div>
+        <div><a href="/status" data-i18n="footer_tech_status">Systemstatus: Voll einsatzbereit</a></div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/portal-core.js?v=5.4"></script>
+  <script src="/portal.js?v=5.3"></script>
+</body>
+</html>

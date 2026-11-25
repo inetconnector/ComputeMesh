@@ -35,6 +35,12 @@ from services.billing.stripe_integration import (
 )
 from services.billing.threadsafe_ledger import ThreadSafeLedger
 from services.common.config import CONFIG
+from services.gateway.ai_act_compliance import (
+    attach_art50_envelope,
+    build_art50_json_headers,
+    build_art50_stream_headers,
+    scan_inference_payload_for_prohibited_practices,
+)
 from services.gateway.auth import (
     GatewayAuthManager,
     extract_bearer_token,
@@ -764,7 +770,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self.send_header(
             "Access-Control-Expose-Headers",
             "X-ComputeMesh-Teaser-Remaining, X-ComputeMesh-Teaser-Limit, "
-            "X-ComputeMesh-Teaser-Reset-Seconds, X-ComputeMesh-Teaser-Reset-At, Retry-After",
+            "X-ComputeMesh-Teaser-Reset-Seconds, X-ComputeMesh-Teaser-Reset-At, Retry-After, "
+            "X-AI-Generated, X-AI-Model, X-AI-Publisher, X-AI-Act-Transparency, X-AI-Output-Digest",
         )
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         for h_name, h_val in (extra_headers or {}).items():
@@ -4142,10 +4149,37 @@ class GatewayHandler(BaseHTTPRequestHandler):
             "model_info": {"general.architecture": family},
         })
 
+    def _reject_if_prohibited_ai_practice(self, body: dict[str, Any]) -> bool:
+        match = scan_inference_payload_for_prohibited_practices(body)
+        if match is None:
+            return False
+        self._send_error_response(
+            f"Request blocked by EU AI Act {match.article} prohibited practice safeguard ({match.title}).",
+            match.error_code,
+            HTTPStatus.FORBIDDEN,
+            {"article": match.article, "category_id": match.category_id},
+        )
+        return True
+
+    def _send_art50_json(
+        self,
+        data: dict[str, Any],
+        model_id: str,
+        status: HTTPStatus = HTTPStatus.OK,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
+        enriched = attach_art50_envelope(data, model_id)
+        body_bytes = json.dumps(enriched, indent=2, ensure_ascii=False).encode("utf-8")
+        merged_headers = dict(extra_headers or {})
+        merged_headers.update(build_art50_json_headers(model_id, body_bytes))
+        self._send_json(enriched, status, merged_headers)
+
     def _handle_chat_completions(self, body: dict[str, Any]) -> None:
         auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=True)
         if not auth.is_authenticated:
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
+            return
+        if self._reject_if_prohibited_ai_practice(body):
             return
 
         model_req = str(body.get("model", "")).strip()
@@ -4220,7 +4254,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response(err, "inference_error", status)
             else:
                 headers = self.teaser_manager.response_headers(client_ip) if is_teaser else None
-                self._send_json(res or {}, HTTPStatus(status), headers)
+                self._send_art50_json(res or {}, model_id, HTTPStatus(status), headers)
             return
 
         # SSE Streaming response
@@ -4251,9 +4285,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-        self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "close")
         for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        for h_name, h_val in build_art50_stream_headers(model_id).items():
             self.send_header(h_name, h_val)
         self.end_headers()
         if first_chunk:
@@ -4268,6 +4303,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=True)
         if not auth.is_authenticated:
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
+            return
+        if self._reject_if_prohibited_ai_practice(body):
             return
 
         model_req = str(body.get("model", "")).strip()
@@ -4306,12 +4343,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response(err, "inference_error", status)
             else:
                 headers = self.teaser_manager.response_headers(client_ip) if auth.is_teaser else None
-                self._send_json(res or {}, HTTPStatus(status), headers)
+                self._send_art50_json(res or {}, model_id, HTTPStatus(status), headers)
             return
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
         self.send_header("Connection", "close")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        for h_name, h_val in build_art50_stream_headers(model_id).items():
+            self.send_header(h_name, h_val)
         self.end_headers()
         for chunk in self.inference_engine.stream_ollama_chat(
             account_id=auth.account_id or "cust_default",
@@ -4331,6 +4372,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=True)
         if not auth.is_authenticated:
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
+            return
+        if self._reject_if_prohibited_ai_practice(body):
             return
 
         model_req = str(body.get("model", "")).strip()
@@ -4371,12 +4414,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response(err, "inference_error", status)
             else:
                 headers = self.teaser_manager.response_headers(client_ip) if auth.is_teaser else None
-                self._send_json(res or {}, HTTPStatus(status), headers)
+                self._send_art50_json(res or {}, model_id, HTTPStatus(status), headers)
             return
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
         self.send_header("Connection", "close")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        for h_name, h_val in build_art50_stream_headers(model_id).items():
+            self.send_header(h_name, h_val)
         self.end_headers()
         for chunk in self.inference_engine.stream_ollama_generate(
             account_id=auth.account_id or "cust_default",

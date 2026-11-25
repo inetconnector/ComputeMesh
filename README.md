@@ -1,6 +1,44 @@
 # ComputeMesh
 
-## Current release-gate status (2026-11-08)
+## Current release-gate status (2026-11-25)
+
+Public `main` and `origin/main` are synchronized at tagged portal/gateway
+release `v1.2.232`:
+
+- **Runtime EU AI Act Enforcement (`services/gateway/ai_act_compliance.py` & `server.py`)**:
+  Fail-closed Article 5 prohibited AI practice screening across OpenAI
+  (`/v1/chat/completions`) and Ollama (`/api/chat`, `/api/generate`) including
+  multimodal message arrays (HTTP 403), plus mandatory Article 50
+  machine-readable transparency headers (`X-AI-Generated: true`, `X-AI-Model`,
+  `X-AI-Publisher`, `X-AI-Act-Transparency: Article-50-Compliant`,
+  `X-AI-Output-Digest`, `Cache-Control: no-transform`) and `ai_act_compliance`
+  response metadata.
+- **B2B SEO & Multilingual Architecture (`portal/`)**:
+  Homepage focused strictly on B2B AI Inference API & European GPU Cloud with
+  SSR capability baselines, dedicated language paths (`/de/`, `/en/`) with
+  `hreflang` alternates, Schema.org `Organization` / `WebSite` /
+  `SoftwareApplication` / `FAQPage` JSON-LD, dedicated SEO landing pages
+  (`/openai-alternative-dsgvo`, `/gpu-vermieten`, `/modelle`), enriched
+  open-weights model profiles (`/models/*`), discreet footer ecosystem links,
+  and canonical `https://inetconnector.com/` `sitemap.xml`.
+- **Plesk Deployment Hardening (`deploy/sync_plesk_portal.sh`)**:
+  Eliminated world-writable webroot propagation by enforcing `--no-perms` /
+  `--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r` rsync flags and strict Plesk subscription
+  ownership (`0750 inetconnector:psaserv` on `site2` and `httpdocs`, `0644`
+  files / `0755` subdirectories owned by `inetconnector:psacln`).
+- **Model Allowlist (`config/model_allowlist.json`)**:
+  Synchronized byte-for-byte at `2026.11.21.1` including the 48-GiB tier
+  (`bartowski/qwen2.5-32b-instruct-gguf`).
+- **Verification**:
+  GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und
+  erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen
+  (`check_portal_i18n.py --publish` -> `PORTAL_GATE_PASS`,
+  `check_portal_routes.py` -> `39 pages, 0 issues`, Playwright Browser E2E +
+  signed bundle suite -> `31 passed`, Gateway + MCP unit suite -> `487 passed`).
+  Physical multi-host WAN / offline miner (`192.168.1.27`) acceptance remains
+  `BLOCKED_EXTERNAL_SERVER_OR_DEVICE` / **`RELEASE_NO_GO`** for the P0 Grand Goal.
+
+## Historical release-gate status (2026-11-08)
 
 Public `main` and `origin/main` are synchronized at committed release
 `v1.2.210`, commit `aba2bd5e9ebd3448b58424a797c6b5eac66c71a6`.
